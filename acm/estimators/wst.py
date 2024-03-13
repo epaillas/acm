@@ -44,7 +44,7 @@ class WaveletScatteringTransform:
     """
     def __init__(self, data_positions, boxsize=None, boxcenter=None,
         data_weights=None, randoms_positions=None, randoms_weights=None,
-        cellsize=None, wrap=False, boxpad=1.5, nthreads=None):
+        cellsize=None, wrap=False, boxpad=1.5, nthreads=None, device='cpu'):
         self.data_positions = data_positions
         self.randoms_positions = randoms_positions
         self.boxsize = boxsize
@@ -53,6 +53,7 @@ class WaveletScatteringTransform:
         self.boxpad = boxpad
         self.wrap = wrap
         self.nthreads = nthreads
+        self.device = 'cuda' if device == 'gpu' else device
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
 
@@ -151,11 +152,15 @@ class WaveletScatteringTransform:
 
     def get_wst(self):
         self.logger.info("Calling kymatio's HarmonicScattering3D.")
-        D3d = 300
+        D3d = self.delta_mesh.shape
         J3d = 4
         L3d = 4
         integral_powers = [0.8]
         sigma = 0.8
-        S = HarmonicScattering3D(J=J3d, shape=(D3d, D3d, D3d), L=L3d, sigma_0=sigma,
+        S = HarmonicScattering3D(J=J3d, shape=D3d, L=L3d, sigma_0=sigma,
                                  integral_powers=integral_powers, max_order=2)
-        smat_orders_1_and_2 = S(self.delta_mesh)
+        S.to(self.device)
+        delta_mesh = torch.from_numpy(self.delta_mesh)
+        delta_mesh = delta_mesh.to(self.device).float()
+        delta_mesh = delta_mesh.contiguous()
+        smat_orders_1_and_2 = S(delta_mesh)
