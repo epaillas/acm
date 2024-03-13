@@ -158,5 +158,4 @@ class WaveletScatteringTransform:
         sigma = 0.8
         S = HarmonicScattering3D(J=J3d, shape=(D3d, D3d, D3d), L=L3d, sigma_0=sigma,
                                  integral_powers=integral_powers, max_order=2)
-        delta_mesh = torch.from_numpy(self.delta_mesh).float()
         smat_orders_1_and_2 = S(self.delta_mesh)
