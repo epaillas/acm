@@ -147,3 +147,4 @@ class WaveletScatteringTransform:
         smatavg = smat.flatten()
         smatavg = np.hstack((s0, smatavg))
         self.logger.info(f"WST coefficients elapsed in {time.time() - t0:.2f} seconds.")
+        return smatavg

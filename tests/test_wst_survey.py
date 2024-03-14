@@ -6,6 +6,7 @@ from acm.estimators import WaveletScatteringTransform
 import logging
 import argparse
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def read_desi(filename, distance, zmin=0.45, zmax=0.6):
@@ -69,4 +70,12 @@ wst.assign_randoms(positions=randoms_positions, weights=randoms_weights)
 wst.set_density_contrast()
 
 # get the WST coefficients
-wst.run()
+smatavg = wst.run()
+
+# plot the WST coefficients
+fig, ax = plt.subplots()
+ax.plot(smatavg, ls='-', marker='o', markersize=4, label=r'Blinded {\tt LRG1}')
+ax.set_xlabel('WST coefficient order')
+ax.set_ylabel('WST coefficient')
+plt.savefig('WST_coefficients_survey.png', dpi=300, bbox_inches='tight')
+plt.show()
