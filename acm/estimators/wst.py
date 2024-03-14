@@ -9,100 +9,84 @@ import time
 class WaveletScatteringTransform:
     """
     Class to compute the wavelet scattering transform.
-
-    Parameters
-    ----------
-    data_positions : array_like
-        Positions of the data points.
-    boxsize : float, optional
-        Size of the box. If not provided, randoms are required.
-    data_weights : array_like, optional
-        Weights of the data points. If not provided, all points are 
-        assumed to have the same weight.
-    randoms_positions : array_like, optional
-        Positions of the random points. If not provided, boxsize must 
-        be provided.
-    randoms_weights : array_like, optional
-        Weights of the random points. If not provided, all points are 
-        assumed to have the same weight.
-
-    Attributes
-    ----------
-    data_positions : array_like
-        Positions of the data points.
-    boxsize : float
-        Size of the box.
-    data_weights : array_like
-        Weights of the data points.
-    randoms_positions : array_like
-        Positions of the random points.
-    randoms_weights : array_like
-        Weights of the random points.
-    mesh : CatalogMesh
-        CatalogMesh object.
-    density : array_like
-        Density field at the sampling positions.
     """
-    def __init__(self, data_positions, boxsize=None, boxcenter=None,
-        data_weights=None, randoms_positions=None, randoms_weights=None,
-        cellsize=None, wrap=False, boxpad=1.5, nthreads=None, device='cpu'):
-        self.data_positions = data_positions
-        self.randoms_positions = randoms_positions
-        self.boxsize = boxsize
-        self.boxcenter = boxcenter
-        self.cellsize = cellsize
-        self.boxpad = boxpad
-        self.wrap = wrap
-        self.nthreads = nthreads
-        self.device = 'cuda' if device == 'gpu' else device
+    def __init__(self, J_3d=4, L_3d=4, integral_powers=[0.8], sigma=0.8, **kwargs):
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
+        self.logger.info('Initializing WaveletScatteringTransform.')
 
-        if data_weights is not None:
-            self.data_weights = data_weights
-        else:
-            self.data_weights = np.ones(len(data_positions))
+        self.data_mesh = RealMesh(**kwargs)
+        self.randoms_mesh = RealMesh(**kwargs)
+        self.logger.info(f'Box size: {self.data_mesh.boxsize}')
+        self.logger.info(f'Box center: {self.data_mesh.boxcenter}')
+        self.logger.info(f'Box nmesh: {self.data_mesh.nmesh}')
 
-        if boxsize is None:
-            if randoms_positions is None:
-                raise ValueError(
-                    'boxsize is set to None, but randoms were not provided.')
-            if randoms_weights is None:
-                self.randoms_weights = np.ones(len(randoms_positions))
-            else:
-                self.randoms_weights = randoms_weights
+        self.S = HarmonicScattering3D(J=J_3d, shape=self.data_mesh.shape, L=L_3d, sigma_0=sigma,
+                                 integral_powers=integral_powers, max_order=2)
 
-
-    def get_delta_mesh(self, smoothing_radius=None,
-        check=False, ran_min=0.01):
+    def assign_data(self, positions, weights=None, wrap=False, clear_previous=True):
         """
-        Get the overdensity field.
+        Assign data to the mesh.
 
         Parameters
         ----------
-        smooth_radius : float
-            Radius of the smoothing filter.
-        sampling_positions : array_like
-            Positions where the density field should be sampled.
+        positions : array_like
+            Positions of the data points.
+        weights : array_like, optional
+            Weights of the data points. If not provided, all points are 
+            assumed to have the same weight.
+        wrap : bool, optional
+            Wrap the data points around the box, assuming periodic boundaries.
+        clear_previous : bool, optional
+            Clear previous data.
+        """
+        if clear_previous:
+            self.data_mesh.value = None
+        self.data_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
+
+    def assign_randoms(self, positions, weights=None):
+        """
+        Assign randoms to the mesh.
+
+        Parameters
+        ----------
+        positions : array_like
+            Positions of the random points.
+        weights : array_like, optional
+            Weights of the random points. If not provided, all points are 
+            assumed to have the same weight.
+        """
+        if self.randoms_mesh.value is None:
+            self._size_randoms = 0
+        self.randoms_mesh.assign_cic(positions=positions, weights=weights)
+        self._size_randoms += len(positions)
+
+    @property
+    def has_randoms(self):
+        return self.randoms_mesh.value is not None
+
+    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01):
+        """
+        Set the density contrast.
+
+        Parameters
+        ----------
+        smoothing_radius : float, optional
+            Smoothing radius.
+        check : bool, optional
+            Check if there are enough randoms.
+        ran_min : float, optional
+            Minimum randoms.
+            
         Returns
         -------
-        density : array_like
-            Density field at the sampling positions.
+        delta_mesh : array_like
+            Density contrast.
         """
-        self.logger.info('Computing the overdensity field.')
-        self.data_mesh = RealMesh(boxsize=self.boxsize, cellsize=self.cellsize,
-                                  boxcenter=self.boxcenter, nthreads=self.nthreads,
-                                  positions=self.randoms_positions, boxpad=self.boxpad)
-        self.data_mesh.assign_cic(positions=self.data_positions, wrap=self.wrap,
-                                  weights=self.data_weights)
+        self.logger.info('Setting density contrast.')
         if smoothing_radius:
             self.data_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=True,)
-        if self.boxsize is None:
-            self.randoms_mesh = RealMesh(boxsize=self.boxsize, cellsize=self.cellsize,
-                                         boxcenter=self.boxcenter, nthreads=self.nthreads,
-                                         positions=self.randoms_positions, boxpad=self.boxpad)
-            self.randoms_mesh.assign_cic(positions=self.randoms_positions, wrap=self.wrap,
-                                         weights=self.randoms_weights)
+        if self.has_randoms:
             if check:
                 mask_nonzero = self.randoms_mesh.value > 0.
                 nnonzero = mask_nonzero.sum()
@@ -112,38 +96,32 @@ class WaveletScatteringTransform:
             sum_data, sum_randoms = np.sum(self.data_mesh.value), np.sum(self.randoms_mesh.value)
             alpha = sum_data * 1. / sum_randoms
             self.delta_mesh = self.data_mesh - alpha * self.randoms_mesh
-            threshold = ran_min * sum_randoms / len(self.randoms_positions)
+            threshold = ran_min * sum_randoms / self._size_randoms
             mask = self.randoms_mesh > threshold
             self.delta_mesh[mask] /= alpha * self.randoms_mesh[mask]
             self.delta_mesh[~mask] = 0.0
-            del self.data_mesh
-            del self.randoms_mesh
         else:
             self.delta_mesh = self.data_mesh / np.mean(self.data_mesh) - 1.
-            del self.data_mesh
-        self.logger.info(f'Box size: {self.delta_mesh.boxsize}')
-        self.logger.info(f'Box center: {self.delta_mesh.boxcenter}')
-        self.logger.info(f'Box nmesh: {self.delta_mesh.nmesh}')
-        query_positions = self.get_query_positions()
+        query_positions = self.get_lattice_positions(self.delta_mesh)
         self.delta_mesh = self.delta_mesh.read_cic(query_positions).reshape(
             (self.delta_mesh.nmesh[0], self.delta_mesh.nmesh[1], self.delta_mesh.nmesh[2]))
         return self.delta_mesh
 
-    def get_query_positions(self):
-        boxcenter = self.delta_mesh.boxcenter
-        boxsize = self.delta_mesh.boxsize
-        xedges = np.arange(
-            boxcenter[0] - boxsize[0]/2,
-            boxcenter[0] + boxsize[0]/2 + self.cellsize,
-            self.cellsize)
-        yedges = np.arange(
-            boxcenter[1] - boxsize[1]/2,
-            boxcenter[1] + boxsize[1]/2 + self.cellsize,
-            self.cellsize)
-        zedges = np.arange(
-            boxcenter[2] - boxsize[2]/2,
-            boxcenter[2] + boxsize[2]/2 + self.cellsize,
-            self.cellsize)
+    def get_lattice_positions(self, mesh):
+        """
+        Get positions at the center of each mesh cell.
+
+        Returns
+        -------
+        lattice_positions : array_like
+            Lattice positions.
+        """
+        boxcenter = mesh.boxcenter
+        boxsize = mesh.boxsize
+        cellsize = mesh.cellsize
+        xedges = np.arange(boxcenter[0] - boxsize[0]/2, boxcenter[0] + boxsize[0]/2 + cellsize[0], cellsize[0])
+        yedges = np.arange(boxcenter[1] - boxsize[1]/2, boxcenter[1] + boxsize[1]/2 + cellsize[1], cellsize[1])
+        zedges = np.arange(boxcenter[2] - boxsize[2]/2, boxcenter[2] + boxsize[2]/2 + cellsize[2], cellsize[2])
         xcentres = 1/2 * (xedges[:-1] + xedges[1:])
         ycentres = 1/2 * (yedges[:-1] + yedges[1:])
         zcentres = 1/2 * (zedges[:-1] + zedges[1:])
@@ -153,20 +131,19 @@ class WaveletScatteringTransform:
         lattice_z = lattice_z.flatten()
         return np.vstack((lattice_x, lattice_y, lattice_z)).T
 
-    def get_wst(self):
+    def run(self):
+        """
+        Run the wavelet scattering transform.
+
+        Returns
+        -------
+        smatavg : array_like
+            Wavelet scattering transform coefficients.
+        """
         t0 = time.time()
-        D3d = self.delta_mesh.shape
-        J3d = 4
-        L3d = 4
-        integral_powers = [0.8]
-        sigma = 0.8
-        self.logger.info("Instantiating kymatio's HarmonicScattering3D.")
-        S = HarmonicScattering3D(J=J3d, shape=D3d, L=L3d, sigma_0=sigma,
-                                 integral_powers=integral_powers, max_order=2)
-        # S.to(self.device)
-        # delta_mesh = torch.from_numpy(self.delta_mesh)
-        # delta_mesh = delta_mesh.to(self.device).float()
-        # delta_mesh = delta_mesh.contiguous()
-        self.logger.info("Evaluating the scattering.")
-        smat_orders_1_and_2 = S(self.delta_mesh)
-        self.logger.info(f"Calculation ellapsed in {time.time() - t0:.2f} seconds.")
+        smat_orders_12 = self.S(self.delta_mesh)
+        smat = np.absolute(smat_orders_12[:, :, 0])
+        s0 = np.sum(np.absolute(self.delta_mesh)**0.80)
+        smatavg = smat.flatten()
+        smatavg = np.hstack((s0, smatavg))
+        self.logger.info(f"WST coefficients elapsed in {time.time() - t0:.2f} seconds.")
