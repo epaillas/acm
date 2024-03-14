@@ -1,8 +1,9 @@
 from pyrecon import RealMesh
-from kymatio.torch import HarmonicScattering3D
+# from kymatio.torch import HarmonicScattering3D
+from kymatio.jax import HarmonicScattering3D
 import numpy as np
 import logging
-import torch
+import time
 
 
 class WaveletScatteringTransform:
@@ -72,7 +73,7 @@ class WaveletScatteringTransform:
                 self.randoms_weights = randoms_weights
 
 
-    def get_delta_mesh(self, smoothing_radius,
+    def get_delta_mesh(self, smoothing_radius=None,
         check=False, ran_min=0.01):
         """
         Get the overdensity field.
@@ -94,7 +95,8 @@ class WaveletScatteringTransform:
                                   positions=self.randoms_positions, boxpad=self.boxpad)
         self.data_mesh.assign_cic(positions=self.data_positions, wrap=self.wrap,
                                   weights=self.data_weights)
-        self.data_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=True,)
+        if smoothing_radius:
+            self.data_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=True,)
         if self.boxsize is None:
             self.randoms_mesh = RealMesh(boxsize=self.boxsize, cellsize=self.cellsize,
                                          boxcenter=self.boxcenter, nthreads=self.nthreads,
@@ -105,7 +107,8 @@ class WaveletScatteringTransform:
                 mask_nonzero = self.randoms_mesh.value > 0.
                 nnonzero = mask_nonzero.sum()
                 if nnonzero < 2: raise ValueError('Very few randoms.')
-            self.randoms_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=True)
+            if smoothing_radius:
+                self.randoms_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=True)
             sum_data, sum_randoms = np.sum(self.data_mesh.value), np.sum(self.randoms_mesh.value)
             alpha = sum_data * 1. / sum_randoms
             self.delta_mesh = self.data_mesh - alpha * self.randoms_mesh
@@ -151,16 +154,19 @@ class WaveletScatteringTransform:
         return np.vstack((lattice_x, lattice_y, lattice_z)).T
 
     def get_wst(self):
-        self.logger.info("Calling kymatio's HarmonicScattering3D.")
+        t0 = time.time()
         D3d = self.delta_mesh.shape
         J3d = 4
         L3d = 4
         integral_powers = [0.8]
         sigma = 0.8
+        self.logger.info("Instantiating kymatio's HarmonicScattering3D.")
         S = HarmonicScattering3D(J=J3d, shape=D3d, L=L3d, sigma_0=sigma,
                                  integral_powers=integral_powers, max_order=2)
-        S.to(self.device)
-        delta_mesh = torch.from_numpy(self.delta_mesh)
-        delta_mesh = delta_mesh.to(self.device).float()
-        delta_mesh = delta_mesh.contiguous()
-        smat_orders_1_and_2 = S(delta_mesh)
+        # S.to(self.device)
+        # delta_mesh = torch.from_numpy(self.delta_mesh)
+        # delta_mesh = delta_mesh.to(self.device).float()
+        # delta_mesh = delta_mesh.contiguous()
+        self.logger.info("Evaluating the scattering.")
+        smat_orders_1_and_2 = S(self.delta_mesh)
+        self.logger.info(f"Calculation ellapsed in {time.time() - t0:.2f} seconds.")
