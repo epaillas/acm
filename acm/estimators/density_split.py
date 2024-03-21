@@ -1,29 +1,25 @@
 from pyrecon import RealMesh
-# from kymatio.torch import HarmonicScattering3D
-from kymatio.jax import HarmonicScattering3D
 import numpy as np
 import logging
 import time
+from pandas import qcut
 from .base import BaseEstimator
 
 
-class WaveletScatteringTransform(BaseEstimator):
+class DensitySplit(BaseEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
     def __init__(self, J_3d=4, L_3d=4, integral_powers=[0.8], sigma=0.8, **kwargs):
 
-        self.logger = logging.getLogger('WaveletScatteringTransform')
-        self.logger.info('Initializing WaveletScatteringTransform.')
+        self.logger = logging.getLogger('DensitySplit')
+        self.logger.info('Initializing DensitySplit.')
 
         self.data_mesh = RealMesh(**kwargs)
         self.randoms_mesh = RealMesh(**kwargs)
         self.logger.info(f'Box size: {self.data_mesh.boxsize}')
         self.logger.info(f'Box center: {self.data_mesh.boxcenter}')
         self.logger.info(f'Box nmesh: {self.data_mesh.nmesh}')
-
-        self.S = HarmonicScattering3D(J=J_3d, shape=self.data_mesh.shape, L=L_3d, sigma_0=sigma,
-                                 integral_powers=integral_powers, max_order=2)
 
     def assign_data(self, positions, weights=None, wrap=False, clear_previous=True):
         """
@@ -103,9 +99,8 @@ class WaveletScatteringTransform(BaseEstimator):
             self.delta_mesh[~mask] = 0.0
         else:
             self.delta_mesh = self.data_mesh / np.mean(self.data_mesh) - 1.
-        query_positions = self.get_lattice_positions(self.delta_mesh)
-        self.delta_mesh = self.delta_mesh.read_cic(query_positions).reshape(
-            (self.delta_mesh.nmesh[0], self.delta_mesh.nmesh[1], self.delta_mesh.nmesh[2]))
+        self.query_positions = self.get_lattice_positions(self.delta_mesh)
+        self.delta_mesh = self.delta_mesh.read_cic(self.query_positions)
         return self.delta_mesh
 
     def get_lattice_positions(self, mesh):
@@ -132,34 +127,56 @@ class WaveletScatteringTransform(BaseEstimator):
         lattice_z = lattice_z.flatten()
         return np.vstack((lattice_x, lattice_y, lattice_z)).T
 
-    def run(self):
+    def set_quantiles(self, nquantiles=5, return_index=False):
         """
-        Run the wavelet scattering transform.
+        Get the quantiles of the overdensity density field.
+
+        Parameters
+        ----------
+        nquantiles : int
+            Number of quantiles.
+        return_idx : bool, optional
+            Whether to return index of the quantile of each query point.
 
         Returns
         -------
-        smatavg : array_like
-            Wavelet scattering transform coefficients.
+        quantiles : array_like
+            Quantiles of the density field.
+        quantiles_idx : array_like, optional
+            Index of the quantile of each query point.
         """
         t0 = time.time()
-        smat_orders_12 = self.S(self.delta_mesh)
-        smat = np.absolute(smat_orders_12[:, :, 0])
-        s0 = np.sum(np.absolute(self.delta_mesh)**0.80)
-        smatavg = smat.flatten()
-        self.smatavg = np.hstack((s0, smatavg))
-        self.logger.info(f"WST coefficients elapsed in {time.time() - t0:.2f} seconds.")
-        return self.smatavg
+        self.quantiles_idx = qcut(self.delta_mesh, nquantiles, labels=False)
+        quantiles = []
+        for i in range(nquantiles):
+            quantiles.append(self.query_positions[self.quantiles_idx == i])
+        self.quantiles = quantiles
+        self.logger.info(f"Quantiles calculated in {time.time() - t0:.2f} seconds.")
+        if return_index:
+            return self.quantiles, self.quantiles_idx
+        return quantiles
 
-    def plot_coefficients(self):
-        """
-        Plot the wavelet scattering transform coefficients.
-        """
+    def plot_quantiles(self):
         import matplotlib.pyplot as plt
+        import matplotlib
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
-        ax.plot(self.smatavg, ls='-', marker='o', markersize=4, label=r'{\rr AbacusSummit}')
-        ax.set_xlabel('WST coefficient order')
-        ax.set_ylabel('WST coefficient')
+        cmap = matplotlib.cm.get_cmap('coolwarm')
+        colors = cmap(np.linspace(0.01, 0.99, 5))
+        hist, bin_edges, patches = ax.hist(self.delta_mesh, bins=200, density=True, lw=3.0, color='grey')
+        imin = 0
+        for i in range(5):
+            dmax = self.delta_mesh[self.quantiles_idx == i].max()
+            imax = np.digitize([dmax], bin_edges)[0] - 1
+            for index in range(imin, imax):
+                patches[index].set_facecolor(colors[i])
+            imin = imax
+            ax.plot(np.nan, np.nan, color=colors[i], label=rf'${{\rm Q}}_{i}$', lw=4.0)
+        ax.set_xlabel(r'$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$', fontsize=15)
+        ax.set_ylabel('PDF', fontsize=15)
+        ax.set_xlim(-1.3, 3.0)
+        ax.legend(handlelength=1.0)
         plt.tight_layout()
+        plt.show()
         return fig
