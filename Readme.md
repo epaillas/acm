@@ -3,12 +3,21 @@
 To install in Perlmutter in developer mode, within the cosmodesi environment:
 
     source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
-    cd acm
     python setup.py develop --user
 
 Note: the `--user` flag is important -- it ensures that installation takes place in your own directories.
 
-#### Credits
+### Examples
+
+Examples are provided under the `nb` folder.
+
+### Credits
+
+ - Mesh routines for particle assignment and FFT calculations are based on pyrecon (https://github.com/cosmodesi/pyrecon).
+
+ - Correlation function measurements are based on pycorr (https://github.com/cosmodesi/pycorr/).
+
+ - Power spectrum measurements are based on pypower (https://github.com/cosmodesi/pypower/).
 
  - The bispectrum estimator uses a wrapper around the PolyBin3D code developed by Oliver Philcox & Thomas Flöss (https://github.com/oliverphilcox/PolyBin3D).
  
