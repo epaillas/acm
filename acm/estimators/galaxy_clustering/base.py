@@ -1,9 +1,9 @@
-import logging
 from pyrecon import RealMesh
 from pypower import CatalogMesh
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.special import legendre
+import time
 
 
 class BaseEstimator:
@@ -70,7 +70,7 @@ class BaseEnvironmentEstimator(BaseEstimator):
     def has_randoms(self):
         return self.randoms_mesh.value is not None
 
-    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01):
+    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False):
         """
         Set the density contrast.
 
@@ -90,16 +90,16 @@ class BaseEnvironmentEstimator(BaseEstimator):
         delta_mesh : array_like
             Density contrast.
         """
-        self.logger.info('Setting density contrast.')
+        t0 = time.time()
         if smoothing_radius:
-            self.data_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=True,)
+            self.data_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=save_wisdom,)
         if self.has_randoms:
             if check:
                 mask_nonzero = self.randoms_mesh.value > 0.
                 nnonzero = mask_nonzero.sum()
                 if nnonzero < 2: raise ValueError('Very few randoms.')
             if smoothing_radius:
-                self.randoms_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=True)
+                self.randoms_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=save_wisdom)
             sum_data, sum_randoms = np.sum(self.data_mesh.value), np.sum(self.randoms_mesh.value)
             alpha = sum_data * 1. / sum_randoms
             self.delta_mesh = self.data_mesh - alpha * self.randoms_mesh
@@ -109,6 +109,7 @@ class BaseEnvironmentEstimator(BaseEstimator):
             self.delta_mesh[~mask] = 0.0
         else:
             self.delta_mesh = self.data_mesh / np.mean(self.data_mesh) - 1.
+        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
         return self.delta_mesh
 
     def get_query_positions(self, mesh, method='randoms', nquery=None, seed=42):

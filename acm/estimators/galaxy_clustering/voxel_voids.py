@@ -5,7 +5,7 @@ import os
 import subprocess
 import uuid
 from pathlib import Path
-from ..src import fastmodules
+from .src import fastmodules
 from .base import BaseEnvironmentEstimator
 
 class VoxelVoids(BaseEnvironmentEstimator):
@@ -38,7 +38,7 @@ class VoxelVoids(BaseEnvironmentEstimator):
         delta_mesh_flat = np.array(self.delta_mesh, dtype=np.float32)
         with open(f'{self.handle}_delta_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat', 'w') as F:
             delta_mesh_flat.tofile(F, format='%f')
-        bin_path  = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../src', 'jozov-grid.exe')
+        bin_path  = os.path.join(os.path.dirname(os.path.abspath(__file__)), './src', 'jozov-grid.exe')
         cmd = [bin_path, "v", f"{self.handle}_delta_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat",
                self.handle, str(nmesh[0]),str(nmesh[1]),str(nmesh[2])]
         subprocess.call(cmd)
