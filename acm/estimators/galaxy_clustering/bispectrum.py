@@ -1,5 +1,5 @@
-### Code for ideal and unwindowed binned polyspectrum estimation in 3D. Author: Oliver Philcox (2023)
-## This module contains the bispectrum estimation code
+### This has been imported from the PolyBin3D code developed by Oliver Philcox & Thomas Flöss
+### (https://github.com/oliverphilcox/PolyBin3D).
 
 import numpy as np
 import multiprocessing as mp
