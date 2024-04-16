@@ -1,4 +1,4 @@
-from acm.estimators import BasePolyBinEstimator, Bispectrum
+from acm.estimators.galaxy_clustering import Bispectrum
 from acm.utils import setup_logging
 from pypower import CatalogMesh
 import numpy as np
@@ -23,35 +23,26 @@ def read_mock_catalog():
 def test_bispectrum():
     data_positions, boxsize = read_mock_catalog()
 
-    mesh = CatalogMesh(data_positions, boxsize=boxsize, nmesh=128,
-                       boxcenter=0, wrap=True, position_type='pos', interlacing=0).to_mesh()
-    delta_mesh = mesh / np.mean(mesh) - 1
+    bspec = Bispectrum(boxsize=boxsize, boxcenter=0, nmesh=128,
+                       sightline='global', nthreads=256)
+    
+    bspec.set_binning(
+        k_bins=np.arange(0.01,0.10,0.02),
+        lmax=2,
+        k_bins_squeeze=np.arange(0.01,0.15,0.02),
+        include_partial_triangles=False,
+    )
 
-    # Define some k-bins and ell_max
-    k_edges = np.arange(0.01,0.10,0.02)
-    k_edges_squeeze = np.arange(0.01,0.15,0.02) # add extra high-k bins for squeezed triangles
-    lmax = 2
+    bspec.assign_data(positions=data_positions, wrap=True)
+    bspec.set_density_contrast()
 
-    base = BasePolyBinEstimator(boxsize=boxsize, boxcenter=[0, 0, 0],
-                                gridsize=128, sightline='global', nthreads=256)
+    bk = bspec.Bk_ideal(discreteness_correction=False)
 
-    # Load the bispectrum class
-    bs = Bispectrum(base, 
-                    k_edges, # one-dimensional bin edges
-                    applySinv = None, # weighting function [only needed for unwindowed estimators]
-                    mask = None, # real-space mask
-                    lmax = lmax, # maximum Legendre multipole
-                    k_bins_squeeze = k_edges_squeeze, # squeezed bins
-                    include_partial_triangles = False, # whether to include bins whose centers do not satisfy triangle conditions
-                    )
-
-    bk = bs.Bk_ideal(delta_mesh, discreteness_correction=False)
-
-    k123 = bs.get_ks()
+    k123 = bspec.get_ks()
     cs = ['r','g']
     weight = k123.prod(axis=0)
     fig, ax = plt.subplots()
-    for l in range(0,lmax+1,2):
+    for l in range(0, 3,2):
         ax.plot(weight*bk['b%d'%l],c=cs[l//2], ls='-', label=r'$\ell=%d$'%l)
     ax.set_xlabel(r'Bin Index',fontsize=15)
     ax.set_ylabel(r'$k_1k_2k_3\,B_\ell(k_1,k_2,k_3)$',fontsize=15)
