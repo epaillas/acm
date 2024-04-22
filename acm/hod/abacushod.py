@@ -106,20 +106,16 @@ class AbacusHOD:
         abacus_keys = ['logM1', 'Acent', 'Asat', 'Bcent', 'Bsat']
         custom_keys = ['logM_1', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
         
-        # Check if custom keys are used in a dict
-        if type(hod_params) is dict and \
-            any(key in hod_params for key in custom_keys): 
+        # Check if custom keys are used
+        if any(key in hod_params for key in custom_keys): # Same syntax for dict and list :)
             for abacus_key, custom_key in zip(abacus_keys, custom_keys): 
                 if custom_key in hod_params: # Just in case not all custom keys are used
-                    hod_params[abacus_key] = hod_params.pop(custom_key) # Replace custom keys with Abacus keys
-        
-        # Check if custom keys are used in a list
-        if type(hod_params) is list and\
-            any(key in hod_params for key in custom_keys):
-            for abacus_key, custom_key in zip(abacus_keys, custom_keys):
-                if custom_key in hod_params: # Just in case not all custom keys are used
-                    hod_params[hod_params.index(custom_key)] = abacus_key # Replace custom keys with Abacus keys
-        
+                    # Replace custom keys with Abacus keys
+                    if type(hod_params) is dict:
+                        hod_params[abacus_key] = hod_params.pop(custom_key)
+                    else:
+                        hod_params[hod_params.index(custom_key)] = abacus_key
+                        
         return hod_params
 
     def hod_positions(self, hod_dict, tracer_type='LRG'):
