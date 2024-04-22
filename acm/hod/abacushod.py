@@ -57,7 +57,8 @@ class AbacusHOD:
         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
 
     def check_params(self, params):
-        params = self.param_mapping(params, return_keys=True)
+        params = self.param_mapping(params)
+        params = list(params)
         for param in params:
             if param not in self.ball.tracers['LRG'].keys():
                 raise ValueError(f'Invalid parameter: {param}. Valid list '
@@ -84,7 +85,7 @@ class AbacusHOD:
         self.hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads)
         return self.hod_positions(self.hod_dict, tracer_type)
 
-    def param_mapping(self, hod_params: dict, return_keys=False):
+    def param_mapping(self, hod_params: dict):
         """
         Map custom HOD parameters to Abacus HOD parameters.
 
@@ -92,15 +93,11 @@ class AbacusHOD:
         ----------
         hod_params : dict
             Dictionary of HOD parameters.
-        return_keys : bool, optional
-            If True, only returns the list of keys. Default to False.
 
         Returns
         -------
         dict
             Dictionary of Abacus HOD parameters, if return_keys is False.
-        list
-            List of Abacus HOD parameters, if return_keys is True.
 
         Raises
         ------
@@ -120,9 +117,6 @@ class AbacusHOD:
             for abacus_key, custom_key in zip(abacus_keys, custom_keys): 
                 if custom_key in hod_params: # Just in case not all custom keys are used
                     hod_params[abacus_key] = hod_params.pop(custom_key) # Replace custom keys with Abacus keys
-        
-        if return_keys:
-            return list(hod_params)
         
         return hod_params
 
