@@ -64,6 +64,7 @@ class AbacusHOD:
                 raise ValueError(f'Invalid parameter: {param}. Valid list '
                                  f'of parameters include: {list(self.ball.tracers["LRG"].keys())}')
         self.logger.info(f'Varied parameters: {params}.')
+        self.varied_params = params
         default = {key: value for key, value in self.ball.tracers['LRG'].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
@@ -71,6 +72,8 @@ class AbacusHOD:
         if tracer_type not in ['LRG']:
             raise ValueError('Only LRGs are currently supported.')
         hod_params = self.param_mapping(hod_params)
+        if set(hod_params.keys()) != set(self.varied_params):
+            raise ValueError('Invalid HOD parameters. Must match the varied parameters.')
         for key in hod_params.keys():
             if key == 'sigma' and tracer_type == 'LRG':
                 self.ball.tracers[tracer_type][key] = 10**hod_params[key]
