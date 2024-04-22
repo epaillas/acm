@@ -57,8 +57,7 @@ class AbacusHOD:
         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
 
     def check_params(self, params):
-        params = list(params)
-        params = self.param_mapping(params)
+        params = self.param_mapping(params, return_keys=True)
         for param in params:
             if param not in self.ball.tracers['LRG'].keys():
                 raise ValueError(f'Invalid parameter: {param}. Valid list '
@@ -85,19 +84,46 @@ class AbacusHOD:
         self.hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads)
         return self.hod_positions(self.hod_dict, tracer_type)
 
-    def param_mapping(self, hod_params):
-        if type(hod_params) is dict:
-            hod_params['logM1'] = hod_params.pop('logM_1')
-            hod_params['Acent'] = hod_params.pop('A_cen')
-            hod_params['Asat'] = hod_params.pop('A_sat')
-            hod_params['Bcent'] = hod_params.pop('B_cen')
-            hod_params['Bsat'] = hod_params.pop('B_sat')
-        elif type(hod_params) is list:
-            hod_params = [param.replace('logM_1', 'logM1') for param in hod_params]
-            hod_params = [param.replace('A_cen', 'Acent') for param in hod_params]
-            hod_params = [param.replace('A_sat', 'Asat') for param in hod_params]
-            hod_params = [param.replace('B_cen', 'Bcent') for param in hod_params]
-            hod_params = [param.replace('B_sat', 'Bsat') for param in hod_params]
+    def param_mapping(self, hod_params: dict, return_keys=False):
+        """
+        Map custom HOD parameters to Abacus HOD parameters.
+
+        Parameters
+        ----------
+        hod_params : dict
+            Dictionary of HOD parameters.
+        return_keys : bool, optional
+            If True, only returns the list of keys. Default to False.
+
+        Returns
+        -------
+        dict
+            Dictionary of Abacus HOD parameters, if return_keys is False.
+        list
+            List of Abacus HOD parameters, if return_keys is True.
+
+        Raises
+        ------
+        ValueError
+            If HOD parameters are not provided as a dictionary.
+        """
+        
+        # Add custom keys here if needed. 
+        # Be careful to the one-to-one position mapping in the list !!
+        abacus_keys = ['logM1', 'Acent', 'Asat', 'Bcent', 'Bsat']
+        custom_keys = ['logM_1', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
+        
+        if type(hod_params) is not dict:
+            raise ValueError('HOD parameters must be provided as a dictionary.')
+            
+        if any(key in hod_params for key in custom_keys): # Check if custom keys are used
+            for abacus_key, custom_key in zip(abacus_keys, custom_keys): 
+                if custom_key in hod_params: # Just in case not all custom keys are used
+                    hod_params[abacus_key] = hod_params.pop(custom_key) # Replace custom keys with Abacus keys
+        
+        if return_keys:
+            return list(hod_params)
+        
         return hod_params
 
     def hod_positions(self, hod_dict, tracer_type='LRG'):
