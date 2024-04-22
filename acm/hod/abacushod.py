@@ -57,8 +57,8 @@ class AbacusHOD:
         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
 
     def check_params(self, params):
-        params = self.param_mapping(params)
         params = list(params)
+        params = self.param_mapping(params)
         for param in params:
             if param not in self.ball.tracers['LRG'].keys():
                 raise ValueError(f'Invalid parameter: {param}. Valid list '
@@ -85,24 +85,20 @@ class AbacusHOD:
         self.hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads)
         return self.hod_positions(self.hod_dict, tracer_type)
 
-    def param_mapping(self, hod_params: dict):
+    def param_mapping(self, hod_params: dict | list):
         """
         Map custom HOD parameters to Abacus HOD parameters.
 
         Parameters
         ----------
-        hod_params : dict
-            Dictionary of HOD parameters.
+        hod_params : dict or list
+            Dictionary or list of HOD parameters.
 
         Returns
         -------
-        dict
-            Dictionary of Abacus HOD parameters, if return_keys is False.
+        dict or list
+            Dictionary or list of AbacusHOD parameters.
 
-        Raises
-        ------
-        ValueError
-            If HOD parameters are not provided as a dictionary.
         """
         
         # Add custom keys here if needed. 
@@ -110,13 +106,19 @@ class AbacusHOD:
         abacus_keys = ['logM1', 'Acent', 'Asat', 'Bcent', 'Bsat']
         custom_keys = ['logM_1', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
         
-        if type(hod_params) is not dict:
-            raise ValueError('HOD parameters must be provided as a dictionary.')
-            
-        if any(key in hod_params for key in custom_keys): # Check if custom keys are used
+        # Check if custom keys are used in a dict
+        if type(hod_params) is dict and \
+            any(key in hod_params for key in custom_keys): 
             for abacus_key, custom_key in zip(abacus_keys, custom_keys): 
                 if custom_key in hod_params: # Just in case not all custom keys are used
                     hod_params[abacus_key] = hod_params.pop(custom_key) # Replace custom keys with Abacus keys
+        
+        # Check if custom keys are used in a list
+        if type(hod_params) is list and\
+            any(key in hod_params for key in custom_keys):
+            for abacus_key, custom_key in zip(abacus_keys, custom_keys):
+                if custom_key in hod_params: # Just in case not all custom keys are used
+                    hod_params[hod_params.index(custom_key)] = abacus_key # Replace custom keys with Abacus keys
         
         return hod_params
 
