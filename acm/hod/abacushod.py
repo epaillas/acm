@@ -98,7 +98,11 @@ class AbacusHOD:
         -------
         dict or list
             Dictionary or list of AbacusHOD parameters.
-
+        
+        Raises
+        ------
+        ValueError
+            If the type of hod_params is not dict or list.
         """
         
         # Add custom keys here if needed. 
@@ -113,9 +117,11 @@ class AbacusHOD:
                     # Replace custom keys with Abacus keys
                     if type(hod_params) is dict:
                         hod_params[abacus_key] = hod_params.pop(custom_key)
-                    else:
+                    elif type(hod_params) is list:
                         hod_params[hod_params.index(custom_key)] = abacus_key
-                        
+                    else:
+                        raise ValueError('Invalid type for hod_params. Must be either dict or list.')
+                    
         return hod_params
 
     def hod_positions(self, hod_dict, tracer_type='LRG'):
