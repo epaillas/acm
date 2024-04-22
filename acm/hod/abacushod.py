@@ -85,19 +85,43 @@ class AbacusHOD:
         self.hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads)
         return self.hod_positions(self.hod_dict, tracer_type)
 
-    def param_mapping(self, hod_params):
-        if type(hod_params) is dict:
-            hod_params['logM1'] = hod_params.pop('logM_1')
-            hod_params['Acent'] = hod_params.pop('A_cen')
-            hod_params['Asat'] = hod_params.pop('A_sat')
-            hod_params['Bcent'] = hod_params.pop('B_cen')
-            hod_params['Bsat'] = hod_params.pop('B_sat')
-        elif type(hod_params) is list:
-            hod_params = [param.replace('logM_1', 'logM1') for param in hod_params]
-            hod_params = [param.replace('A_cen', 'Acent') for param in hod_params]
-            hod_params = [param.replace('A_sat', 'Asat') for param in hod_params]
-            hod_params = [param.replace('B_cen', 'Bcent') for param in hod_params]
-            hod_params = [param.replace('B_sat', 'Bsat') for param in hod_params]
+    def param_mapping(self, hod_params: dict | list):
+        """
+        Map custom HOD parameters to Abacus HOD parameters.
+
+        Parameters
+        ----------
+        hod_params : dict or list
+            Dictionary or list of HOD parameters.
+
+        Returns
+        -------
+        dict or list
+            Dictionary or list of AbacusHOD parameters.
+        
+        Raises
+        ------
+        ValueError
+            If the type of hod_params is not dict or list.
+        """
+        
+        # Add custom keys here if needed. 
+        # Be careful to the one-to-one position mapping in the list !!
+        abacus_keys = ['logM1', 'Acent', 'Asat', 'Bcent', 'Bsat']
+        custom_keys = ['logM_1', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
+        
+        # Check if custom keys are used
+        if any(key in hod_params for key in custom_keys): # Same syntax for dict and list :)
+            for abacus_key, custom_key in zip(abacus_keys, custom_keys): 
+                if custom_key in hod_params: # Just in case not all custom keys are used
+                    # Replace custom keys with Abacus keys
+                    if type(hod_params) is dict:
+                        hod_params[abacus_key] = hod_params.pop(custom_key)
+                    elif type(hod_params) is list:
+                        hod_params[hod_params.index(custom_key)] = abacus_key
+                    else:
+                        raise ValueError('Invalid type for hod_params. Must be either dict or list.')
+                    
         return hod_params
 
     def hod_positions(self, hod_dict, tracer_type='LRG'):
