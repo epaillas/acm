@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import time
 from .base import BaseEnvironmentEstimator
-from .src import Minkowski as Mk
+from .src import minkowski as Mk
 
 
 class MinkowskiFunctionals(BaseEnvironmentEstimator):

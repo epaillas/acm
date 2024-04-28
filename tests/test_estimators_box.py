@@ -1,5 +1,4 @@
 from pathlib import Path
-from acm.estimators import DensitySplit, WaveletScatteringTransform, VoxelVoids
 from acm.utils import setup_logging
 from pypower import mpi
 import numpy as np
@@ -20,6 +19,7 @@ def read_mock_catalog():
     return data_positions, boxsize
 
 def test_density_split():
+    from estimators.galaxy_clustering.density_split import DensitySplit
     data_positions, boxsize = read_mock_catalog()
     ds = DensitySplit(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0)
     ds.assign_data(positions=data_positions)
@@ -35,6 +35,7 @@ def test_density_split():
     ds.plot_quantile_correlation(ell=0)
 
 def test_wst():
+    from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
     data_positions, boxsize = read_mock_catalog()
     wst = WaveletScatteringTransform(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0)
     wst.assign_data(positions=data_positions)
@@ -56,7 +57,14 @@ def test_voxel():
     # voxel.plot_void_size_distribution()
     voxel.plot_slice(data_positions=data_positions, save_fn='slice.png')
 
+def test_minkowski():
+    from acm.estimators.galaxy_clustering import MinkowskiFunctionals
+    data_positions, boxsize = read_mock_catalog()
+    mf = MinkowskiFunctionals(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0)
+    mf.run()
+
 if __name__ == '__main__':
     # test_density_split()
     # test_wst()
-    test_voxel()
+    # test_voxel()
+    test_minkowski()

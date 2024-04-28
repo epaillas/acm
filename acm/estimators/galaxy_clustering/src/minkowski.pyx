@@ -2,7 +2,7 @@ import numpy as np
 import time,sys,os
 cimport numpy as np
 cimport cython
-​
+
 @cython.boundscheck(False)
 @cython.cdivision(False)
 @cython.wraparound(False)
@@ -60,14 +60,14 @@ def Minkowski_slice(np.ndarray[np.float32_t, ndim=3] delta_slices, np.float32_t 
                     MFs[k,3] += ( - n[3] + n[2] - n[1] + n[0])
         
     return (MFs,vol_slice)
-​
+
 ################################################################################
 # This routine computes the Minkowski functionals of a density field
 # delta -------> 3D density field: (dims,dims,dims) numpy array
 # CellSize -----> Cell size of the density field
 # thres_mask -----> Value of field outside the geometry of galaxy survey should be lower than thres_mask
 # thresholds --------> density threshold above which the excursion set is defined
-​
+
 class MFs:
     def __init__(self,delta,CellSize,thres_mask,thres_low,thres_high,thres_bins):
         start = time.time()
@@ -78,19 +78,19 @@ class MFs:
         cdef np.ndarray[np.float32_t, ndim=1] thresholds
         cdef np.ndarray[np.float64_t, ndim=2] MFs3D
         cdef np.ndarray[np.float64_t, ndim=2] MFs3D_slice  
-​
+
         print('\nComputing Minkowski functionals of the field...')
-​
+
         dims_x,dims_y,dims_z = delta.shape 
         vol = 0
         vol_slice = 0
         len_thres = (thres_bins+1)
         delta   = np.concatenate((delta,delta[0:1,:,:]),axis=0)
-​
+
         thresholds  = np.zeros(len_thres,     dtype=np.float32)
         MFs3D       = np.zeros((len_thres,4), dtype=np.float64)
         MFs3D_slice = np.zeros((len_thres,4), dtype=np.float64)
-​
+
         for i in range(len_thres):
             thresholds[i] = (thres_low+i*(thres_high-thres_low)/thres_bins)
    
