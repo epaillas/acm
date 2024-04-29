@@ -44,18 +44,18 @@ def test_wst():
     wst.plot_coefficients()
 
 def test_voxel():
+    from acm.estimators.galaxy_clustering.voxel import VoxelVoids
     data_positions, boxsize = read_mock_catalog()
     voxel = VoxelVoids(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0,
                        temp_dir='/pscratch/sd/e/epaillas/tmp')
     voxel.assign_data(positions=data_positions)
     voxel.set_density_contrast(smoothing_radius=10)
     voxel.find_voids()
-    # sedges = np.linspace(0, 150, 100)
-    # muedges = np.linspace(-1, 1, 241)
-    # voxel.void_data_correlation(data_positions, edges=(sedges, muedges), los='z', nthreads=256)
-    # voxel.plot_void_data_correlation(ells=(0, 2))
-    # voxel.plot_void_size_distribution()
-    voxel.plot_slice(data_positions=data_positions, save_fn='slice.png')
+    sedges = np.linspace(0, 150, 100)
+    muedges = np.linspace(-1, 1, 241)
+    voxel.void_data_correlation(data_positions, edges=(sedges, muedges), los='z', nthreads=256)
+    voxel.plot_void_data_correlation(ells=(0, 2))
+    voxel.plot_void_size_distribution()
 
 def test_minkowski():
     from acm.estimators.galaxy_clustering import MinkowskiFunctionals
@@ -63,8 +63,33 @@ def test_minkowski():
     mf = MinkowskiFunctionals(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0)
     mf.run()
 
+def test_cumulants():
+    from acm.estimators.galaxy_clustering import DensityFieldCumulants
+    data_positions, boxsize = read_mock_catalog()
+    dc = DensityFieldCumulants(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0)
+    dc.assign_data(positions=data_positions)
+    dc.set_density_contrast(smoothing_radius=10)
+    lda = np.arange(-10, 11, 1)
+    dc.compute_cumulants(lda)
+    dc.plot_cumulants(save_fn='cumulants.png')
+    dc.plot_density_pdf(save_fn='density_pdf.png')
+
+def test_catalog_mesh():
+    from acm.estimators.galaxy_clustering.density_split import CatalogMeshDensitySplit, DensitySplit
+    data_positions, boxsize = read_mock_catalog()
+    for i in range(5):
+        ds = CatalogMeshDensitySplit(data_positions=data_positions, boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0, position_type='pos')
+        ds.set_density_contrast(smoothing_radius=10)
+
+    ds = DensitySplit(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0)
+    for i in range(5):
+        ds.assign_data(positions=data_positions)
+        ds.set_density_contrast(smoothing_radius=10)
+
 if __name__ == '__main__':
-    # test_density_split()
-    # test_wst()
-    # test_voxel()
+    test_density_split()
+    test_wst()
+    test_voxel()
     test_minkowski()
+    test_cumulants()
+    test_catalog_mesh()
