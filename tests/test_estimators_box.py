@@ -61,6 +61,8 @@ def test_minkowski():
     from acm.estimators.galaxy_clustering import MinkowskiFunctionals
     data_positions, boxsize = read_mock_catalog()
     mf = MinkowskiFunctionals(boxsize=boxsize, boxcenter=boxsize/2, cellsize=5.0)
+    mf.assign_data(positions=data_positions)
+    mf.set_density_contrast(smoothing_radius=10)
     mf.run()
 
 if __name__ == '__main__':
