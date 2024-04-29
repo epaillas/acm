@@ -12,7 +12,7 @@ ext_modules = [
     Extension("minkowski",
     ["acm/estimators/galaxy_clustering/src/minkowski.pyx"],
     libraries=["m"],
-    extra_compile_args = ["-ffast-math"],
+    extra_compile_args = ['-O3','-ffast-math'],
     include_dirs=[numpy.get_include()]),
 ]
 
