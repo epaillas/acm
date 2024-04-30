@@ -1,3 +1,4 @@
+#cython: language_level=3
 import numpy as np 
 import time,sys,os
 cimport numpy as np
@@ -6,7 +7,7 @@ cimport cython
 @cython.boundscheck(False)
 @cython.cdivision(False)
 @cython.wraparound(False)
-def Minkowski_slice(np.ndarray[np.float32_t, ndim=3] delta_slices, np.float32_t thres_mask, np.ndarray[np.float32_t, ndim=1] thresholds):
+def Minkowski_slice(np.ndarray[np.float32_t, ndim=3] delta_slices, np.ndarray[np.float32_t, ndim=1] thresholds, np.float32_t thres_mask):
     cdef int i,j,k,len_thres,dims_y, dims_z
     cdef long long vol_slice
     cdef np.float32_t t
@@ -35,29 +36,30 @@ def Minkowski_slice(np.ndarray[np.float32_t, ndim=3] delta_slices, np.float32_t 
     ds[6]  = np.roll(ds[2],-1,axis=1)
     ds[7]  = np.roll(ds[3],-1,axis=1)
     ds_min = np.min(ds,axis=0)
-    ds_max = np.max(ds,axis=0)
-    
+    ds_max = np.max(ds,axis=0)         
+
     for i in range(dims_y):
         for j in range(dims_z):
-            vol_slice += ds[0,i,j]>thres_mask
-            for k in range(len_thres):
-                t = thresholds[k]
-                if t<ds_min[i,j]:
-                    MFs[k,0] += 1
-                elif t<ds_max[i,j]:   
-                    n[3] = ds[0,i,j]>t
-                    n[2] = ((ds[0,i,j]>t or ds[1,i,j]>t)+
-                            (ds[0,i,j]>t or ds[2,i,j]>t)+
-                            (ds[0,i,j]>t or ds[4,i,j]>t))
-                    n[1] = ((ds[0,i,j]>t or ds[1,i,j]>t or ds[2,i,j]>t or ds[3,i,j]>t)+
-                            (ds[0,i,j]>t or ds[2,i,j]>t or ds[4,i,j]>t or ds[6,i,j]>t)+
-                            (ds[0,i,j]>t or ds[4,i,j]>t or ds[1,i,j]>t or ds[5,i,j]>t))
-                    n[0] = (ds[0,i,j]>t or ds[1,i,j]>t or ds[2,i,j]>t or ds[3,i,j]>t or
-                            ds[4,i,j]>t or ds[5,i,j]>t or ds[6,i,j]>t or ds[7,i,j]>t)
-                    MFs[k,0] +=     n[3]
-                    MFs[k,1] += (-3*n[3] + n[2]) *2/9
-                    MFs[k,2] += ( 3*n[3]-2*n[2] + n[1]) *2/9
-                    MFs[k,3] += ( - n[3] + n[2] - n[1] + n[0])
+            if ds_min[i,j]>thres_mask:
+                vol_slice += 1
+                for k in range(len_thres):
+                    t = thresholds[k]
+                    if t<ds_min[i,j]:
+                        MFs[k,0] += 1
+                    elif t<ds_max[i,j]:   
+                        n[3] = ds[0,i,j]>t
+                        n[2] = ((ds[0,i,j]>t or ds[1,i,j]>t)+
+                                (ds[0,i,j]>t or ds[2,i,j]>t)+
+                                (ds[0,i,j]>t or ds[4,i,j]>t))
+                        n[1] = ((ds[0,i,j]>t or ds[1,i,j]>t or ds[2,i,j]>t or ds[3,i,j]>t)+
+                                (ds[0,i,j]>t or ds[2,i,j]>t or ds[4,i,j]>t or ds[6,i,j]>t)+
+                                (ds[0,i,j]>t or ds[4,i,j]>t or ds[1,i,j]>t or ds[5,i,j]>t))
+                        n[0] = (ds[0,i,j]>t or ds[1,i,j]>t or ds[2,i,j]>t or ds[3,i,j]>t or
+                                ds[4,i,j]>t or ds[5,i,j]>t or ds[6,i,j]>t or ds[7,i,j]>t)
+                        MFs[k,0] +=     n[3]
+                        MFs[k,1] += (-3*n[3] + n[2]) *2/9
+                        MFs[k,2] += ( 3*n[3]-2*n[2] + n[1]) *2/9
+                        MFs[k,3] += ( - n[3] + n[2] - n[1] + n[0])
         
     return (MFs,vol_slice)
 
@@ -73,30 +75,27 @@ class MFs:
         start = time.time()
         cdef int dims_x, dims_y, dims_z
         cdef int i,len_thres
-        cdef long long vol,vol_slice
+        cdef long long vol, vol_slice
         cdef double a
         cdef np.ndarray[np.float32_t, ndim=1] thresholds
-        cdef np.ndarray[np.float64_t, ndim=2] MFs3D
+        cdef np.ndarray[np.float64_t, ndim=2] MFs3D 
         cdef np.ndarray[np.float64_t, ndim=2] MFs3D_slice  
 
         print('\nComputing Minkowski functionals of the field...')
-
-        dims_x,dims_y,dims_z = delta.shape 
-        vol = 0
-        vol_slice = 0
-        len_thres = (thres_bins+1)
-        delta   = np.concatenate((delta,delta[0:1,:,:]),axis=0)
-
+        dims_x,dims_y,dims_z = delta.shape      
+        len_thres   = (thres_bins+1)
+        vol         = 0
+        vol_slice   = 0
+        delta       = np.concatenate((delta,delta[0:1,:,:]),axis=0)
         thresholds  = np.zeros(len_thres,     dtype=np.float32)
         MFs3D       = np.zeros((len_thres,4), dtype=np.float64)
-        MFs3D_slice = np.zeros((len_thres,4), dtype=np.float64)
 
         for i in range(len_thres):
             thresholds[i] = (thres_low+i*(thres_high-thres_low)/thres_bins)
    
         #calculate the MFs of slices and add up 
         for i in range(dims_x):
-            MFs3D_slice,vol_slice = Minkowski_slice(delta[i:i+2,:,:].astype(np.float32),np.float32(thres_mask),thresholds)
+            MFs3D_slice,vol_slice = Minkowski_slice(delta[i:i+2,:,:].astype(np.float32),thresholds,thres_mask)
             MFs3D += MFs3D_slice
             vol   += vol_slice
         
