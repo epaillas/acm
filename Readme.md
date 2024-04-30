@@ -25,4 +25,8 @@ Examples are provided under the `nb` folder.
 
  - Georgios Valogiannis for providing his wavelet scattering transform code, which is based around the Kymatio package (https://www.kymat.io/).
 
+ - Mathilde Pinon for the implementation of the density field cumulants.
+
+ - Wei Liu for the implementation of the Minkowski Functionals.
+
  - Carolina Cuesta Lazaro for inspiration from her ili-summarizer code (https://github.com/florpi/ili-summarizer).
