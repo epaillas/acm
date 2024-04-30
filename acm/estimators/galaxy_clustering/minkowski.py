@@ -14,8 +14,50 @@ class MinkowskiFunctionals(BaseEnvironmentEstimator):
         self.logger = logging.getLogger('MinkowskiFunctionals')
         self.logger.info('Initializing MinkowskiFunctionals.')
         super().__init__(**kwargs)
+        
+    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False):
+        """
+        Set the density contrast.
 
-    def run(self,thres_mask, thres_low, thres_high, thres_bins):
+        Parameters
+        ----------
+        smoothing_radius : float, optional
+            Smoothing radius.
+        check : bool, optional
+            Check if there are enough randoms.
+        ran_min : float, optional
+            Minimum randoms.
+        nquery_factor : int, optional
+            Factor to multiply the number of data points to get the number of query points.
+            
+        Returns
+        -------
+        delta_mesh : array_like
+            Density contrast.
+        """
+        t0 = time.time()
+        if smoothing_radius:
+            self.data_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=save_wisdom,)
+        if self.has_randoms:
+            if check:
+                mask_nonzero = self.randoms_mesh.value > 0.
+                nnonzero = mask_nonzero.sum()
+                if nnonzero < 2: raise ValueError('Very few randoms.')
+            if smoothing_radius:
+                self.randoms_mesh.smooth_gaussian(smoothing_radius, engine='fftw', save_wisdom=save_wisdom)
+            sum_data, sum_randoms = np.sum(self.data_mesh.value), np.sum(self.randoms_mesh.value)
+            alpha = sum_data * 1. / sum_randoms
+            self.delta_mesh = self.data_mesh - alpha * self.randoms_mesh
+            self.ran_min = ran_min * sum_randoms / self._size_randoms
+            mask = self.randoms_mesh > self.ran_min
+            self.delta_mesh[mask] /= alpha * self.randoms_mesh[mask]
+            self.delta_mesh[~mask] = -3.0
+        else:
+            self.delta_mesh = self.data_mesh / np.mean(self.data_mesh) - 1.
+        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
+        return self.delta_mesh
+
+    def run(self,thres_mask=-2, thres_low=-1, thres_high=5, thres_bins=200):
         """
         Run the Minkowski functionals.
 
@@ -32,12 +74,12 @@ class MinkowskiFunctionals(BaseEnvironmentEstimator):
         query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
         self.delta_query = self.delta_mesh.read_cic(query_positions).reshape(
             (self.delta_mesh.nmesh[0], self.delta_mesh.nmesh[1], self.delta_mesh.nmesh[2]))
-        MFs = Mk(self.delta_mesh.astype(np.float32),self.data_mesh.cellsize[0],self.thres_mask,self.thres_low,self.thres_high,self.thres_bins)
-        self.MFs = MFs.MFs3D
+        mf = Mk.MFs(self.delta_mesh,self.data_mesh.cellsize[0],self.thres_mask,self.thres_low,self.thres_high,self.thres_bins)
+        self.MFs = mf.MFs3D
         self.logger.info(f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds.")
         return self.MFs
 
-    def plot_MFs(self,mf_cons=[1,10**3,10**5,10**7]):
+    def plot_MFs(self,label="MFs",mf_cons=[1,10**3,10**5,10**7]):
         """
         Plot the Minkowski functionals
         """
@@ -55,13 +97,10 @@ class MinkowskiFunctionals(BaseEnvironmentEstimator):
             ii = i//2
             jj = i%2
             ax = fig.add_subplot(spec[ii,jj])
-            ax.plot(x,self.MFs[:,i]*mf_cons[i],color="blue",label=r"$R_G = "+str(self.R_G)+"h^{-1}Mpc$")
+            ax.plot(x,self.MFs[:,i]*mf_cons[i],color="blue",label=label)
             if i==0:ax.legend()
-            if self.thres_type=='rho':
-                ax.set_xlabel(r"$\delta$")
-            elif self.thres_type=='nu':
-                ax.set_xlabel(r"$\nu$")
-                
+            
+            ax.set_xlabel(r"$\delta$")
             ax.set_ylabel(ylabels[i])
             ax.axhline(color="black")
             ax.set_xlim(self.thres_low,self.thres_high)
