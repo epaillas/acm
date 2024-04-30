@@ -158,7 +158,7 @@ class BaseEnvironmentEstimator(BaseEstimator):
 
 class BaseCatalogMeshEstimator(BaseEstimator):
     def __init__(self, **kwargs):
-        self.mesh = CatalogMesh(**kwargs)
+        self.mesh = CatalogMesh(**kwargs, interlacing=0, resampler='tsc')
         self.logger.info(f'Box size: {self.mesh.boxsize}')
         self.logger.info(f'Box center: {self.mesh.boxcenter}')
         self.logger.info(f'Box nmesh: {self.mesh.nmesh}')
@@ -167,7 +167,7 @@ class BaseCatalogMeshEstimator(BaseEstimator):
     def has_randoms(self):
         return self.mesh.with_randoms
 
-    def set_density_contrast(self, smoothing_radius=None, compensate=True, filter_shape='Gaussian'):
+    def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian'):
         """
         Set the density contrast.
 
@@ -187,10 +187,9 @@ class BaseCatalogMeshEstimator(BaseEstimator):
         delta_mesh : array_like
             Density contrast.
         """
-        self.logger.info('Setting density contrast.')
+        t0 = time.time()
         data_mesh = self.mesh.to_mesh(field='data', compensate=compensate)
         if smoothing_radius:
-            print('smoothing')
             data_mesh = data_mesh.r2c().apply(
             getattr(self, filter_shape)(r=smoothing_radius))
             data_mesh = data_mesh.c2r()
@@ -215,6 +214,7 @@ class BaseCatalogMeshEstimator(BaseEstimator):
         self.data_mesh = data_mesh
         self._size_data = int(sum_data)
         self.delta_mesh = delta_mesh
+        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
         return self.delta_mesh
 
     def get_query_positions(self, method='randoms', nquery=None, seed=42):
