@@ -4,6 +4,8 @@ import yaml
 import numpy as np
 from abacusnbody.hod import abacus_hod
 from cosmoprimo.fiducial import AbacusSummit
+from astropy.io import fits
+from astropy.table import Table
 import logging
 import warnings
 import sys
@@ -68,7 +70,7 @@ class AbacusHOD:
         default = {key: value for key, value in self.ball.tracers['LRG'].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
-    def run(self, hod_params, nthreads=1, tracer_type='LRG'):
+    def run(self, hod_params, nthreads=1, tracer_type='LRG', target_density=None, save_fn=None):
         if tracer_type not in ['LRG']:
             raise ValueError('Only LRGs are currently supported.')
         hod_params = self.param_mapping(hod_params)
@@ -82,11 +84,24 @@ class AbacusHOD:
         self.ball.tracers[tracer_type]['ic'] = 1
         ngal_dict = self.ball.compute_ngal(Nthread=nthreads)[0]
         N_lrg = ngal_dict[tracer_type]
-        self.ball.tracers[tracer_type]['ic'] = min(
-            1, self.data_params['tracer_density_mean'][tracer_type] * self.ball.params['Lbox']**3/N_lrg
-        )
-        self.hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads)
-        return self.hod_positions(self.hod_dict, tracer_type)
+        if target_density is not None:
+            self.ball.tracers[tracer_type]['ic'] = min(
+                1, target_density * self.boxsize ** 3 / N_lrg
+            )
+        hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads)
+        positions_dict = self.get_positions(hod_dict, tracer_type)
+        if save_fn:
+            self.save_positions(positions_dict, save_fn)
+        return positions_dict
+
+    def save_positions(self, positions_dict, save_fn):
+        save_fn = str(save_fn)
+        table = Table(positions_dict)
+        if save_fn.endswith('.fits'):
+            myfits = fits.BinTableHDU(data = table)
+            myfits.writeto(save_fn, overwrite=True)
+        elif save_fn.endswith('.npy'):
+            np.save(save_fn, positions_dict)
 
     def param_mapping(self, hod_params: dict | list):
         """
@@ -127,7 +142,7 @@ class AbacusHOD:
                     
         return hod_params
 
-    def hod_positions(self, hod_dict, tracer_type='LRG'):
+    def get_positions(self, hod_dict, tracer_type='LRG'):
         data = hod_dict[tracer_type]
         x = data['x'] + self.boxsize / 2
         y = data['y'] + self.boxsize / 2
