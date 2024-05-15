@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from collections.abc import Iterable
 
 
@@ -31,6 +32,11 @@ class ObservablesGaussianLikelihood(BaseGaussianLikelihood):
         super().__init__()
 
     def flattheory(self, theta):
-        return np.concatenate([obs.theory.predictions_np(theta)[0] for obs in self.observables], axis=0)
+        # return np.concatenate([obs.theory.predictions_np(theta)[0] for obs in self.observables], axis=0)
+
+        with torch.no_grad():
+            pred_test_y = [obs.theory.get_prediction(torch.Tensor(theta)) for obs in self.observables]
+            return [pred_test_y[i].numpy() for i in range(len(pred_test_y))]
+            # pred_test_y = pred_test_y.numpy()
     
     
