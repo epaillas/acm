@@ -45,13 +45,10 @@ HOD_params:
 # are not needed for using the AbacusHOD class and running HODs. 
 
 # parameters that indicate where the observed data that you would like to fit live. 
-data_params:
-    tracer_density_mean:
-        LRG: 0.0005  # mean of CMASS n(z) 0.45 < z < 0.6
-        # LRG: 0.00042832686  # peak of CMASS n(z)
-        # LRG: 0.00033876114141324914 # FKP-weighted CMASS n(z) 0.45 < z < 0.6
-    tracer_density_std:
-        LRG: 1.0e-5  # (Mpc/h)^-3
-
-    nthread: 256
-
+# data_params:
+#     tracer_density_mean:
+#         LRG: 0.0005  # mean of CMASS n(z) 0.45 < z < 0.6
+#         # LRG: 0.00042832686  # peak of CMASS n(z)
+#         # LRG: 0.00033876114141324914 # FKP-weighted CMASS n(z) 0.45 < z < 0.6
+#     tracer_density_std:
+#         LRG: 1.0e-5  # (Mpc/h)^-3
