@@ -12,6 +12,7 @@ fastmodules:
 	python acm/estimators/galaxy_clustering/src/setup.py build_ext --inplace
 	mv fastmodules*.so acm/estimators/galaxy_clustering/src/.
 	mv minkowski*.so acm/estimators/galaxy_clustering/src/.
+	mv pydive*.so acm/estimators/galaxy_clustering/src/.
 
 
 clean:
@@ -23,3 +24,5 @@ clean:
 	rm -f acm/estimators/galaxy_clustering/src/*.pyc
 	rm -f acm/estimators/galaxy_clustering/src/c/*.o
 	rm -f acm/estimators/galaxy_clustering/src/c/*.exe
+	rm -f acm/estimators/galaxy_clustering/src/pydive*.so
+	rm -f acm/estimators/galaxy_clustering/src/pydive.cpp
