@@ -154,32 +154,44 @@ class DTVoid(BaseEstimator):
             Cross-correlation function between samples and data.
         """
         from pycorr import TwoPointCorrelationFunction
+        nsplits = kwargs.pop('nsplits', 1)
+        self.logger.info(f"Using randoms split into {nsplits} parts.")
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
-            kwargs['randoms_positions2'] = kwargs['randoms_positions']
-            kwargs.pop('randoms_positions')
+            randoms_positions = np.array_split(kwargs.pop('randoms_positions'), nsplits, axis = 0)
             if 'data_weights' in kwargs:
                 kwargs['data_weights2'] = kwargs.pop('data_weights')
-            if 'randoms_weights' in kwargs:
-                kwargs['randoms_weights2'] = kwargs.pop('randoms_weights')
+            
+            randoms_weights = kwargs.pop('randoms_weights', [None] * nsplits)
+            if randoms_weights[0] is not None:
+                randoms_weights = np.array_split(randoms_weights, nsplits, axis = 0)
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.boxsize
+            randoms_weights = randoms_positions = [None] * nsplits
         self._sample_data_correlation = []
-        R1R2 = None
+        
         for i, sample in enumerate(self.samples):
-            result = TwoPointCorrelationFunction(
-                data_positions1=sample[:,:3],
-                data_positions2=data_positions,
-                randoms_positions1 = None if not self.has_randoms else self.void_randoms[i][:,:3],
-                mode='smu',
-                position_type='pos',
-                R1R2=None,
-                **kwargs,
-            )
+            if self.has_randoms:
+                split_rands = np.array_split(self.void_randoms[i][:,:3], nsplits, axis = 0)
+            R1R2 = None
+            result = 0
+            for j in range(nsplits):
+                result += TwoPointCorrelationFunction(
+                            data_positions1=sample[:,:3],
+                            data_positions2=data_positions,
+                            randoms_positions1 = None if not self.has_randoms else split_rands[j],
+                            randoms_positions2 = randoms_positions[j],
+                            randoms_weights2 = randoms_weights[j],
+                            mode='smu',
+                            position_type='pos',
+                            R1R2=R1R2,
+                            **kwargs,
+                            )
+                R1R2 = result.R1R2
             self._sample_data_correlation.append(result)
-            R1R2 = result.R1R2
+            
         return self._sample_data_correlation
 
     def sample_correlation(self, **kwargs):
@@ -206,14 +218,23 @@ class DTVoid(BaseEstimator):
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.boxsize
         self._sample_correlation = []
+        nsplits = kwargs.pop('nsplits', 1)
+        self.logger.info(f"Using randoms split into {nsplits} parts.")
         for i, sample in enumerate(self.samples):
-            result = TwoPointCorrelationFunction(
-                data_positions1=sample[:,:3],
-                randoms_positions1 = None if not self.has_randoms else self.void_randoms[i][:,:3],
-                mode='smu',
-                position_type='pos',
-                **kwargs,
-            )
+            if self.has_randoms:
+                split_rands = np.array_split(self.void_randoms[i][:,:3], nsplits)
+            R1R2 = None
+            result = 0
+            for j in range(nsplits):
+                result += TwoPointCorrelationFunction(
+                    data_positions1=sample[:,:3],
+                    randoms_positions1 = None if not self.has_randoms else split_rands[j],
+                    mode='smu',
+                    position_type='pos',
+                    R1R2 = R1R2,
+                    **kwargs,
+                )
+                R1R2 = result.R1R2
             self._sample_correlation.append(result)
         return self._sample_correlation
 
@@ -307,7 +328,7 @@ class DTVoid(BaseEstimator):
         plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
         if self.full_catalog:
-            fig, ax = plt.subplots(figsize=(12, self.samples[0][:,2:].shape[1]), nrows = 1, ncols = self.samples[0][:,2:].shape[1])
+            fig, ax = plt.subplots(figsize=(12, self.samples[0][:,3:].shape[1]), nrows = 1, ncols = self.samples[0][:,3:].shape[1])
         else:
             fig, ax = plt.subplots(figsize=(4, 4), nrows = 1, ncols = 1)
             ax = [ax]
@@ -334,6 +355,10 @@ class DTVoid(BaseEstimator):
         if self.full_catalog:
             ax[1].set_xlabel(r'$\log(\Delta)$', fontsize=15)
             ax[2].set_xlabel(r'$\Phi$', fontsize=15)
+            try:
+                ax[3].set_xlabel(r'$\log(\Delta / n(z))$', fontsize=15)
+            except:
+                pass
         [a.set_ylabel('PDF', fontsize=15) for a in ax]
         #ax.set_xlim(-1.3, 3.0)
         [a.legend(handlelength=1.0) for a in ax]
