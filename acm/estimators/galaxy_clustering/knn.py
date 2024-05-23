@@ -21,6 +21,9 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
         super().__init__(**kwargs)
 
     def is_linear_or_log(self, X):
+        """
+        check if binning is linear or log
+        """
         diffs = np.diff(X)
         ratios = np.divide(diffs[:-1], diffs[1:])
         avg_diff = np.mean(diffs)
@@ -36,6 +39,9 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
 
     @njit(parallel = True)
     def convert_rppi(self, disi, xgal, xrand, k): 
+        """
+        Convert 3d distances to transverse and line of sight
+        """
         dis_trans = -np.ones((len(xrand), len(k)), dtype = np.float32)
         dis_par = -np.ones((len(xrand), len(k)), dtype = np.float32)
         for ik in prange(len(k)):
@@ -48,6 +54,9 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
         return dis_trans, dis_par
 
     def VolumekNN_par_pimax_hist(self, xgal, xrand, pis, k = 1, nthread = 1, periodic = 0):
+        """
+        pair finding with scipy ckdtree
+        """
         if isinstance(k, int): 
             k = [k] 
 
@@ -60,6 +69,9 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
         return dis_trans, dis_par
 
     def get_trans_par_fnntw(self, data, query, k, LS = 32, lbox = 1):
+        """
+        pair finding with pyfnntw
+        """
         if lbox <= 0:
             xtree = pyfnntw.Treef32(data, leafsize=LS)
         else:
@@ -72,6 +84,9 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
 
     @ray.remote
     def calculate_cdfs(self, ik, dis_t, dis_p, rpbins, pibins, scaling):
+        """
+        tabulate pair distances into 2d histogram, accelerated with ray 
+        """
         if scaling == 'linear':
             dist_hist2d_k = histogram2d(dis_t[:, ik], dis_p[:, ik], 
                             range=[[rpbins[0], rpbins[-1]], [pibins[0], pibins[-1]]], bins=[len(rpbins)-1, len(pibins)-1])
@@ -82,7 +97,9 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
         cdf = dist_cdf2d_k / dist_cdf2d_k[-1, -1]
 
     def calc_cdf_hist(self, rs, pis, dis_t, dis_p):
-
+        """
+        2d histogram wrapper function
+        """
         cdfs = np.zeros((dis_t.shape[1], len(rs), len(pis)), dtype = np.float32)
 
         # are the bins lin or log
