@@ -5,4 +5,5 @@ from .density_split import DensitySplit, CatalogMeshDensitySplit
 from .bispectrum import Bispectrum
 from .minkowski import MinkowskiFunctionals
 from .cumulants import DensityFieldCumulants
+from .knn import KthNearestNeighbor
 from .base import BasePolyBinEstimator
