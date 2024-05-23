@@ -1,7 +1,0 @@
-*.so
-*.o
-*.exe
-**/acm.egg-info/
-**/build/
-**/__pycache__/
-**/.ipynb_checkpoints/
