@@ -14,20 +14,20 @@ ext_modules = [
     libraries=["m"],
     extra_compile_args = ['-O3','-ffast-math'],
     include_dirs=[numpy.get_include()]),
-    Extension("pydive",
-        sources=['acm/estimators/galaxy_clustering/src/pydive.pyx',
-                  ],
-        include_dirs=[numpy.get_include(), 
-                      '/global/u1/d/dforero/lib/CGAL-5.4/include', 
-                      ],
+    # Extension("pydive",
+    #     sources=['acm/estimators/galaxy_clustering/src/pydive.pyx',
+    #               ],
+    #     include_dirs=[numpy.get_include(), 
+    #                   '/global/u1/d/dforero/lib/CGAL-5.4/include', 
+    #                   ],
                       
-        library_dirs=[
-                      ],
-        libraries=['m', 'gsl', 'gslcblas', 'gmp', 'mpfr'],
-        language='c++',
-        extra_compile_args=['-fPIC', '-fopenmp'],
-        extra_link_args=['-fopenmp']
-    )
+    #     library_dirs=[
+    #                   ],
+    #     libraries=['m', 'gsl', 'gslcblas', 'gmp', 'mpfr'],
+    #     language='c++',
+    #     extra_compile_args=['-fPIC', '-fopenmp'],
+    #     extra_link_args=['-fopenmp']
+    # )
 ]
 
 
