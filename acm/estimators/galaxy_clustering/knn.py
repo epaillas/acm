@@ -10,6 +10,7 @@ import pyfnntw
 
 from .base import BaseEnvironmentEstimator
 
+        
 class KthNearestNeighbor(BaseEnvironmentEstimator):
     """
     Class to compute the knns.
@@ -82,20 +83,6 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
 
         return trans, par
 
-    @ray.remote
-    def calculate_cdfs(self, ik, dis_t, dis_p, rpbins, pibins, scaling):
-        """
-        tabulate pair distances into 2d histogram, accelerated with ray 
-        """
-        if scaling == 'linear':
-            dist_hist2d_k = histogram2d(dis_t[:, ik], dis_p[:, ik], 
-                            range=[[rpbins[0], rpbins[-1]], [pibins[0], pibins[-1]]], bins=[len(rpbins)-1, len(pibins)-1])
-        else:
-            dist_hist2d_k, _, _ = np.histogram2d(dis_t[:, ik], dis_p[:, ik], bins=(rpbins, pibins))
-
-        dist_cdf2d_k = np.cumsum(np.cumsum(dist_hist2d_k, axis=0), axis=1)
-        cdf = dist_cdf2d_k / dist_cdf2d_k[-1, -1]
-
     def calc_cdf_hist(self, rs, pis, dis_t, dis_p):
         """
         2d histogram wrapper function
@@ -110,13 +97,29 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
 
         assert scaling_t == scaling_p
 
-        args_list = [(ik, dis_t, dis_p, rpbins, pibins, scaling_t) for ik in range(dis_t.shape[1])]
-        results = ray.get([self.calculate_cdfs.remote(*args) for args in args_list])
+        # args_list = [(self, ik, dis_t, dis_p, rpbins, pibins, scaling_t) for ik in range(dis_t.shape[1])]
+        # results = ray.get([calculate_cdfs.remote(*args) for args in args_list])
+        results = [self.calculate_cdfs(ik, dis_t, dis_p, rpbins, pibins, scaling_t) for ik in range(dis_t.shape[1])]
+        # print(results)
 
         for ik, cdf in results:
             cdfs[ik] = cdf
 
         return cdfs
+
+    def calculate_cdfs(self, ik, dis_t, dis_p, rpbins, pibins, scaling):
+        """
+        tabulate pair distances into 2d histogram, accelerated with ray 
+        """
+        if scaling == 'linear':
+            dist_hist2d_k = histogram2d(dis_t[:, ik], dis_p[:, ik], 
+                            range=[[rpbins[0], rpbins[-1]], [pibins[0], pibins[-1]]], bins=[len(rpbins)-1, len(pibins)-1])
+        else:
+            dist_hist2d_k, _, _ = np.histogram2d(dis_t[:, ik], dis_p[:, ik], bins=(rpbins, pibins))
+
+        dist_cdf2d_k = np.cumsum(np.cumsum(dist_hist2d_k, axis=0), axis=1)
+        cdf = dist_cdf2d_k / dist_cdf2d_k[-1, -1]
+        return (ik, cdf)
 
     def run_knn(self, rs, pis, xgal, xrand, kneighbors = 1, nthread = 32, periodic = 0, method = 'fnn', randdown = 1, LS = 32):
         """
