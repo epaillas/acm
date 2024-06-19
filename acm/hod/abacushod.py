@@ -69,7 +69,9 @@ class AbacusHOD:
         default = {key: value for key, value in self.ball.tracers['LRG'].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
-    def run(self, hod_params, nthreads=1, tracer='LRG', tracer_density_mean=None, save_fn=None):
+    def run(self, hod_params, nthreads=1, tracer='LRG', tracer_density_mean=None,
+        seed=None, save_fn=None, add_rsd=False):
+        if seed == 0: seed = None
         if tracer not in ['LRG']:
             raise ValueError('Only LRGs are currently supported.')
         hod_params = self.param_mapping(hod_params)
@@ -87,23 +89,27 @@ class AbacusHOD:
             self.ball.tracers[tracer]['ic'] = min(
                 1, tracer_density_mean * self.boxsize ** 3 / n_tracers
             )
-        hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads)
-        positions_dict = self.get_positions(hod_dict, tracer)
-        if save_fn:
-            self.save_catalog(hod_dict, save_fn)
-        return positions_dict, hod_dict
-    
-    def save_catalog(self, hod_dict, save_fn, tracer='LRG'):
+        hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads, reseed=seed)
+        # positions_dict = self.get_positions(hod_dict, tracer)
+        self.format_catalog(hod_dict, save_fn, tracer, add_rsd)
+        return hod_dict
+
+    def format_catalog(self, hod_dict, save_fn=False, tracer='LRG', add_rsd=False):
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
         is_central = np.zeros(len(hod_dict[tracer]['x']))
         is_central[:Ncent] += 1
         hod_dict[tracer]['is_cent'] = is_central
+        # hod_dict[tracer]['nden'] = len(hod_dict[tracer]['x']) / self.boxsize**3
         hod_dict[tracer] = {k.upper():v  for k, v in hod_dict[tracer].items()}
-        table = Table(hod_dict[tracer])
-        header = fits.Header({'N_cent': Ncent, 'gal_type': tracer, **self.ball.tracers[tracer]})
-        myfits = fits.BinTableHDU(data=table, header=header)
-        myfits.writeto(save_fn, overwrite=True)
+        if add_rsd:
+            hod_dict = self._add_rsd(hod_dict, tracer)
+        if save_fn:
+            table = Table(hod_dict[tracer])
+            header = fits.Header({'N_cent': Ncent, 'gal_type': tracer, **self.ball.tracers[tracer]})
+            myfits = fits.BinTableHDU(data=table, header=header)
+            myfits.writeto(save_fn, overwrite=True)
+            self.logger.info(f'Saving {save_fn}.')
 
     def param_mapping(self, hod_params: dict | list):
         """
@@ -144,22 +150,21 @@ class AbacusHOD:
                     
         return hod_params
 
-    def get_positions(self, hod_dict, tracer='LRG'):
+    def _add_rsd(self, hod_dict, tracer='LRG'):
         data = hod_dict[tracer]
-        x = data['x'] + self.boxsize / 2
-        y = data['y'] + self.boxsize / 2
-        z = data['z'] + self.boxsize / 2
-        vx = data['vx']
-        vy = data['vy']
-        vz = data['vz']
+        x = data['X'] + self.boxsize / 2
+        y = data['Y'] + self.boxsize / 2
+        z = data['Z'] + self.boxsize / 2
+        vx = data['VX']
+        vy = data['VY']
+        vz = data['VZ']
         x_rsd = (x + vx / (self.hubble * self.az)) % self.boxsize
         y_rsd = (y + vy / (self.hubble * self.az)) % self.boxsize
         z_rsd = (z + vz / (self.hubble * self.az)) % self.boxsize
-        positions = {
-            'X': x, 'Y': y, 'Z': z,
-            'X_RSD': x_rsd, 'Y_RSD': y_rsd, 'Z_RSD': z_rsd,
-        }
-        return positions
+        hod_dict[tracer]['X_RSD'] = x_rsd
+        hod_dict[tracer]['Y_RSD'] = y_rsd
+        hod_dict[tracer]['Z_RSD'] = z_rsd
+        return hod_dict
 
 # def run_hod(p, param_mapping, param_tracer, data_params, Ball, nthreads):
 #     for key in param_mapping.keys():
