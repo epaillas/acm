@@ -8,6 +8,7 @@ from numpyro.infer import init_to_mean
 import matplotlib.pyplot as plt
 import sys
 from acm.data.io_tools import *
+import argparse
 
 
 def get_covariance_correction(n_s, n_d, n_theta=None, correction_method='percival'):
@@ -30,31 +31,39 @@ def get_priors(cosmo=True, hod=True):
         labels.update(Yuan23(stats_module).labels)
     return priors, ranges, labels
 
-def get_save_fn(statistic, mock_idx, kmin, kmax, smin, smax):
-    save_dir = f'/pscratch/sd/e/epaillas/emc/posteriors/hmc/{statistic}/oct8'
+def get_save_fn(statistic):
+    save_dir = f'/pscratch/sd/e/epaillas/emc/posteriors/hmc/{statistic}/oct11'
     Path(save_dir).mkdir(parents=True, exist_ok=True)
-    scales_str = ''
+    slice_str = ''
+    select_str = ''
     if slice_filters:
         for key, value in slice_filters.items():
-            scales_str += f'_{key}{value[0]:.1f}_{key}{value[1]:.1f}'
-    return Path(save_dir) / f'chain_idx{mock_idx}{scales_str}.npy'
+            slice_str += f'_{key}{value[0]:.2f}-{value[1]:.2f}'
+    if select_filters:
+        for key, value in select_filters.items():
+            select_str += '_' + f'{key}{value}'.replace('_', '-')
+    return Path(save_dir) / f'chain{select_str}{slice_str}.npy'
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--statistic", type=str, default='pk')
+parser.add_argument("--cosmo_idx", type=int, default=0)
+parser.add_argument("--hod_idx", type=int, default=30)
+
+args = parser.parse_args()
 
 
 priors, ranges, labels = get_priors(cosmo=True, hod=True)
-# select_filters = {'multipoles': [0, 2], 'statistics': ['quantile_data_correlation']}
-select_filters = {'cosmo_idx': 0, 'hod_idx': 30}
+select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
 fixed_params = ['w0_fld', 'wa_fld', 'nrun', 'N_ur', 'A_cen', 'A_sat']
 add_emulator_error = True
-# statistics = ['wp', 'dsc_conf', 'tpcf']
 statistics = ['pk', 'number_density']
 
-# smins = [0]
 num_chains = 1
 smax = 152
 kmin = 0.0
-# smins = [0, 5, 10, 20, 40, 60, 80, 100]
 smins = [12.5]
-kmaxs = [0.2]
+kmaxs = [0.5]
 for smin in smins:
     for kmax in kmaxs:
         slice_filters = {'k': [kmin, kmax]}
@@ -66,24 +75,17 @@ for smin in smins:
         print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
         # load the data
-        lhc_x, lhc_y, lhc_x_names, model_filters = read_lhc(statistics=statistics,
+        data_x, data_y, data_x_names, model_filters = read_lhc(statistics=statistics,
                                                             select_filters=select_filters,
                                                             slice_filters=slice_filters,
                                                             return_mask=True)
-        print(f'Loaded LHC x with shape: {lhc_x.shape}')
-        print(f'Loaded LHC y with shape {lhc_y.shape}')
+        print(f'Loaded LHC x with shape: {data_x.shape}')
+        print(f'Loaded LHC y with shape {data_y.shape}')
 
-        # lhc_test_y = lhc_y[:600]
-
-        # idxs = [30, 199, 330, 438]
-        # idxs = [30]
-
-    #     print(f'Fitting HOD {mock_idx}')
-
-        fixed_params_dict = {key: lhc_x[lhc_x_names.index(key)]
+        fixed_params = {key: data_x[data_x_names.index(key)]
                             for key in fixed_params}
     #     # fixed_params_dict['N_ur'] = 3.046
-        print(f'Fixed parameters: {fixed_params_dict}')
+        print(f'Fixed parameters: {fixed_params}')
 
         # load the model
         models = read_model(statistics=statistics)
@@ -94,44 +96,53 @@ for smin in smins:
             emulator_error = read_emulator_error(statistics, select_filters=select_filters,
                                                 slice_filters=slice_filters)
             print(f'Loaded emulator error with shape: {emulator_error.shape}')
-            print(emulator_error.shape)
             covariance_matrix += np.diag(emulator_error**2)
 
         # apply correction to the covariance matrix
         correction = get_covariance_correction(
             n_s=n_sim,
             n_d=len(covariance_matrix),
-            n_theta=len(lhc_x_names) - len(fixed_params),
+            n_theta=len(data_x_names) - len(fixed_params),
             correction_method='percival',
         )
         print(f'Number of simulations: {n_sim}')
         print(f'Number of data points: {len(covariance_matrix)}')
-        print(f'Number of parameters: {len(lhc_x_names) - len(fixed_params)}')
+        print(f'Number of parameters: {len(data_x_names) - len(fixed_params)}')
         print(f'Covariance correction factor: {correction}')
-        # covariance_matrix *= correction
+        covariance_matrix *= correction
 
         precision_matrix = np.linalg.inv(covariance_matrix)
 
-    #     # hmc = HMCSampler(
-    #     #     observation=lhc_test_y[mock_idx],
-    #     #     # observation=pred_y[mock_idx],
-    #     #     precision_matrix=precision_matrix,
-    #     #     nn_theory_model=nn_model,
-    #     #     nn_parameters=nn_params,
-    #     #     fixed_parameters=fixed_params_dict,
-    #     #     priors=priors,
-    #     #     ranges=ranges,
-    #     #     labels=labels,
-    #     #     model_filters=model_filters,
-    #     # )
-    #     # numpyro.set_host_device_count(num_chains)
+        hmc = HMCSampler(
+            observation=data_y,
+            precision_matrix=precision_matrix,
+            nn_theory_model=nn_model,
+            nn_parameters=nn_params,
+            fixed_parameters=fixed_params,
+            priors=priors,
+            ranges=ranges,
+            labels=labels,
+            model_filters=model_filters,
+        )
+        numpyro.set_host_device_count(num_chains)
 
-    #     # save_fn = get_save_fn(statistic='+'.join(statistics),
-    #     #                       kmin=kmin, kmax=kmax,
-    #     #                       smin=smin, smax=smax,
-    #     #                       mock_idx=mock_idx)
+        save_fn = get_save_fn(statistic='+'.join(statistics))
 
-    #     # posterior = hmc(num_warmup=4000, num_samples=4000, dense_mass=True,
-    #     # # posterior = hmc(num_warmup=500, num_samples=2000, dense_mass=True,
-    #     #                 target_accept_prob=0.95,
-    #     #                 num_chains=num_chains, save_fn=save_fn)
+        metadata = {
+            # 'select_filters': select_filters,
+            # 'slice_filters': slice_filters,
+            # 'n_sim': n_sim,
+            # 'correction': correction,
+            # 'emulator_error': emulator_error,
+            'covariance_matrix': covariance_matrix,
+            # 'precision_matrix': precision_matrix,
+            'fixed_params': fixed_params,
+            'true_params': dict(zip(data_x_names, data_x)),
+            'data': data_y,
+            # 'model_filters': model_filters,
+        }
+
+        # posterior = hmc(num_warmup=4000, num_samples=4000, dense_mass=True,
+        posterior = hmc(num_warmup=500, num_samples=2000, dense_mass=True,
+                        target_accept_prob=0.95, num_chains=num_chains,
+                        save_fn=save_fn, metadata=metadata)
