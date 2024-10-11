@@ -9,8 +9,8 @@ setup_logging()
 
 def get_data(data_dir, cosmology, phase, hod, boxsize):
     # read some random galaxy catalog
-    data_dir = data_dir / f'hods/cosmo+hod/z0.5/yuan23_prior/c{str(cosmology).zfill(3)}_ph{str(phase).zfill(3)}/'
-    data_fn = data_dir / f'hod{str(hod).zfill(3)}.npy'
+    data_dir = data_dir / f'hods/cosmo+hod/z0.5/yuan23_prior/c{str(cosmology).zfill(3)}_ph{str(phase).zfill(3)}/seed0/'
+    data_fn = data_dir / f'hod{str(hod).zfill(3)}.fits'
     data = np.load(data_fn, allow_pickle=True).item()
     x = data['x'] % boxsize
     y = data['y'] % boxsize
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     cosmologies = list(range(4)) + list(range(100, 182))
     lhc_x, lhc_y = [], []
-    for cosmolgoy in cosmologies:
+    for cosmology in cosmologies:
         params = pd.read_csv(data_dir / f'cosmo+hod_params/AbacusSummit_c{str(cosmology).zfill(3)}.csv')
         lhc_x.append(params.values[:n_hods])
         for hod in range(n_hods):
