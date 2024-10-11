@@ -126,7 +126,7 @@ def save_emulator_error():
 
 if __name__ == '__main__':
     # statistics = ['knn', 'wst', 'dsc_fourier', k'pk', 'tpcf', 'wp']
-    statistics = ['number_density', 'pk']
+    statistics = ['pk']
     for statistic in statistics:
         print(f'Loading {statistic}')
         select_filters = {}
