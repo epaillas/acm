@@ -2,6 +2,18 @@ from pathlib import Path
 import numpy as np
 from sunbird.data.data_utils import convert_to_summary
 
+DEFAULT_MODEL_DIR_DICT = {
+    'number_density': f'/pscratch/sd/e/epaillas/emc/trained_models/number_density/cosmo+hod/aug10/last.ckpt',
+    'wp': f'/pscratch/sd/e/epaillas/emc/trained_models/wp/cosmo+hod/jul10_trans/last-v30.ckpt',
+    'pk': f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/optuna/last-v31.ckpt',
+    'tpcf': f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/cosmo+hod/aug9_asinh/last.ckpt',
+    'dsc_conf': f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_conf/cosmo+hod/aug9/last-v1.ckpt',
+    'dsc_fourier': f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_fourier/cosmo+hod/sep4/last.ckpt',
+    'knn': f'/pscratch/sd/e/epaillas/emc/trained_models/knn/cosmo+hod/optuna/last-v13.ckpt',
+    'wst': f'/pscratch/sd/e/epaillas/emc/trained_models/wst/cosmo+hod/optuna/last-v80.ckpt',
+    'voxel_voids': f'/pscratch/sd/e/epaillas/emc/trained_models/voxel_voids/cosmo+hod/sep16/last.ckpt',
+    'minkowski': f'/pscratch/sd/e/epaillas/emc/trained_models/minkowski/cosmo+hod/sep17/best-model-epoch=217-val_loss=0.0217.ckpt',
+}
 
 fourier_stats = ['pk', 'dsc_fourier']
 conf_stats = ['tpcf', 'dsc_conf']
@@ -25,6 +37,8 @@ def summary_coords_lhc_y(statistic, sep):
         }
     if statistic == 'dsc_conf':
         return {
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(100)),
             'statistics': ['quantile_data_correlation', 'quantile_correlation'],
             'quantiles': [0, 1, 3, 4],
             'multipoles': [0, 2],
@@ -32,6 +46,8 @@ def summary_coords_lhc_y(statistic, sep):
         }
     if statistic == 'dsc_fourier':
         return {
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(250)),
             'statistics': ['quantile_data_power', 'quantile_power'],
             'quantiles': [0, 1, 3, 4],
             'multipoles': [0, 2],
@@ -39,6 +55,8 @@ def summary_coords_lhc_y(statistic, sep):
         }
     if statistic in ['tpcf', 'voxel_voids']:
         return {
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(100)),
             'multipoles': [0, 2],
             's': sep,
         }
@@ -316,31 +334,15 @@ def read_covariance(statistics, volume_factor=64, select_filters={}, slice_filte
     cov = prefactor * np.cov(y_all, rowvar=False)
     return cov, len(y)
 
-def read_model(statistics):
+def read_model(statistics, model_dir_dict = None,):
     from sunbird.emulators import FCN
     model_all = []
     for statistic in statistics:
-        if statistic == 'number_density':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/number_density/cosmo+hod/aug10/last.ckpt'
-        if statistic == 'wp':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wp/cosmo+hod/jul10_trans/last-v30.ckpt'
-        if statistic == 'pk':
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/aug8/last.ckpt'
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/optuna/last-v31.ckpt'
-        elif statistic == 'tpcf':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/cosmo+hod/aug9_asinh/last.ckpt'
-        elif statistic == 'dsc_conf':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_conf/cosmo+hod/aug9/last-v1.ckpt'
-        elif statistic == 'dsc_fourier':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_fourier/cosmo+hod/sep4/last.ckpt'
-        elif statistic == 'knn':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/knn/cosmo+hod/optuna/last-v13.ckpt'
-        elif statistic == 'wst':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wst/cosmo+hod/optuna/last-v80.ckpt'
-        elif statistic == 'voxel_voids':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/voxel_voids/cosmo+hod/sep16/last.ckpt'
-        elif statistic == 'minkowski':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/minkowski/cosmo+hod/sep17/best-model-epoch=217-val_loss=0.0217.ckpt'
+        if model_dir_dict is None:
+            checkpoint_fn = DEFAULT_MODEL_DIR_DICT[statistic]
+        else:
+            checkpoint_fn = model_dir_dict[statistic]
+
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval()
         model_all.append(model)
@@ -356,14 +358,16 @@ def read_emulator_error(statistics, select_filters={}, slice_filters={}):
         y = data['emulator_error']
         if coords and slice_filters:
             y, mask = filter_emulator_error(y, coords, select_filters, slice_filters)
-        print(np.shape(y))
         y_all.append(y)
     y_all = np.concatenate(y_all, axis=0)
     return y_all
 
 def filter_lhc(lhc_y, coords, select_filters, slice_filters):
-    select_filters = {key: value for key, value in select_filters.items() if key in coords}
-    slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
+    if select_filters is not None:
+        select_filters = {key: value for key, value in select_filters.items() if key in coords}
+    if slice_filters is not None:
+        slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
+
     dimensions = list(coords.keys())
     # dimensions.insert(0, 'mock_idx')
     # coords['mock_idx'] = np.arange(lhc_y.shape[0])
@@ -385,11 +389,13 @@ def filter_lhc(lhc_y, coords, select_filters, slice_filters):
         slice_mask = np.full(lhc_y.shape, False)
     mask = select_mask | slice_mask
     # return lhc_y.values[~mask].reshape(lhc_y.shape[0], -1), mask[0]
-    return lhc_y.values[~mask], mask[0]
+    return lhc_y.values[~mask], mask[0][0]
 
 def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
-    select_filters = {key: value for key, value in select_filters.items() if key in coords}
-    slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
+    if select_filters is not None:
+        select_filters = {key: value for key, value in select_filters.items() if key in coords}
+    if slice_filters is not None:
+        slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
     dimensions = list(coords.keys())
     # dimensions.insert(0, 'mock_idx')
     # coords['mock_idx'] = np.arange(lhc_y.shape[0])
@@ -472,15 +478,39 @@ def get_chain_fn(statistic, mock_idx, kmin, kmax, smin, smax):
 def read_chain(statistic, mock_idx=0, kmin=0, kmax=1, smin=0, smax=150, return_labels=False):
     from getdist import MCSamples
     chain_fn = get_chain_fn(statistic, mock_idx, kmin, kmax, smin, smax)
+    return read_chain_from_fn(chain_fn=chain_fn, return_labels=return_labels,)
+
+
+def read_chain_from_fn(chain_fn, return_labels=False, return_true_params=False):
+    from getdist import MCSamples
     data = np.load(chain_fn, allow_pickle=True).item()
+    ranges=[data['param_ranges'][name] for name in data['param_names']]
+    print('values')
+    for min_val, max_val in ranges:
+        if min_val < max_val:
+            print(min_val, max_val)
+    print('out')
+    ranges = [(min_val, max_val) if min_val < max_val else (max_val, min_val) for min_val, max_val in ranges]
+    for i, name in enumerate(data['param_names']):
+        if min_val > max_val:
+            print(name)
+            print(ranges[i][0], ranges[i][1])
+
+    # make sure that delta_range is always positive
+
     chain = MCSamples(
                 samples=data['samples'],
                 weights=data['weights'],
-                names=data['names'],
-                ranges=data['ranges'],
-                labels=data['labels'],
+                names=data['param_names'],
+                ranges = ranges,
+                labels=[data['param_labels'][name] for name in data['param_names']],
             )
-    if return_labels:
-        return chain, data['labels']
+    
+    # Construct the return tuple based on the flags
+    if return_labels and return_true_params:
+        return chain, data['param_labels'], [data['true_params'][name] for name in data['param_names']]
+    elif return_labels:
+        return chain, data['param_labels']
+    elif return_true_params:
+        return chain, data['true_params']
     return chain
-
