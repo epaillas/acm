@@ -128,11 +128,10 @@ def summary_coords_lhc_x(statistic, sep):
             'param_idx': list(range(20)),
         }
     if statistic == 'dsc_conf':
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(100)),
+            'param_idx': list(range(20))
         return {
-            'statistics': ['quantile_data_correlation', 'quantile_correlation'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            's': sep,
         }
     if statistic == 'dsc_fourier':
         return {
@@ -233,6 +232,7 @@ def summary_coords_smallbox(statistic, sep):
         }
     if statistic == 'dsc_conf':
         return {
+            'phase_idx': list(range(1786)),
             'statistics': ['quantile_data_correlation', 'quantile_correlation'],
             'quantiles': [0, 1, 3, 4],
             'multipoles': [0, 2],
