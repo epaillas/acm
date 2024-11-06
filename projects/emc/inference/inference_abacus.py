@@ -139,10 +139,10 @@ def get_posterior(
     }
 
     return hmc(
-        num_warmup=500,
-        num_samples=2000,
+        num_warmup=250,
+        num_samples=1000,
         dense_mass=True,
-        target_accept_prob=0.95,
+        #target_accept_prob=0.95,
         num_chains=num_chains,
         save_fn=save_fn,
         metadata=metadata,

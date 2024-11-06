@@ -128,10 +128,10 @@ def summary_coords_lhc_x(statistic, sep):
             'param_idx': list(range(20)),
         }
     if statistic == 'dsc_conf':
+        return{
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(100)),
             'param_idx': list(range(20))
-        return {
         }
     if statistic == 'dsc_fourier':
         return {
