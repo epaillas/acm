@@ -11,16 +11,15 @@ from acm.data.io_tools import *
 import argparse
 
 
-def get_covariance_correction(n_s, n_d, n_theta=None, correction_method="percival"):
-    if correction_method == "percival":
-        B = (n_s - n_d - 2) / ((n_s - n_d - 1) * (n_s - n_d - 4))
-        return (n_s - 1) * (1 + B * (n_d - n_theta)) / (n_s - n_d + n_theta - 1)
-    elif correction_method == "hartlap":
-        return (n_s - 1) / (n_s - n_d - 2)
-
+def get_covariance_correction(n_s, n_d, n_theta=None, correction_method='percival'):
+    if correction_method == 'percival':
+        B = (n_s - n_d - 2) / ((n_s - n_d - 1)*(n_s - n_d - 4))
+        return (n_s - 1)*(1 + B*(n_d - n_theta))/(n_s - n_d + n_theta - 1)
+    elif correction_method == 'hartlap':
+        return (n_s - 1)/(n_s - n_d - 2)
 
 def get_priors(cosmo=True, hod=True):
-    stats_module = "numpyro.distributions"
+    stats_module = 'numpyro.distributions'
     priors, ranges, labels = {}, {}, {}
     if cosmo:
         priors.update(AbacusSummit(stats_module).priors)
@@ -32,8 +31,7 @@ def get_priors(cosmo=True, hod=True):
         labels.update(Yuan23(stats_module).labels)
     return priors, ranges, labels
 
-
-def get_save_fn(save_dir, statistic):
+def get_save_fn(save_dir,):
     save_dir.mkdir(parents=True, exist_ok=True)
     slice_str = ""
     select_str = ""
@@ -120,11 +118,11 @@ def get_posterior(
         priors=priors,
         ranges=ranges,
         labels=labels,
-        model_filters=[~mf for mf in model_filters],
+        model_filters=model_filters,
     )
     numpyro.set_host_device_count(num_chains)
 
-    save_fn = get_save_fn(save_dir=save_dir, statistic="+".join(statistics))
+    save_fn = get_save_fn(save_dir=save_dir / "+".join(statistics))
 
     metadata = {
         # 'select_filters': select_filters,
@@ -141,10 +139,8 @@ def get_posterior(
     }
 
     return hmc(
-        #num_warmup=500,
-        num_warmup=50,
-        #num_samples=2000,
-        num_samples=50,
+        num_warmup=500,
+        num_samples=2000,
         dense_mass=True,
         target_accept_prob=0.95,
         num_chains=num_chains,

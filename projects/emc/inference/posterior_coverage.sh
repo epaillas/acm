@@ -13,7 +13,7 @@ for HOD_IDX in {0..100}; do
 
     # HOD_IDX=$(($RANDOM % 100))
 
-    python /global/u1/e/epaillas/code/acm/projects/emc/validation_abacus/sample_hmc.py \
+    python /global/u1/e/epaillas/code/acm/projects/emc/inference/inference_abacus.py \
     --cosmo_idx $COSMO_IDX --hod_idx $HOD_IDX
 
 done

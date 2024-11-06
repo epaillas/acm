@@ -29,6 +29,34 @@ labels_stats = {
     'pk': 'P(k)',
 }
 
+def summary_coords_diffsky(statistic, sep):
+    if statistic == 'tpcf':
+        return {
+            'multipoles': [0, 2],
+            's': sep,
+        }
+    if statistic == 'dsc_fourier':
+        return {
+            'statistics': ['quantile_data_power', 'quantile_power'],
+            'quantiles': [0, 1, 3, 4],
+            'multipoles': [0, 2],
+            'k': sep,
+        }
+
+def summary_coords_diffsky(statistic, sep):
+    if statistic == 'tpcf':
+        return {
+            'multipoles': [0, 2],
+            's': sep,
+        }
+    if statistic == 'dsc_fourier':
+        return {
+            'statistics': ['quantile_data_power', 'quantile_power'],
+            'quantiles': [0, 1, 3, 4],
+            'multipoles': [0, 2],
+            'k': sep,
+        }
+
 def summary_coords_lhc_y(statistic, sep):
     if statistic == 'number_density':
         return {
@@ -53,7 +81,14 @@ def summary_coords_lhc_y(statistic, sep):
             'multipoles': [0, 2],
             'k': sep,
         }
-    if statistic in ['tpcf', 'voxel_voids']:
+    if statistic == 'tpcf':
+        return {
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(100)),
+            'multipoles': [0, 2],
+            's': sep,
+        }
+    if statistic == 'voxel_voids':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(100)),
@@ -101,12 +136,17 @@ def summary_coords_lhc_x(statistic, sep):
         }
     if statistic == 'dsc_fourier':
         return {
-            'statistics': ['quantile_data_power', 'quantile_power'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            'k': sep,
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(250)),
+            'param_idx': list(range(20))
         }
-    if statistic in ['tpcf', 'voxel_voids']:
+    if statistic == 'tpcf':
+        return {
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(100)),
+            'param_idx': list(range(20))
+        }
+    if statistic =='voxel_voids':
         return {
             'multipoles': [0, 2],
             's': sep,
@@ -128,7 +168,7 @@ def summary_coords_lhc_x(statistic, sep):
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(350)),
-            'coeff_idx': sep,
+            'param_idx': list(range(20))
         }
     if statistic == 'minkowski':
         return {
@@ -153,7 +193,7 @@ def summary_coords_emulator_error(statistic, sep):
             'multipoles': [0, 2],
             'k': sep,
         }
-    if statistic in ['tpcf', 'voxel_voids']:
+    if statistic == 'voxel_voids':
         return {
             'multipoles': [0, 2],
             's': sep,
@@ -162,6 +202,11 @@ def summary_coords_emulator_error(statistic, sep):
         return {
             'multipoles': [0, 2],
             'k': sep,
+        }
+    if statistic == 'tpcf':
+        return {
+            'multipoles': [0, 2],
+            's': sep,
         }
     if statistic == 'wp':
         return {
@@ -172,8 +217,8 @@ def summary_coords_emulator_error(statistic, sep):
         }
     if statistic == 'wst':
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(350)),
+            # 'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            # 'hod_idx': list(range(350)),
             'coeff_idx': sep,
         }
     if statistic == 'minkowski':
@@ -195,12 +240,13 @@ def summary_coords_smallbox(statistic, sep):
         }
     if statistic == 'dsc_fourier':
         return {
+            'phase_idx': list(range(1786)),
             'statistics': ['quantile_data_power', 'quantile_power'],
             'quantiles': [0, 1, 3, 4],
             'multipoles': [0, 2],
             'k': sep,
         }
-    if statistic in ['tpcf', 'voxel_voids']:
+    if statistic == 'voxel_voids':
         return {
             'multipoles': [0, 2],
             's': sep,
@@ -210,6 +256,12 @@ def summary_coords_smallbox(statistic, sep):
             'phase_idx': list(range(1786)),
             'multipoles': [0, 2],
             'k': sep,
+        }
+    if statistic == 'tpcf':
+        return {
+            'phase_idx': list(range(1786)),
+            'multipoles': [0, 2],
+            's': sep,
         }
     if statistic == 'wp':
         return {
@@ -285,7 +337,7 @@ def read_lhc(statistics, select_filters={}, slice_filters={}, return_mask=False,
             lhc_x, _ = filter_lhc(lhc_x, coords_x, select_filters, slice_filters)
             mask_all.append(mask)
         else:
-            mask_all.append(np.full(lhc_y.shape[1], False))
+            mask_all.append(np.full(lhc_y.shape, False))
         lhc_y_all.append(lhc_y)
     lhc_y_all = np.concatenate(lhc_y_all, axis=0)
     toret = (lhc_x, lhc_y_all, lhc_x_names)
@@ -302,7 +354,7 @@ def read_diffsky(statistics, select_filters={}, slice_filters={}, return_mask=Fa
         data_fn = diffsky_fnames(statistic)
         data = np.load(data_fn, allow_pickle=True).item()
         sep = read_separation(statistic, data)
-        coords = summary_coords(statistic, sep)
+        coords = summary_coords_diffsky(statistic, sep)
         y = data['diffsky_y']
         if coords and (select_filters or slice_filters):
             y, mask = filter_diffsky(y, coords, select_filters, slice_filters)
@@ -343,6 +395,27 @@ def read_model(statistics, model_dir_dict = None,):
         else:
             checkpoint_fn = model_dir_dict[statistic]
 
+        if statistic == 'number_density':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/number_density/cosmo+hod/aug10/last.ckpt'
+        if statistic == 'wp':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wp/cosmo+hod/jul10_trans/last-v30.ckpt'
+        if statistic == 'pk':
+            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/aug8/last.ckpt'
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/optuna/last-v31.ckpt'
+        elif statistic == 'tpcf':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/cosmo+hod/aug9_asinh/last.ckpt'
+        elif statistic == 'dsc_conf':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_conf/cosmo+hod/aug9/last-v1.ckpt'
+        elif statistic == 'dsc_fourier':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_fourier/cosmo+hod/optuna/last-v25.ckpt'
+        elif statistic == 'knn':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/knn/cosmo+hod/optuna/last-v13.ckpt'
+        elif statistic == 'wst':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wst/cosmo+hod/optuna/last-v80.ckpt'
+        elif statistic == 'voxel_voids':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/voxel_voids/cosmo+hod/sep16/last.ckpt'
+        elif statistic == 'minkowski':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/minkowski/cosmo+hod/sep17/best-model-epoch=217-val_loss=0.0217.ckpt'
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval()
         model_all.append(model)
@@ -369,8 +442,6 @@ def filter_lhc(lhc_y, coords, select_filters, slice_filters):
         slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
 
     dimensions = list(coords.keys())
-    # dimensions.insert(0, 'mock_idx')
-    # coords['mock_idx'] = np.arange(lhc_y.shape[0])
     lhc_y = lhc_y.reshape([len(coords[d]) for d in dimensions])
     lhc_y = convert_to_summary(data=lhc_y, dimensions=dimensions, coords=coords)
     if select_filters:
@@ -388,8 +459,7 @@ def filter_lhc(lhc_y, coords, select_filters, slice_filters):
     else:
         slice_mask = np.full(lhc_y.shape, False)
     mask = select_mask | slice_mask
-    # return lhc_y.values[~mask].reshape(lhc_y.shape[0], -1), mask[0]
-    return lhc_y.values[~mask], mask[0][0]
+    return lhc_y.values[~mask], mask[np.where(~mask)[0][0], np.where(~mask)[1][0]].reshape(-1)
 
 def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
     if select_filters is not None:
@@ -397,8 +467,6 @@ def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
     if slice_filters is not None:
         slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
     dimensions = list(coords.keys())
-    # dimensions.insert(0, 'mock_idx')
-    # coords['mock_idx'] = np.arange(lhc_y.shape[0])
     lhc_y = lhc_y.reshape([len(coords[d]) for d in dimensions])
     lhc_y = convert_to_summary(data=lhc_y, dimensions=dimensions, coords=coords)
     if select_filters:
@@ -417,7 +485,6 @@ def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
         slice_mask = np.full(lhc_y.shape, False)
     mask = select_mask | slice_mask
     return lhc_y.values[~mask].reshape(lhc_y.shape[0], -1), mask[0]
-    # return lhc_y.values[~mask].reshape(-1), mask[0]
 
 def filter_diffsky(y, coords, select_filters, slice_filters):
     select_filters = {key: value for key, value in select_filters.items() if key in coords}
@@ -485,19 +552,6 @@ def read_chain_from_fn(chain_fn, return_labels=False, return_true_params=False):
     from getdist import MCSamples
     data = np.load(chain_fn, allow_pickle=True).item()
     ranges=[data['param_ranges'][name] for name in data['param_names']]
-    print('values')
-    for min_val, max_val in ranges:
-        if min_val < max_val:
-            print(min_val, max_val)
-    print('out')
-    ranges = [(min_val, max_val) if min_val < max_val else (max_val, min_val) for min_val, max_val in ranges]
-    for i, name in enumerate(data['param_names']):
-        if min_val > max_val:
-            print(name)
-            print(ranges[i][0], ranges[i][1])
-
-    # make sure that delta_range is always positive
-
     chain = MCSamples(
                 samples=data['samples'],
                 weights=data['weights'],
