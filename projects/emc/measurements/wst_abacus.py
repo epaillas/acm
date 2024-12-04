@@ -59,7 +59,7 @@ S.to(device)
 txt_file = open("/pscratch/sd/g/gvalogia/wst/log_kron/tasks.disbatch_copy", "r")
 
 content_list = txt_file.read().splitlines()
-cosmos = np.loadtxt("/pscratch/sd/g/gvalogia/wst/Emulator_cosmo.txt")\
+cosmos = np.loadtxt("/pscratch/sd/g/gvalogia/wst/Emulator_cosmo.txt")
 
 #New loop to evaluate WST for 85 abacus cosmologies produced by Enrique, for 350 HOD configurations each
 n_HOD = 350
