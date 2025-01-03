@@ -31,7 +31,7 @@ def get_priors(cosmo=True, hod=True):
         labels.update(Yuan23(stats_module).labels)
     return priors, ranges, labels
 
-def get_save_fn(save_dir,):
+def get_save_fn(save_dir, slice_filters, select_filters):
     save_dir.mkdir(parents=True, exist_ok=True)
     slice_str = ""
     select_str = ""
@@ -44,6 +44,10 @@ def get_save_fn(save_dir,):
     return Path(save_dir) / f"chain{select_str}{slice_str}.npy"
 
 def get_posterior(
+    priors,
+    ranges,
+    labels,
+    num_chains,
     statistics,
     select_filters,
     slice_filters,
@@ -122,7 +126,7 @@ def get_posterior(
     )
     numpyro.set_host_device_count(num_chains)
 
-    save_fn = get_save_fn(save_dir=save_dir / "+".join(statistics))
+    save_fn = get_save_fn(save_dir=save_dir / "+".join(statistics),slice_filters=slice_filters, select_filters=select_filters)
 
     metadata = {
         # 'select_filters': select_filters,
@@ -138,11 +142,11 @@ def get_posterior(
         # 'model_filters': model_filters,
     }
 
-    return hmc(
-        num_warmup=250,
-        num_samples=1000,
+    return nn_model, nn_params, data_y, covariance_matrix, hmc(
+        num_warmup=500,
+        num_samples=2000,
         dense_mass=True,
-        #target_accept_prob=0.95,
+        target_accept_prob=0.95,
         num_chains=num_chains,
         save_fn=save_fn,
         metadata=metadata,
@@ -174,6 +178,10 @@ if __name__ == "__main__":
     num_chains = 1
     slice_filters = None
     posterior = get_posterior(
+        priors=priors,
+        ranges=ranges,
+        labels=labels,
+        num_chains=num_chains,
         statistics=statistics,
         select_filters=select_filters,
         slice_filters=slice_filters,
