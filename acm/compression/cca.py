@@ -1,6 +1,14 @@
 import jax
-from jax.numpy import jnp
+import jax.numpy as jnp
 from typing import Tuple
+
+def generalized_eigh(A, B):
+    L = jnp.linalg.cholesky(B)
+    L_inv = jnp.linalg.inv(L)
+    C = L_inv @ A @ L_inv.T
+    eigenvalues, eigenvectors_transformed = jnp.linalg.eigh(C)
+    eigenvectors_original = L_inv.T @ eigenvectors_transformed
+    return eigenvalues, eigenvectors_original
 
 # Equation 18 from arXiv:2409.02102
 def compute_cca_compression(
@@ -43,7 +51,12 @@ def compute_cca_compression(
     # Note we assume that the covariance of the data is independent of the parameters
     Ctp = (data_centered.T @ param_centered) / n_samples
     Cl = Ctp @ jnp.linalg.inv(Cp) @ Ctp.T
-    eigenvals, eigenvecs = jax.scipy.linalg.eigh(Ct, Ct - Cl)
+    print('Ctp = ', Ctp)
+    print('Cl = ', Cl)
+
+    print('Ct = ', Ct)
+    print('Ct - Cl = ', Ct - Cl)
+    eigenvals, eigenvecs = generalized_eigh(Ct, Ct - Cl)
     idx = jnp.argsort(eigenvals)[::-1]
     
     return eigenvecs[:, idx], eigenvals[idx]

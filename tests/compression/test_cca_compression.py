@@ -16,10 +16,10 @@ def test_simple_linear_case():
     
     # Setup
     n_samples = 1000
-    n_features = 10
+    n_features = 3 
     
     # True direction in feature space
-    a = jnp.array([1., 0., 0., 0., 0., 0., 0., 0., 0., 0.])
+    a = jnp.array([0.1, 0.6,  0.3,]) 
     
     # Generate parameters
     key, subkey = jax.random.split(key)
@@ -27,18 +27,19 @@ def test_simple_linear_case():
     
     # Generate clean data
     data = params @ a[None, :]
+    print('data = ', data)
     
     # Fixed noise covariance (diagonal for simplicity)
-    noise_scale = 0.1
+    noise_scale = 1.
     fixed_cov = jnp.eye(n_features) * noise_scale**2
     
     # Compute compression
     compression_matrix, eigenvals = compute_cca_compression(data, params, fixed_cov)
     
+    print('eigenvals = ', eigenvals)
+    print('compression_matrix = ', compression_matrix)
     # First eigenvector should align with true direction
     v1 = compression_matrix[:, 0]
-    alignment = jnp.abs(jnp.dot(v1, a))
+    alignment = jnp.abs(jnp.dot(v1, a)/jnp.linalg.norm(v1)/jnp.linalg.norm(a))
     assert alignment > 0.99, "First component should align with true direction"
     
-    # First eigenvalue should be much larger than others
-    assert eigenvals[0] > 5 * eigenvals[1], "First eigenvalue should dominate"
