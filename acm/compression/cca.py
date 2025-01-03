@@ -51,11 +51,6 @@ def compute_cca_compression(
     # Note we assume that the covariance of the data is independent of the parameters
     Ctp = (data_centered.T @ param_centered) / n_samples
     Cl = Ctp @ jnp.linalg.inv(Cp) @ Ctp.T
-    print('Ctp = ', Ctp)
-    print('Cl = ', Cl)
-
-    print('Ct = ', Ct)
-    print('Ct - Cl = ', Ct - Cl)
     eigenvals, eigenvecs = generalized_eigh(Ct, Ct - Cl)
     idx = jnp.argsort(eigenvals)[::-1]
     

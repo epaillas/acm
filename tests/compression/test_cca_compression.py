@@ -27,7 +27,6 @@ def test_simple_linear_case():
     
     # Generate clean data
     data = params @ a[None, :]
-    print('data = ', data)
     
     # Fixed noise covariance (diagonal for simplicity)
     noise_scale = 1.
@@ -36,8 +35,6 @@ def test_simple_linear_case():
     # Compute compression
     compression_matrix, eigenvals = compute_cca_compression(data, params, fixed_cov)
     
-    print('eigenvals = ', eigenvals)
-    print('compression_matrix = ', compression_matrix)
     # First eigenvector should align with true direction
     v1 = compression_matrix[:, 0]
     alignment = jnp.abs(jnp.dot(v1, a)/jnp.linalg.norm(v1)/jnp.linalg.norm(a))
