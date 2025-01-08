@@ -48,10 +48,15 @@ def compute_cca_compression(
 
     Ct = data_covariance
     Cp = (param_centered.T @ param_centered) / n_samples
+    Cp += jnp.eye(Cp.shape[0]) * 1e-8 
     # Note we assume that the covariance of the data is independent of the parameters
     Ctp = (data_centered.T @ param_centered) / n_samples
     Cl = Ctp @ jnp.linalg.inv(Cp) @ Ctp.T
-    eigenvals, eigenvecs = generalized_eigh(Ct, Ct - Cl)
+    diff = Ct - Cl
+    
+    # Add small regularization to diagonal
+    diff += jnp.eye(diff.shape[0]) * 1e-8
+    eigenvals, eigenvecs = generalized_eigh(Ct, diff)
     idx = jnp.argsort(eigenvals)[::-1]
     
     return eigenvecs[:, idx], eigenvals[idx]
