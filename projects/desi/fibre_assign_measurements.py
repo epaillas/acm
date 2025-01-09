@@ -172,9 +172,11 @@ def compute_and_store_dsc(
     sedges = np.arange(0, 201, 1)
     muedges = np.linspace(-1, 1, 241)
     ccf = ds.quantile_data_correlation(
-        pos, edges=(sedges, muedges), los="midpoint", nthreads=128, gpu=False
+        data_positions=pos, randoms_positions=randoms_pos,
+        edges=(sedges, muedges), los="midpoint", nthreads=128, gpu=False
     )
     acf = ds.quantile_correlation(
+        randoms_positions=randoms_pos,
         edges=(sedges, muedges), los="midpoint", nthreads=128, gpu=False
     )
     filename = f"dsc_ccf_mock{mock_id}"
@@ -218,7 +220,7 @@ if __name__ == "__main__":
     mock_ids = list(range(25))
     fiber_asignments = [None, "altmtl", "ffa"]
     summary_statistics = [
-        "wst",
+        # "wst",
         "dsc",
     ]  #'wst',]
     keep_ratio = 0.6
@@ -237,8 +239,8 @@ if __name__ == "__main__":
                 # downsample all factors of 100 for testing
                 pos = pos[::]
                 weights = weights[::]
-                randoms_pos = randoms_pos[::100]
-                randoms_weights = randoms_weights[::100]
+                randoms_pos = randoms_pos[::10]
+                randoms_weights = randoms_weights[::10]
             print(f"Number of galaxies: {len(pos)}")
             print(f"Number of randoms: {len(randoms_pos)}")
 

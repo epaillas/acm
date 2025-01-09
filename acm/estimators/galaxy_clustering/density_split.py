@@ -125,6 +125,7 @@ class DensitySplit(BaseEnvironmentEstimator):
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
+            kwargs['randoms_positions1'] = kwargs.pop('randoms_positions')
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.delta_mesh.boxsize
@@ -225,7 +226,7 @@ class DensitySplit(BaseEnvironmentEstimator):
             self._quantile_power.append(result)
         return self._quantile_power
 
-    def plot_quantiles(self):
+    def plot_quantiles(self, save_fn=None):
         import matplotlib.pyplot as plt
         import matplotlib
         plt.rc('text', usetex=True)
@@ -247,6 +248,7 @@ class DensitySplit(BaseEnvironmentEstimator):
         ax.set_xlim(-1.3, 3.0)
         ax.legend(handlelength=1.0)
         plt.tight_layout()
+        if save_fn: plt.savefig(save_fn, bbox_inches='tight')
         plt.show()
         return fig
 
