@@ -11,7 +11,7 @@ torch.set_float32_matmul_precision('high')
 
 def TrainFCN(statistic, learning_rate, n_hidden, dropout_rate, weight_decay):
     final_model = False
-    apply_transform = False
+    apply_transform = True
     select_filters = {}
     slice_filters = {}
 
@@ -84,8 +84,10 @@ def TrainFCN(statistic, learning_rate, n_hidden, dropout_rate, weight_decay):
             covariance_matrix=covariance_matrix,
         )
 
-    model_dir = f'/pscratch/sd/e/epaillas/emc/trained_models/{statistic}/cosmo+hod/optuna/'
+    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/optuna_log/'
+    # model_dir = f'/pscratch/sd/e/epaillas/emc/trained_models/{statistic}/cosmo+hod/nov20/'
     Path(model_dir).mkdir(parents=True, exist_ok=True)
+    print(f'Saving model to {model_dir}')
 
     val_loss, model, early_stop_callback = train.fit(
         data=data, model=model,
@@ -96,8 +98,9 @@ def TrainFCN(statistic, learning_rate, n_hidden, dropout_rate, weight_decay):
     return val_loss
 
 if __name__ == '__main__':
-    statistic = 'wst'
+    statistic = 'pdf_r20'
     TrainFCN(
+        statistic=statistic,
         learning_rate=1.e-3,
         n_hidden=[512, 512, 512, 512],
         dropout_rate=0.,
