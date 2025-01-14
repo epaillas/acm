@@ -9,6 +9,7 @@ from pathlib import Path
 from cosmoprimo.fiducial import DESI
 from acm.estimators.galaxy_clustering.density_split import DensitySplit
 from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
+from acm.estimators.galaxy_clustering.minkowski import MinkowskiFunctionals 
 from acm.utils import setup_logging
 import logging
 
@@ -138,17 +139,6 @@ def compute_and_store_tpcf(
     tpcf.save(output_dir / f"{filename}.npy")
 
 
-def downsample_to_closest_integer(arr, n):
-    target_size = round(len(arr) / n)
-
-    if len(arr) <= n:
-        return arr
-
-    # Generate random indices without replacement
-    indices = np.random.choice(len(arr), size=target_size, replace=False)
-
-    return arr[indices]
-
 
 def compute_and_store_dsc(
     pos, weights, randoms_pos, randoms_weights, mock_id, fiber_asign=None,
@@ -166,9 +156,8 @@ def compute_and_store_dsc(
         weights=randoms_weights,
     )
     ds.set_density_contrast(smoothing_radius=smoothing_radius, save_wisdom=False)
-    quantiles_pos = downsample_to_closest_integer(randoms_pos, nquantiles)
     ds.set_quantiles(
-        query_positions=quantiles_pos, nquantiles=nquantiles, query_method="randoms"
+        query_positions=randoms_pos, nquantiles=nquantiles, query_method="randoms"
     )
     sedges = np.arange(0, 201, 1)
     muedges = np.linspace(-1, 1, 241)
@@ -213,6 +202,28 @@ def compute_and_store_wst(
     if fiber_asign is not None:
         filename += f"_{fiber_asign}"
     np.save(output_dir / f"{filename}.npy", smatavg)
+
+
+def compute_and_store_mf(
+    pos, weights, randoms_pos, randoms_weights, mock_id, fiber_asign=None
+):
+    smoothing_radius = 10
+    cellsize = 5.0
+    mf = MinkowskiFunctionals(positions=randoms_pos, cellsize=cellsize)
+    mf.assign_data(
+        positions=pos,
+        weights=weights,
+    )
+    mf.assign_randoms(
+        positions=randoms_pos,
+        weights=randoms_weights,
+    )
+    mf.set_density_contrast(smoothing_radius=smoothing_radius, save_wisdom=True)
+    mf.run()
+    filename = f"mf_mock{mock_id}"
+    if fiber_asign is not None:
+        filename += f"_{fiber_asign}"
+    np.save(output_dir / f"{filename}.npy", mf.MFs)
 
 
 if __name__ == "__main__":
@@ -271,6 +282,15 @@ if __name__ == "__main__":
                     )
                 elif statistic == "wst":
                     compute_and_store_wst(
+                        pos,
+                        weights,
+                        randoms_pos,
+                        randoms_weights,
+                        mock_id=mock_id,
+                        fiber_asign=fiber_asign,
+                    )
+                elif statistic == "mf":
+                    compute_and_store_mf(
                         pos,
                         weights,
                         randoms_pos,
