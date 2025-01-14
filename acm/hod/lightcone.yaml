@@ -1,0 +1,45 @@
+# Comment out the probes you don't need
+# CAREFUL: yaml is super sensitive to spaces - don't use tabs
+
+# Simulation parameters
+sim_params:
+    sim_dir: '/global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/halo_light_cones/'
+    subsample_dir: '/pscratch/sd/e/epaillas/summit_subsamples/lightcones/'
+    cleaned_halos: '/global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/cleaning/'
+    Nthread_load: 3
+    z_mock: 0.575                                                      
+    halo_lc: True
+
+prepare_sim:
+    Nparallel_load: 2
+
+# HOD parameters
+HOD_params:
+    use_particles: True
+    want_ranks: True               # want to implement satellite profile flexiblities?
+    want_AB: True               # want to implement assembly bias?              
+    density_sigma: 3               # scale radius in Mpc / h for local density calculation
+    tracer_flags:                  # which tracer do we want?
+        LRG: True 
+        ELG: False
+        QSO: False
+    want_rsd: True                 # want RSD? 
+    write_to_disk: False
+
+    LRG_params:
+        logM_cut: 12.87
+        logM1: 14.06
+        sigma: 0.02083802
+        alpha: 1.15
+        kappa: 0.42
+        alpha_c: 0.22
+        alpha_s: 0.94
+        s: 0
+        s_v: 0
+        s_p: 0
+        s_r: 0
+        Acent: 0
+        Asat: 0
+        Bcent: 0
+        Bsat: 0
+        ic: 1.0
