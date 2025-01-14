@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 from astropy.io import fits
 import numpy as np
 from pycorr import TwoPointCorrelationFunction
@@ -11,7 +12,7 @@ from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
 from acm.utils import setup_logging
 import logging
 
-logger = logging.getLogger("densitysplit_diffsky")
+logger = logging.getLogger("fibers")
 setup_logging()
 
 cosmo = DESI()
@@ -150,10 +151,10 @@ def downsample_to_closest_integer(arr, n):
 
 
 def compute_and_store_dsc(
-    pos, weights, randoms_pos, randoms_weights, mock_id, fiber_asign=None
+    pos, weights, randoms_pos, randoms_weights, mock_id, fiber_asign=None,
 ):
     smoothing_radius = 10
-    cellsize = 4.0
+    cellsize = 10.0
     nquantiles = 5
     ds = DensitySplit(positions=randoms_pos, cellsize=cellsize)
     ds.assign_data(
@@ -164,7 +165,7 @@ def compute_and_store_dsc(
         positions=randoms_pos,
         weights=randoms_weights,
     )
-    ds.set_density_contrast(smoothing_radius=smoothing_radius, save_wisdom=True)
+    ds.set_density_contrast(smoothing_radius=smoothing_radius, save_wisdom=False)
     quantiles_pos = downsample_to_closest_integer(randoms_pos, nquantiles)
     ds.set_quantiles(
         query_positions=quantiles_pos, nquantiles=nquantiles, query_method="randoms"
@@ -182,18 +183,21 @@ def compute_and_store_dsc(
     filename = f"dsc_ccf_mock{mock_id}"
     if fiber_asign is not None:
         filename += f"_{fiber_asign}"
-    ccf.save(output_dir / f"{filename}.npy")
+    for quantile, ccf_quantile in enumerate(ccf):
+        ccf_quantile.save(output_dir / f"{filename}_q{quantile}.npy")
     filename = f"dsc_acf_mock{mock_id}"
     if fiber_asign is not None:
         filename += f"_{fiber_asign}"
-    acf.save(output_dir / f"{filename}.npy")
+    for quantile, acf_quantile in enumerate(acf):
+        acf_quantile.save(output_dir / f"{filename}_q{quantile}.npy")
+
 
 
 def compute_and_store_wst(
     pos, weights, randoms_pos, randoms_weights, mock_id, fiber_asign=None
 ):
     smoothing_radius = 10
-    cellsize = 4.0
+    cellsize = 5.0
     wst = WaveletScatteringTransform(positions=randoms_pos, cellsize=cellsize)
     wst.assign_data(
         positions=pos,
@@ -212,6 +216,11 @@ def compute_and_store_wst(
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--summary_statistics", nargs="+", default=["tpcf", "wst"])
+    args = parser.parse_args()
+    summary_statistics = args.summary_statistics
+
     data_dir = Path(
         "/global/cfs/cdirs/desi/survey/catalogs/Y1/mocks/SecondGenMocks/AbacusSummit_v4_1/"
     )
@@ -219,10 +228,7 @@ if __name__ == "__main__":
     test_mode = True
     mock_ids = list(range(25))
     fiber_asignments = [None, "altmtl", "ffa"]
-    summary_statistics = [
-        # "wst",
-        "dsc",
-    ]  #'wst',]
+    # turn summary statistics into command line arguments
     keep_ratio = 0.6
     zmin, zmax = 0.4, 0.6
     for mock_id in mock_ids:
@@ -233,10 +239,9 @@ if __name__ == "__main__":
                 fiber_asign=fiber_asign,
                 zmin=zmin,
                 zmax=zmax,
-                keep_ratio=keep_ratio,
+                keep_ratio=keep_ratio if fiber_asign is None else None,
             )
             if test_mode:
-                # downsample all factors of 100 for testing
                 pos = pos[::]
                 weights = weights[::]
                 randoms_pos = randoms_pos[::10]
