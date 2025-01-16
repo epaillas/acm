@@ -28,7 +28,32 @@ def summary_coords(
     param_number: int = 20,
     phase_number: int = 1786,
     summary_coords_stat: dict = summary_coords_stat
-    ):
+    ) -> dict:
+    """
+    Finds the summary coordinates for the given statistic and coordinate type.
+    
+
+    Parameters
+    ----------
+    statistic : str
+        Statistic name
+    coord_type : str
+        Type of coordinates for which to find the coordinates.
+        Can be 'lhc_y', 'lhc_x', 'smallbox', 'emulator_error'.
+    bin_values : _type_, optional
+        Values of the bins on which the summary statistics are computed. Defaults to None.
+    param_number : int, optional
+        Number of parameters used to generate the simulations. Useful for `coord_type='lhc_x'`. Defaults to 20.
+    phase_number : int, optional
+        Number of phases in the small box simulations. Useful for `coord_type='smallbox'`. Defaults to 1786.
+    summary_coords_stat : dict, optional
+        Dictionary containing the summary coordinates for each statistic. Defaults to summary_coords_stat from `acm.data.default`.
+
+    Returns
+    -------
+    dict
+        Dictionary containing the summary coordinates for the given statistic and coordinate type.
+    """
     
     input_dict = {
         'cosmo_idx': cosmo_list,
@@ -60,6 +85,8 @@ def summary_coords(
         return {**phase_dict, **stat_dict}
     elif coord_type == 'emulator_error':
         return {**stat_dict}
+    else:
+        raise ValueError(f'Unknown coord_type: {coord_type}')
 
 
 def lhc_fnames(statistic: str, 
