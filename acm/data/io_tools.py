@@ -1,7 +1,9 @@
 from pathlib import Path
 import numpy as np
-from sunbird.data.data_utils import convert_to_summary
 import yaml
+
+from sunbird.emulators import FCN
+from sunbird.data.data_utils import convert_to_summary
 
 from acm.data.default import cosmo_list, summary_coords_dict
 
@@ -318,7 +320,8 @@ def read_model(statistics: list,
         # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval()
-        model_all.append(model)
+        # NOTE : There was a condition on the minkowski statistic here. Keep it ?
+        model_all.append(model) 
         
     return model_all
 
