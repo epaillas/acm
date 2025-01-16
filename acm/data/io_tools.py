@@ -3,7 +3,7 @@ import numpy as np
 from sunbird.data.data_utils import convert_to_summary
 import yaml
 
-from acm.data.default import cosmo_list, summary_coords_stat
+from acm.data.default import cosmo_list, summary_coords_dict
 
 
 fourier_stats = ['pk', 'dsc_pk']
@@ -24,10 +24,7 @@ def summary_coords(
     statistic: str, 
     coord_type: str, 
     bin_values = None, # TODO : detect this in edge case later
-    hod_number: int = 100, 
-    param_number: int = 20,
-    phase_number: int = 1786,
-    summary_coords_stat: dict = summary_coords_stat
+    summary_coords_dict: dict = summary_coords_dict 
     ) -> dict:
     """
     Finds the summary coordinates for the given statistic and coordinate type.
@@ -48,18 +45,20 @@ def summary_coords(
     bin_values : _type_, optional
         Values of the bins on which the summary statistics are computed. 
         If set to None, the bin_values are not included in the summary coordinates. Defaults to None.
-    param_number : int, optional
-        Number of parameters used to generate the simulations. Useful for `coord_type='lhc_x'`. Defaults to 20.
-    phase_number : int, optional
-        Number of phases in the small box simulations. Useful for `coord_type='smallbox'`. Defaults to 1786.
-    summary_coords_stat : dict, optional
-        Dictionary containing the summary coordinates for each statistic. Defaults to summary_coords_stat from `acm.data.default`.
-
+    summary_coords_dict : dict, optional
+        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Defaults to summary_coords_dict from `acm.data.default`.
+        
     Returns
     -------
     dict
         Dictionary containing the summary coordinates for the given statistic and coordinate type.
     """
+    hod_number = summary_coords_dict['hod_number']
+    param_number = summary_coords_dict['param_number']
+    phase_number = summary_coords_dict['phase_number']
+    summary_coords_stat = summary_coords_dict['statistics']
+    
     input_dict = {
         'cosmo_idx': cosmo_list,
         'hod_idx': list(range(hod_number)),
@@ -138,31 +137,77 @@ def emulator_error_fnames(statistic: str,
         error_dir = Path(error_dir) / f'{statistic}/'
     return Path(error_dir) / f'{statistic}_emulator_error.npy' 
 
-def read_lhc(statistics, select_filters={}, slice_filters={}, return_mask=False, return_sep=False):
-    lhc_y_all = []
+def read_lhc(statistics: list, 
+             data_dir: str,
+             select_filters: dict = None, 
+             slice_filters: dict = None, 
+             return_mask: bool = False, 
+             return_sep: bool = False,
+             summary_coords_dict: dict = summary_coords_dict) -> tuple:
+    """
+    Read the LHC data for the emulator. It has to have been saved as a dictionary with keys `s`, `lhc_x` and `lhc_y`.
+    The `s` key is the separation array, `lhc_x` is the input features and `lhc_y` is the output features.
+    The `lhc_x` and `lhc_y` arrays are sliced to the first `n_hod` elements, and thus must have the same length.
+    The files read are `lhc_info_ccf.npy`, `lhc_info_acf.npy` and `lhc_info_tpcf.npy` for the CCF, ACF and TPCF respectively.
+
+    Parameters
+    ----------
+    statistic : list
+        Statistics to read. Will be concatenated in the output features in the given order.
+    data_dir : str
+        Directory where the data is stored.
+    select_filters : dict, optional
+        TODO
+    slice_filters : dict, optional
+        TODO
+    return_mask : bool, optional
+        Weather to return the mask array of the filtering process. Defaults to False.
+    return_sep : bool, optional
+        Weather to return the separation array. Defaults to False.
+    summary_coords_dict : dict, optional
+        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Defaults to summary_coords_dict from `acm.data.default`.
+
+    Returns
+    -------
+    Tuple
+        Tuple of arrays with the input features, output features and separation array if `return_sep` or `return_mask` is True : 
+        `(s), lhc_x, lhc_y, lhc_x_names, (mask)` 
+    """
+    lhc_y_all = [] # List of the output features for all statistics
     mask_all = []
+    
     for statistic in statistics:
-        data_fn = lhc_fnames(statistic)
+        data_fn = lhc_fnames(statistic, data_dir)
         data = np.load(data_fn, allow_pickle=True).item()
-        sep = read_separation(statistic, data)
-        coords_y = summary_coords_lhc_y(statistic, sep)
-        coords_x = summary_coords_lhc_x(statistic, sep)
+        
+        bin_values = data['bin_values']
         lhc_x = data['lhc_x']
         lhc_x_names = data['lhc_x_names']
         lhc_y = data['lhc_y']
+        
+        # Get the summary coordinates for the given statistic
+        coords_y = summary_coords(statistic, coord_type='lhc_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        coords_x = summary_coords(statistic, coord_type='lhc_x', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        # If filters are provided, filter the data
         if coords_y and (select_filters or slice_filters):
             lhc_y, mask = filter_lhc(lhc_y, coords_y, select_filters, slice_filters)
             lhc_x, _ = filter_lhc(lhc_x, coords_x, select_filters, slice_filters)
             mask_all.append(mask)
         else:
             mask_all.append(np.full(lhc_y.shape, False))
+        
         lhc_y_all.append(lhc_y)
-    lhc_y_all = np.concatenate(lhc_y_all, axis=0)
+    
+    # Concatenate the output features for all statistics
+    lhc_y_all = np.concatenate(lhc_y_all, axis=0) # TODO : check axis=0 or axis=1 ?? (or axis=-1)
+    
     toret = (lhc_x, lhc_y_all, lhc_x_names)
+    
     if return_mask:
         toret = (*toret, mask_all)
     if return_sep:
-        toret = (sep, *toret)
+        toret = (bin_values, *toret)
     return toret
 
 
