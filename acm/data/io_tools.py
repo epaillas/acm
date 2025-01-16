@@ -276,50 +276,50 @@ def read_covariance(statistics: list,
     
     return cov, len(y)
 
-def read_model(statistics):
-    from sunbird.emulators import FCN
+def read_model(statistics: list,
+               model_path: dict | str,
+               ) -> list:
+    """
+    Load the model from the checkpoint file. The checkpoint file is constructed from the model directory, the statistic, the model subdirectory and the checkpoint name.
+
+    Parameters
+    ----------
+    statistics : list
+        Statistics to load the model for. The models will be loaded in the given order.
+    model_path : dict | str
+        Path to the model directory. If a dictionary is given, the model subdirectory for each statistic is taken from the dictionary.
+        If a string is given, the model subdirectory is the same for all statistics. (can be useful if only one statistic is used)
+    
+    Returns
+    -------
+    list
+        List of the models for all statistics.
+    
+    Example
+    -------
+    ```python
+    >>> model_path = {'tpcf': '/ACM_pipeline/sunbird_training/models/cosmo+hod/last.ckpt',
+    ...               'ccf': '/ACM_pipeline/sunbird_training/models/cosmo/last.ckpt'}
+    >>> statistics = ['tpcf', 'acf']
+    ```
+    The model for the TPCF statistic will be loaded from the checkpoint file `/ACM_pipeline/sunbird_training/models/tpcf/cosmo+hod/last.ckpt`\n
+    The model for the ACF statistic will be loaded from the checkpoint file `/ACM_pipeline/sunbird_training/models/acf/cosmo/last.ckpt`
+    """
+    
+    # Handle the case where the model path is a string
+    if isinstance(model_path, str):
+        model_path = {statistic: model_path for statistic in statistics}
+    
     model_all = []
-    for statistic in statistics:
-        if statistic == 'number_density':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/number_density/cosmo+hod/aug10/last.ckpt'
-        if statistic == 'wp':
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wp/cosmo+hod/jul10_trans/last-v30.ckpt'
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/wp/cosmo+hod/optuna_arcsinh/last-v73.ckpt'
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/wp/cosmo+hod/optuna_log/last-v44.ckpt'
-        if statistic == 'pk':
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/aug8/last.ckpt'
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/optuna/last-v31.ckpt'
-        elif statistic == 'tpcf':
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/cosmo+hod/aug9_asinh/last.ckpt'
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/tpcf/cosmo+hod/optuna_log/last-v54.ckpt' #change log to asinh
-        elif statistic == 'dsc_conf':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_conf/cosmo+hod/aug9/last-v1.ckpt'
-        elif statistic == 'dsc_pk':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_fourier/cosmo+hod/optuna/last-v25.ckpt'
-        elif statistic == 'knn':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/knn/cosmo+hod/optuna/last-v13.ckpt'
-        elif statistic == 'wst':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wst/cosmo+hod/optuna/last-v80.ckpt'
-        elif statistic == 'voxel_voids':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/voxel_voids/cosmo+hod/sep16/last.ckpt'
-        elif statistic == 'minkowski':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/minkowski/cosmo+hod/best-model-epoch=132-val_loss=0.0319.ckpt'
-        elif statistic == 'mst':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/mst/cosmo+hod/optuna/last-v8.ckpt'
-        elif statistic == 'cgf_r10':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/cgf_r10/cosmo+hod/nov20/last-v3.ckpt'
-        elif statistic == 'pdf_r10':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/optuna/last-v13.ckpt'
-        elif statistic == 'pdf_r20':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/optuna/last-v33.ckpt'
+    for statistic in statistics:        
+        # Get the checkpoint file name
+        checkpoint_fn = Path(model_path[statistic])
+
+        # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
-        print(checkpoint_fn)
         model.eval()
-        if statistic == 'minkowski':
-            from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
-            model.transform_output = WeiLiuOutputTransForm()
-            model.transform_input = WeiLiuInputTransform()
         model_all.append(model)
+        
     return model_all
 
 def read_emulator_error(statistics, select_filters={}, slice_filters={}):
