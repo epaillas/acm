@@ -3,6 +3,8 @@ import numpy as np
 from sunbird.data.data_utils import convert_to_summary
 import yaml
 
+from acm.data.default import cosmo_list, summary_coords_stat
+
 
 fourier_stats = ['pk', 'dsc_pk']
 conf_stats = ['tpcf', 'dsc_conf']
@@ -18,322 +20,92 @@ labels_stats = {
     'pk': 'P(k)',
 }
 
+def summary_coords(
+    statistic: str, 
+    coord_type: str, 
+    bin_values = None, # TODO : detect this in edge case later
+    hod_number: int = 100, 
+    param_number: int = 20,
+    phase_number: int = 1786,
+    summary_coords_stat: dict = summary_coords_stat
+    ):
+    
+    input_dict = {
+        'cosmo_idx': cosmo_list,
+        'hod_idx': list(range(hod_number)),
+    }
+    
+    stat_dict = {
+        **summary_coords_stat[statistic],
+        'bin_values': bin_values,
+    }
+    
+    # NOTE : Sometimes, bin_values is not needed !!
+    if bin_values is None:
+        stat_dict.pop('bin_values')
+    
+    param_dict = {
+        'param_idx': list(range(param_number)),
+    }
+    
+    phase_dict = {
+        'phase_idx': list(range(phase_number)),
+    }
+    
+    if coord_type == 'lhc_y':
+        return {**input_dict, **stat_dict}
+    elif coord_type == 'lhc_x':
+        return {**input_dict, **param_dict}
+    elif coord_type == 'smallbox':
+        return {**phase_dict, **stat_dict}
+    elif coord_type == 'emulator_error':
+        return {**stat_dict}
 
-def summary_coords_diffsky(statistic, sep):
-    if statistic == 'tpcf':
-        return {
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'dsc_pk':
-        return {
-            'statistics': ['quantile_data_power', 'quantile_power'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            'k': sep,
-        }
 
-def summary_coords_lhc_y(statistic, sep):
-    if statistic == 'number_density':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-        }
-    if statistic == 'dsc_conf':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'statistics': ['quantile_data_correlation', 'quantile_correlation'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'dsc_pk':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
-            'statistics': ['quantile_data_power', 'quantile_power'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            'k': sep,
-        }
-    if statistic == 'cgf_r10':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'lambda': sep,
-        }
-    if 'pdf' in statistic:
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'delta': sep,
-        }
-    if statistic == 'tpcf':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'voxel_voids':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'pk':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
-            'multipoles': [0, 2],
-            'k': sep,
-        }
-    if statistic == 'wp':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'rp': sep,
-        }
-    if statistic == 'knn':
-        return {
-        }
-    if statistic == 'wst':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(350)),
-            'coeff_idx': sep,
-        }
-    if statistic == 'minkowski':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(200)),
-            'coeff_idx': sep,
-        }
-    if statistic == 'mst':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(350)),
-            'coeff_idx': sep,
-        }
+def lhc_fnames(statistic: str, 
+               data_dir: str) -> Path:
+    """
+    Finds the file name of the LHC data for the emulator. The file name is constructed from the statistic and the data directory.
 
-def summary_coords_lhc_x(statistic, sep):
-    if statistic == 'number_density':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20)),
-        }
-    if statistic == 'dsc_conf':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'dsc_pk':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'cgf_r10':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
-        }
-    if 'pdf' in statistic:
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'tpcf':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
-        }
-    if statistic =='voxel_voids':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'pk':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'wp':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'knn':
-        return {
-        }
-    if statistic == 'wst':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(350)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'minkowski':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(200)),
-            'param_idx': list(range(20))
-        }
-    if statistic == 'mst':
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(350)),
-            'param_idx': list(range(20))
-        }
+    Parameters
+    ----------
+    statistic : str
+        Statistic to read.
+    data_dir : str
+        Directory where the data is stored.
 
-def summary_coords_emulator_error(statistic, sep):
-    if statistic == 'number_density':
-        return {
-        }
-    if statistic == 'dsc_conf':
-        return {
-            'statistics': ['quantile_data_correlation', 'quantile_correlation'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'dsc_pk':
-        return {
-            'statistics': ['quantile_data_power', 'quantile_power'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            'k': sep,
-        }
-    if statistic == 'cgf_r10':
-        return {
-            'lambda': sep,
-        }
-    if 'pdf' in statistic:
-        return {
-            'delta': sep,
-        }
-    if statistic == 'voxel_voids':
-        return {
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'pk':
-        return {
-            'multipoles': [0, 2],
-            'k': sep,
-        }
-    if statistic == 'tpcf':
-        return {
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'wp':
-        return {
-            'rp': sep,
-        }
-    if statistic == 'knn':
-        return {
-        }
-    if statistic == 'wst':
-        return {
-            # 'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            # 'hod_idx': list(range(350)),
-            'coeff_idx': sep,
-        }
-    if statistic == 'minkowski':
-        return {
-            'delta': sep,
-        }
+    Returns
+    -------
+    Path
+        Path to the LHC data file.
+    """
+    return Path(data_dir) / f'{statistic}_lhc.npy' 
 
-def summary_coords_smallbox(statistic, sep):
-    if statistic == 'number_density':
-        return {
-            'phase_idx': list(range(1786)),
-        }
-    if statistic == 'dsc_conf':
-        return {
-            'phase_idx': list(range(1786)),
-            'statistics': ['quantile_data_correlation', 'quantile_correlation'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'dsc_pk':
-        return {
-            'phase_idx': list(range(1786)),
-            'statistics': ['quantile_data_power', 'quantile_power'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-            'k': sep,
-        }
-    if statistic == 'cgf_r10':
-        return {
-            'phase_idx': list(range(1786)),
-            'lambda': sep,
-        }
-    if 'pdf' in statistic:
-        return {
-            'phase_idx': list(range(1786)),
-            'delta': sep,
-        }
-    if statistic == 'voxel_voids':
-        return {
-            'phase_idx': list(range(1786)),
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'pk':
-        return {
-            'phase_idx': list(range(1786)),
-            'multipoles': [0, 2],
-            'k': sep,
-        }
-    if statistic == 'tpcf':
-        return {
-            'phase_idx': list(range(1786)),
-            'multipoles': [0, 2],
-            's': sep,
-        }
-    if statistic == 'wp':
-        return {
-            'phase_idx': list(range(1786)),
-            'rp': sep,
-        }
-    if statistic == 'knn':
-        return {
-        }
-    if statistic == 'wst':
-        return {
-            'phase_idx': list(range(1786)),
-            'coeff_idx': sep,
-        }
-    if statistic == 'mst':
-        return {
-            'phase_idx': list(range(1786)),
-            'coeff_idx': sep,
-        }
-    if statistic == 'minkowski':
-        return {
-            'phase_idx': list(range(1786)),
-            'coeff_idx': sep,
-        }
 
-def lhc_fnames(statistic):
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod'
-    return Path(data_dir) / f'{statistic}.npy'
+def emulator_error_fnames(statistic: str, 
+                          error_dir: str,
+                          add_statistic: bool = True) -> Path:
+    """
+    Finds the file name of the emulator error data for the emulator. The file name can be constructed from the statistic and the data directory.
 
-def emulator_error_fnames(statistic):
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
-    return Path(data_dir) / f'{statistic}.npy'
+    Parameters
+    ----------
+    statistic : str
+        Statistic to read.
+    error_dir : str
+        Directory where the error is stored.
+    add_statistic : bool, optional
+        Weather to add the statistic to the file name. Defaults to True.
+
+    Returns
+    -------
+    Path
+        Path to the emulator error data file.
+    """
+    if add_statistic:
+        error_dir = Path(error_dir) / f'{statistic}/'
+    return Path(error_dir) / f'{statistic}_emulator_error.npy' 
+
 
 def diffsky_fnames(statistic, redshift=0.5, phase_idx=1, galsample='mass_conc', version=0.3):
     adict = {0.5: '67120', 0.8: '54980'}  # redshift to scale factor string for UNIT
