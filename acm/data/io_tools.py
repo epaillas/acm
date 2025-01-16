@@ -107,11 +107,6 @@ def emulator_error_fnames(statistic: str,
     return Path(error_dir) / f'{statistic}_emulator_error.npy' 
 
 
-def diffsky_fnames(statistic, redshift=0.5, phase_idx=1, galsample='mass_conc', version=0.3):
-    adict = {0.5: '67120', 0.8: '54980'}  # redshift to scale factor string for UNIT
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/diffsky/data_vectors'
-    return Path(data_dir) / f'{statistic}_galsampled_diffsky_mock_{adict[redshift]}_fixedAmp_{phase_idx:03}_{galsample}_v{version}.npy'
-
 def covariance_fnames(statistic):
     data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box'
     return Path(data_dir) / f'{statistic}.npy'
@@ -167,28 +162,6 @@ def read_lhc(statistics, select_filters={}, slice_filters={}, return_mask=False,
         toret = (sep, *toret)
     return toret
 
-def read_diffsky(statistics, select_filters={}, slice_filters={}, return_mask=False, return_sep=False):
-    y_all = []
-    mask_all = []
-    for statistic in statistics:
-        data_fn = diffsky_fnames(statistic)
-        data = np.load(data_fn, allow_pickle=True).item()
-        sep = read_separation(statistic, data)
-        coords = summary_coords_diffsky(statistic, sep)
-        y = data['diffsky_y']
-        if coords and (select_filters or slice_filters):
-            y, mask = filter_diffsky(y, coords, select_filters, slice_filters)
-            mask_all.append(mask)
-        else:
-            mask_all.append(np.full(y.shape, False))
-        y_all.append(y)
-    y_all = np.concatenate(y_all, axis=0)
-    toret = (y_all,)
-    if return_mask:
-        toret = (*toret, mask_all)
-    if return_sep:
-        toret = (sep, *toret)
-    return toret
 
 def read_covariance(statistics, volume_factor=64, select_filters={}, slice_filters={}):
     y_all = []
@@ -312,28 +285,6 @@ def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
     mask = select_mask | slice_mask
     return lhc_y.values[~mask].reshape(lhc_y.shape[0], -1), mask[0]
 
-def filter_diffsky(y, coords, select_filters, slice_filters):
-    select_filters = {key: value for key, value in select_filters.items() if key in coords}
-    slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
-    dimensions = list(coords.keys())
-    y = y.reshape([len(coords[d]) for d in dimensions])
-    y = convert_to_summary(data=y, dimensions=dimensions, coords=coords)
-    if select_filters:
-        select_filters = [getattr(getattr(y, key), 'isin')(value) for key, value in select_filters.items()]
-        for i, cond in enumerate(select_filters):
-            select_mask = select_mask & cond if i > 0 else select_filters[0]
-        select_mask = y.where(select_mask).to_masked_array().mask
-    else:
-        select_mask = np.full(y.shape, False)
-    if slice_filters:
-        slice_filters = [(getattr(y, key) >= value[0]) & (getattr(y, key) <= value[1]) for key, value in slice_filters.items()]
-        for i, cond in enumerate(slice_filters):
-            slice_mask = slice_mask & cond if i > 0 else slice_filters[0]
-        slice_mask = y.where(slice_mask).to_masked_array().mask
-    else:
-        slice_mask = np.full(y.shape, False)
-    mask = select_mask | slice_mask
-    return y.values[~mask].reshape(-1), mask
 
 def filter_emulator_error(y, coords, select_filters, slice_filters):
     if coords:
@@ -359,18 +310,9 @@ def filter_emulator_error(y, coords, select_filters, slice_filters):
     mask = select_mask | slice_mask
     return y.values[~mask], mask
 
-def get_chain_fn(statistic, mock_idx, kmin, kmax, smin, smax):
-    data_dir = f'/pscratch/sd/e/epaillas/emc/posteriors/sep6/{statistic}/'
-    scales_str = ''
-    if any([stat in fourier_stats for stat in statistic.split('+')]):
-        scales_str += f'_kmin{kmin}_kmax{kmax}'
-    if any([stat in conf_stats for stat in statistic.split('+')]):
-        scales_str += f'_smin{smin}_smax{smax}'
-    return Path(data_dir) / f'chain_idx{mock_idx}{scales_str}.npy'
 
-def read_chain(statistic, mock_idx=0, kmin=0, kmax=1, smin=0, smax=150, return_labels=False):
+def read_chain(chain_fn, return_labels=False):
     from getdist import MCSamples
-    chain_fn = get_chain_fn(statistic, mock_idx, kmin, kmax, smin, smax)
     data = np.load(chain_fn, allow_pickle=True).item()
     chain = MCSamples(
                 samples=data['samples'],
