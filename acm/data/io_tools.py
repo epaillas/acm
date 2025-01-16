@@ -31,7 +31,7 @@ def summary_coords(
     ) -> dict:
     """
     Finds the summary coordinates for the given statistic and coordinate type.
-    
+    Returns a dictionary containing the summary coordinates, in a format that can be used to reshape the data. (see `filter_data`)
 
     Parameters
     ----------
@@ -39,9 +39,15 @@ def summary_coords(
         Statistic name
     coord_type : str
         Type of coordinates for which to find the coordinates.
-        Can be 'lhc_y', 'lhc_x', 'smallbox', 'emulator_error'.
+        can be set to : 
+        - `'lhc_y'` will return the summary coordinates for the LHC data (cosmo_idx, hod_idx, statistics and bin_values).
+        - `'lhc_x'` will return the summary coordinates for the LHC data (cosmo_idx, hod_idx, param_idx).
+        - `'smallbox'` will return the summary coordinates for the small box data (phase_idx, statistics and bin_values). 
+        - `'emulator_error'` will return the summary coordinates for the emulator error data (statistics and bin_values).
+        
     bin_values : _type_, optional
-        Values of the bins on which the summary statistics are computed. Defaults to None.
+        Values of the bins on which the summary statistics are computed. 
+        If set to None, the bin_values are not included in the summary coordinates. Defaults to None.
     param_number : int, optional
         Number of parameters used to generate the simulations. Useful for `coord_type='lhc_x'`. Defaults to 20.
     phase_number : int, optional
@@ -54,7 +60,6 @@ def summary_coords(
     dict
         Dictionary containing the summary coordinates for the given statistic and coordinate type.
     """
-    
     input_dict = {
         'cosmo_idx': cosmo_list,
         'hod_idx': list(range(hod_number)),
