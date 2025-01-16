@@ -166,7 +166,7 @@ def read_lhc(statistics: list,
     return_mask : bool, optional
         Weather to return the mask array of the filtering process. Defaults to False.
     return_sep : bool, optional
-        Weather to return the separation array. Defaults to False.
+        Weather to return the bin_values array. Defaults to False.
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
         Defaults to summary_coords_dict from `acm.data.default`.
@@ -175,7 +175,7 @@ def read_lhc(statistics: list,
     -------
     Tuple
         Tuple of arrays with the input features, output features and separation array if `return_sep` or `return_mask` is True : 
-        `(s), lhc_x, lhc_y, lhc_x_names, (mask)` 
+        `(bin_values), lhc_x, lhc_y, lhc_x_names, (mask)` 
     """
     
     lhc_y_all = [] # List of the output features for all statistics
@@ -278,6 +278,7 @@ def read_covariance(statistics: list,
     
     return cov, len(y)
 
+
 def read_model(statistics: list,
                model_path: dict | str,
                ) -> list:
@@ -325,19 +326,56 @@ def read_model(statistics: list,
         
     return model_all
 
-def read_emulator_error(statistics, select_filters={}, slice_filters={}):
-    y_all = []
+
+def read_emulator_error(statistics: list,
+                        error_dir: str,
+                        select_filters: dict = None, 
+                        slice_filters: dict = None,
+                        summary_coords_dict: dict = summary_coords_dict
+                        ) -> np.ndarray:
+    """
+    Read the emulator error data for the emulator. The emulator error data is saved as a dictionary with the key `emulator_error`.
+
+    Parameters
+    ----------
+    statistics : list
+        Statistics to read. Will be concatenated in the output features in the given order.
+    error_dir : str
+        Directory where the error is stored. 
+    select_filters : dict, optional
+        TODO
+    slice_filters : dict, optional
+        TODO
+    summary_coords_dict : dict, optional
+        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Defaults to summary_coords_dict from `acm.data.default`.
+
+    Returns
+    -------
+    np.ndarray
+        Array of the output features for all statistics.
+    """
+    y_all = [] # List of the output features for all statistics
+    
     for statistic in statistics:
-        data_fn = emulator_error_fnames(statistic)
+        data_fn = emulator_error_fnames(statistic, error_dir)
         data = np.load(data_fn, allow_pickle=True).item()
-        sep = read_separation(statistic, data)
-        coords = summary_coords_emulator_error(statistic, sep)
+        bin_values = data['bin_values']
         y = data['emulator_error']
+        
+        # Get the summary coordinates for the given statistic
+        coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        # If filters are provided, filter the data
         if coords and slice_filters:
             y, mask = filter_emulator_error(y, coords, select_filters, slice_filters)
+            
         y_all.append(y)
+        
+    # Concatenate the output features for all statistics
     y_all = np.concatenate(y_all, axis=0)
+    
     return y_all
+
 
 def filter_lhc(lhc_y, coords, select_filters, slice_filters):
     select_filters = {key: value for key, value in select_filters.items() if key in coords}
