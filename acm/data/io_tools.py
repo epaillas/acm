@@ -143,7 +143,8 @@ def read_lhc(statistics: list,
              slice_filters: dict = None, 
              return_mask: bool = False, 
              return_sep: bool = False,
-             summary_coords_dict: dict = summary_coords_dict) -> tuple:
+             summary_coords_dict: dict = summary_coords_dict
+             ) -> tuple:
     """
     Read the LHC data for the emulator. It has to have been saved as a dictionary with keys `s`, `lhc_x` and `lhc_y`.
     The `s` key is the separation array, `lhc_x` is the input features and `lhc_y` is the output features.
@@ -174,6 +175,7 @@ def read_lhc(statistics: list,
         Tuple of arrays with the input features, output features and separation array if `return_sep` or `return_mask` is True : 
         `(s), lhc_x, lhc_y, lhc_x_names, (mask)` 
     """
+    
     lhc_y_all = [] # List of the output features for all statistics
     mask_all = []
     
@@ -211,20 +213,67 @@ def read_lhc(statistics: list,
     return toret
 
 
-def read_covariance(statistics, volume_factor=64, select_filters={}, slice_filters={}):
-    y_all = []
+def read_covariance(statistics: list,
+                    data_dir: str, 
+                    volume_factor: float = 64, 
+                    select_filters: dict = None, 
+                    slice_filters: dict = None,
+                    summary_coords_dict: dict = summary_coords_dict
+                    ) -> tuple:
+    """
+    Read the covariance matrix from the data. The covariance matrix is computed from the output features of the LHC data.
+    A volume factor is applied to account for the fact that the covariance matrix is computed on a smaller volume than the data.
+
+    Parameters
+    ----------
+    statistics : list
+        Statistics to read. Will be concatenated in the output features in the given order.
+    data_dir : str
+        Directory where the data is stored.
+    volume_factor : int, optional
+        Volume factor to account for the fact that the covariance matrix is computed on a smaller volume than the data. Defaults to 64
+    select_filters : dict, optional
+        TODO
+    slice_filters : dict, optional
+        TODO
+    summary_coords_dict : dict, optional
+        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Defaults to summary_coords_dict from `acm.data.default`.
+
+    Returns
+    -------
+    tuple
+        Tuple of the covariance matrix and the number of data points in the output features.
+        
+    Volume factor
+    -------------
+    The volume factor is used to account for the fact that the covariance matrix is computed on a smaller volume than the data.
+    The covariance matrix is computed on a volume of 500^3 Mpc/h, while the data is computed on a volume of 2000^3 Mpc/h.
+    The covariance matrix is then scaled by the factor (2000/500)^3 = 64 to account for the difference in volume.
+    
+    """
+    
+    y_all = [] # List of the output features for all statistics
     for statistic in statistics:
-        data_fn = covariance_fnames(statistic)
+        data_fn = lhc_fnames(statistic, data_dir)
         data = np.load(data_fn, allow_pickle=True).item()
-        sep = read_separation(statistic, data)
-        coords = summary_coords_smallbox(statistic, sep)
+        bin_values = data['bin_values']
         y = data['cov_y']
+        
+        # Get the summary coordinates for the given statistic
+        coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        # If filters are provided, filter the data
         if coords and (select_filters or slice_filters):
             y, mask = filter_smallbox(y, coords, select_filters, slice_filters)
+        
         y_all.append(y)
+        
+    # Concatenate the output features for all statistics
     y_all = np.concatenate(y_all, axis=1)
+    
     prefactor = 1 / volume_factor
-    cov = prefactor * np.cov(y_all, rowvar=False)
+    cov = prefactor * np.cov(y_all, rowvar=False) # each line is a simulation, so rowvar=False
+    
     return cov, len(y)
 
 def read_model(statistics):
