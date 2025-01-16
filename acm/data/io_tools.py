@@ -1,6 +1,7 @@
 from pathlib import Path
 import numpy as np
 import yaml
+from getdist import MCSamples
 
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import convert_to_summary
@@ -449,8 +450,26 @@ def filter_emulator_error(y, coords, select_filters, slice_filters):
     return y.values[~mask], mask
 
 
-def read_chain(chain_fn, return_labels=False):
-    from getdist import MCSamples
+def read_chain(chain_fn: str|Path, 
+               return_labels: bool = False):
+    """
+    Read the chain from the given file name. 
+    The chain is saved as a dictionary with the keys `samples`, `weights`, `names`, `ranges` and `labels`.
+
+    Parameters
+    ----------
+    chain_fn : str|Path
+        File name of the chain to read.
+    return_labels : bool, optional
+        Weather to return the labels of the chain. Defaults to False.
+
+    Returns
+    -------
+    MCSamples
+        Chain read from the file.
+    dict
+        Dictionary containing the labels of the chain if `return_labels` is True.
+    """
     data = np.load(chain_fn, allow_pickle=True).item()
     chain = MCSamples(
                 samples=data['samples'],
