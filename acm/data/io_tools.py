@@ -138,11 +138,6 @@ def emulator_error_fnames(statistic: str,
         error_dir = Path(error_dir) / f'{statistic}/'
     return Path(error_dir) / f'{statistic}_emulator_error.npy' 
 
-
-def covariance_fnames(statistic):
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box'
-    return Path(data_dir) / f'{statistic}.npy'
-
 def read_separation(statistic, data):
     if statistic == 'number_density':
         return None
