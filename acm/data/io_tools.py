@@ -138,30 +138,6 @@ def emulator_error_fnames(statistic: str,
         error_dir = Path(error_dir) / f'{statistic}/'
     return Path(error_dir) / f'{statistic}_emulator_error.npy' 
 
-def read_separation(statistic, data):
-    if statistic == 'number_density':
-        return None
-    elif statistic in ['pk', 'dsc_pk']:
-        return data['k']
-    elif statistic == 'knn':
-        return None
-    elif statistic == 'wst':
-        return data['coeff_idx']
-    elif statistic == 'cgf_r10':
-        return data['lambda']
-    elif 'pdf' in statistic:
-        return data['delta']
-    elif statistic == 'mst':
-        return data['coeff_idx']
-    elif statistic == 'wp':
-        return data['rp']
-    elif statistic == 'minkowski':
-        return data['delta']
-    elif statistic in ['tpcf', 'dsc_conf', 'voxel_voids']:
-        return data['s']
-    else:
-        raise ValueError(f'Unknown statistic: {statistic}')
-
 def read_lhc(statistics, select_filters={}, slice_filters={}, return_mask=False, return_sep=False):
     lhc_y_all = []
     mask_all = []
