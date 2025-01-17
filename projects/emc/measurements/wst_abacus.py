@@ -63,12 +63,13 @@ cosmos = np.loadtxt("/pscratch/sd/g/gvalogia/wst/Emulator_cosmo.txt")
 
 #New loop to evaluate WST for 85 abacus cosmologies produced by Enrique, for 350 HOD configurations each
 n_HOD = 350
+begin = 0
 #for i in range(0):
-for idx, cosmoid in enumerate(content_list[:]):
+for idx, cosmoid in enumerate(content_list[begin:]):
     st = cosmoid.split('_')[2]
-    print (idx, st, 100*cosmos[idx,2])
+    print (idx, st, 100*cosmos[begin+idx,2])
     #Load hubble factor needed for RSD
-    hubble = 100*cosmos[idx,2]
+    hubble = 100*cosmos[begin+idx,2]
     redshift = 0.50
     scale_factor = 1 / (1 + redshift)
     for i in range(n_HOD):
