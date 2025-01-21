@@ -8,6 +8,13 @@ from sunbird.data.data_utils import convert_to_summary
 
 from acm.data.default import summary_coords_dict
 
+# TODO list : 
+# - Finish the filter function (use concert_to summary then reshape it)
+# - Remove the mask from the return of the filter function
+# - Comment the filter function, and propagate slices_filters and select_filters documetation to all other functions
+# - Check read_lhc concatenation axis
+# - Check how summary_coords works with emulator_cov_y !!
+ 
 
 fourier_stats = ['pk', 'dsc_pk']
 conf_stats = ['tpcf', 'dsc_conf']
@@ -151,8 +158,8 @@ def read_lhc(statistics: list,
              summary_coords_dict: dict = summary_coords_dict
              ) -> tuple:
     """
-    Read the LHC data for the emulator. It has to have been saved as a dictionary with keys `s`, `lhc_x` and `lhc_y`.
-    The `s` key is the separation array, `lhc_x` is the input features and `lhc_y` is the output features.
+    Read the LHC data for the emulator. It has to have been saved as a dictionary with keys `bin_values`, `lhc_x` and `lhc_y`.
+    The `bin_values` key is the bins on which the statistic is computed, `lhc_x` is the input features and `lhc_y` is the output features.
     The `lhc_x` and `lhc_y` arrays are sliced to the first `n_hod` elements, and thus must have the same length.
     The files read are `lhc_info_ccf.npy`, `lhc_info_acf.npy` and `lhc_info_tpcf.npy` for the CCF, ACF and TPCF respectively.
 
@@ -163,9 +170,9 @@ def read_lhc(statistics: list,
     data_dir : str
         Directory where the data is stored.
     select_filters : dict, optional
-        TODO
+        Filters to select values in coordinates. Defaults to None.
     slice_filters : dict, optional
-        TODO
+       Filters to slice values in coordinates. Defaults to None.
     return_mask : bool, optional
         Weather to return the mask array of the filtering process. Defaults to False.
     return_sep : bool, optional
@@ -177,9 +184,17 @@ def read_lhc(statistics: list,
 
     Returns
     -------
-    Tuple
+    tuple
         Tuple of arrays with the input features, output features and separation array if `return_sep` or `return_mask` is True : 
         `(bin_values), lhc_x, lhc_y, lhc_x_names, (mask)` 
+    
+    Example
+    -------
+    ```python
+    slice_filters = {'bin_values': (0, 0.5),} 
+    select_filters = {'multipoles': [0, 2],}
+    ```
+    will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     
     lhc_y_all = [] # List of the output features for all statistics
@@ -239,9 +254,9 @@ def read_covariance(statistics: list,
     volume_factor : int, optional
         Volume factor to account for the fact that the covariance matrix is computed on a smaller volume than the data. Defaults to 64
     select_filters : dict, optional
-        TODO
+        Filters to select values in coordinates. Defaults to None.
     slice_filters : dict, optional
-        TODO
+       Filters to slice values in coordinates. Defaults to None.
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
@@ -251,6 +266,14 @@ def read_covariance(statistics: list,
     -------
     tuple
         Tuple of the covariance matrix and the number of data points in the output features.
+    
+    Example
+    -------
+    ```python
+    slice_filters = {'bin_values': (0, 0.5),} 
+    select_filters = {'multipoles': [0, 2],}
+    ```
+    will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
         
     Volume factor
     -------------
@@ -348,9 +371,9 @@ def read_emulator_error(statistics: list,
     error_dir : str
         Directory where the error is stored. 
     select_filters : dict, optional
-        TODO
+        Filters to select values in coordinates. Defaults to None.
     slice_filters : dict, optional
-        TODO
+       Filters to slice values in coordinates. Defaults to None.
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
@@ -360,6 +383,14 @@ def read_emulator_error(statistics: list,
     -------
     np.ndarray
         Array of the output features for all statistics.
+    
+    Example
+    -------
+    ```python
+    slice_filters = {'bin_values': (0, 0.5),} 
+    select_filters = {'multipoles': [0, 2],}
+    ```
+    will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     y_all = [] # List of the output features for all statistics
     
@@ -400,9 +431,9 @@ def read_emulator_covariance(statistics: list,
     error_dir : str
         Directory where the error is stored. 
     select_filters : dict, optional
-        TODO
+        Filters to select values in coordinates. Defaults to None.
     slice_filters : dict, optional
-        TODO
+       Filters to slice values in coordinates. Defaults to None.
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
@@ -412,6 +443,14 @@ def read_emulator_covariance(statistics: list,
     -------
     tuple
         Tuple of the covariance matrix and the number of data points in the output features.
+    
+    Example
+    -------
+    ```python
+    slice_filters = {'bin_values': (0, 0.5),} 
+    select_filters = {'multipoles': [0, 2],}
+    ```
+    will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     
     y_all = [] # List of the output features for all statistics
@@ -422,7 +461,7 @@ def read_emulator_covariance(statistics: list,
         bin_values = data['bin_values']
         y = data['emulator_cov_y']
         
-        # TODO : Modify summary_coords with emulator_error cov
+        # TODO : Modify summary_coords with emulator_cov_y 
         # Get the summary coordinates for the given statistic
         coords = summary_coords(statistic, coord_type='emulator_cov_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
@@ -444,10 +483,37 @@ def filter(y,
            select_filters: dict = None, 
            slice_filters: dict = None,
            ) -> tuple:
+    """
+    Filter the data based on the given filters. The filters are applied to the data based on the summary coordinates.
+
+    Parameters
+    ----------
+    y : Array-like
+        Data to filter.
+    coords : dict
+        Dictionary containing the summary coordinates for the data. Obtained from `summary_coords`.
+    select_filters : dict, optional
+        Filters to select values in coordinates. Defaults to None.
+    slice_filters : dict, optional
+       Filters to slice values in coordinates. Defaults to None.
+
+    Returns
+    -------
+    tuple
+        _description_
+        
+    Example
+    -------
+    ```python
+    slice_filters = {'bin_values': (0, 0.5),} 
+    select_filters = {'multipoles': [0, 2],}
+    ```
+    will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
+    """
     # TODO : comment what happens here !!!
     dimensions = list(coords.keys())
     y = y.reshape([len(coords[d]) for d in dimensions])
-    y = convert_to_summary(data=y, dimensions=dimensions, coords=coords) # TODO : understand why filters are not used here
+    y = convert_to_summary(data=y, dimensions=dimensions, coords=coords) 
     
     # TODO : use the filters of convert_to_summary, and compute the mask by hand. Then, return the right mask depending on the case
     # Why do we have to do this block as slice_filters & select_filters are implemented in convert_to_summary ??
