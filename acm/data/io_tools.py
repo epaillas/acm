@@ -57,13 +57,14 @@ def summary_coords(
     dict
         Dictionary containing the summary coordinates for the given statistic and coordinate type.
     """
+    cosmo_idx = summary_coords_dict['cosmo_idx']
     hod_number = summary_coords_dict['hod_number']
     param_number = summary_coords_dict['param_number']
     phase_number = summary_coords_dict['phase_number']
     summary_coords_stat = summary_coords_dict['statistics']
     
     input_dict = {
-        'cosmo_idx': cosmo_list, # TODO : also move this to the summary_coords_dict to allow people to change the cosmology index list 
+        'cosmo_idx': cosmo_idx,
         'hod_idx': list(range(hod_number)),
     }
     
