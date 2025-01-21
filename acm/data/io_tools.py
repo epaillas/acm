@@ -63,7 +63,7 @@ def summary_coords(
     summary_coords_stat = summary_coords_dict['statistics']
     
     input_dict = {
-        'cosmo_idx': cosmo_list,
+        'cosmo_idx': cosmo_list, # TODO : also move this to the summary_coords_dict to allow people to change the cosmology index list 
         'hod_idx': list(range(hod_number)),
     }
     
@@ -195,9 +195,9 @@ def read_lhc(statistics: list,
         coords_y = summary_coords(statistic, coord_type='lhc_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         coords_x = summary_coords(statistic, coord_type='lhc_x', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
-        if coords_y and (select_filters or slice_filters):
+        if coords_y and (select_filters or slice_filters): # TODO : remove coord_y (always true ?)
             lhc_y, mask = filter_lhc(lhc_y, coords_y, select_filters, slice_filters)
-            lhc_x, _ = filter_lhc(lhc_x, coords_x, select_filters, slice_filters)
+            lhc_x, _ = filter_lhc(lhc_x, coords_x, select_filters, slice_filters) # Why do we need to filter lhc_x ??
             mask_all.append(mask)
         else:
             mask_all.append(np.full(lhc_y.shape, False))
@@ -266,7 +266,7 @@ def read_covariance(statistics: list,
         # Get the summary coordinates for the given statistic
         coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
-        if coords and (select_filters or slice_filters):
+        if coords and (select_filters or slice_filters): # TODO : remove coord (always true ?)
             y, mask = filter_smallbox(y, coords, select_filters, slice_filters)
         
         y_all.append(y)
@@ -367,7 +367,7 @@ def read_emulator_error(statistics: list,
         # Get the summary coordinates for the given statistic
         coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
-        if coords and slice_filters:
+        if coords and slice_filters: # TODO : remove coord (always true ?)
             y, mask = filter_emulator_error(y, coords, select_filters, slice_filters)
             
         y_all.append(y)
@@ -377,8 +377,56 @@ def read_emulator_error(statistics: list,
     
     return y_all
 
+# TODO : read_emulator_covariance
+
+def filter(y,
+           coords: dict, # Order of the keys is VERY important here !!
+           select_filters: dict = None, 
+           slice_filters: dict = None,
+           ) -> tuple:
+    # TODO : comment what happens here !!!
+    dimensions = list(coords.keys())
+    y = y.reshape([len(coords[d]) for d in dimensions])
+    y = convert_to_summary(data=y, dimensions=dimensions, coords=coords) # TODO : understand why filters are not used here
+    
+    # TODO : use the filters of convert_to_summary, and compute the mask by hand. Then, return the right mask depending on the case
+    # Why do we have to do this block as slice_filters & select_filters are implemented in convert_to_summary ??
+    if select_filters:
+        select_filters = {key: value for key, value in select_filters.items() if key in coords}
+        select_filters = [getattr(getattr(y, key), 'isin')(value) for key, value in select_filters.items()]
+        for i, cond in enumerate(select_filters):
+            select_mask = select_mask & cond if i > 0 else select_filters[0]
+        select_mask = y.where(select_mask).to_masked_array().mask
+    else:
+        select_mask = np.full(y.shape, False)
+        
+    if slice_filters:
+        slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
+        slice_filters = [(getattr(y, key) >= value[0]) & (getattr(y, key) <= value[1]) for key, value in slice_filters.items()]
+        for i, cond in enumerate(slice_filters):
+            slice_mask = slice_mask & cond if i > 0 else slice_filters[0]
+        slice_mask = y.where(slice_mask).to_masked_array().mask
+    else:
+        slice_mask = np.full(y.shape, False)
+    
+    mask = select_mask | slice_mask
+
+    # Apply mask
+    y = y.values[~mask]
+    
+    # Reshape y to have the right shape (n_samples, n_features)
+    
+    # Select the mask for the first element of the mask
+    mask = mask[0]
+    mask = mask[np.where(~mask)[0][0], np.where(~mask)[1][0]].reshape(-1)
+    # TODO : Understand the return statement
+    # TODO : remove mask if jax part fixed in sunbird ?
+    return y, mask # TODO : finish this function and call it when needed, with the right format !!
+
+
 
 def filter_lhc(lhc_y, coords, select_filters, slice_filters):
+    shape = lhc_y.shape
     select_filters = {key: value for key, value in select_filters.items() if key in coords}
     slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
     dimensions = list(coords.keys())
@@ -399,7 +447,7 @@ def filter_lhc(lhc_y, coords, select_filters, slice_filters):
     else:
         slice_mask = np.full(lhc_y.shape, False)
     mask = select_mask | slice_mask
-    return lhc_y.values[~mask], mask[np.where(~mask)[0][0], np.where(~mask)[1][0]].reshape(-1)
+    return lhc_y.values[~mask], mask#[np.where(~mask)[0][0], np.where(~mask)[1][0]].reshape(-1)
 
 def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
     select_filters = {key: value for key, value in select_filters.items() if key in coords}
@@ -423,7 +471,6 @@ def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
         slice_mask = np.full(lhc_y.shape, False)
     mask = select_mask | slice_mask
     return lhc_y.values[~mask].reshape(lhc_y.shape[0], -1), mask[0]
-
 
 def filter_emulator_error(y, coords, select_filters, slice_filters):
     if coords:
@@ -449,6 +496,7 @@ def filter_emulator_error(y, coords, select_filters, slice_filters):
     mask = select_mask | slice_mask
     return y.values[~mask], mask
 
+# TODO : correlation_from_covariance
 
 def read_chain(chain_fn: str|Path, 
                return_labels: bool = False):
