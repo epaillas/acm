@@ -195,7 +195,7 @@ def read_lhc(statistics: list,
         coords_y = summary_coords(statistic, coord_type='lhc_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         coords_x = summary_coords(statistic, coord_type='lhc_x', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
-        if coords_y and (select_filters or slice_filters): # TODO : remove coord_y (always true ?)
+        if select_filters or slice_filters: 
             lhc_y, mask = filter_lhc(lhc_y, coords_y, select_filters, slice_filters)
             lhc_x, _ = filter_lhc(lhc_x, coords_x, select_filters, slice_filters) # Why do we need to filter lhc_x ??
             mask_all.append(mask)
@@ -266,7 +266,7 @@ def read_covariance(statistics: list,
         # Get the summary coordinates for the given statistic
         coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
-        if coords and (select_filters or slice_filters): # TODO : remove coord (always true ?)
+        if select_filters or slice_filters: 
             y, mask = filter_smallbox(y, coords, select_filters, slice_filters)
         
         y_all.append(y)
@@ -367,7 +367,7 @@ def read_emulator_error(statistics: list,
         # Get the summary coordinates for the given statistic
         coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
-        if coords and slice_filters: # TODO : remove coord (always true ?)
+        if slice_filters: 
             y, mask = filter_emulator_error(y, coords, select_filters, slice_filters)
             
         y_all.append(y)
