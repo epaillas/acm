@@ -188,11 +188,11 @@ def read_lhc(statistics: list,
         lhc_x = data['lhc_x']
         lhc_y = data['lhc_y']
         
-        # Get the summary coordinates for the given statistic
-        coords_x = summary_coords(statistic, coord_type='lhc_x', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
-        coords_y = summary_coords(statistic, coord_type='lhc_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if select_filters or slice_filters: 
+            # Get the summary coordinates for the given statistic
+            coords_x = summary_coords(statistic, coord_type='lhc_x', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+            coords_y = summary_coords(statistic, coord_type='lhc_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
             # lhc_x can also be filtered ! (for example, to select only some cosmologies)
             lhc_x = filter(lhc_x, coords_x, select_filters, slice_filters)
             lhc_y = filter(lhc_y, coords_y, select_filters, slice_filters)
@@ -265,10 +265,10 @@ def read_covariance(statistics: list,
         bin_values = data['bin_values']
         y = data['cov_y']
         
-        # Get the summary coordinates for the given statistic
-        coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if select_filters or slice_filters: 
+            # Get the summary coordinates for the given statistic
+            coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
             y = filter(y, coords, select_filters, slice_filters)
         
         y_all.append(y)
@@ -375,10 +375,10 @@ def read_emulator_error(statistics: list,
         bin_values = data['bin_values']
         y = data['emulator_error']
         
-        # Get the summary coordinates for the given statistic
-        coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if slice_filters or slice_filters: 
+            # Get the summary coordinates for the given statistic
+            coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
             y = filter(y, coords, select_filters, slice_filters)
             
         y_all.append(y)
@@ -436,11 +436,11 @@ def read_emulator_covariance(statistics: list,
         bin_values = data['bin_values']
         y = data['emulator_cov_y']
         
-        # TODO : Modify summary_coords with emulator_cov_y 
-        # Get the summary coordinates for the given statistic
-        coords = summary_coords(statistic, coord_type='emulator_cov_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if slice_filters or slice_filters: 
+            # Get the summary coordinates for the given statistic
+            coords = summary_coords(statistic, coord_type='emulator_cov_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+            # TODO : Modify summary_coords with emulator_cov_y 
             y = filter(y, coords, select_filters, slice_filters)
             
         y_all.append(y)
