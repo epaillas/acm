@@ -6,7 +6,7 @@ from getdist import MCSamples
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import convert_to_summary
 
-from acm.data.default import cosmo_list, summary_coords_dict
+from acm.data.default import summary_coords_dict
 
 
 fourier_stats = ['pk', 'dsc_pk']
@@ -49,7 +49,8 @@ def summary_coords(
         Values of the bins on which the summary statistics are computed. 
         If set to None, the bin_values are not included in the summary coordinates. Defaults to None.
     summary_coords_dict : dict, optional
-        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Dictionary containing the summary coordinates for each statistic. 
+        It also contains the comology indexes, the number of HODs, parameters and phases.
         Defaults to summary_coords_dict from `acm.data.default`.
         
     Returns
@@ -170,7 +171,8 @@ def read_lhc(statistics: list,
     return_sep : bool, optional
         Weather to return the bin_values array. Defaults to False.
     summary_coords_dict : dict, optional
-        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Dictionary containing the summary coordinates for each statistic. 
+        It also contains the comology indexes, the number of HODs, parameters and phases.
         Defaults to summary_coords_dict from `acm.data.default`.
 
     Returns
@@ -197,8 +199,8 @@ def read_lhc(statistics: list,
         coords_x = summary_coords(statistic, coord_type='lhc_x', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if select_filters or slice_filters: 
-            lhc_y, mask = filter_lhc(lhc_y, coords_y, select_filters, slice_filters)
-            lhc_x, _ = filter_lhc(lhc_x, coords_x, select_filters, slice_filters) # Why do we need to filter lhc_x ??
+            lhc_y, mask = filter(lhc_y, coords_y, select_filters, slice_filters)
+            lhc_x, _ = filter(lhc_x, coords_x, select_filters, slice_filters) # NOTE:  Why do we need to filter lhc_x ??
             mask_all.append(mask)
         else:
             mask_all.append(np.full(lhc_y.shape, False))
@@ -241,7 +243,8 @@ def read_covariance(statistics: list,
     slice_filters : dict, optional
         TODO
     summary_coords_dict : dict, optional
-        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Dictionary containing the summary coordinates for each statistic. 
+        It also contains the comology indexes, the number of HODs, parameters and phases.
         Defaults to summary_coords_dict from `acm.data.default`.
 
     Returns
@@ -268,7 +271,7 @@ def read_covariance(statistics: list,
         coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if select_filters or slice_filters: 
-            y, mask = filter_smallbox(y, coords, select_filters, slice_filters)
+            y, mask = filter(y, coords, select_filters, slice_filters)
         
         y_all.append(y)
         
@@ -349,7 +352,8 @@ def read_emulator_error(statistics: list,
     slice_filters : dict, optional
         TODO
     summary_coords_dict : dict, optional
-        Dictionary containing the summary coordinates for each statistic. It also contains the number of HODs, parameters and phases.
+        Dictionary containing the summary coordinates for each statistic. 
+        It also contains the comology indexes, the number of HODs, parameters and phases.
         Defaults to summary_coords_dict from `acm.data.default`.
 
     Returns
@@ -368,8 +372,8 @@ def read_emulator_error(statistics: list,
         # Get the summary coordinates for the given statistic
         coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
-        if slice_filters: 
-            y, mask = filter_emulator_error(y, coords, select_filters, slice_filters)
+        if slice_filters or slice_filters: 
+            y, mask = filter(y, coords, select_filters, slice_filters)
             
         y_all.append(y)
         
@@ -378,7 +382,62 @@ def read_emulator_error(statistics: list,
     
     return y_all
 
-# TODO : read_emulator_covariance
+
+def read_emulator_covariance(statistics: list,
+                             error_dir: str,
+                             select_filters: dict = None, 
+                             slice_filters: dict = None,
+                             summary_coords_dict: dict = summary_coords_dict
+                             ) -> tuple:
+    """
+    Read the covariance matrix from the data. The covariance matrix is computed from the output features of the emulator error data.
+    No volume factor is applied to the covariance matrix, because the emulator error data is already computed on the same volume as the data.
+
+   Parameters
+    ----------
+    statistics : list
+        Statistics to read. Will be concatenated in the output features in the given order.
+    error_dir : str
+        Directory where the error is stored. 
+    select_filters : dict, optional
+        TODO
+    slice_filters : dict, optional
+        TODO
+    summary_coords_dict : dict, optional
+        Dictionary containing the summary coordinates for each statistic. 
+        It also contains the comology indexes, the number of HODs, parameters and phases.
+        Defaults to summary_coords_dict from `acm.data.default`.
+
+    Returns
+    -------
+    tuple
+        Tuple of the covariance matrix and the number of data points in the output features.
+    """
+    
+    y_all = [] # List of the output features for all statistics
+    
+    for statistic in statistics:
+        data_fn = emulator_error_fnames(statistic, error_dir)
+        data = np.load(data_fn, allow_pickle=True).item()
+        bin_values = data['bin_values']
+        y = data['emulator_cov_y']
+        
+        # TODO : Modify summary_coords with emulator_error cov
+        # Get the summary coordinates for the given statistic
+        coords = summary_coords(statistic, coord_type='emulator_cov_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        # If filters are provided, filter the data
+        if slice_filters or slice_filters: 
+            y, mask = filter(y, coords, select_filters, slice_filters)
+            
+        y_all.append(y)
+    
+    # Concatenate the output features for all statistics
+    y_all = np.concatenate(y_all, axis=1)
+
+    cov = np.cov(y_all, rowvar=False) # each line is a simulation, so rowvar=False
+    
+    return cov, len(y) 
+
 
 def filter(y,
            coords: dict, # Order of the keys is VERY important here !!
@@ -423,79 +482,6 @@ def filter(y,
     # TODO : Understand the return statement
     # TODO : remove mask if jax part fixed in sunbird ?
     return y, mask # TODO : finish this function and call it when needed, with the right format !!
-
-
-
-def filter_lhc(lhc_y, coords, select_filters, slice_filters):
-    shape = lhc_y.shape
-    select_filters = {key: value for key, value in select_filters.items() if key in coords}
-    slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
-    dimensions = list(coords.keys())
-    lhc_y = lhc_y.reshape([len(coords[d]) for d in dimensions])
-    lhc_y = convert_to_summary(data=lhc_y, dimensions=dimensions, coords=coords)
-    if select_filters:
-        select_filters = [getattr(getattr(lhc_y, key), 'isin')(value) for key, value in select_filters.items()]
-        for i, cond in enumerate(select_filters):
-            select_mask = select_mask & cond if i > 0 else select_filters[0]
-        select_mask = lhc_y.where(select_mask).to_masked_array().mask
-    else:
-        select_mask = np.full(lhc_y.shape, False)
-    if slice_filters:
-        slice_filters = [(getattr(lhc_y, key) >= value[0]) & (getattr(lhc_y, key) <= value[1]) for key, value in slice_filters.items()]
-        for i, cond in enumerate(slice_filters):
-            slice_mask = slice_mask & cond if i > 0 else slice_filters[0]
-        slice_mask = lhc_y.where(slice_mask).to_masked_array().mask
-    else:
-        slice_mask = np.full(lhc_y.shape, False)
-    mask = select_mask | slice_mask
-    return lhc_y.values[~mask], mask#[np.where(~mask)[0][0], np.where(~mask)[1][0]].reshape(-1)
-
-def filter_smallbox(lhc_y, coords, select_filters, slice_filters):
-    select_filters = {key: value for key, value in select_filters.items() if key in coords}
-    slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
-    dimensions = list(coords.keys())
-    lhc_y = lhc_y.reshape([len(coords[d]) for d in dimensions])
-    lhc_y = convert_to_summary(data=lhc_y, dimensions=dimensions, coords=coords)
-    if select_filters:
-        select_filters = [getattr(getattr(lhc_y, key), 'isin')(value) for key, value in select_filters.items()]
-        for i, cond in enumerate(select_filters):
-            select_mask = select_mask & cond if i > 0 else select_filters[0]
-        select_mask = lhc_y.where(select_mask).to_masked_array().mask
-    else:
-        select_mask = np.full(lhc_y.shape, False)
-    if slice_filters:
-        slice_filters = [(getattr(lhc_y, key) >= value[0]) & (getattr(lhc_y, key) <= value[1]) for key, value in slice_filters.items()]
-        for i, cond in enumerate(slice_filters):
-            slice_mask = slice_mask & cond if i > 0 else slice_filters[0]
-        slice_mask = lhc_y.where(slice_mask).to_masked_array().mask
-    else:
-        slice_mask = np.full(lhc_y.shape, False)
-    mask = select_mask | slice_mask
-    return lhc_y.values[~mask].reshape(lhc_y.shape[0], -1), mask[0]
-
-def filter_emulator_error(y, coords, select_filters, slice_filters):
-    if coords:
-        select_filters = {key: value for key, value in select_filters.items() if key in coords}
-        slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
-    dimensions = list(coords.keys())
-    y = y.reshape([len(coords[d]) for d in dimensions])
-    y = convert_to_summary(data=y, dimensions=dimensions, coords=coords)
-    if select_filters:
-        select_filters = [getattr(getattr(y, key), 'isin')(value) for key, value in select_filters.items()]
-        for i, cond in enumerate(select_filters):
-            select_mask = select_mask & cond if i > 0 else select_filters[0]
-        select_mask = y.where(select_mask).to_masked_array().mask
-    else:
-        select_mask = np.full(y.shape, False)
-    if slice_filters:
-        slice_filters = [(getattr(y, key) >= value[0]) & (getattr(y, key) <= value[1]) for key, value in slice_filters.items()]
-        for i, cond in enumerate(slice_filters):
-            slice_mask = slice_mask & cond if i > 0 else slice_filters[0]
-        slice_mask = y.where(slice_mask).to_masked_array().mask
-    else:
-        slice_mask = np.full(y.shape, False)
-    mask = select_mask | slice_mask
-    return y.values[~mask], mask
 
 
 def correlation_from_covariance(covariance):
