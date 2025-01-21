@@ -497,7 +497,27 @@ def filter_emulator_error(y, coords, select_filters, slice_filters):
     mask = select_mask | slice_mask
     return y.values[~mask], mask
 
-# TODO : correlation_from_covariance
+
+def correlation_from_covariance(covariance):
+    """
+    Compute the correlation matrix from the covariance matrix.
+
+    Parameters
+    ----------
+    covariance : array_like
+        Covariance matrix.
+
+    Returns
+    -------
+    np.ndarray
+        Correlation matrix.
+    """
+    v = np.sqrt(np.diag(covariance))
+    outer_v = np.outer(v, v)
+    correlation = covariance / outer_v
+    correlation[covariance == 0] = 0
+    return correlation
+
 
 def read_chain(chain_fn: str|Path, 
                return_labels: bool = False):
