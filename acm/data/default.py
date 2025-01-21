@@ -39,8 +39,23 @@ summary_coords_dict = {
 }
 
 
+labels_stats = {
+    'dsc_conf': 'Density-split',
+    'dsc_pk': 'Density-split 'r'$P_\ell$',
+    'dsc_conf_cross': 'Density-split (CCF)',
+    'tpcf': 'Galaxy 2PCF',
+    'tpcf+dsc_conf': 'DSC + Galaxy 2PCF',
+    'number_density+tpcf': 'nbar + Galaxy 2PCF',
+    'number_density+pk': 'nbar + P(k)',
+    'pk': 'P(k)',
+}
 
 
+fourier_stats = ['pk', 'dsc_pk']
+conf_stats = ['tpcf', 'dsc_conf']
+
+
+# reference dictionary for the summary statistics (not used)
 tmp = {
     'tpcf': {},
     'pk': {},
