@@ -10,25 +10,8 @@ from acm.data.default import summary_coords_dict
 
 # TODO list : 
 # - Finish the filter function (use concert_to summary then reshape it)
-# - Remove the mask from the return of the filter function
-# - Comment the filter function, and propagate slices_filters and select_filters documetation to all other functions
-# - Check read_lhc concatenation axis
 # - Check how summary_coords works with emulator_cov_y !!
- 
 
-fourier_stats = ['pk', 'dsc_pk']
-conf_stats = ['tpcf', 'dsc_conf']
-
-labels_stats = {
-    'dsc_conf': 'Density-split',
-    'dsc_pk': 'Density-split 'r'$P_\ell$',
-    'dsc_conf_cross': 'Density-split (CCF)',
-    'tpcf': 'Galaxy 2PCF',
-    'tpcf+dsc_conf': 'DSC + Galaxy 2PCF',
-    'number_density+tpcf': 'nbar + Galaxy 2PCF',
-    'number_density+pk': 'nbar + P(k)',
-    'pk': 'P(k)',
-}
 
 def summary_coords(
     statistic: str, 
@@ -81,7 +64,7 @@ def summary_coords(
         'bin_values': bin_values,
     }
     
-    # NOTE : Sometimes, bin_values is not needed !!
+    # Sometimes, bin_values is not needed !!
     if bin_values is None:
         stat_dict.pop('bin_values')
     
@@ -173,8 +156,6 @@ def read_lhc(statistics: list,
         Filters to select values in coordinates. Defaults to None.
     slice_filters : dict, optional
        Filters to slice values in coordinates. Defaults to None.
-    return_mask : bool, optional
-        Weather to return the mask array of the filtering process. Defaults to False.
     return_sep : bool, optional
         Weather to return the bin_values array. Defaults to False.
     summary_coords_dict : dict, optional
@@ -185,8 +166,8 @@ def read_lhc(statistics: list,
     Returns
     -------
     tuple
-        Tuple of arrays with the input features, output features and separation array if `return_sep` or `return_mask` is True : 
-        `(bin_values), lhc_x, lhc_y, lhc_x_names, (mask)` 
+        Tuple of arrays with the input features, output features and separation array if `return_sep` is True : 
+        `(bin_values), lhc_x, lhc_y, lhc_x_names` 
     
     Example
     -------
@@ -196,39 +177,33 @@ def read_lhc(statistics: list,
     ```
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
-    
     lhc_y_all = [] # List of the output features for all statistics
-    mask_all = []
     
     for statistic in statistics:
         data_fn = lhc_fnames(statistic, data_dir)
         data = np.load(data_fn, allow_pickle=True).item()
         
         bin_values = data['bin_values']
-        lhc_x = data['lhc_x']
         lhc_x_names = data['lhc_x_names']
+        lhc_x = data['lhc_x']
         lhc_y = data['lhc_y']
         
         # Get the summary coordinates for the given statistic
-        coords_y = summary_coords(statistic, coord_type='lhc_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         coords_x = summary_coords(statistic, coord_type='lhc_x', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        coords_y = summary_coords(statistic, coord_type='lhc_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if select_filters or slice_filters: 
-            lhc_y, mask = filter(lhc_y, coords_y, select_filters, slice_filters)
-            lhc_x, _ = filter(lhc_x, coords_x, select_filters, slice_filters) # NOTE:  Why do we need to filter lhc_x ??
-            mask_all.append(mask)
-        else:
-            mask_all.append(np.full(lhc_y.shape, False))
-        
+            # lhc_x can also be filtered ! (for example, to select only some cosmologies)
+            lhc_x = filter(lhc_x, coords_x, select_filters, slice_filters)
+            lhc_y = filter(lhc_y, coords_y, select_filters, slice_filters)
+
         lhc_y_all.append(lhc_y)
     
     # Concatenate the output features for all statistics
-    lhc_y_all = np.concatenate(lhc_y_all, axis=0) # TODO : check axis=0 or axis=1 ?? (or axis=-1)
+    lhc_y_all = np.concatenate(lhc_y_all, axis=1) 
     
     toret = (lhc_x, lhc_y_all, lhc_x_names)
     
-    if return_mask:
-        toret = (*toret, mask_all)
     if return_sep:
         toret = (bin_values, *toret)
     return toret
@@ -294,7 +269,7 @@ def read_covariance(statistics: list,
         coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if select_filters or slice_filters: 
-            y, mask = filter(y, coords, select_filters, slice_filters)
+            y = filter(y, coords, select_filters, slice_filters)
         
         y_all.append(y)
         
@@ -404,7 +379,7 @@ def read_emulator_error(statistics: list,
         coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if slice_filters or slice_filters: 
-            y, mask = filter(y, coords, select_filters, slice_filters)
+            y = filter(y, coords, select_filters, slice_filters)
             
         y_all.append(y)
         
@@ -466,7 +441,7 @@ def read_emulator_covariance(statistics: list,
         coords = summary_coords(statistic, coord_type='emulator_cov_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
         # If filters are provided, filter the data
         if slice_filters or slice_filters: 
-            y, mask = filter(y, coords, select_filters, slice_filters)
+            y = filter(y, coords, select_filters, slice_filters)
             
         y_all.append(y)
     
@@ -510,44 +485,18 @@ def filter(y,
     ```
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
-    # TODO : comment what happens here !!!
+    # Convert the data to a summary object
     dimensions = list(coords.keys())
     y = y.reshape([len(coords[d]) for d in dimensions])
-    y = convert_to_summary(data=y, dimensions=dimensions, coords=coords) 
+    y = convert_to_summary(
+        data=y,
+        dimensions=dimensions, 
+        coords=coords, 
+        select_filters=select_filters,
+        slice_filters=slice_filters) # Filter the data
     
-    # TODO : use the filters of convert_to_summary, and compute the mask by hand. Then, return the right mask depending on the case
-    # Why do we have to do this block as slice_filters & select_filters are implemented in convert_to_summary ??
-    if select_filters:
-        select_filters = {key: value for key, value in select_filters.items() if key in coords}
-        select_filters = [getattr(getattr(y, key), 'isin')(value) for key, value in select_filters.items()]
-        for i, cond in enumerate(select_filters):
-            select_mask = select_mask & cond if i > 0 else select_filters[0]
-        select_mask = y.where(select_mask).to_masked_array().mask
-    else:
-        select_mask = np.full(y.shape, False)
-        
-    if slice_filters:
-        slice_filters = {key: value for key, value in slice_filters.items() if key in coords}
-        slice_filters = [(getattr(y, key) >= value[0]) & (getattr(y, key) <= value[1]) for key, value in slice_filters.items()]
-        for i, cond in enumerate(slice_filters):
-            slice_mask = slice_mask & cond if i > 0 else slice_filters[0]
-        slice_mask = y.where(slice_mask).to_masked_array().mask
-    else:
-        slice_mask = np.full(y.shape, False)
-    
-    mask = select_mask | slice_mask
-
-    # Apply mask
-    y = y.values[~mask]
-    
-    # Reshape y to have the right shape (n_samples, n_features)
-    
-    # Select the mask for the first element of the mask
-    mask = mask[0]
-    mask = mask[np.where(~mask)[0][0], np.where(~mask)[1][0]].reshape(-1)
-    # TODO : Understand the return statement
-    # TODO : remove mask if jax part fixed in sunbird ?
-    return y, mask # TODO : finish this function and call it when needed, with the right format !!
+    # TODO : Reshape the data to the original shape
+    return y 
 
 
 def correlation_from_covariance(covariance):
