@@ -11,10 +11,20 @@ import warnings
 import sys
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
+from acm.data.paths import LRG_Abacus_DM as DM_DICT
 
 class BoxHOD:
-    def __init__(self, varied_params, config_file=None, cosmo_idx=0, phase_idx=0,
-        sim_type='base', redshift=0.5):
+    def __init__(
+        self,
+        varied_params, 
+        config_file=None, 
+        cosmo_idx=0, 
+        phase_idx=0,
+        sim_type='base', 
+        redshift=0.5,
+        DM_DICT=DM_DICT):
+        # TODO : document this !!
+        
         self.logger = logging.getLogger('AbacusHOD')
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
@@ -27,12 +37,12 @@ class BoxHOD:
             config_dir = os.path.dirname(os.path.abspath(__file__))
             config_file = Path(config_dir) /  'box.yaml'
         config = yaml.safe_load(open(config_file))
-        self.setup(config)
+        self.setup(config, DM_DICT)
         self.check_params(varied_params)
 
-    def setup(self, config):
+    def setup(self, config, DM_DICT): # Will override most of the config file !
         sim_params = config['sim_params']
-        sim_dir, subsample_dir = self.abacus_simdirs()
+        sim_dir, subsample_dir = self.abacus_simdirs(DM_DICT) 
         sim_params['sim_dir'] = sim_dir
         sim_params['subsample_dir'] = subsample_dir
         sim_params['sim_name'] = self.abacus_simname()
@@ -45,14 +55,9 @@ class BoxHOD:
         self.hubble = 100 * self.cosmo.efunc(self.redshift)
         self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
 
-    def abacus_simdirs(self):
-        if self.sim_type == 'small':
-            sim_dir = '/global/cfs/cdirs/desi/cosmosim/Abacus/small/'
-            subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/boxes/small/'
-        else:
-            sim_dir = '/global/cfs/cdirs/desi/cosmosim/Abacus/'
-            # subsample_dir = '/pscratch/sd/s/sihany/summit_subsamples_cleaned_desi'
-            subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/boxes/base/'
+    def abacus_simdirs(self, DM_DICT):
+        sim_dir = DM_DICT[self.sim_type]['sim_dir']
+        subsample_dir = DM_DICT[self.sim_type]['subsample_dir']
         return sim_dir, subsample_dir
 
     def abacus_simname(self):
