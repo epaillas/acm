@@ -1,7 +1,10 @@
+# This file contains the default values for the ACM package
+# Dictionaries containung specific values are defined here for clarity
 
 # List of cosmologies in AbacusSummit
 cosmo_list = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
 
+# Statistics coordinates, defining the array shape of the summary statistics
 summary_coords_dict = {
     'cosmo_idx': cosmo_list,# List of cosmologies index in AbacusSummit
     'hod_number': 100,      # Number of HODs sampled by cosmology
@@ -38,7 +41,7 @@ summary_coords_dict = {
     },
 }
 
-
+# Statistics labels
 labels_stats = {
     'dsc_conf': 'Density-split',
     'dsc_pk': 'Density-split 'r'$P_\ell$',
@@ -50,12 +53,13 @@ labels_stats = {
     'pk': 'P(k)',
 }
 
-
+# ???
 fourier_stats = ['pk', 'dsc_pk']
 conf_stats = ['tpcf', 'dsc_conf']
 
 
-# reference dictionary for the summary statistics (not used)
+
+#%% reference dictionary for the summary statistics (not used)
 tmp = {
     'tpcf': {},
     'pk': {},
