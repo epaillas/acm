@@ -8,9 +8,6 @@ from sunbird.data.data_utils import convert_to_summary
 
 from acm.data.default import summary_coords_dict
 
-# TODO list : 
-# - Check how summary_coords works with emulator_cov_y !!
-
 
 def summary_coords(
     statistic: str, 
@@ -47,6 +44,7 @@ def summary_coords(
     dict
         Dictionary containing the summary coordinates for the given statistic and coordinate type.
     """
+    
     cosmo_idx = summary_coords_dict['cosmo_idx']
     hod_number = summary_coords_dict['hod_number']
     param_number = summary_coords_dict['param_number']
@@ -104,6 +102,7 @@ def lhc_fnames(statistic: str,
     Path
         Path to the LHC data file.
     """
+    
     return Path(data_dir) / f'{statistic}_lhc.npy' 
 
 
@@ -127,6 +126,7 @@ def emulator_error_fnames(statistic: str,
     Path
         Path to the emulator error data file.
     """
+    
     if add_statistic:
         error_dir = Path(error_dir) / f'{statistic}/'
     return Path(error_dir) / f'{statistic}_emulator_error.npy' 
@@ -147,9 +147,11 @@ def get_bin_values(data: dict) -> np.ndarray:
     np.ndarray
         Array of the bin values, or None if the key is not present.
     """
+    
     if 'bin_values' not in data:
         return None
     return data['bin_values']
+
 
 def read_lhc(statistics: list, 
              data_dir: str,
@@ -196,6 +198,7 @@ def read_lhc(statistics: list,
     ```
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
+   
     lhc_y_all = [] # List of the output features for all statistics
     
     for statistic in statistics:
@@ -386,6 +389,7 @@ def read_emulator_error(statistics: list,
     ```
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
+    
     y_all = [] # List of the output features for all statistics
     
     for statistic in statistics:
@@ -458,9 +462,10 @@ def read_emulator_covariance(statistics: list,
         # If filters are provided, filter the data
         if slice_filters or slice_filters: 
             # Get the summary coordinates for the given statistic
-            coords = summary_coords(statistic, coord_type='emulator_cov_y', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
-            # TODO : Modify summary_coords with emulator_cov_y 
+            coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+            coords = {'n_test': list(range(len(y))), **coords} # Add the n_test dimension to the coords (to allow reshaping in filter)
             y = filter(y, coords, select_filters, slice_filters)
+            # NOTE : move n_test to summary_coords_dict ? ideally we should not have to modify it anyways
             
         y_all.append(y)
     
@@ -510,6 +515,7 @@ def filter(y,
     ```
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
+    
     # Convert the data to a summary object
     dimensions = list(coords.keys())
     y = y.reshape([len(coords[d]) for d in dimensions])
@@ -520,17 +526,20 @@ def filter(y,
         select_filters=select_filters,
         slice_filters=slice_filters) # Filter the data
     
+    # Figure out the number of simulations (first dimension of the data)
     if n_sim is not None: 
         n_sim = n_sim # NOTE : this is just in case we ever need to filter by hand (which should not happen)
     elif 'cosmo_idx' and 'hod_idx' in y.sizes: # LHC
         n_sim = y.sizes['cosmo_idx'] * y.sizes['hod_idx']
     elif 'phase_idx' in y.sizes: # Smallbox
         n_sim = y.sizes['phase_idx']
+    elif 'n_test' in y.sizes: # Emulator error
+        n_sim = y.sizes['n_test']
     else: # assume 1 otherwise
         n_sim = 1
         
-    # Reshape the data to the expected format
-    y = y.values.reshape(n_sim, -1)
+    # Reshape the data to the expected format 
+    y = y.values.reshape(n_sim, -1) # Concatenate the data on the last axis 
     
     return y 
 
@@ -549,6 +558,7 @@ def correlation_from_covariance(covariance):
     np.ndarray
         Correlation matrix.
     """
+    
     v = np.sqrt(np.diag(covariance))
     outer_v = np.outer(v, v)
     correlation = covariance / outer_v
@@ -576,6 +586,7 @@ def read_chain(chain_fn: str|Path,
     dict
         Dictionary containing the labels of the chain if `return_labels` is True.
     """
+    
     data = np.load(chain_fn, allow_pickle=True).item()
     chain = MCSamples(
                 samples=data['samples'],
