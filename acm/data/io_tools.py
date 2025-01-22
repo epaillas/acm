@@ -9,14 +9,13 @@ from sunbird.data.data_utils import convert_to_summary
 from acm.data.default import summary_coords_dict
 
 # TODO list : 
-# - Finish the filter function (use concert_to summary then reshape it)
 # - Check how summary_coords works with emulator_cov_y !!
 
 
 def summary_coords(
     statistic: str, 
     coord_type: str, 
-    bin_values = None, # TODO : detect this in edge case later
+    bin_values = None,
     summary_coords_dict: dict = summary_coords_dict 
     ) -> dict:
     """
@@ -132,6 +131,26 @@ def emulator_error_fnames(statistic: str,
         error_dir = Path(error_dir) / f'{statistic}/'
     return Path(error_dir) / f'{statistic}_emulator_error.npy' 
 
+
+def get_bin_values(data: dict) -> np.ndarray:
+    """
+    Get the bin values from the data dictionary. The bin values are stored in the `bin_values` key.
+    This fuction is here to avoid errors later if there is not bin_values key in the data dictionary.
+
+    Parameters
+    ----------
+    data : dict
+        Data dictionary containing the bin values.
+
+    Returns
+    -------
+    np.ndarray
+        Array of the bin values, or None if the key is not present.
+    """
+    if 'bin_values' not in data:
+        return None
+    return data['bin_values']
+
 def read_lhc(statistics: list, 
              data_dir: str,
              select_filters: dict = None, 
@@ -183,7 +202,7 @@ def read_lhc(statistics: list,
         data_fn = lhc_fnames(statistic, data_dir)
         data = np.load(data_fn, allow_pickle=True).item()
         
-        bin_values = data['bin_values']
+        bin_values = get_bin_values(data)
         lhc_x_names = data['lhc_x_names']
         lhc_x = data['lhc_x']
         lhc_y = data['lhc_y']
@@ -262,7 +281,7 @@ def read_covariance(statistics: list,
     for statistic in statistics:
         data_fn = lhc_fnames(statistic, data_dir)
         data = np.load(data_fn, allow_pickle=True).item()
-        bin_values = data['bin_values']
+        bin_values = get_bin_values(data)
         y = data['cov_y']
         
         # If filters are provided, filter the data
@@ -372,7 +391,7 @@ def read_emulator_error(statistics: list,
     for statistic in statistics:
         data_fn = emulator_error_fnames(statistic, error_dir)
         data = np.load(data_fn, allow_pickle=True).item()
-        bin_values = data['bin_values']
+        bin_values = get_bin_values(data)
         y = data['emulator_error']
         
         # If filters are provided, filter the data
@@ -433,7 +452,7 @@ def read_emulator_covariance(statistics: list,
     for statistic in statistics:
         data_fn = emulator_error_fnames(statistic, error_dir)
         data = np.load(data_fn, allow_pickle=True).item()
-        bin_values = data['bin_values']
+        bin_values = get_bin_values(data)
         y = data['emulator_cov_y']
         
         # If filters are provided, filter the data
@@ -457,6 +476,7 @@ def filter(y,
            coords: dict, # Order of the keys is VERY important here !!
            select_filters: dict = None, 
            slice_filters: dict = None,
+           n_sim: int = None,
            ) -> tuple:
     """
     Filter the data based on the given filters. The filters are applied to the data based on the summary coordinates.
@@ -471,11 +491,16 @@ def filter(y,
         Filters to select values in coordinates. Defaults to None.
     slice_filters : dict, optional
        Filters to slice values in coordinates. Defaults to None.
+    n_sim : int, optional
+        Final number of simulations (in case the keys of the coords are not the default ones). 
+        If not provided, it is computed from the data coords keys. 
+        If it cannot be computed, it is set to 1. Defaults to None.
 
     Returns
     -------
-    tuple
-        _description_
+    np.ndarray
+        Filtered data, reshaped in the shape (n_sim, n_statistics), where n_statistics is the concatenated length of the statistics.
+        This format is the expected format for the emulator.
         
     Example
     -------
@@ -495,7 +520,18 @@ def filter(y,
         select_filters=select_filters,
         slice_filters=slice_filters) # Filter the data
     
-    # TODO : Reshape the data to the original shape
+    if n_sim is not None: 
+        n_sim = n_sim # NOTE : this is just in case we ever need to filter by hand (which should not happen)
+    elif 'cosmo_idx' and 'hod_idx' in y.sizes: # LHC
+        n_sim = y.sizes['cosmo_idx'] * y.sizes['hod_idx']
+    elif 'phase_idx' in y.sizes: # Smallbox
+        n_sim = y.sizes['phase_idx']
+    else: # assume 1 otherwise
+        n_sim = 1
+        
+    # Reshape the data to the expected format
+    y = y.values.reshape(n_sim, -1)
+    
     return y 
 
 
