@@ -339,7 +339,7 @@ def read_covariance(statistics: list,
     y_all = np.concatenate(y_all, axis=1)
     
     prefactor = 1 / volume_factor
-    cov = prefactor * np.cov(y_all, rowvar=False) # each line is a simulation, so rowvar=False
+    cov = prefactor * np.cov(y_all, rowvar=False) # each row is a simulation, so rowvar=False
     
     return cov, len(y)
 
