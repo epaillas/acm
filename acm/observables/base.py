@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from sunbird.data.data_utils import convert_to_summary
 from pathlib import Path
 import numpy as np
+import torch
 
 from acm.data.io_tools import read_lhc, read_covariance_y, read_covariance, read_model
 
@@ -90,9 +91,10 @@ class BaseObservable(ABC):
         Output features from the small AbacusSummit box for covariance
         estimation.
         """
+        data_dir = self.paths['covariance_dir']
         return read_covariance_y(
             statistic=self.stat_name,
-            data_dir=self.paths['covariance_dir'],
+            data_dir=data_dir,
             select_filters=select_filters,
             slice_filters=slice_filters,
             summary_coords_dict=self.summary_coords_dict,
@@ -116,6 +118,15 @@ class BaseObservable(ABC):
             model_fn = self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name']
         return read_model([self.stat_name], model_fn)[0]
     
+    def get_prediction(self, model, x, to_numpy=True):
+        """
+        Get the prediction from the model.
+        """
+        with torch.no_grad():
+            pred = model.get_prediction(torch.Tensor(x))
+        if to_numpy:
+            return pred.numpy()
+        return pred
     
     #%% LHC creation : Methods to create the LHC data from statistics files
     def create_covariance(self):
