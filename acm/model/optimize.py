@@ -49,7 +49,7 @@ def get_best_model(
     study_dir: str,
     checkpoint_offset: int = 0,
     copy_to: str = False,
-    model_symlink: str = None,
+    model_symlink: str = 'last.ckpt', # To follow pytorch convention
     )-> Path: 
     """
     Get the best model checkpoint from the study.
@@ -65,7 +65,7 @@ def get_best_model(
     copy_to : str, optional
         If given, the model will be copied to this path. Defaults to False.
         As the standard practice, the model will be copied to a '{statistic}' subdirectory in the given path.
-    model_symlink : str, optional
+    model_symlink : str, optional 
         Name of the symlink to create when copying the model. If set to None, the symlink will be named 'last.ckpt'. Defaults to None.
 
     Returns
@@ -101,11 +101,9 @@ def get_best_model(
     if copy_to:
         Path(copy_to).mkdir(parents=True, exist_ok=True) # Check if the directory exists, if not create it
         model_fn = shutil.copy(model_fn, copy_to) # Copy the model to the desired path
+        
         # Create the symlink
-        if model_symlink:
-            symlink = Path(copy_to) / model_symlink
-        else:
-            symlink = Path(copy_to) / 'last.ckpt' # To follow pytorch convention
+        symlink = Path(copy_to) / model_symlink
         os.symlink(model_fn, symlink)
         return model_fn
     
@@ -146,16 +144,16 @@ if __name__ == '__main__':
     if not study_fn.exists() and n_existing_models > 1:
         logger.warning(
             f"The study file {study_fn} does not exist, but {n_existing_models} models are already saved in the study directory. "
-            "When using the 'checkpoint_offset' argument in 'get_best_model', "
-            "make sure to set it to {n_existing_models + 1} to get the last model.")
+            f"When using the 'checkpoint_offset' argument in 'get_best_model', "
+            f"make sure to set it to {n_existing_models + 1} to get the last model.")
     if study_fn.exists():
         study = joblib.load(study_fn)
         n_trials_saved = len(study.trials)
         if n_trials_saved != n_existing_models:
            raise ValueError(
                 f"The number of trials saved in the study ({n_trials_saved}) is different "
-                "from the number of models saved in the study directory ({n_existing_models}). "
-                "Please check the study file and the saved models."
+                f"from the number of models saved in the study directory ({n_existing_models}). "
+                f"Please check the study file and the saved models."
               )
     
     # TrainFCN parameters (except the hyperparameters)
@@ -188,3 +186,8 @@ if __name__ == '__main__':
             study,
             study_fn,
         )
+    
+    # Get the best model
+    copy_to = emc_paths['model_dir'] + f'{statistic}/'
+    model_fn = get_best_model(statistic, study_dir, checkpoint_offset=0, copy_to=copy_to)
+    logger.info(f"Best model saved at {model_fn} and copied to {copy_to}")
