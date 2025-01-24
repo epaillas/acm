@@ -14,14 +14,12 @@ class BaseObservable(ABC):
         """
         Expecting a self.stat_name to be defined here ! 
         """
-        self.paths = self.set_paths()
-        self.summary_coords_dict = self.set_coords()
     
     
     #%% Properties : Define the class properties (paths, statistics coordinates, etc.)
     @property  
     @abstractmethod
-    def set_paths(self) -> dict:
+    def paths(self) -> dict:
         """
         Defines the default paths for the statistics results.
         
@@ -38,7 +36,7 @@ class BaseObservable(ABC):
 
     @property
     @abstractmethod
-    def set_coords(self):
+    def summary_coords_dict(self):
         """
         Defines the default coordinates for the statistics results. 
         """
