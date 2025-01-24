@@ -108,11 +108,13 @@ class BaseObservable(ABC):
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         return cov
     
-    def model(self):
+    def model(self, model_fn=None):
         """
         Load trained theory model from checkpoint file.
         """
-        return read_model([self.stat_name], self.paths['model_dir'])[0]
+        if model_fn is None:
+            model_fn = self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name']
+        return read_model([self.stat_name], model_fn)[0]
     
     
     #%% LHC creation : Methods to create the LHC data from statistics files
