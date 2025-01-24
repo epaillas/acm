@@ -351,7 +351,7 @@ def read_covariance(statistics: list,
 
 
 def read_model(statistics: list,
-               model_path: dict | str,
+               model_fn: dict | str,
                ) -> list:
     """
     Load the model from the checkpoint file. The checkpoint file is constructed from the model directory, the statistic, the model subdirectory and the checkpoint name.
@@ -381,13 +381,13 @@ def read_model(statistics: list,
     """
     
     # Handle the case where the model path is a string
-    if isinstance(model_path, str):
-        model_path = {statistic: model_path for statistic in statistics}
+    if isinstance(model_fn, str):
+        model_fn = {statistic: model_fn for statistic in statistics}
     
     model_all = []
     for statistic in statistics:        
         # Get the checkpoint file name
-        checkpoint_fn = Path(model_path[statistic])
+        checkpoint_fn = Path(model_fn[statistic])
 
         # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
