@@ -111,4 +111,80 @@ def get_best_model(
     
     return model_fn
 
-# TODO : toy example to test the function
+
+# NOTE : toy example to test the function
+if __name__ == '__main__':
+    
+    import optuna
+    import argparse
+    import logging
+    from acm.utils import setup_logging 
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--n_trials", type=int, default=100, help="Number of trials to run")
+    parser.add_argument("--statistic", type=str, default='tpcf', help="Statistic to optimize")
+    parser.add_argument("--same_n_hidden", type=bool, default=True, help="If True, all the hidden layers will have the same number of neurons. If False, each hidden layer will have a different number of neurons.")
+    args = parser.parse_args()
+    statistic = args.statistic
+    same_n_hidden = args.same_n_hidden
+    n_trials = args.n_trials
+    
+    from acm.data.paths import emc_paths
+    study_dir = emc_paths['study_dir']
+    Path(study_dir).mkdir(parents=True, exist_ok=True)
+    study_fn = Path(study_dir) / f'{statistic}.pkl'
+    
+    # Setup logging
+    logger_fn = Path(study_dir) / f'{statistic}.log'
+    setup_logging(filename=logger_fn)
+    logger = logging.getLogger(__file__.split('/')[-1])
+    logger.info(f"Optimizing hyperparameters for {statistic}")
+    logger.info(f"Running {n_trials} trials")
+    
+    # Check on the study directories to avoid errors later
+    n_existing_models = len(list((Path(study_dir)/statistic).rglob('last*.ckpt')))
+    if not study_fn.exists() and n_existing_models > 1:
+        logger.warning(
+            f"The study file {study_fn} does not exist, but {n_existing_models} models are already saved in the study directory.
+                When using the 'checkpoint_offset' argument in 'get_best_model', 
+                make sure to set it to {n_existing_models + 1} to get the last model.")
+    if study_fn.exists():
+        study = joblib.load(study_fn)
+        n_trials_saved = len(study.trials)
+        if n_trials_saved != n_existing_models:
+           raise ValueError(
+                f"The number of trials saved in the study ({n_trials_saved}) is different 
+                from the number of models saved in the study directory ({n_existing_models}).
+                Please check the study file and the saved models."
+              )
+    
+    # TrainFCN parameters (except the hyperparameters)
+    from sunbird.data.transforms import Log
+    kwargs = {
+        'statistic': statistic,
+        'lhc_dir': emc_paths['lhc_dir'],
+        'covariance_dir': emc_paths['covariance_dir'],
+        'model_dir': emc_paths['study_dir'], # Save the intermediate models in the study directory
+        'n_train': 600,
+        'transform': Log(),
+    }
+    
+    # Run the optimization
+    for i in range(n_trials): # Loop to save each trial in the study
+        if study_fn.exists():
+            logger.info(f"Loading existing study from {study_fn}")
+            study = joblib.load(study_fn)
+        else:
+            study = optuna.create_study(study_name=f'{statistic}')
+        optimize_objective = lambda trial: objective(trial,  
+                                                     same_n_hidden=same_n_hidden, 
+                                                     **kwargs)
+        study.optimize(optimize_objective, n_trials=1)
+
+        last_trial_nb = study.trials[-1].number
+        logger.info(f"{i+1}/{n_trials}, Trial {last_trial_nb}. Best trial is {study.best_trial.number} with value {study.best_trial.value}")
+
+        joblib.dump(
+            study,
+            study_fn,
+        )

@@ -7,6 +7,7 @@ from sunbird.emulators import FCN, train
 from sunbird.data import ArrayDataModule
 
 from acm.data.io_tools import read_lhc, read_covariance
+from acm.data.default import summary_coords_dict
 
 from acm.utils import setup_logging
 setup_logging()
@@ -34,6 +35,7 @@ def TrainFCN(
     transform = None, 
     select_filters: dict = None,
     slice_filters: dict = None,
+    summary_coords_dict: dict = summary_coords_dict,
     )-> float:
     """
     Train a Fully Connected Neural Network (FCN) emulator for the given statistic, with the given hyperparameters.
@@ -87,11 +89,12 @@ def TrainFCN(
     ```
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
-
+    # TODO : add coord dir here !!!
     lhc_x, lhc_y, coords = read_lhc(statistics=[statistic],
                                     data_dir=lhc_dir,
                                     select_filters=select_filters,
                                     slice_filters=slice_filters,
+                                    summary_coords_dict=summary_coords_dict,
                                     ) 
     logger.info(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
 
@@ -99,6 +102,7 @@ def TrainFCN(
                                                data_dir=covariance_dir,
                                                select_filters=select_filters,
                                                slice_filters=slice_filters,
+                                               summary_coords_dict=summary_coords_dict,
                                                )
     logger.info(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
@@ -175,4 +179,40 @@ def TrainFCN(
     return val_loss
 
 
-# TODO : toy example to test the function
+# NOTE : toy example to test the function
+if __name__ == '__main__':
+    statistic = 'tpcf'
+    logger.info(f'Training {statistic}')
+    
+    from sunbird.data.transforms import Log
+    transform = Log()
+    
+    # Set the paths
+    from acm.data.paths import emc_paths
+    lhc_dir = emc_paths['lhc_dir']
+    covariance_dir = emc_paths['covariance_dir']
+    model_dir = emc_paths['model_dir']
+    
+    # Training parameters
+    n_train = 600 # 6 first cosmologies
+    
+    # Hyperparameters
+    learning_rate = 1.0e-3
+    n_hidden = [512, 512, 512, 512]
+    dropout_rate = 0
+    weight_decay = 0
+    
+    val_loss = TrainFCN(
+        statistic = statistic,
+        lhc_dir = lhc_dir,
+        covariance_dir = covariance_dir,
+        model_dir = model_dir,
+        n_train = n_train,
+        learning_rate = learning_rate,
+        n_hidden = n_hidden,
+        dropout_rate = dropout_rate,
+        weight_decay = weight_decay,
+        transform=transform,
+    )
+    
+    logger.info(f'Best validation loss for {statistic}: {val_loss}')
