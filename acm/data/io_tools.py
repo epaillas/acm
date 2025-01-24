@@ -157,7 +157,6 @@ def read_lhc(statistics: list,
              data_dir: str,
              select_filters: dict = None, 
              slice_filters: dict = None, 
-             return_mask: bool = False, 
              return_sep: bool = False,
              summary_coords_dict: dict = summary_coords_dict
              ) -> tuple:
