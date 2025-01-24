@@ -145,17 +145,17 @@ if __name__ == '__main__':
     n_existing_models = len(list((Path(study_dir)/statistic).rglob('last*.ckpt')))
     if not study_fn.exists() and n_existing_models > 1:
         logger.warning(
-            f"The study file {study_fn} does not exist, but {n_existing_models} models are already saved in the study directory.
-                When using the 'checkpoint_offset' argument in 'get_best_model', 
-                make sure to set it to {n_existing_models + 1} to get the last model.")
+            f"The study file {study_fn} does not exist, but {n_existing_models} models are already saved in the study directory. "
+            "When using the 'checkpoint_offset' argument in 'get_best_model', "
+            "make sure to set it to {n_existing_models + 1} to get the last model.")
     if study_fn.exists():
         study = joblib.load(study_fn)
         n_trials_saved = len(study.trials)
         if n_trials_saved != n_existing_models:
            raise ValueError(
-                f"The number of trials saved in the study ({n_trials_saved}) is different 
-                from the number of models saved in the study directory ({n_existing_models}).
-                Please check the study file and the saved models."
+                f"The number of trials saved in the study ({n_trials_saved}) is different "
+                "from the number of models saved in the study directory ({n_existing_models}). "
+                "Please check the study file and the saved models."
               )
     
     # TrainFCN parameters (except the hyperparameters)
