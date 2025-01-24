@@ -13,7 +13,6 @@ from acm.utils import setup_logging
 setup_logging()
 logger = logging.getLogger('ACM trainer')
 
-
 def TrainFCN(
     # Data
     statistic: str,
@@ -31,6 +30,7 @@ def TrainFCN(
     # Training
     final_model: bool = False,
     max_epochs: int = 5000,
+    logger_dir: str = None,
     # Data transforms
     transform = None, 
     select_filters: dict = None,
@@ -69,12 +69,19 @@ def TrainFCN(
         Defaults to False
     max_epochs : int, optional
         Maximum number of epochs to train the model. Defaults to 5000.
+    logger_dir : str, optional
+        Directory to save the pytorch lightning logs.
+        If set to None, the logs are saved in the current directory. Defaults to None.
     transform : callable, optional
         Transform to apply to the output features, from the `sunbird.data.transforms` or `sunbird.data.transforms_array` modules. Defaults to None.
     select_filters : dict, optional
         Filters to select values in coordinates. Defaults to None.
     slice_filters : dict, optional
         Filters to slice values in coordinates. Defaults to None.
+    summary_coords_dict : dict, optional
+        Dictionary containing the summary coordinates for each statistic. 
+        It also contains the comology indexes, the number of HODs, parameters and phases. 
+        Defaults to summary_coords_dict from `acm.data.default`.
 
     Returns
     -------
@@ -89,7 +96,6 @@ def TrainFCN(
     ```
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
-    # TODO : add coord dir here !!!
     lhc_x, lhc_y, coords = read_lhc(statistics=[statistic],
                                     data_dir=lhc_dir,
                                     select_filters=select_filters,
@@ -173,6 +179,7 @@ def TrainFCN(
         data=data, model=model,
         model_dir=model_dir,
         max_epochs=max_epochs,
+        logger_dir=logger_dir,
         devices=1,
     )
     

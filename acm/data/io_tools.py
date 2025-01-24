@@ -183,7 +183,7 @@ def read_lhc(statistics: list,
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
-        Defaults to summary_coords_dict from `acm.data.default`.
+        Defaults to `summary_coords_dict` from `acm.data.default`.
 
     Returns
     -------
@@ -258,7 +258,7 @@ def read_covariance_y(statistic: str,
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
-        Defaults to summary_coords_dict from `acm.data.default`.
+        Defaults to `summary_coords_dict` from `acm.data.default`.
 
     Returns
     -------
@@ -312,7 +312,7 @@ def read_covariance(statistics: list,
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
-        Defaults to summary_coords_dict from `acm.data.default`.
+        Defaults to `summary_coords_dict` from `acm.data.default`.
 
     Returns
     -------
@@ -420,7 +420,7 @@ def read_emulator_error(statistics: list,
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
-        Defaults to summary_coords_dict from `acm.data.default`.
+        Defaults to `summary_coords_dict` from `acm.data.default`.
 
     Returns
     -------
@@ -481,7 +481,7 @@ def read_emulator_covariance(statistics: list,
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
-        Defaults to summary_coords_dict from `acm.data.default`.
+        Defaults to `summary_coords_dict` from `acm.data.default`.
 
     Returns
     -------
