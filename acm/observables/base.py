@@ -5,6 +5,7 @@ import numpy as np
 
 from acm.data.io_tools import read_lhc, read_covariance_y, read_covariance, read_model
 
+# TODO : improve the docstrings
 
 class BaseObservable(ABC):
     """
@@ -115,14 +116,12 @@ class BaseObservable(ABC):
     
     
     #%% LHC creation : Methods to create the LHC data from statistics files
-    @abstractmethod
     def create_covariance(self):
         """
         From the statistics files for small AbacusSummit boxes, create the covariance array to store in the lhc file under the `cov_y` key.
         """
         pass
     
-    @abstractmethod
     def create_lhc(self):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the LHC data.
