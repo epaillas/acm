@@ -147,7 +147,9 @@ def get_bin_values(data: dict) -> np.ndarray:
     np.ndarray
         Array of the bin values, or None if the key is not present.
     """
-    
+    # TODO : remove this later, this is a quick-fix as the old standard is with 's'
+    if 's' in data:
+        return data['s']
     if 'bin_values' not in data:
         return None
     return data['bin_values']
@@ -217,7 +219,11 @@ def read_lhc(statistics: list,
             # lhc_x can also be filtered ! (for example, to select only some cosmologies)
             lhc_x = filter(lhc_x, coords_x, select_filters, slice_filters)
             lhc_y = filter(lhc_y, coords_y, select_filters, slice_filters)
-
+            # Filter the bin_values too
+            if bin_values is not None:
+                coords_bin = {'bin_values': bin_values}
+                bin_values = filter(bin_values, coords_bin, select_filters, slice_filters)
+            
         lhc_y_all.append(lhc_y)
     
     # Concatenate the output features for all statistics
@@ -568,7 +574,7 @@ def filter(y,
     
     # Figure out the number of simulations (first dimension of the data)
     if n_sim is not None: 
-        n_sim = n_sim # NOTE : this is just in case we ever need to filter by hand (which should not happen)
+        n_sim = n_sim # NOTE : this is just in case we ever need to filter by hand (which should not happen ideally)
     elif 'cosmo_idx' and 'hod_idx' in y.sizes: # LHC
         n_sim = y.sizes['cosmo_idx'] * y.sizes['hod_idx']
     elif 'phase_idx' in y.sizes: # Smallbox
@@ -579,8 +585,11 @@ def filter(y,
         n_sim = 1
         
     # Reshape the data to the expected format 
-    y = y.values.reshape(n_sim, -1) # Concatenate the data on the last axis 
-    
+    if n_sim >1 :
+        y = y.values.reshape(n_sim, -1) # Concatenate the data on the last axis 
+    else: # Edge case where there is only one simulation
+        y = y.values.reshape(-1)
+        
     return y 
 
 
