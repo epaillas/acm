@@ -146,10 +146,7 @@ def get_bin_values(data: dict) -> np.ndarray:
     -------
     np.ndarray
         Array of the bin values, or None if the key is not present.
-    """
-    # TODO : remove this later, this is a quick-fix as the old standard is with 's'
-    if 's' in data:
-        return data['s']
+    """   
     if 'bin_values' not in data:
         return None
     return data['bin_values']
