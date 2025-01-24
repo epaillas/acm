@@ -230,6 +230,56 @@ def read_lhc(statistics: list,
     return toret
 
 
+def read_covariance_y(statistic: str,
+                      data_dir: str,
+                      select_filters: dict = None,
+                      slice_filters: dict = None,
+                      summary_coords_dict: dict = summary_coords_dict
+                      ) -> np.ndarray:
+    """
+    Reads the data covariance array from the lhc file, stored under the `cov_y` key.
+
+    Parameters
+    ----------
+    statistic : str
+        Statistic to read.
+    data_dir : str
+        Directory where the data is stored.
+    select_filters : dict, optional
+        Filters to select values in coordinates. Defaults to None.
+    slice_filters : dict, optional
+       Filters to slice values in coordinates. Defaults to None.
+    summary_coords_dict : dict, optional
+        Dictionary containing the summary coordinates for each statistic. 
+        It also contains the comology indexes, the number of HODs, parameters and phases.
+        Defaults to summary_coords_dict from `acm.data.default`.
+
+    Returns
+    -------
+    np.ndarray
+        Array of covariance array for the given statistic.
+    
+    Example
+    -------
+    ```python
+    slice_filters = {'bin_values': (0, 0.5),} 
+    select_filters = {'multipoles': [0, 2],}
+    ```
+    will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
+    """
+    data_fn = lhc_fnames(statistic, data_dir)
+    data = np.load(data_fn, allow_pickle=True).item()
+    bin_values = get_bin_values(data)
+    y = data['cov_y']
+    
+    # If filters are provided, filter the data
+    if select_filters or slice_filters: 
+        # Get the summary coordinates for the given statistic
+        coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        y = filter(y, coords, select_filters, slice_filters)
+    
+    return y
+
 def read_covariance(statistics: list,
                     data_dir: str, 
                     volume_factor: float = 64, 
@@ -281,16 +331,7 @@ def read_covariance(statistics: list,
     
     y_all = [] # List of the output features for all statistics
     for statistic in statistics:
-        data_fn = lhc_fnames(statistic, data_dir)
-        data = np.load(data_fn, allow_pickle=True).item()
-        bin_values = get_bin_values(data)
-        y = data['cov_y']
-        
-        # If filters are provided, filter the data
-        if select_filters or slice_filters: 
-            # Get the summary coordinates for the given statistic
-            coords = summary_coords(statistic, coord_type='smallbox', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
-            y = filter(y, coords, select_filters, slice_filters)
+        y = read_covariance_y(statistic, data_dir, select_filters, slice_filters, summary_coords_dict)
         
         y_all.append(y)
         

@@ -9,7 +9,7 @@ summary_coords_dict = {
     'cosmo_idx': cosmo_list,# List of cosmologies index in AbacusSummit
     'hod_number': 100,      # Number of HODs sampled by cosmology
     'param_number': 20,     # Number of parameters in lhc_x used to generate the simulations
-    'phase_number': 1786,   # Number of phases inthe small box simulations
+    'phase_number': 1786,   # Number of phases in the small box simulations
     'statistics': {         # Statistic organization in lhc_y 
         'tpcf': {
             'multipoles': [0, 2],
