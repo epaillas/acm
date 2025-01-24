@@ -12,16 +12,13 @@ class BaseObservable(ABC):
     """
     def __init__(self):
         """
-        To be defined here : 
-        - self.stat_name : str
-        - self.paths : dict
-        - self.summary_coords_dict : dict
+        Expecting a self.stat_name to be defined here ! 
         """
         self.paths = self.set_paths()
         self.summary_coords_dict = self.set_coords()
     
     
-    #%% Properties : Define the class properties (paths, names, etc.)
+    #%% Properties : Define the class properties (paths, statistics coordinates, etc.)
     @property  
     @abstractmethod
     def set_paths(self) -> dict:
