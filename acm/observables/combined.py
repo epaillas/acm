@@ -2,7 +2,7 @@ import numpy as np
 from .base import BaseObservable
 
 
-class CombinedObservable(BaseObservable):
+class BaseCombinedObservable(BaseObservable):
     """
     Class for the Emulator's Mock Challenge combination of observables.
     """
