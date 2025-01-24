@@ -4,6 +4,7 @@ import yaml
 import numpy as np
 from abacusnbody.hod import abacus_hod
 from cosmoprimo.fiducial import AbacusSummit
+import mockfactory
 from astropy.io import fits
 from astropy.table import Table
 import logging
@@ -395,7 +396,7 @@ class LightconeHOD:
         self.logger.info(f'Default parameters: {default}.')
 
     def run(self, hod_params, nthreads=1, tracer='LRG', make_randoms=False, add_weights=False,
-        seed=None, save_fn=None, full_sky=False, alpha_rand=1, apply_nz=False):
+        seed=None, save_fn=None, full_sky=False, alpha_rand=1, apply_radial_mask=False):
         if seed == 0: seed = None
         if tracer not in ['LRG']:
             raise ValueError('Only LRGs are currently supported.')
@@ -419,12 +420,12 @@ class LightconeHOD:
                     else:
                         hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], hod_dict_i[tracer][key]])
             # positions_dict = self.get_positions(hod_dict, tracer)
-        self.format_catalog(hod_dict, save_fn, tracer, full_sky, apply_nz)
+        self.format_catalog(hod_dict, save_fn, tracer, full_sky, apply_radial_mask)
         if make_randoms:
             zmin = hod_dict[tracer]['Z'].min()
             zmax = hod_dict[tracer]['Z'].max()
             nbar = self.get_data_nbar(hod_dict, tracer, full_sky)
-            randoms_dict = self._make_randoms(nbar=nbar, zmin=zmin, zmax=zmax, apply_nz=apply_nz,
+            randoms_dict = self._make_randoms(nbar=nbar, zmin=zmin, zmax=zmax, apply_radial_mask=apply_radial_mask,
                                               full_sky=full_sky, alpha=alpha_rand, tracer=tracer)
             return hod_dict, randoms_dict
         return hod_dict
@@ -492,7 +493,7 @@ class LightconeHOD:
         nbar = len(data['Z']) / (volume / correction)
         return nbar
 
-    def format_catalog(self, hod_dict, save_fn=False, tracer='LRG', full_sky=False, apply_nz=False):
+    def format_catalog(self, hod_dict, save_fn=False, tracer='LRG', full_sky=False, apply_radial_mask=False):
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
         is_central = np.zeros(len(hod_dict[tracer]['x']))
@@ -507,7 +508,7 @@ class LightconeHOD:
         self.apply_zcut(hod_dict, self.zrange[0], self.zrange[1])
         data_nbar = self.get_data_nbar(hod_dict, tracer, full_sky)
         self.logger.info(f'Raw data nbar: {data_nbar}' )
-        if apply_nz:
+        if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
             self.apply_radial_mask(hod_dict, nz_filename, norm=1/data_nbar)
             self.logger.info(f'Downsampled data nbar: {self.get_data_nbar(hod_dict, tracer, full_sky)}' )
@@ -565,7 +566,7 @@ class LightconeHOD:
                         raise ValueError('Invalid type for hod_params. Must be either dict or list.')
         return hod_params
 
-    def _make_randoms(self, nbar, zmin, zmax, alpha=1, full_sky=False, apply_nz=False, tracer='LRG'):
+    def _make_randoms(self, nbar, zmin, zmax, alpha=1, full_sky=False, apply_radial_mask=False, tracer='LRG'):
         from mockfactory import RandomBoxCatalog
         self.logger.info(f'Generating random catalog.')
         # nbar = 6e-4  # hardcoded for LRG
@@ -579,7 +580,7 @@ class LightconeHOD:
         zmask = (randoms[tracer]['Z'] >= zmin) & (randoms[tracer]['Z'] <= zmax)
         for key in randoms[tracer].keys():
             randoms[tracer][key] = randoms[tracer][key][zmask]
-        if apply_nz:
+        if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
             self.apply_radial_mask(randoms, nz_filename)
         return randoms
@@ -598,280 +599,142 @@ class LightconeHOD:
             hod_dict[tracer][key] = hod_dict[tracer][key][mask_radial(hod_dict[tracer]['Z'], seed=42)]
 
 
-# class CutskyHOD:
-#     """
-#     Patch together cubic boxes to form a pseudo-lightcone.
-#     """
-#     def __init__(self, varied_params, config_file=None, cosmo_idx=0, phase_idx=0,
-#         zrange=[0.4, 0.8], snapshots=[0.5]):
-#         self.logger = logging.getLogger('CutskyHOD')
-#         self.cosmo_idx = cosmo_idx
-#         self.phase_idx = phase_idx
-#         self.sim_type = 'base'
-#         self.zrange = zrange
-#         self.boxsize = 2000
-#         if config_file is None:
-#             config_dir = os.path.dirname(os.path.abspath(__file__))
-#             config_file = Path(config_dir) /  'box.yaml'
-#         config = yaml.safe_load(open(config_file))
-#         self.setup(config)
-#         self.check_params(varied_params)
+class CutskyHOD:
+    """
+    Patch together cubic boxes to form a pseudo-lightcone.
+    """
+    def __init__(self, varied_params, config_file=None, cosmo_idx=0, phase_idx=0,
+        zranges=[[0.41, 0.6]], snapshots=[0.5]):
+        self.logger = logging.getLogger('CutskyHOD')
+        self.varied_params = varied_params
+        self.cosmo_idx = cosmo_idx
+        self.phase_idx = phase_idx
+        self.sim_type = 'base'
+        self.zranges = zranges
+        self.snapshots = snapshots
+        self.boxsize = 2000
+        self.boxcenter = 0
+        self.setup()
 
-#     def abacus_simdirs(self):
-#         if self.sim_type == 'small':
-#             sim_dir = '/global/cfs/cdirs/desi/cosmosim/Abacus/small/'
-#             subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/boxes/small/'
-#         else:
-#             sim_dir = '/global/cfs/cdirs/desi/cosmosim/Abacus/'
-#             subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/boxes/base/'
-#         return sim_dir, subsample_dir
+    def setup(self):
+        self.balls = []
+        for zsnap in self.snapshots:
+            # self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
+            ball = BoxHOD(varied_params=self.varied_params, sim_type=self.sim_type,
+                          redshift=zsnap, cosmo_idx=self.cosmo_idx, phase_idx=self.phase_idx)
+            self.balls += [ball]
+        self.cosmo = AbacusSummit(self.cosmo_idx)
 
-#     def abacus_simname(self):
-#         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
+    def run(self, hod_params, nthreads=1, seed=0, generate_randoms=False, alpha_randoms=5,
+            randoms_seed=42):
+        data_cutsky = {}
+        randoms_cutsky = {}
+        for ball, zsnap, zranges in zip(self.balls, self.snapshots, self.zranges):
+            hod_dict_i = ball.run(hod_params, seed=seed, nthreads=nthreads)['LRG']
+            pos = np.c_[hod_dict_i['X'], hod_dict_i['Y'], hod_dict_i['Z']]
+            vel = np.c_[hod_dict_i['VX'], hod_dict_i['VY'], hod_dict_i['VZ']]
+            print('Generating data')
+            data = mockfactory.BoxCatalog(
+                data={'Position': pos, 'Velocity': vel},
+                position='Position',
+                velocity='Velocity',
+                boxsize=self.boxsize,
+                boxcenter=self.boxcenter,
+            )
+            data.recenter()
+            data_nbar = len(data) / (self.boxsize**3)
+            tmp_data_cutsky = self._to_cutsky(data, *zranges, zsnap, 
+                                          apply_rsd=True,
+                                          apply_radial_mask=True,
+                                          radial_mask_norm=1/data_nbar,
+                                          apply_footprint_mask=True)
+            if generate_randoms:
+                print('Generating randoms.')
+                nbar_randoms = data_nbar * alpha_randoms
+                randoms =  mockfactory.RandomBoxCatalog(
+                    nbar=nbar_randoms, boxsize=self.boxsize,
+                    boxcenter=self.boxcenter, seed=randoms_seed,
+                )
+                tmp_randoms_cutsky = self._to_cutsky(randoms, *zranges, zsnap,
+                                                 apply_rsd=False,
+                                                 apply_radial_mask=True,
+                                                 radial_mask_norm=1/data_nbar,
+                                                 apply_footprint_mask=True)
+            # concatenate to previous shell, if any
+            data_keys = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']
+            randoms_keys = ['RA', 'DEC', 'Z', 'Position', 'Distance']
+            if data_cutsky:
+                for key in data_keys:
+                    data_cutsky[key] = np.concatenate([data_cutsky[key], tmp_data_cutsky[key]])
+                if generate_randoms:
+                    for key in randoms_keys:
+                        randoms_cutsky[key] = np.concatenate([randoms_cutsky[key], tmp_randoms_cutsky[key]])
+            else:
+                for key in data_keys:
+                    data_cutsky[key] = tmp_data_cutsky[key]
+                if generate_randoms:
+                    for key in randoms_keys:
+                        randoms_cutsky[key] = tmp_randoms_cutsky[key]
+        if generate_randoms:
+            return data_cutsky, randoms_cutsky
+        return data_cutsky
 
-#     def setup(self, config):
-#         sim_params = config['sim_params']
-#         sim_dir, subsample_dir = self.abacus_simdirs()
-#         sim_params['sim_dir'] = sim_dir
-#         sim_params['subsample_dir'] = subsample_dir
-#         sim_params['sim_name'] = self.abacus_simname()
-#         HOD_params = config['HOD_params']
-#         self.balls = []
-#         for znap in self.snapshots:
-#             self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
-#             sim_params['z_mock'] = znap
-#             ball = abacus_hod.AbacusHOD(sim_params, HOD_params)
-#             ball.params['Lbox'] = self.boxsize
-#             self.balls += [ball]
-#         self.cosmo = AbacusSummit(self.cosmo_idx)
-#         self.az = 1 / (1 + self.redshift)
-#         self.hubble = 100 * self.cosmo.efunc(self.redshift)
+    def _to_cutsky(self, catalog, zmin, zmax, zsnap, apply_rsd=False, apply_radial_mask=False,
+        apply_footprint_mask=False, radial_mask_norm=None):
+        nbar = len(catalog) / (self.boxsize**3)
+        dist = self.cosmo.comoving_radial_distance((zmin + zmax) / 2)
+        cutsky = self._apply_geometric_cuts(catalog, self.boxsize, dist)
+        if apply_rsd: 
+            cutsky = self._apply_rsd(cutsky, zsnap)
+        cutsky = self._get_sky_positions(cutsky, apply_rsd)
+        if apply_radial_mask:
+            cutsky = self._apply_radial_mask(cutsky, zmin=zmin, zmax=zmax,
+                                             norm=radial_mask_norm)
+        if apply_footprint_mask:
+            cutsky = self._apply_footprint_mask(cutsky)
+        return cutsky
 
-#     def check_params(self, params):
-#         params = list(params)
-#         params = self.param_mapping(params)
-#         for param in params:
-#             if param not in self.ball.tracers['LRG'].keys():
-#                 raise ValueError(f'Invalid parameter: {param}. Valid list '
-#                                  f'of parameters include: {list(self.ball.tracers["LRG"].keys())}')
-#         self.logger.info(f'Varied parameters: {params}.')
-#         self.varied_params = params
-#         default = {key: value for key, value in self.ball.tracers['LRG'].items() if key not in params}
-#         self.logger.info(f'Default parameters: {default}.')
+    def _apply_geometric_cuts(self, catalog, boxsize, dist):
+        print('Applying geometric cuts.')
+        # largest (RA, Dec) range we can achieve for a maximum distance of dist + boxsize / 2.
+        drange, rarange, decrange = mockfactory.box_to_cutsky(boxsize=boxsize, dmax=dist + boxsize / 2.)
+        rarange = np.array(rarange) + 192
+        decrange = np.array(decrange) + 35
+        # returned isometry corresponds to a displacement of the box along the x-axis to match drange, then a rotation to match rarange and decrange
+        isometry, mask_radial, mask_angular = catalog.isometry_for_cutsky(drange=drange, rarange=rarange, decrange=decrange)
+        return catalog.cutsky_from_isometry(isometry, rdd=None)
 
-#     def run(self, hod_params, nthreads=1, tracer='LRG', make_randoms=False, add_weights=False,
-#         seed=None, save_fn=None, full_sky=False, alpha_rand=1, apply_nz=False):
-#         if seed == 0: seed = None
-#         if tracer not in ['LRG']:
-#             raise ValueError('Only LRGs are currently supported.')
-#         hod_params = self.param_mapping(hod_params)
-#         if set(hod_params.keys()) != set(self.varied_params):
-#             raise ValueError('Invalid HOD parameters. Must match the varied parameters.')
-#         for i, ball in enumerate(self.balls):
-#             for key in hod_params.keys():
-#                 if key == 'sigma' and tracer == 'LRG':
-#                     ball.tracers[tracer][key] = 10**hod_params[key]
-#                 else:
-#                     ball.tracers[tracer][key] = hod_params[key]
-#             ball.tracers[tracer]['ic'] = 1
-#             if i == 0:
-#                 hod_dict = ball.run_hod(ball.tracers, ball.want_rsd, Nthread=nthreads, reseed=seed)
-#             else:
-#                 hod_dict_i = ball.run_hod(ball.tracers, ball.want_rsd, Nthread=nthreads, reseed=seed)
-#                 for key in hod_dict_i[tracer].keys():
-#                     if key == 'Ncent': 
-#                         hod_dict[tracer][key] += hod_dict_i[tracer][key]
-#                     else:
-#                         hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], hod_dict_i[tracer][key]])
-#         self.format_catalog(hod_dict, save_fn, tracer, full_sky, apply_nz)
-#         return hod_dict
+    def _apply_rsd(self, catalog, zsnap):
+        print('Applying RSD.')
+        a = 1 / (1 + zsnap) # scale factor
+        H = 100.0 * self.cosmo.efunc(zsnap)  # Hubble parameter in km/s/Mpc
+        rsd_factor = 1 / (a * H)  # multiply velocities by this factor to convert to Mpc/h
+        catalog['RSDPosition'] = catalog.rsd_position(f=rsd_factor)
+        return catalog
 
-#     def get_box_replications(pos, vel, mappings=[-1, 0, 1]):
-#         rep_pos = []
-#         rep_vel = []
-#         for i in mappings:
-#             for j in mappings:
-#                 for k in mappings:
-#                     rep_pos.append(pos + [boxsize * idx for idx in [i, j, k]])
-#                     rep_vel.append(vel)
-#         rep_pos = np.concatenate(rep_pos)
-#         rep_vel = np.concatenate(rep_vel)
-#         return rep_pos, rep_vel
+    def _get_sky_positions(self, catalog, apply_rsd=False):
+        print('Converting to sky positions.')
+        distance_to_redshift = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
+        pos = 'RSDPosition' if apply_rsd else 'Position'
+        catalog['Distance'], catalog['RA'], catalog['DEC'] = mockfactory.cartesian_to_sky(catalog[pos])
+        catalog['Z'] = distance_to_redshift(catalog['Distance'])
+        return catalog
 
-#     def photometric_region_center(region):
-#         if region == 'N':
-#             ra, dec = 192.3, 56.0
-#         elif region in ['N+DN', 'N+SNGC']:
-#             ra, dec = 192, 35
-#         elif region in ['DN', 'SNGC']:
-#             ra, dec = 192, 13.0
-#         elif region in ['DS', 'SSGC']:
-#             ra, dec = 6.4, 5.3
-#         else:
-#             ValueError(f'photometric_region_center is not defined for region={region}')
-#         return ra, dec
+    def _apply_radial_mask(self, catalog, zmin=0., zmax=6., seed=42, norm=None):
+        print('Applying radial mask.')
+        from mockfactory import TabulatedRadialMask
+        nz_filename = '/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+        zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
+        zbin_mid = (zbin_min + zbin_max) / 2
+        zedges = np.insert(zbin_max, 0, zbin_min[0])
+        dedges = self.cosmo.comoving_radial_distance(zedges)
+        volume = dedges[1:]**3 - dedges[:-1]**3
+        mask_radial = mockfactory.TabulatedRadialMask(z=zbin_mid, nbar=n_z, interp_order=2,
+                                                      zrange=(zmin, zmax), norm=norm)
+        return catalog[mask_radial(catalog['Z'], seed=seed)]
 
-#     def apply_rsd_and_cutsky(catalog, dmin, dmax, rsd_factor, center_ra=0, center_dec=0):
-#         """
-#         Rotate the box to the final position, apply RSD and masks.
-
-#         Note
-#         ----
-#         RSD needs to be applied before applying the distance cuts.
-
-#         Parameters
-#         ----------
-#         catalog: BoxCatalog
-#             Box containing the simulation. Must be large enough for the desired ``dmax`` and ``dmin``.
-
-#         dmin : float
-#             Minimal distance desired for the cutsky. Can be computed with `cosmo.comoving_radial_distance(zmin)`.
-
-#         dmax : float
-#             Maximal distance desired for the cutsky. Can be computed with `cosmo.comoving_radial_distance(zmax)`.
-
-#         rsd_factor: float
-#             Factor to apply to ``catalog.velocity`` to obtain RSD displacement in positions units, to be added to ``catalog.position``.
-#             It depends on the choice of velocity units in ``catalog``.
-
-#         center_ra, center_dec : float, default=0.
-#             Add angles to rotate the box. The box is centered around (RA, Dec) = (center_ra, center_dec).
-
-#         Returns
-#         -------
-#         cutsky : CutskyCatalog
-#             Catalog with desired cutsky and RSD positions.
-#         """
-#         from mockfactory import box_to_cutsky, utils
-
-#         # Collect limit for the cone
-#         print(catalog.boxsize)
-#         drange, rarange, decrange = box_to_cutsky(catalog.boxsize, dmax, dmin=dmin)
-
-#         # Slice rarange et decrange:
-#         # rarange = np.array(rarange) + center_ra
-#         # decrange = np.array(decrange) + center_dec
-
-#         # Collect isometry (transform) and masks to be applied
-#         isometry, mask_radial, mask_angular = catalog.isometry_for_cutsky(drange, rarange, decrange)
-#         # First move data to its final position
-#         data_cutsky = catalog.cutsky_from_isometry(isometry, rdd=None)
-#         # For data, we apply RSD *before* distance cuts
-#         data_cutsky['RSDPosition'] = data_cutsky.rsd_position(f=rsd_factor)
-#         # Collect distance, ra, dec
-#         data_cutsky['DISTANCE'], data_cutsky['RA'], data_cutsky['DEC'] = utils.cartesian_to_sky(data_cutsky['RSDPosition'])
-#         # Apply selection function (purely geometric)
-#         mask = mask_radial(data_cutsky['DISTANCE']) & mask_angular(data_cutsky['RA'], data_cutsky['DEC'])
-#         return data_cutsky
-#         # return data_cutsky[mask]
-
-#     def apply_radial_mask(cutsky, zmin=0., zmax=6., nz_filename='nz_qso_final.dat',
-#                         apply_redshift_smearing=False, tracer_smearing='QSO',
-#                         cosmo=None, seed=145):
-#         """
-#         Match the input n(z) distribution between ``zmin`` and ``zmax``.
-#         Here, we extract the largest number of galaxy as possible (as default).
-
-#         Parameters
-#         ----------
-#         cutsky: CutskyCatalog
-#             Catalog containing at least a column 'Z'.
-
-#         zmin: float, default=0.
-#             Minimal redshift to consider in the n(z).
-
-#         zmax: float, default=6.
-#             Maximum redshift to consider in the n(z).
-
-#         nz_filename: string, default='nz_qso_final.dat'
-#             Where the n(z) is saved, in ``cutsky.position`` units, e.g. (Mpc/h)^(-3). For now, only the final TS format is accepted.
-
-#         apply_redshift_smearing: bool, default=False
-#             If true, apply redshift smearing as in https://github.com/echaussidon/mockfactory/blob/341d915bd37c725e10c0b2f490960efc916a56dd/mockfactory/desi/redshift_smearing.py
-
-#         tracer_smearing: str, default='QSO'
-#             What king of smearing you want to apply. Use the default filename used in mockfactory/desi/redshift_smearing.py
-
-#         cosmo : Cosmology
-#             Cosmology of the input mock, to convert n(z) in ``nz_filename`` to mock units.
-
-#         seed : int, default=145
-#             Random seed, for reproductibility during the masking.
-
-#         Returns
-#         -------
-#         cutsky : CutskyCatalog
-#             Catalog with matched n(z) distribution.
-#         """
-#         from mockfactory import TabulatedRadialMask
-
-#         # Load nz
-#         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
-#         zbin_mid = (zbin_min + zbin_max) / 2
-#         # Compute comobile volume
-#         zedges = np.insert(zbin_max, 0, zbin_min[0])
-#         dedges = cosmo.comoving_radial_distance(zedges)
-#         volume = dedges[1:]**3 - dedges[:-1]**3
-#         mask_radial = TabulatedRadialMask(z=zbin_mid, nbar=n_z / volume, interp_order=2, zrange=(zmin, zmax))
-
-#         if apply_redshift_smearing:
-#             from mockfactory.desi import TracerRedshiftSmearing
-#             # Note: apply redshift smearing before the n(z) match since n(z) is what we observe (ie) containing the smearing
-#             cutsky['Z'] = cutsky['Z'] + TracerRedshiftSmearing(tracer=tracer_smearing).sample(cutsky['Z'], seed=seed + 13)
-
-#         return cutsky[mask_radial(cutsky['Z'], seed=seed)]
-
-#     def is_in_photometric_region(ra, dec, region, rank=0):
-#         """DN=NNGC and DS = SNGC"""
-#         region = region.upper()
-#         assert region in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES']
-
-#         DR9Footprint = None
-#         try:
-#             from regressis import DR9Footprint
-#         except ImportError:
-#             if rank == 0: logger.info('Regressis not found, falling back to RA/Dec cuts')
-
-#         if DR9Footprint is None:
-#             mask = np.ones_like(ra, dtype='?')
-#             if region == 'DES':
-#                 raise ValueError('Do not know DES cuts, install regressis')
-#             dec_cut = 32.375
-#             if region == 'N':
-#                 mask &= dec > dec_cut
-#             else:  # S
-#                 mask &= dec < dec_cut
-#             if region in ['DN', 'DS', 'SNGC', 'SSGC']:
-#                 mask_ra = (ra > 100 - dec)
-#                 mask_ra &= (ra < 280 + dec)
-#                 if region in ['DN', 'SNGC']:
-#                     mask &= mask_ra
-#                 else:  # DS
-#                     mask &= dec > -25
-#                     mask &= ~mask_ra
-#             return np.nan * np.ones(ra.size), mask
-#         else:
-#             from regressis.utils import build_healpix_map
-#             # Precompute the healpix number
-#             nside = 256
-#             _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)
-
-#             # Load DR9 footprint and create corresponding mask
-#             dr9_footprint = DR9Footprint(nside, mask_lmc=False, clear_south=False, mask_around_des=False, cut_desi=False, verbose=(rank == 0))
-#             convert_dict = {'N': 'north', 'DN': 'south_mid_ngc', 'N+SNGC': 'ngc', 'SNGC': 'south_mid_ngc', 'DS': 'south_mid_sgc', 'SSGC': 'south_mid_sgc', 'DES': 'des'}
-#             return pixels, dr9_footprint(convert_dict[region])[pixels]
-
-
-#     def apply_photo_desi_footprint(cutsky, region, release, program='dark', npasses=None, rank=0):
-#         """
-#         Remove part of the cutsky to match as best as possible (precision is healpix map at nside)
-#         the DESI release (e.g. y1) footprint and DR9 photometric footprint.
-#         """
-#         from mockfactory.desi import is_in_desi_footprint
-
-#         # Mask objects outside DESI footprint:
-#         is_in_desi = is_in_desi_footprint(cutsky['RA'], cutsky['DEC'], release=release, program=program, npasses=npasses)
-#         cutsky['HPX'], is_in_photo = is_in_photometric_region(cutsky['RA'], cutsky['DEC'], region, rank=rank)
-#         return cutsky[is_in_desi & is_in_photo]
-
-#         def run(self, hod_params, nthreads)
+    def _apply_footprint_mask(self, catalog):
+        print('Applying footprint mask.')
+        from mockfactory.desi import is_in_desi_footprint
+        is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release='y1', program='dark', npasses=None)
+        return catalog[is_in_desi]
