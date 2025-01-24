@@ -77,6 +77,7 @@ class BaseObservable(ABC):
             summary_coords_dict = self.summary_coords_dict
             )
     
+    @property
     def lhc_x(self):
         """
         Latin hypercube of input features (cosmological and/or HOD parameters)
@@ -88,6 +89,19 @@ class BaseObservable(ABC):
             )
         return lhc_x
     
+    @property
+    def lhc_x_names(self):
+        """
+        Names of the input features (cosmological and/or HOD parameters).
+        """
+        lhc_x, lhc_y, lhc_x_names = self.read_lhc(
+            select_filters=self.select_filters, 
+            slice_filters=self.slice_filters, 
+            return_sep=False
+            )
+        return lhc_x_names
+    
+    @property
     def lhc_y(self):
         """
         Latin hypercube of output features (tpcf, power spectrum, etc).
@@ -99,6 +113,7 @@ class BaseObservable(ABC):
             )
         return lhc_y
     
+    @property
     def bin_values(self):
         """
         Bin values for the statistic. (e.g. separation bins for the correlation function)
@@ -110,6 +125,7 @@ class BaseObservable(ABC):
             )
         return bin_values
     
+    @property
     def covariance_y(self):
         """
         Output features from the small AbacusSummit box for covariance
@@ -125,7 +141,7 @@ class BaseObservable(ABC):
             summary_coords_dict=self.summary_coords_dict,
             )
     
-    def covariance_matrix(
+    def get_covariance_matrix(
         self,
         volume_factor: float = 64, 
         prefactor: float = 1):
@@ -139,7 +155,16 @@ class BaseObservable(ABC):
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         return cov
     
-    def model(self, model_fn=None)-> FCN:
+    #%% Model : Methods to interract with the model
+    @property
+    @abstractmethod
+    def model(self):
+        """
+        Trained theory model.
+        """
+        return self.get_model(model_fn=None)
+        
+    def get_model(self, model_fn=None)-> FCN:
         """
         Load trained theory model from checkpoint file.
         
@@ -190,6 +215,14 @@ class BaseObservable(ABC):
         pred = filter(pred, coords, self.select_filters, self.slice_filters, n_sim=len(pred))
         
         return pred
+    
+    @property
+    @abstractmethod
+    def emulator_error(self):
+        """
+        Emulator error of the statistic.
+        """
+        pass
     
     #%% LHC creation : Methods to create the LHC data from statistics files
     # Not mandatory to implement, but can be useful to create the LHC data from the statistics files.
