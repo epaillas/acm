@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from sunbird.emulators import FCN
 from acm.data.io_tools import read_lhc, read_covariance_y, read_covariance, read_model
 
 # TODO : improve the docstrings
@@ -41,6 +42,7 @@ class BaseObservable(ABC):
     def summary_coords_dict(self):
         """
         Defines the default coordinates for the statistics results. 
+        See `acm.data.default` for a more detailled example.
         """
         pass
 
@@ -53,7 +55,7 @@ class BaseObservable(ABC):
         return_sep: bool = False,
     )-> tuple:
         """
-        Read the LHC file data. See acm.data.io_tools.read_lhc for more details.
+        Read the LHC file data. See `acm.data.io_tools.read_lhc` for more details.
         """
         data_dir = self.paths['lhc_dir']
         return read_lhc(
@@ -90,6 +92,7 @@ class BaseObservable(ABC):
         """
         Output features from the small AbacusSummit box for covariance
         estimation.
+        See `acm.data.io_tools.read_covariance_y` for more details.
         """
         data_dir = self.paths['covariance_dir']
         return read_covariance_y(
@@ -102,7 +105,7 @@ class BaseObservable(ABC):
     
     def covariance_matrix(self, select_filters=None, slice_filters=None,  volume_factor=64, prefactor=1):
         """
-        Covariance matrix for the statistic.
+        Covariance matrix for the statistic. 
         """
         cov_y = self.covariance_y(select_filters=select_filters, slice_filters=slice_filters)
         prefactor = prefactor / volume_factor
@@ -110,9 +113,20 @@ class BaseObservable(ABC):
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         return cov
     
-    def model(self, model_fn=None):
+    def model(self, model_fn=None)-> FCN:
         """
         Load trained theory model from checkpoint file.
+        
+        Parameters
+        ----------
+        model_fn : str, optional
+            Path to the model checkpoint file. If None, the path used is {model_dir}/{stat_name}/{checkpoint_name}. 
+            Defaults to None.
+        
+        Returns
+        -------
+        FCN
+            Trained theory model.
         """
         if model_fn is None:
             model_fn = self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name']
@@ -121,6 +135,20 @@ class BaseObservable(ABC):
     def get_prediction(self, model, x, to_numpy=True):
         """
         Get the prediction from the model.
+        
+        Parameters
+        ----------
+        model : FCN
+            Trained theory model.
+        x : array_like
+            Input features.
+        to_numpy : bool, optional
+            If True, the prediction is converted to a numpy array. Defaults to True.
+        
+        Returns
+        -------
+        array_like
+            Model prediction.
         """
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x))
@@ -129,6 +157,7 @@ class BaseObservable(ABC):
         return pred
     
     #%% LHC creation : Methods to create the LHC data from statistics files
+    # Not mandatory to implement, but can be useful to create the LHC data from the statistics files.
     def create_covariance(self):
         """
         From the statistics files for small AbacusSummit boxes, create the covariance array to store in the lhc file under the `cov_y` key.
