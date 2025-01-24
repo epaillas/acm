@@ -157,7 +157,6 @@ class BaseObservable(ABC):
     
     #%% Model : Methods to interract with the model
     @property
-    @abstractmethod
     def model(self):
         """
         Trained theory model.
