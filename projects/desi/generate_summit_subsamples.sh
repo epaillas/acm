@@ -15,7 +15,7 @@ leading_zero_fill ()
 
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
 BASE_DIR=/pscratch/sd/e/epaillas/summit_subsamples/lightcones
-PATH2CONFIG=~/code/acm/projects/y1/ds_abacus_lightcone.yaml
+PATH2CONFIG=~/code/acm/projects/desi/ds_abacus_lightcone.yaml
 # REDSHIFTS=( 0.100 0.150 0.200 0.250 0.300 0.350 0.400 0.450 0.500 )  # LOWZ
 # REDSHIFTS=( 0.575 0.650 0.725 0.800 0.875 0.950 1.025 1.100 )  # DESI LRG
 REDSHIFTS=( 0.800 0.875 0.950 1.025 1.100 )  # DESI LRG
