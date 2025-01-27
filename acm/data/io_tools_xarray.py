@@ -471,7 +471,8 @@ def read_model(statistics):
         elif statistic == 'pdf_r20':
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/optuna/last-v33.ckpt'
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
-        model.eval().to('cpu')
+        print(checkpoint_fn)
+        model.eval()
         if statistic == 'minkowski':
             from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
             model.transform_output = WeiLiuOutputTransForm()

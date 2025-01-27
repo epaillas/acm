@@ -4,19 +4,42 @@ from sunbird.data.data_utils import convert_to_summary
 import yaml
 
 
-fourier_stats = ['pk', 'dsc_pk']
-conf_stats = ['tpcf', 'dsc_conf']
+DEFAULT_DIRS = get_default_dirs()
 
-labels_stats = {
-    'dsc_conf': 'Density-split',
-    'dsc_pk': 'Density-split 'r'$P_\ell$',
-    'dsc_conf_cross': 'Density-split (CCF)',
-    'tpcf': 'Galaxy 2PCF',
-    'tpcf+dsc_conf': 'DSC + Galaxy 2PCF',
-    'number_density+tpcf': 'nbar + Galaxy 2PCF',
-    'number_density+pk': 'nbar + P(k)',
-    'pk': 'P(k)',
-}
+
+def get_default_dirs():
+    with open('paths.yaml', 'r') as f:
+        dirs = yaml.safe_load(f)
+    return dirs
+
+def parse_index_string(index_str: str) -> list:
+    """
+    Converts a string with ranges into a list of integers.
+    
+    Parameters
+    ----------
+    index_str : str
+        A string with indices separated by commas.
+        Ranges can be specified with a dash (e.g., 0-4).
+        
+        Returns
+        -------
+        list
+            A list of integers.
+    """
+    indices = []
+    # Split the string by commas
+    parts = index_str.split(',')
+    for part in parts:
+        part = part.strip()  # Remove any leading/trailing spaces
+        # Check if the part contains a range (e.g., 0-4)
+        if '-' in part:
+            start, end = part.split('-')
+            start, end = int(start), int(end)
+            indices.extend(range(start, end + 1))  # Add the range of indices
+        else:
+            indices.append(int(part))  # Just a single index, add it directly
+    return indices
 
 
 def summary_coords_diffsky(statistic, sep):
@@ -25,7 +48,7 @@ def summary_coords_diffsky(statistic, sep):
             'multipoles': [0, 2],
             's': sep,
         }
-    if statistic == 'dsc_pk':
+    if statistic == 'dsc_fourier':
         return {
             'statistics': ['quantile_data_power', 'quantile_power'],
             'quantiles': [0, 1, 3, 4],
@@ -33,7 +56,13 @@ def summary_coords_diffsky(statistic, sep):
             'k': sep,
         }
 
-def summary_coords_lhc_y(statistic, sep):
+def summary_coords_lhc_y(statistic: str, sep: np.ndarray) -> dict:
+    with open('emc/summaries.yaml', 'r') as f:
+        summaries = yaml.safe_load(f)
+    coords = summaries[statistic]['coordinates']
+    xaxis = summaries[statistic]['x_axis']
+
+
     if statistic == 'number_density':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
@@ -48,7 +77,7 @@ def summary_coords_lhc_y(statistic, sep):
             'multipoles': [0, 2],
             's': sep,
         }
-    if statistic == 'dsc_pk':
+    if statistic == 'dsc_fourier':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(250)),
@@ -57,13 +86,13 @@ def summary_coords_lhc_y(statistic, sep):
             'multipoles': [0, 2],
             'k': sep,
         }
-    if statistic == 'cgf_r10':
+    if statistic == 'cgf':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(100)),
             'lambda': sep,
         }
-    if 'pdf' in statistic:
+    if statistic == 'pdf':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(100)),
@@ -78,8 +107,6 @@ def summary_coords_lhc_y(statistic, sep):
         }
     if statistic == 'voxel_voids':
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
             'multipoles': [0, 2],
             's': sep,
         }
@@ -92,9 +119,7 @@ def summary_coords_lhc_y(statistic, sep):
         }
     if statistic == 'wp':
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'rp': sep,
+            'r_p': sep,
         }
     if statistic == 'knn':
         return {
@@ -107,9 +132,7 @@ def summary_coords_lhc_y(statistic, sep):
         }
     if statistic == 'minkowski':
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(200)),
-            'coeff_idx': sep,
+            'delta': sep,
         }
     if statistic == 'mst':
         return {
@@ -131,19 +154,19 @@ def summary_coords_lhc_x(statistic, sep):
             'hod_idx': list(range(100)),
             'param_idx': list(range(20))
         }
-    if statistic == 'dsc_pk':
+    if statistic == 'dsc_fourier':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(250)),
             'param_idx': list(range(20))
         }
-    if statistic == 'cgf_r10':
+    if statistic == 'cgf':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(100)),
             'param_idx': list(range(20))
         }
-    if 'pdf' in statistic:
+    if statistic == 'pdf':
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(100)),
@@ -157,9 +180,8 @@ def summary_coords_lhc_x(statistic, sep):
         }
     if statistic =='voxel_voids':
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
+            'multipoles': [0, 2],
+            's': sep,
         }
     if statistic == 'pk':
         return {
@@ -169,9 +191,7 @@ def summary_coords_lhc_x(statistic, sep):
         }
     if statistic == 'wp':
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(100)),
-            'param_idx': list(range(20))
+            'r_p': sep,
         }
     if statistic == 'knn':
         return {
@@ -184,9 +204,7 @@ def summary_coords_lhc_x(statistic, sep):
         }
     if statistic == 'minkowski':
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(200)),
-            'param_idx': list(range(20))
+            'delta': sep,
         }
     if statistic == 'mst':
         return {
@@ -206,18 +224,18 @@ def summary_coords_emulator_error(statistic, sep):
             'multipoles': [0, 2],
             's': sep,
         }
-    if statistic == 'dsc_pk':
+    if statistic == 'dsc_fourier':
         return {
             'statistics': ['quantile_data_power', 'quantile_power'],
             'quantiles': [0, 1, 3, 4],
             'multipoles': [0, 2],
             'k': sep,
         }
-    if statistic == 'cgf_r10':
+    if statistic == 'cgf':
         return {
             'lambda': sep,
         }
-    if 'pdf' in statistic:
+    if statistic == 'pdf':
         return {
             'delta': sep,
         }
@@ -238,7 +256,7 @@ def summary_coords_emulator_error(statistic, sep):
         }
     if statistic == 'wp':
         return {
-            'rp': sep,
+            'r_p': sep,
         }
     if statistic == 'knn':
         return {
@@ -267,7 +285,7 @@ def summary_coords_smallbox(statistic, sep):
             'multipoles': [0, 2],
             's': sep,
         }
-    if statistic == 'dsc_pk':
+    if statistic == 'dsc_fourier':
         return {
             'phase_idx': list(range(1786)),
             'statistics': ['quantile_data_power', 'quantile_power'],
@@ -275,19 +293,18 @@ def summary_coords_smallbox(statistic, sep):
             'multipoles': [0, 2],
             'k': sep,
         }
-    if statistic == 'cgf_r10':
+    if statistic == 'cgf':
         return {
             'phase_idx': list(range(1786)),
             'lambda': sep,
         }
-    if 'pdf' in statistic:
+    if statistic == 'pdf':
         return {
             'phase_idx': list(range(1786)),
             'delta': sep,
         }
     if statistic == 'voxel_voids':
         return {
-            'phase_idx': list(range(1786)),
             'multipoles': [0, 2],
             's': sep,
         }
@@ -305,8 +322,7 @@ def summary_coords_smallbox(statistic, sep):
         }
     if statistic == 'wp':
         return {
-            'phase_idx': list(range(1786)),
-            'rp': sep,
+            'r_p': sep,
         }
     if statistic == 'knn':
         return {
@@ -323,50 +339,81 @@ def summary_coords_smallbox(statistic, sep):
         }
     if statistic == 'minkowski':
         return {
-            'phase_idx': list(range(1786)),
-            'coeff_idx': sep,
+            'delta': sep,
         }
 
-def lhc_fnames(statistic):
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod'
+def lhc_fnames(statistic:str, data_dir=None: str) -> Path:
+    """Returns the filename of the Latin Hypercube dataset for a given
+    statistic.
+    
+    Parameters
+    ----------
+    statistic : str
+        The summary statistic for which we want to load the dataset.
+    data_dir : str, optional
+        The directory where the data is stored. If not provided,
+        the default directory is used.
+
+    Returns
+    -------
+    Path
+        The full path to the dataset file.
+    """
+    data_dir = data_dir or DEFAULT_DIRS['emc']['training_sets']
     return Path(data_dir) / f'{statistic}.npy'
 
-def emulator_error_fnames(statistic):
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
+def emulator_error_fnames(statistic, data_dir=None: str) -> Path:
+    data_dir = data_dir or DEFAULT_DIRS['emc']['emulator_error']
     return Path(data_dir) / f'{statistic}.npy'
 
 def diffsky_fnames(statistic, redshift=0.5, phase_idx=1, galsample='mass_conc', version=0.3):
     adict = {0.5: '67120', 0.8: '54980'}  # redshift to scale factor string for UNIT
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/diffsky/data_vectors'
+    data_dir = f'/pscratch/sd/e/epaillas/emc/data_vectors/diffsky/{statistic}/z{redshift}'
     return Path(data_dir) / f'{statistic}_galsampled_diffsky_mock_{adict[redshift]}_fixedAmp_{phase_idx:03}_{galsample}_v{version}.npy'
 
-def covariance_fnames(statistic):
-    data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box'
+def covariance_fnames(statistic: str, data_dir=None: str) -> Path:
+    """Returns the filename of the dataset from which we construct
+    the covariance matrix for a given statistic.
+
+    Parameters
+    ----------
+    statistic : str
+        The summary statistic for which we want to construct the
+        covariance matrix.
+    data_dir : str, optional
+        The directory where the data is stored. If not provided,
+        the default directory is used.
+
+    Returns
+    -------
+    Path
+        The full path to the dataset file.
+    """
+    data_dir = data_dir or DEFAULT_DIRS['emc']['covariance']
     return Path(data_dir) / f'{statistic}.npy'
 
-def read_separation(statistic, data):
-    if statistic == 'number_density':
-        return None
-    elif statistic in ['pk', 'dsc_pk']:
-        return data['k']
-    elif statistic == 'knn':
-        return None
-    elif statistic == 'wst':
-        return data['coeff_idx']
-    elif statistic == 'cgf_r10':
-        return data['lambda']
-    elif 'pdf' in statistic:
-        return data['delta']
-    elif statistic == 'mst':
-        return data['coeff_idx']
-    elif statistic == 'wp':
-        return data['rp']
-    elif statistic == 'minkowski':
-        return data['delta']
-    elif statistic in ['tpcf', 'dsc_conf', 'voxel_voids']:
-        return data['s']
-    else:
-        raise ValueError(f'Unknown statistic: {statistic}')
+def read_xaxis(statistic: str, data: dict) -> np.ndarray:
+    """Parses the independent variable of a summary statistic
+    (e.g. the wavevector $k$ for the power spectrum) from the
+    data dictionary.
+
+    Parameters
+    ----------
+    statistic : str
+        The summary statistic for which we want to extract the
+        independent variable.
+    data : dict
+        The dictionary containing the data.
+
+    Returns
+    -------
+    np.ndarray
+        The independent variable of the summary statistic.
+    """
+    with open('emc/summaries.yaml', 'r') as f:
+        summaries = yaml.safe_load(f)
+    xaxis = summaries[statistic]['x_axis']
+    return data[xaxis]
 
 def read_lhc(statistics, select_filters={}, slice_filters={}, return_mask=False, return_sep=False):
     lhc_y_all = []
@@ -377,9 +424,14 @@ def read_lhc(statistics, select_filters={}, slice_filters={}, return_mask=False,
         sep = read_separation(statistic, data)
         coords_y = summary_coords_lhc_y(statistic, sep)
         coords_x = summary_coords_lhc_x(statistic, sep)
-        lhc_x = data['lhc_x']
-        lhc_x_names = data['lhc_x_names']
-        lhc_y = data['lhc_y']
+        if statistic == 'minkowski':
+            lhc_x = data['lhc_test_x']
+            lhc_x_names = data['lhc_x_names']
+            lhc_y = data['lhc_test_y']
+        else:
+            lhc_x = data['lhc_x']
+            lhc_x_names = data['lhc_x_names']
+            lhc_y = data['lhc_y']
         if coords_y and (select_filters or slice_filters):
             lhc_y, mask = filter_lhc(lhc_y, coords_y, select_filters, slice_filters)
             lhc_x, _ = filter_lhc(lhc_x, coords_x, select_filters, slice_filters)
@@ -441,18 +493,15 @@ def read_model(statistics):
         if statistic == 'number_density':
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/number_density/cosmo+hod/aug10/last.ckpt'
         if statistic == 'wp':
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wp/cosmo+hod/jul10_trans/last-v30.ckpt'
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/wp/cosmo+hod/optuna_arcsinh/last-v73.ckpt'
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/wp/cosmo+hod/optuna_log/last-v44.ckpt'
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/wp/cosmo+hod/jul10_trans/last-v30.ckpt'
         if statistic == 'pk':
             # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/aug8/last.ckpt'
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/optuna/last-v31.ckpt'
         elif statistic == 'tpcf':
-            # checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/cosmo+hod/aug9_asinh/last.ckpt'
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/tpcf/cosmo+hod/optuna_log/last-v54.ckpt' #change log to asinh
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/cosmo+hod/aug9_asinh/last.ckpt'
         elif statistic == 'dsc_conf':
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_conf/cosmo+hod/aug9/last-v1.ckpt'
-        elif statistic == 'dsc_pk':
+        elif statistic == 'dsc_fourier':
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/dsc_fourier/cosmo+hod/optuna/last-v25.ckpt'
         elif statistic == 'knn':
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/knn/cosmo+hod/optuna/last-v13.ckpt'
@@ -461,21 +510,15 @@ def read_model(statistics):
         elif statistic == 'voxel_voids':
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/voxel_voids/cosmo+hod/sep16/last.ckpt'
         elif statistic == 'minkowski':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/minkowski/cosmo+hod/best-model-epoch=132-val_loss=0.0319.ckpt'
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/minkowski/cosmo+hod/sep17/best-model-epoch=217-val_loss=0.0217.ckpt'
         elif statistic == 'mst':
             checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/mst/cosmo+hod/optuna/last-v8.ckpt'
-        elif statistic == 'cgf_r10':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/cgf_r10/cosmo+hod/nov20/last-v3.ckpt'
-        elif statistic == 'pdf_r10':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/optuna/last-v13.ckpt'
-        elif statistic == 'pdf_r20':
-            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/optuna/last-v33.ckpt'
+        elif statistic == 'cgf':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/cgf/cosmo+hod/nov20/last-v3.ckpt'
+        elif statistic == 'pdf':
+            checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/trained_models/pdf/cosmo+hod/optuna/last-v13.ckpt'
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
-        model.eval().to('cpu')
-        if statistic == 'minkowski':
-            from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
-            model.transform_output = WeiLiuOutputTransForm()
-            model.transform_input = WeiLiuInputTransform()
+        model.eval()
         model_all.append(model)
     return model_all
 

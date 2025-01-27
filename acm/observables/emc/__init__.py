@@ -10,4 +10,5 @@ from .minkowski import MinkowskiFunctionals
 from .overdensity_pdf import GalaxyOverdensityPDF
 from .cumulants import CumulantGeneratingFunction
 from .mst import MinimumSpanningTree
+from .bispectrum import GalaxyBispectrumMultipoles
 from .combined import CombinedObservable
