@@ -146,7 +146,7 @@ def get_bin_values(data: dict) -> np.ndarray:
     -------
     np.ndarray
         Array of the bin values, or None if the key is not present.
-    """   
+    """
     if 'bin_values' not in data:
         return None
     return data['bin_values']
@@ -578,7 +578,7 @@ def filter(y,
         slice_filters=slice_filters) # Filter the data
     
     # Figure out the number of simulations (first dimension of the data)
-    if n_sim is not None: 
+    if n_sim is not None and n_sim > 1: # > 1 because 1 is the default value
         n_sim = n_sim # NOTE : this is just in case we ever need to filter by hand (which should not happen ideally)
     elif 'cosmo_idx' and 'hod_idx' in y.sizes: # LHC
         n_sim = y.sizes['cosmo_idx'] * y.sizes['hod_idx']
