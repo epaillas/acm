@@ -4,7 +4,7 @@ from .base import BaseObservable
 
 class BaseCombinedObservable(BaseObservable):
     """
-    Class for the Emulator's Mock Challenge combination of observables.
+    Class for the combination of observables.
     """
     def __init__(self, observables: list[BaseObservable]):
         self.observables = observables
@@ -80,3 +80,10 @@ class BaseCombinedObservable(BaseObservable):
         Emulator error of the combination of observables.
         """
         return np.concatenate([obs.emulator_error for obs in self.observables], axis=0)
+    
+    @property
+    def emulator_covariance_y(self):
+        """
+        Emulator covariance of the combination of observables.
+        """
+        return np.concatenate([obs.emulator_covariance_y for obs in self.observables], axis=0)
