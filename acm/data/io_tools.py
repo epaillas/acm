@@ -224,7 +224,7 @@ def read_lhc(statistics: list,
         lhc_y_all.append(lhc_y)
     
     # Concatenate the output features for all statistics
-    lhc_y_all = np.concatenate(lhc_y_all, axis=1) 
+    lhc_y_all = np.concatenate(lhc_y_all, axis=-1) 
     
     toret = (lhc_x, lhc_y_all, lhc_x_names)
     
@@ -339,7 +339,7 @@ def read_covariance(statistics: list,
         y_all.append(y)
         
     # Concatenate the output features for all statistics
-    y_all = np.concatenate(y_all, axis=1)
+    y_all = np.concatenate(y_all, axis=-1)
     
     prefactor = 1 / volume_factor
     cov = prefactor * np.cov(y_all, rowvar=False) # each row is a simulation, so rowvar=False
@@ -450,7 +450,7 @@ def read_emulator_error(statistics: list,
         y_all.append(y)
         
     # Concatenate the output features for all statistics
-    y_all = np.concatenate(y_all, axis=0)
+    y_all = np.concatenate(y_all, axis=-1)
     
     return y_all
 
@@ -521,7 +521,7 @@ def read_emulator_covariance(statistics: list,
         y_all.append(y)
     
     # Concatenate the output features for all statistics
-    y_all = np.concatenate(y_all, axis=1)
+    y_all = np.concatenate(y_all, axis=-1)
 
     cov = np.cov(y_all, rowvar=False) # each line is a simulation, so rowvar=False
     
