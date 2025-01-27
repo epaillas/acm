@@ -39,6 +39,7 @@ def TrainFCN(
     )-> float:
     """
     Train a Fully Connected Neural Network (FCN) emulator for the given statistic, with the given hyperparameters.
+    This function expects the LHC data and the covariance matrix to be in the same format as the one used in the ACM pipeline.
 
     Parameters
     ----------
