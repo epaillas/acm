@@ -99,6 +99,7 @@ def get_best_model(
 
     # Copy to the desired path and create the symlink
     if copy_to:
+        copy_to = copy_to + f'{statistic}/' # ACM standard storage (see train and io_tools)
         Path(copy_to).mkdir(parents=True, exist_ok=True) # Check if the directory exists, if not create it
         model_fn = shutil.copy(model_fn, copy_to) # Copy the model to the desired path
         
@@ -188,6 +189,6 @@ if __name__ == '__main__':
         )
     
     # Get the best model
-    copy_to = emc_paths['model_dir'] + f'{statistic}/'
+    copy_to = emc_paths['model_dir']
     model_fn = get_best_model(statistic, study_dir, checkpoint_offset=0, copy_to=copy_to)
     logger.info(f"Best model saved at {model_fn} and copied to {copy_to}")
