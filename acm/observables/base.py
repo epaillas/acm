@@ -208,7 +208,7 @@ class BaseObservable(ABC):
         """
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x))
-            pred.numpy()
+            pred = pred.numpy()
     
         # Expect output to be in unfiltered format, i.e. with the same dimensions as summary_coords_dict
         bin_values, lhc_x, lhc_y, lhc_x_names = self.read_lhc(return_sep=True) # Get **unfiltered** bin values
