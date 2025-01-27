@@ -190,22 +190,24 @@ class BaseObservable(ABC):
             model_fn = self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name']
         return read_model([self.stat_name], model_fn)[0]
     
-    def get_model_prediction(self, model, x)-> np.ndarray:
+    def get_model_prediction(self, x, model=None)-> np.ndarray:
         """
         Get the prediction from the model.
         
         Parameters
         ----------
-        model : FCN
-            Trained theory model.
         x : array_like
             Input features.
+                model : FCN
+            Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         
         Returns
         -------
         array_like
             Model prediction.
         """
+        if model is None:
+            model = self.model
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x))
             pred = pred.numpy()
