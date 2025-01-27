@@ -58,7 +58,7 @@ class BaseCombinedObservable(BaseObservable):
         """
         Latin hypercube of output features (tpcf, power spectrum, etc).
         """
-        return np.concatenate([obs.lhc_y for obs in self.observables], axis=1)
+        return np.concatenate([obs.lhc_y for obs in self.observables], axis=-11)
     
     @property
     def bin_values(self):
@@ -75,7 +75,7 @@ class BaseCombinedObservable(BaseObservable):
         """
         Features from small AbacusSummit box for covariance estimation.
         """
-        return np.concatenate([obs.covariance_y for obs in self.observables], axis=1)
+        return np.concatenate([obs.covariance_y for obs in self.observables], axis=-1)
 
     @property
     def model(self):
@@ -107,11 +107,11 @@ class BaseCombinedObservable(BaseObservable):
         """
         Emulator error of the combination of observables.
         """
-        return np.concatenate([obs.emulator_error for obs in self.observables], axis=0)
+        return np.concatenate([obs.emulator_error for obs in self.observables], axis=-1)
     
     @property
     def emulator_covariance_y(self):
         """
         Emulator covariance of the combination of observables.
         """
-        return np.concatenate([obs.emulator_covariance_y for obs in self.observables], axis=0)
+        return np.concatenate([obs.emulator_covariance_y for obs in self.observables], axis=-1)
