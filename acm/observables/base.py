@@ -5,7 +5,15 @@ import numpy as np
 import torch
 
 from sunbird.emulators import FCN
-from acm.data.io_tools import read_lhc, read_covariance_y, summary_coords, read_model, filter
+from acm.data.io_tools import (
+    read_lhc, 
+    read_covariance_y, 
+    summary_coords, 
+    read_model, 
+    filter,
+    read_emulator_error,
+    read_emulator_covariance_y,
+)
 
 # TODO : improve the docstrings
 
@@ -149,7 +157,7 @@ class BaseObservable(ABC):
         Covariance matrix for the statistic. 
         The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
         """   
-        cov_y = self.covariance_y(select_filters=self.select_filters, slice_filters=self.slice_filters)
+        cov_y = self.covariance_y
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
@@ -203,7 +211,7 @@ class BaseObservable(ABC):
             pred.numpy()
     
         # Expect output to be in unfiltered format, i.e. with the same dimensions as summary_coords_dict
-        bin_values, lhc_x, lhc_y, lhc_x_names = self.read_lhc(return_sep=True) # Get unfiltered bin values
+        bin_values, lhc_x, lhc_y, lhc_x_names = self.read_lhc(return_sep=True) # Get **unfiltered** bin values
         coords = summary_coords(
             self.stat_name, 
             coord_type='emulator_error', # To get only the statistics coordinates
@@ -216,12 +224,40 @@ class BaseObservable(ABC):
         return pred
     
     @property
-    @abstractmethod
     def emulator_error(self):
         """
-        Emulator error of the statistic.
+        Emulator error of the statistic. See `acm.data.io_tools.read_emulator_error` for more details.
         """
-        pass
+        return read_emulator_error(
+            statistics=[self.stat_name],
+            error_dir=self.paths['error_dir'],
+            select_filters=self.select_filters,
+            slice_filters=self.slice_filters,
+            summary_coords_dict=self.summary_coords_dict,
+        )
+        
+    @property
+    def emulator_covariance_y(self):
+        """
+        Emulator covariance of the statistic. See `acm.data.io_tools.read_emulator_covariance_y` for more details.
+        """
+        return read_emulator_covariance_y(
+            statistics=self.stat_name,
+            error_dir=self.paths['error_dir'],
+            select_filters=self.select_filters,
+            slice_filters=self.slice_filters,
+            summary_coords_dict=self.summary_coords_dict,
+        )
+    
+    def get_emulator_covariance_matrix(self, prefactor: float = 1):
+        """
+        Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
+        """
+        cov_y = self.emulator_covariance_y
+        prefactor = prefactor
+        
+        cov = prefactor * np.cov(cov_y, rowvar=False)
+        return cov
     
     #%% LHC creation : Methods to create the LHC data from statistics files
     # Not mandatory to implement, but can be useful to create the LHC data from the statistics files.
@@ -234,5 +270,19 @@ class BaseObservable(ABC):
     def create_lhc(self):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the LHC data.
+        """
+        pass
+    
+    #%% Emulator creation : Methods to create the emulator error file from the model and the LHC data
+    
+    def create_emulator_covariance(self):
+        """
+        From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator covariance file.
+        """
+        pass
+    
+    def create_emulator_error(self):
+        """
+        From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
         """
         pass
