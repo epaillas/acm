@@ -100,7 +100,7 @@ class BaseCombinedObservable(BaseObservable):
         array_like
             Model prediction.
         """
-        return [obs.get_model_prediction(x) for obs in self.observables]
+        return np.concatenate([obs.get_model_prediction(x) for obs in self.observables], axis=-1)
 
     @property
     def emulator_error(self):
