@@ -220,8 +220,9 @@ class BaseObservable(ABC):
             bin_values=bin_values,
             summary_coords_dict=self.summary_coords_dict
             )
-        coords = {'n_pred': list(range(len(pred))), **coords} # Add extra coordinate for the number of predictions
-        pred = filter(pred, coords, self.select_filters, self.slice_filters, n_sim=len(pred))
+        n_pred = pred.shape[0] if len(pred.shape) > 1 else 1 # Edge case if only one prediction
+        coords = {'n_pred': list(range(n_pred)), **coords} # Add extra coordinate for the number of predictions
+        pred = filter(pred, coords, self.select_filters, self.slice_filters, n_sim=n_pred)
         
         return pred
     
