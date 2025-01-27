@@ -454,6 +454,25 @@ def read_emulator_error(statistics: list,
     
     return y_all
 
+def read_emulator_covariance_y(statistic: str,
+                               error_dir: str,
+                               select_filters: dict = None,
+                               slice_filters: dict = None,
+                               summary_coords_dict: dict = summary_coords_dict
+                               ) -> np.ndarray:
+    data_fn = emulator_error_fnames(statistic, error_dir)
+    data = np.load(data_fn, allow_pickle=True).item()
+    bin_values = get_bin_values(data)
+    y = data['emulator_cov_y']
+    
+    # If filters are provided, filter the data
+    if slice_filters or slice_filters: 
+        # Get the summary coordinates for the given statistic
+        coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
+        coords = {'n_extra': list(range(len(y))), **coords} # Add the n_test dimension to the coords (to allow reshaping in filter)
+        y = filter(y, coords, select_filters, slice_filters)
+        # NOTE : move n_test to summary_coords_dict ? ideally we should not have to modify it anyways
+    return y
 
 def read_emulator_covariance(statistics: list,
                              error_dir: str,
@@ -465,7 +484,7 @@ def read_emulator_covariance(statistics: list,
     Read the covariance matrix from the data. The covariance matrix is computed from the output features of the emulator error data.
     No volume factor is applied to the covariance matrix, because the emulator error data is already computed on the same volume as the data.
 
-   Parameters
+    Parameters
     ----------
     statistics : list
         Statistics to read. Will be concatenated in the output features in the given order.
@@ -497,18 +516,7 @@ def read_emulator_covariance(statistics: list,
     y_all = [] # List of the output features for all statistics
     
     for statistic in statistics:
-        data_fn = emulator_error_fnames(statistic, error_dir)
-        data = np.load(data_fn, allow_pickle=True).item()
-        bin_values = get_bin_values(data)
-        y = data['emulator_cov_y']
-        
-        # If filters are provided, filter the data
-        if slice_filters or slice_filters: 
-            # Get the summary coordinates for the given statistic
-            coords = summary_coords(statistic, coord_type='emulator_error', bin_values=bin_values, summary_coords_dict=summary_coords_dict)
-            coords = {'n_test': list(range(len(y))), **coords} # Add the n_test dimension to the coords (to allow reshaping in filter)
-            y = filter(y, coords, select_filters, slice_filters)
-            # NOTE : move n_test to summary_coords_dict ? ideally we should not have to modify it anyways
+        y = read_emulator_covariance_y(statistic, error_dir, select_filters, slice_filters, summary_coords_dict)
             
         y_all.append(y)
     
