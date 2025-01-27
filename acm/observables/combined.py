@@ -58,7 +58,7 @@ class BaseCombinedObservable(BaseObservable):
         """
         Latin hypercube of output features (tpcf, power spectrum, etc).
         """
-        return np.concatenate([obs.lhc_y for obs in self.observables], axis=0)
+        return np.concatenate([obs.lhc_y for obs in self.observables], axis=1)
     
     @property
     def bin_values(self):
