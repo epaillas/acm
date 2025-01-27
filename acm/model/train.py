@@ -19,7 +19,7 @@ def TrainFCN(
     lhc_dir: str,
     covariance_dir: str,
     model_dir: str,
-    n_train: int,
+    n_test: int,
     # Hyperparameters
     learning_rate: float,
     n_hidden: list,
@@ -51,7 +51,7 @@ def TrainFCN(
         Directory containing the covariance matrix.
     model_dir : str, optional
         Directory to save the model. 
-    n_train : int
+    n_test : int
         Number of training samples to select from the LHC data. Must be smaller than the total number of samples.
     learning_rate : float
         Learning rate for the optimizer.
@@ -121,16 +121,16 @@ def TrainFCN(
             lhc_y = transform.transform(lhc_y) 
     
     n_tot = len(lhc_y) # Total number of data points
-    if n_train > n_tot:
-        raise ValueError(f'Number of training samples ({n_train=}) is larger than the total number of samples ({n_tot=})')
+    if n_test > n_tot:
+        raise ValueError(f'Number of training samples ({n_test=}) is larger than the total number of samples ({n_tot=})')
 
-    # Set the first n_train samples to the testing set 
+    # Set the first n_test samples to the testing set 
     if final_model:
         idx_train = list(range(n_tot))
     else:
-        idx_train = list(range(n_train, n_tot))
+        idx_train = list(range(n_test, n_tot))
 
-    logger.info(f'Using {len(idx_train)} samples for training')
+    logger.info(f'Using {len(idx_train)} last samples for training')
 
     lhc_train_x = lhc_x[idx_train]
     lhc_train_y = lhc_y[idx_train]
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     model_dir = emc_paths['model_dir']
     
     # Training parameters
-    n_train = 600 # 6 first cosmologies
+    n_test = 600 # 6 first cosmologies
     
     # Hyperparameters
     learning_rate = 1.0e-3
@@ -215,7 +215,7 @@ if __name__ == '__main__':
         lhc_dir = lhc_dir,
         covariance_dir = covariance_dir,
         model_dir = model_dir,
-        n_train = n_train,
+        n_test = n_test,
         learning_rate = learning_rate,
         n_hidden = n_hidden,
         dropout_rate = dropout_rate,
