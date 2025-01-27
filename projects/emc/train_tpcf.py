@@ -1,45 +1,64 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from astropy.stats import sigma_clip
 from sunbird.emulators import FCN, train
 from sunbird.data import ArrayDataModule
 from pycorr import TwoPointCorrelationFunction
 import torch
 
 
-def read_lhc():
-    data_dir = Path('/pscratch/sd/e/epaillas/emc')
-    data_fn = Path(data_dir) / 'training_sets/tpcf/z0.5/yuan23_prior/cosmopower/tpcf.npy'
-    lhc_y = np.load(data_fn, allow_pickle=True,).item()
-    s = lhc_y['s']
-    lhc_y = lhc_y['multipoles']
-    lhc_x = pd.read_csv(data_dir / 'hod_params/yuan23/hod_params_yuan23_c000.csv')
+# def read_lhc():
+#     data_dir = Path('/pscratch/sd/e/epaillas/emc')
+#     data_fn = Path(data_dir) / 'training_sets/tpcf/z0.5/yuan23_prior/cosmopower/tpcf.npy'
+#     lhc_y = np.load(data_fn, allow_pickle=True,).item()
+#     s = lhc_y['s']
+#     lhc_y = lhc_y['multipoles']
+#     lhc_x = pd.read_csv(data_dir / 'hod_params/yuan23/hod_params_yuan23_c000.csv')
+#     lhc_x_names = list(lhc_x.columns)
+#     lhc_x_names = [name.replace(' ', '').replace('#', '') for name in lhc_x_names]
+#     lhc_x = lhc_x.values[:len(lhc_y),:]
+#     return lhc_x, lhc_y
+
+def read_lhc(n_hod=30000, return_sep=False):
+    data_dir = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/z0.5/yuan23_prior/c000_ph000/seed0/'
+    lhc_y = []
+    for hod in range(n_hod):
+        data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy'
+        data = TwoPointCorrelationFunction.load(data_fn)[::4]
+        s, multipoles = data(ells=(0, 2), return_sep=True)
+        lhc_y.append(np.concatenate(multipoles))
+    lhc_y = np.array(lhc_y)
+    lhc_x = pd.read_csv('/pscratch/sd/e/epaillas/emc/hod_params/yuan23/hod_params_yuan23_c000.csv')
     lhc_x_names = list(lhc_x.columns)
     lhc_x_names = [name.replace(' ', '').replace('#', '') for name in lhc_x_names]
     lhc_x = lhc_x.values[:len(lhc_y),:]
+    if return_sep:
+        return s, lhc_x, lhc_y
     return lhc_x, lhc_y
 
-def read_covariance():
-    data_dir = Path('/pscratch/sd/e/epaillas/emc')
-    covariance_path = data_dir / 'covariance/tpcf/z0.5/yuan23_prior/'
-    n_for_covariance = 1_000
-    covariance_files = list(covariance_path.glob('tpcf_ph*.npy'))[:n_for_covariance]
-    covariance_y = [
-        TwoPointCorrelationFunction.load(file)[::4](ells=(0,2),).reshape(-1) for file in covariance_files
-    ]
-    prefactor = 1./8.
-    return prefactor * np.cov(np.array(covariance_y).T)
 
 
-nstep = 6000
-for i in range(2, 5):
+lhc_x, lhc_y = read_lhc()
+print(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
+
+# mask outliers
+mask = sigma_clip(lhc_y, sigma=6, axis=0, masked=True).mask
+mask = np.all(~mask, axis=1)
+lhc_x = lhc_x[mask]
+lhc_y = lhc_y[mask]
+print(f'After sigma clipping: {lhc_x.shape}, {lhc_y.shape}')
+
+ntot = len(lhc_y)
+nstep = int(ntot / 5)
+
+for i in range(5):
     start_idx = i * nstep
     end_idx = (i + 1) * nstep
     print(f'Training leaveout {i}. Start index: {start_idx}, end index: {start_idx + nstep}')
-    idx_train = list(range(0, start_idx)) + list(range(end_idx, 30000))
+    idx_train = list(range(0, start_idx)) + list(range(end_idx, ntot))
     idx_test = list(range(start_idx, end_idx))
 
-    lhc_x, lhc_y = read_lhc()
     lhc_train_x = lhc_x[idx_train]
     lhc_train_y = lhc_y[idx_train]
     lhc_test_x = lhc_x[idx_test]
@@ -79,5 +98,5 @@ for i in range(2, 5):
 
     val_loss, model, early_stop_callback = train.fit(
         data=data, model=model,
-        model_dir=f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/may9_leaveout_{i}/',
+        model_dir=f'/pscratch/sd/e/epaillas/emc/trained_models/tpcf/may22_leaveout_{i}/',
     )

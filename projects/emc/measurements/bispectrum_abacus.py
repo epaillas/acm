@@ -48,19 +48,22 @@ setup_logging()
 bspec = Bispectrum(boxsize=2000, boxcenter=0, nmesh=320,
                 sightline='global', nthreads=128)
     
-bspec.set_binning(k_bins=np.arange(0.01, 0.51, 0.01), lmax=2,
-                  k_bins_squeeze=np.arange(0.01, 0.51, 0.01),
+bspec.set_binning(k_bins=np.arange(0.013, 0.27, 0.02), lmax=2,
+                  k_bins_squeeze=np.arange(0.013, 0.27, 0.02),
                   include_partial_triangles=False)
 
-
 for cosmo_idx in range(start_cosmo, start_cosmo + n_cosmo):
-    cosmo = AbacusSummit(cosmo_idx)
     for phase_idx in phases:
         for hod in hods:
             t0 = time.time()
             print(f'Processing c{cosmo_idx:03} hod{hod:03}')
             hod_dir = f'/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c{cosmo_idx:03}_ph{phase_idx:03}/seed0/'
             hod_fn = Path(hod_dir) / f'hod{hod:03}.fits'
+            if not hod_fn.exists():
+                # print(f'{hod_fn} does not exist')
+                continue
+
+            cosmo = AbacusSummit(cosmo_idx)
 
             hod_positions = get_hod_positions(hod_fn, los='z')
 
@@ -72,7 +75,7 @@ for cosmo_idx in range(start_cosmo, start_cosmo + n_cosmo):
 
             k123 = bspec.get_ks()
 
-            save_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod/raw/bispectrum/c{cosmo_idx:03}_ph{phase_idx:03}/seed0/'
+            save_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod/raw/bispectrum/kmin0.013_kmax0.253_dk0.020/c{cosmo_idx:03}_ph{phase_idx:03}/seed0/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_dir) / f'bispectrum_hod{hod:03}.npy'
             np.save(save_fn, {'k123': k123, 'bk': bk})

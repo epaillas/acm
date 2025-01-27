@@ -96,3 +96,14 @@ class CombinedObservable(BaseObservable):
         """
         return [obs.model_fn for obs in self.observables]
 
+    def get_emulator_error(self, select_filters=None, slice_filters=None):
+        """
+        Calculate the emulator error from a subset of the Latin hypercube,
+        which we treat as the test set.
+
+        We make a new instance of the class with the test set filters and
+        compare the emulator prediction to the true values.
+        """
+        return np.concatenate([obs.get_emulator_error(select_filters=select_filters,
+            slice_filters=slice_filters) for obs in self.observables], axis=0)
+

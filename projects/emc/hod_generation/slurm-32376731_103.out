@@ -1,0 +1,56 @@
+Preparing AbacusSummit_base_c103_ph000 0.800
+/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/site-packages/asdf/entry_points.py:46: AsdfWarning: asdf.extensions plugin from package asdf-astropy==0.6.1 failed to load:
+
+KeyError: 'Resource unavailable for URI: asdf://asdf-format.org/transform/manifests/transform-1.6.0'
+  warnings.warn(
+compiling compaso halo catalogs into subsampled catalogs
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/multiprocessing/pool.py", line 51, in starmapstar
+    return list(itertools.starmap(args[0], args[1]))
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/code/abacusutils/main/lib/python3.10/site-packages/abacusnbody/hod/prepare_sim.py", line 329, in prepare_slab
+    cat = CompaSOHaloCatalog(slabname, subsamples=dict(A=True, rv=True), fields = [N_key,
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/code/abacusutils/main/lib/python3.10/site-packages/abacusnbody/data/compaso_halo_catalog.py", line 271, in __init__
+    self._load_RVs(N_halo_per_file, cleaned=cleaned, unpack_which=unpack_which, halo_lc=halo_lc)
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/code/abacusutils/main/lib/python3.10/site-packages/abacusnbody/data/compaso_halo_catalog.py", line 1042, in _load_RVs
+    particle_dict = self._reindex_subsamples('rv', N_halo_per_file, cleaned=cleaned, halo_lc=halo_lc)
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/code/abacusutils/main/lib/python3.10/site-packages/abacusnbody/data/compaso_halo_catalog.py", line 888, in _reindex_subsamples
+    particle_afs = [asdf.open(pjoin(self.groupdir, f'halo_{RVorPID}_{AB}', f'halo_{RVorPID}_{AB}_{i:03d}.asdf'), lazy_load=True, copy_arrays=True)
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/code/abacusutils/main/lib/python3.10/site-packages/abacusnbody/data/compaso_halo_catalog.py", line 888, in <listcomp>
+    particle_afs = [asdf.open(pjoin(self.groupdir, f'halo_{RVorPID}_{AB}', f'halo_{RVorPID}_{AB}_{i:03d}.asdf'), lazy_load=True, copy_arrays=True)
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/site-packages/asdf/asdf.py", line 1584, in open_asdf
+    return AsdfFile._open_impl(
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/site-packages/asdf/asdf.py", line 879, in _open_impl
+    generic_file = generic_io.get_file(fd, mode=mode, uri=uri)
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/site-packages/asdf/generic_io.py", line 1133, in get_file
+    raise e
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/site-packages/asdf/generic_io.py", line 1126, in get_file
+    fd = atomicfile.atomic_open(realpath, realmode) if mode == "w" else open(realpath, realmode)
+FileNotFoundError: [Errno 2] No such file or directory: '/global/cfs/cdirs/desi/cosmosim/Abacus/AbacusSummit_base_c103_ph000/halos/z0.800/halo_rv_A/halo_rv_A_000.asdf'
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/code/abacusutils/main/lib/python3.10/site-packages/abacusnbody/hod/prepare_sim.py", line 817, in <module>
+    main(**args)
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/code/abacusutils/main/lib/python3.10/site-packages/abacusnbody/hod/prepare_sim.py", line 785, in main
+    p.starmap(prepare_slab, zip(range(numslabs), repeat(savedir),
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/multiprocessing/pool.py", line 375, in starmap
+    return self._map_async(func, iterable, starmapstar, chunksize).get()
+  File "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20240118-1.0.0/conda/lib/python3.10/multiprocessing/pool.py", line 774, in get
+    raise self._value
+FileNotFoundError: [Errno 2] No such file or directory: '/global/cfs/cdirs/desi/cosmosim/Abacus/AbacusSummit_base_c103_ph000/halos/z0.800/halo_rv_A/halo_rv_A_000.asdf'
+processing slab  0
+loading halo catalog 
+processing slab  10
+loading halo catalog 
+processing slab  25
+loading halo catalog 

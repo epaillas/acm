@@ -150,7 +150,7 @@ class BaseObservable(ABC):
     def coords_model(self):
         pass
 
-    def get_model_prediction(self, x):
+    def get_model_prediction(self, x, batch=False):
         """
         Get model prediction for a given x.
 
@@ -161,16 +161,26 @@ class BaseObservable(ABC):
             np.ndarray: Model prediction.
         """
         with torch.no_grad():
-            model = self.model.get_prediction(torch.Tensor(x))
-            model = model.numpy()
+            prediction = self.model.get_prediction(torch.Tensor(x))
+            prediction = prediction.numpy()
         coords = self.coords_model
         coords_shape = tuple(len(v) for k, v in coords.items())
-        dimensions = list(self.coords_model.keys())
-        model = model.reshape(*coords_shape)
-        return convert_to_summary(
-            data=model, dimensions=dimensions, coords=coords,
-            select_filters=self.select_filters, slice_filters=self.slice_filters
-        ).values.reshape(-1)
+        if batch:
+            dimensions = ["batch"] + list(coords.keys())
+            coords["batch"] = range(len(prediction))
+            prediction = prediction.reshape((len(prediction), *coords_shape))
+            return convert_to_summary(
+                data=prediction, dimensions=dimensions, coords=coords,
+                select_filters=self.select_filters, slice_filters=self.slice_filters
+            ).values.reshape(len(prediction), -1)
+        else:
+            coords_shape = tuple(len(v) for k, v in coords.items())
+            prediction = prediction.reshape(coords_shape)
+            dimensions = list(coords.keys())
+            return convert_to_summary(
+                data=prediction, dimensions=dimensions, coords=coords,
+                select_filters=self.select_filters, slice_filters=self.slice_filters
+            ).values.reshape(-1)
 
     def get_covariance_matrix(self, divide_factor=64):
         """

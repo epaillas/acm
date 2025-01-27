@@ -1,0 +1,49 @@
+# Comment out the probes you don't need
+# CAREFUL: yaml is super sensitive to spaces - don't use tabs
+
+# Simulation parameters
+sim_params:
+    sim_name: 'AbacusSummit_base_c000_ph001'                                 # which simulation
+    sim_dir: '/global/cfs/projectdirs/desi/cosmosim/Abacus/halo_light_cones/'  # where is the simulation
+    # output_dir: '/pscratch/sd/e/epaillas/ds_boss/HOD/lightcone'     # where to output galaxy mocks
+    # subsample_dir: '/pscratch/sd/s/sihany/summit_subsample_lc/' # where to output subsample data
+    subsample_dir: '/pscratch/sd/e/epaillas/summit_subsamples/lightcones/' # where to output subsample data
+    # subsample_dir: '/pscratch/sd/b/boryanah/AbacusHOD_scratch/mocks_lc_subsample/'
+    cleaned_halos: '/global/cfs/projectdirs/desi/cosmosim/Abacus/cleaning/' # not used
+    # Nthread_load: 2
+    z_mock: 0.575                                                      
+    halo_lc: True
+
+prepare_sim:
+    Nparallel_load: 1 # best for cori haswell node  
+
+# HOD parameters
+HOD_params:
+    use_particles: True
+    want_ranks: True               # want to implement satellite profile flexiblities?
+    want_AB: True               # want to implement assembly bias?              
+    density_sigma: 3               # scale radius in Mpc / h for local density calculation
+    tracer_flags:                  # which tracer do we want?
+        LRG: True 
+        ELG: False
+        QSO: False
+    want_rsd: True                 # want RSD? 
+    write_to_disk: False
+
+    LRG_params:
+        logM_cut: 12.87
+        logM1: 14.06
+        sigma: 0.02083802
+        alpha: 1.15
+        kappa: 0.42
+        alpha_c: 0.22
+        alpha_s: 0.94
+        s: 0
+        s_v: 0
+        s_p: 0
+        s_r: 0
+        Acent: 0
+        Asat: 0
+        Bcent: 0
+        Bsat: 0
+        ic: 1.0

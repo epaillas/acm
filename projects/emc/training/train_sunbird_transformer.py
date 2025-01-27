@@ -71,7 +71,7 @@ def TrainTransformer(statistic, d_model, nhead, dim_feedforward, num_layers,
             num_layers=num_layers,
         )
 
-    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/transformer/optuna/'
+    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/transformer/test/optuna/'
     Path(model_dir).mkdir(parents=True, exist_ok=True)
     print(f'Saving model to {model_dir}')
 

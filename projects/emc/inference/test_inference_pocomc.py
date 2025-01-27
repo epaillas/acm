@@ -38,15 +38,12 @@ setup_logging()
 
 # set up the inference
 priors, ranges, labels = get_priors(cosmo=True, hod=True)
-select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-}
-# fixed_params = ['w0_fld', 'wa_fld', 'N_ur', 'nrun', 's', 'A_cen', 'A_sat', 'n_s',
-# 'B_cen', 'B_sat', 'alpha', 'kappa', 'sigma', 'alpha_c', 'alpha_s', 'omega_b']
+select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
 fixed_params = ['w0_fld', 'wa_fld', 'N_ur', 'nrun']
-add_emulator_error = True
-statistics = ['pk']
+add_emulator_error = False
+statistics = ['pk', 'number_density']
 kmin, kmax = 0.0, 0.5
-slice_filters = {'k': [kmin, kmax]}
+slice_filters = {'k': (kmin, kmax)}
 
 # load the covariance matrix
 covariance_matrix, n_sim = read_covariance(statistics=statistics,
@@ -104,8 +101,8 @@ sampler = PocoMCSampler(
 sampler(vectorize=True)
 
 # plot and save results
-
 markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
 sampler.triangle_plot(save_fn='pocomc_triangle.pdf', thin=128,
-                      markers=markers)
-sampler.trace_plot(save_fn='poco_trace.pdf', thin=128)
+                      markers=markers, title_limit=1)
+sampler.trace_plot(save_fn='pocomc_trace.pdf', thin=128)
+sampler.save_chain('pocomc_chain.npy', metadata={'markers': markers})

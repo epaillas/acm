@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import sys
+from sunbird.data.transforms_array import WeiLiuOutputTransForm, WeiLiuInputTransform
 from acm.data.io_tools import *
 plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
@@ -40,8 +41,9 @@ def plot_model(mock_idx=30):
     ax.plot(pred_test_y[mock_idx], label='emulator')
     ax.set_xlabel('bin number', fontsize=15)
     ax.set_ylabel(r'$X$', fontsize=15)
+    ax.legend()
     plt.tight_layout()
-    plt.savefig(f'/pscratch/sd/e/epaillas/emc/plots/emulator_error/{statistic}_model_idx{mock_idx}.pdf')
+    plt.savefig(f'figures/{statistic}_model_idx{mock_idx}.pdf')
     plt.close()
 
 def plot_emulator_error():
@@ -54,18 +56,18 @@ def plot_emulator_error():
     ax.set_xlabel('bin number', fontsize=15)
     ax.set_ylabel(r'$(X_{\rm model} - X_{\rm test})/\sigma_{\rm abacus}$', fontsize=15)
     plt.tight_layout()
-    plt.savefig(f'/pscratch/sd/e/epaillas/emc/plots/emulator_error/{statistic}_emulator_error_dataunits.pdf')
+    plt.savefig(f'figures/{statistic}_emulator_error_dataunits.pdf')
     plt.close()
 
-    fig, ax = plt.subplots(figsize=(4, 3))
-    emulator_error = get_emulator_error(pred_test_y, lhc_test_y)
-    ax.plot(emulator_error, label='emulator error')
-    ax.plot(np.sqrt(np.diag(covariance_matrix)), label='abacus error')
-    ax.set_xlabel('bin number', fontsize=15)
-    ax.legend()
-    plt.tight_layout()
-    plt.savefig(f'/pscratch/sd/e/epaillas/emc/plots/emulator_error/{statistic}_emulator_data_error.pdf')
-    plt.close()
+    # fig, ax = plt.subplots(figsize=(4, 3))
+    # emulator_error = get_emulator_error(pred_test_y, lhc_test_y)
+    # ax.plot(emulator_error, label='emulator error')
+    # ax.plot(np.sqrt(np.diag(covariance_matrix)), label='abacus error')
+    # ax.set_xlabel('bin number', fontsize=15)
+    # ax.legend()
+    # plt.tight_layout()
+    # plt.savefig(f'figures/{statistic}_emulator_data_error.pdf')
+    # plt.close()
 
 def plot_chi2_histogram():
     fig, ax = plt.subplots(figsize=(4, 3))
@@ -74,7 +76,7 @@ def plot_chi2_histogram():
     ax.set_xlabel(r'$\chi^2$', fontsize=15)
     ax.set_ylabel('count', fontsize=15)
     plt.tight_layout()
-    plt.savefig(f'/pscratch/sd/e/epaillas/emc/plots/emulator_error/{statistic}_chi2_histogram.pdf')
+    plt.savefig(f'figures/{statistic}_chi2_histogram.pdf')
     plt.show()
 
 def plot_chi2_scatter():
@@ -88,7 +90,7 @@ def plot_chi2_scatter():
     ax.set_xlabel(r'$\chi^2_{\rm pred}$', fontsize=15)
     ax.set_ylabel(r'$\chi^2_{\rm test}$', fontsize=15)
     plt.tight_layout()
-    plt.savefig(f'/pscratch/sd/e/epaillas/emc/plots/emulator_error/{statistic}_chi2_scatter.pdf')
+    plt.savefig(f'figures/{statistic}_chi2_scatter.pdf')
     plt.close()
 
 def plot_loglike_scatter():
@@ -102,31 +104,35 @@ def plot_loglike_scatter():
     ax.set_xlabel(r'$-\log \mathcal{L}_{\rm pred}$', fontsize=15)
     ax.set_ylabel(r'$-\log \mathcal{L}_{\rm test}$', fontsize=15)
     plt.tight_layout()
-    plt.savefig(f'/pscratch/sd/e/epaillas/emc/plots/emulator_error/{statistic}_loglike_scatter.pdf')
+    plt.savefig(f'figures/{statistic}_loglike_scatter.pdf')
     plt.close()
 
 
 def save_emulator_error():
     emulator_error = get_emulator_error(pred_test_y, lhc_test_y)
     emulator_cov = get_emulator_covariance(lhc_test_y, pred_test_y)
-    save_dir = f'/pscratch/sd/e/epaillas/emc/emulator_error/{statistic}/'
-    save_fn = Path(save_dir) / f'{statistic}_emulator_error.npy'
+    save_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
+    save_fn = Path(save_dir) / f'{statistic}.npy'
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     if statistic == 'number_density':
-        np.save(save_fn, {'lhc_test_y': lhc_test_y, 'pred_test_y': pred_test_y, 'emulator_error': emulator_error, 'emulator_cov': emulator_cov, 'covariance_matrix': covariance_matrix})
+        np.save(save_fn, {'emulator_error': emulator_error})
     elif statistic in ['pk', 'dsc_fourier']:
-        np.save(save_fn, {'k': sep, 'lhc_test_y': lhc_test_y, 'pred_test_y': pred_test_y, 'emulator_error': emulator_error, 'emulator_cov': emulator_cov})
+        np.save(save_fn, {'k': sep, 'emulator_error': emulator_error})
     elif statistic == 'wp':
-        np.save(save_fn, {'rp': sep, 'emulator_error': emulator_error, 'emulator_cov': emulator_cov})
+        np.save(save_fn, {'rp': sep, 'emulator_error': emulator_error})
     elif statistic == 'wst':
-        np.save(save_fn, {'coeff_idx': sep, 'lhc_test_y': lhc_test_y, 'pred_test_y': pred_test_y})
+        np.save(save_fn, {'coeff_idx': sep, 'emulator_error': emulator_error})
+    elif statistic == 'mst':
+        np.save(save_fn, {'coeff_idx': sep, 'emulator_error': emulator_error})
+    elif 'pdf' in statistic:
+        np.save(save_fn, {'delta': sep, 'emulator_error': emulator_error})
     else:
-        np.save(save_fn, {'s': sep, 'emulator_error': emulator_error, 'emulator_cov': emulator_cov})
+        np.save(save_fn, {'s': sep, 'emulator_error': emulator_error})
 
 
 if __name__ == '__main__':
-    # statistics = ['knn', 'wst', 'dsc_fourier', k'pk', 'tpcf', 'wp']
-    statistics = ['pk']
+    # statistics = ['wp', 'tpcf', 'voxel_voids', 'knn', 'wst', 'dsc_fourier', 'pk', 'pdf_r10', 'pdf_r20']
+    statistics = ['tpcf']
     for statistic in statistics:
         print(f'Loading {statistic}')
         select_filters = {}
@@ -159,8 +165,8 @@ if __name__ == '__main__':
         with torch.no_grad():
             pred_test_y = model[0].get_prediction(torch.Tensor(lhc_test_x))
             pred_test_y = pred_test_y.numpy()
-
+        
         plot_model(mock_idx=30)
-        # plot_emulator_error()
-        # plot_chi2_scatter()
+        plot_emulator_error()
+        plot_chi2_scatter()
         save_emulator_error()
