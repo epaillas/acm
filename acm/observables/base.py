@@ -198,7 +198,7 @@ class BaseObservable(ABC):
         ----------
         x : array_like
             Input features.
-                model : FCN
+        model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         
         Returns

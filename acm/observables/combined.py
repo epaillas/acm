@@ -83,6 +83,24 @@ class BaseCombinedObservable(BaseObservable):
         Theory model of the combination of observables.
         """
         return [obs.model for obs in self.observables]
+    
+    def get_model_prediction(self, x)-> np.ndarray:
+        """
+        Get the prediction from the model.
+        
+        Parameters
+        ----------
+        x : array_like
+            Input features.
+        model : FCN
+            Trained theory model. If None, the model attribute of the class is used. Defaults to None.
+        
+        Returns
+        -------
+        array_like
+            Model prediction.
+        """
+        return [obs.get_model_prediction(x) for obs in self.observables]
 
     @property
     def emulator_error(self):
