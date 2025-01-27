@@ -265,13 +265,13 @@ class BaseObservable(ABC):
         """
         From the statistics files for small AbacusSummit boxes, create the covariance array to store in the lhc file under the `cov_y` key.
         """
-        pass
+        raise NotImplementedError
     
     def create_lhc(self):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the LHC data.
         """
-        pass
+        raise NotImplementedError
     
     #%% Emulator creation : Methods to create the emulator error file from the model and the LHC data
     
@@ -279,10 +279,10 @@ class BaseObservable(ABC):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator covariance file.
         """
-        pass
+        raise NotImplementedError
     
     def create_emulator_error(self):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
         """
-        pass
+        raise NotImplementedError
