@@ -59,6 +59,16 @@ class BaseCombinedObservable(BaseObservable):
         Latin hypercube of output features (tpcf, power spectrum, etc).
         """
         return np.concatenate([obs.lhc_y for obs in self.observables], axis=0)
+    
+    @property
+    def bin_values(self):
+        """
+        Bin values for the statistic. (e.g. separation bins for the correlation function).
+        
+        Note: We assume all observable have the same input features, so we just
+        return the first from the list. 
+        """
+        return [obs.bin_values for obs in self.observables][0]
 
     @property
     def covariance_y(self):
