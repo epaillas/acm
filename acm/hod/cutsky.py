@@ -5,7 +5,7 @@ import mockfactory
 from mockfactory.desi import is_in_desi_footprint
 from cosmoprimo.fiducial import AbacusSummit
 from .box import BoxHOD
-from acm.data.paths import LRG_Abacus_DM as DM_DICT
+from acm.data.paths import LRG_Abacus_DM
 
 import logging
 import warnings
@@ -24,6 +24,7 @@ class CutskyHOD:
         phase_idx: int = 0,
         zranges: list[list] = [[0.41, 0.6]], 
         snapshots: list = [0.5],
+        DM_DICT: dict = LRG_Abacus_DM['box'],
         ):
         self.logger = logging.getLogger('CutskyHOD')
         self.varied_params = varied_params
@@ -36,7 +37,7 @@ class CutskyHOD:
         self.boxcenter = 0
         self.setup(DM_DICT=DM_DICT)
 
-    def setup(self, DM_DICT: dict = DM_DICT):
+    def setup(self, DM_DICT: dict):
         self.balls = []
         for zsnap in self.snapshots:
             ball = BoxHOD(

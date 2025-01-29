@@ -4,26 +4,36 @@
 
 # Dark matter catalog paths
 BGS_Abacus_DM = {
-    'small': {
-        'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/small/',
-        'subsample_dir': '/pscratch/sd/s/sbouchar/summit_subsamples/boxes/small/',
-    },
-    
-    'base': {
-        'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/',
-        'subsample_dir': '/pscratch/sd/s/sbouchar/summit_subsamples/boxes/base/',
+    'box': {
+        'small': {
+            'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/small/',
+            'subsample_dir': '/pscratch/sd/s/sbouchar/summit_subsamples/boxes/small/',
+        },
+        
+        'base': {
+            'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/',
+            'subsample_dir': '/pscratch/sd/s/sbouchar/summit_subsamples/boxes/base/',
+        },
     },
 }
 
 LRG_Abacus_DM = {
-    'small': {
-        'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/small/',
-        'subsample_dir': '/pscratch/sd/e/epaillas/summit_subsamples/boxes/small/',
+    'box': {
+        'small': {
+            'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/small/',
+            'subsample_dir': '/pscratch/sd/e/epaillas/summit_subsamples/boxes/small/',
+        },
+        
+        'base': {
+            'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/',
+            'subsample_dir': '/pscratch/sd/e/epaillas/summit_subsamples/boxes/base/',
+        },
     },
-    
-    'base': {
-        'sim_dir': '/global/cfs/cdirs/desi/cosmosim/Abacus/',
-        'subsample_dir': '/pscratch/sd/e/epaillas/summit_subsamples/boxes/base/',
+    'lightcone': {
+        'base': {
+            'sim_dir': '/global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/halo_light_cones/',
+            'subsample_dir': '/pscratch/sd/e/epaillas/summit_subsamples/lightcones/',
+        },
     },
 }
 

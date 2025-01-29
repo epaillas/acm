@@ -1,15 +1,19 @@
 import os
-from pathlib import Path
 import yaml
 import numpy as np
-from abacusnbody.hod import abacus_hod
-from cosmoprimo.fiducial import AbacusSummit
-import mockfactory
+from pathlib import Path
 from astropy.io import fits
 from astropy.table import Table
+
+# cosmodesi/acm
+import mockfactory
+from abacusnbody.hod import abacus_hod
+from cosmoprimo.fiducial import AbacusSummit
+from acm.data.paths import LRG_Abacus_DM
+
+
 import logging
 import warnings
-import sys
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 # TODO : add docstrings !
@@ -21,6 +25,7 @@ class LightconeHOD:
         cosmo_idx: int = 0, 
         phase_idx: int = 0,
         zrange: list = [0.4, 0.8],
+        DM_DICT: dict = LRG_Abacus_DM['lightcone'],
         ):
         self.logger = logging.getLogger('LightconeHOD')
         self.cosmo_idx = cosmo_idx
@@ -32,7 +37,7 @@ class LightconeHOD:
             config_dir = os.path.dirname(os.path.abspath(__file__))
             config_file = Path(config_dir) /  'lightcone.yaml'
         config = yaml.safe_load(open(config_file))
-        self.setup(config)
+        self.setup(config, DM_DICT)
         self.check_params(varied_params)
 
     @property
@@ -47,17 +52,17 @@ class LightconeHOD:
         return snaps
         # return [z for z in self.snap_redshifts if z >= self.zrange[0] and z <= self.zrange[1]]
 
-    def abacus_simdirs(self):
-        sim_dir = '/global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/halo_light_cones/'
-        subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/lightcones/'
+    def abacus_simdirs(self, DM_DICT: dict):
+        sim_dir = DM_DICT[self.sim_type]['sim_dir']
+        subsample_dir = DM_DICT[self.sim_type]['subsample_dir']
         return sim_dir, subsample_dir
 
     def abacus_simname(self):
         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
 
-    def setup(self, config):
+    def setup(self, config: dict, DM_DICT: dict):
         sim_params = config['sim_params']
-        sim_dir, subsample_dir = self.abacus_simdirs()
+        sim_dir, subsample_dir = self.abacus_simdirs(DM_DICT)
         sim_params['sim_dir'] = sim_dir
         sim_params['subsample_dir'] = subsample_dir
         sim_params['sim_name'] = self.abacus_simname()

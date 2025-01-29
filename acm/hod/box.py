@@ -12,7 +12,7 @@ import warnings
 import sys
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
-from acm.data.paths import LRG_Abacus_DM as DM_DICT
+from acm.data.paths import LRG_Abacus_DM
 
 class BoxHOD:
     """
@@ -32,7 +32,7 @@ class BoxHOD:
         phase_idx: int = 0,
         sim_type: str = 'base', 
         redshift: float = 0.5,
-        DM_DICT: dict = DM_DICT):
+        DM_DICT: dict = LRG_Abacus_DM['box']):
         """
         Initialize the BoxHOD class.
         
@@ -52,7 +52,7 @@ class BoxHOD:
         redshift : float, optional
             Redshift value. Default is 0.5.
         DM_DICT : dict, optional
-            Dictionary containing dark matter information. Default is the LRG_Abacus_DM dictionary from `acm.data.paths`.
+            Dictionary containing dark matter information. Default is the LRG_Abacus_DM dictionary for boxes from `acm.data.paths`.
             
         Raises
         ------
