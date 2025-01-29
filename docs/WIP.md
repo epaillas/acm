@@ -23,6 +23,11 @@ To note the things to do in the pipeline and doc
 To note the questions to answer in the pipeline and doc
 :::
 
+:::{admonition} Project dependant
+:class: caution
+To note the things that depend on the project and need to be adapted
+:::
+
 ## Some tips for redaction
 
 ::::{tab-set}
@@ -71,13 +76,18 @@ This is a tip
   - [ ] Statistics
   - [ ] Emulator
   - [ ] Inference
-  - [ ] Data
+- [ ] Code
+  - [ ] Overview
+  - [ ] sunbird
+  - [ ] acm
+  - [ ] projects (guidelines and organisation)
+  - [ ] Data storage conventions
   - [ ] i/o functions (Here or somewhere else ?)
 - [ ] Statistics
   - [ ] Densitysplit
   - [ ] Other statistics ?
 - [ ] Credits
-  - [ ] Contributors
+  - [ ] Contributors (see readme)
   - [ ] Dependencies
 - [ ] Tutorials
 - [ ] API

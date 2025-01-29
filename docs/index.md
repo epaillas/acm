@@ -47,8 +47,18 @@ pipeline/galaxy_halo
 pipeline/statistics
 pipeline/emulator
 pipeline/inference
+```
 
-pipeline/data
+```{toctree}	
+:maxdepth: 2
+:caption: Code structure
+
+code/overview
+code/sunbird
+code/acm
+code/projects
+code/data
+code/io
 ```
 
 ```{toctree}
