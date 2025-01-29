@@ -63,12 +63,9 @@ class BaseCombinedObservable(BaseObservable):
     @property
     def bin_values(self):
         """
-        Bin values for the statistic. (e.g. separation bins for the correlation function).
-        
-        Note: We assume all observable have the same input features, so we just
-        return the first from the list. 
+        Bin values for the statistics. (e.g. separation bins for the correlation function).
         """
-        return [obs.bin_values for obs in self.observables][0]
+        return np.concatenate([obs.bin_values for obs in self.observables], axis=-1)
 
     @property
     def covariance_y(self):
