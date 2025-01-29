@@ -2,6 +2,7 @@ import numpy as np
 
 # cosmodesi/acm
 import mockfactory
+from mockfactory.desi import is_in_desi_footprint
 from cosmoprimo.fiducial import AbacusSummit
 from .box import BoxHOD
 from acm.data.paths import LRG_Abacus_DM as DM_DICT
@@ -146,7 +147,7 @@ class CutskyHOD:
         return cutsky
 
     def _apply_geometric_cuts(self, catalog, boxsize, dist):
-        print('Applying geometric cuts.')
+        self.logger.info('Applying geometric cuts.')
         # largest (RA, Dec) range we can achieve for a maximum distance of dist + boxsize / 2.
         drange, rarange, decrange = mockfactory.box_to_cutsky(boxsize=boxsize, dmax=dist + boxsize / 2.)
         rarange = np.array(rarange) + 192
@@ -156,7 +157,7 @@ class CutskyHOD:
         return catalog.cutsky_from_isometry(isometry, rdd=None)
 
     def _apply_rsd(self, catalog, zsnap: float):
-        print('Applying RSD.')
+        self.logger.info('Applying RSD.')
         a = 1 / (1 + zsnap) # scale factor
         H = 100.0 * self.cosmo.efunc(zsnap)  # Hubble parameter in km/s/Mpc
         rsd_factor = 1 / (a * H)  # multiply velocities by this factor to convert to Mpc/h
@@ -164,7 +165,7 @@ class CutskyHOD:
         return catalog
 
     def _get_sky_positions(self, catalog, apply_rsd: bool = False):
-        print('Converting to sky positions.')
+        self.logger.info('Converting to sky positions.')
         distance_to_redshift = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         pos = 'RSDPosition' if apply_rsd else 'Position'
         catalog['Distance'], catalog['RA'], catalog['DEC'] = mockfactory.cartesian_to_sky(catalog[pos])
@@ -172,8 +173,7 @@ class CutskyHOD:
         return catalog
 
     def _apply_radial_mask(self, catalog, zmin: float = 0., zmax: float = 6., seed: float = 42, norm=None):
-        print('Applying radial mask.')
-        from mockfactory import TabulatedRadialMask
+        self.logger.info('Applying radial mask.')
         nz_filename = '/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = (zbin_min + zbin_max) / 2
@@ -185,7 +185,6 @@ class CutskyHOD:
         return catalog[mask_radial(catalog['Z'], seed=seed)]
 
     def _apply_footprint_mask(self, catalog):
-        print('Applying footprint mask.')
-        from mockfactory.desi import is_in_desi_footprint
+        self.logger.info('Applying footprint mask.')
         is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release='y1', program='dark', npasses=None)
         return catalog[is_in_desi]
