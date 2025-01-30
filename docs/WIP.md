@@ -77,17 +77,18 @@ This is a tip
   - [ ] Emulator
   - [ ] Inference
 - [ ] Code
-  - [ ] Overview
+  - [x] Overview
   - [ ] sunbird
   - [ ] acm
   - [ ] projects (guidelines and organisation)
-  - [ ] Data storage conventions
-  - [ ] i/o functions (Here or somewhere else ?)
+  - [x] Data storage conventions
+  - [x] i/o functions 
 - [ ] Statistics
-  - [ ] Densitysplit
-  - [ ] Other statistics ?
+  - [x] Densitysplit
+  - [ ] Others statistics ?
 - [ ] Credits
-  - [ ] Contributors (see readme)
-  - [ ] Dependencies
+  - [x] Contributors (see readme)
+  - [x] Dependencies
+  - [ ] Citations
 - [ ] Tutorials
 - [ ] API
