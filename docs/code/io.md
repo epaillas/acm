@@ -96,7 +96,7 @@ These filters are the initialization arguments of the `acm.observables` classes,
 The `filter` function is the one used to filter all the arrays. It requires the filters, the coordinates of the provided array (see [Coordinates](#coordinates)), and if not in the coordinates keys, the final number of simulations (to allow the correct reshaping of the output)
 :::
 
-(coordinates)=
+
 ### Coordinates
 
 :::{admonition} Project dependant
@@ -158,4 +158,12 @@ dimensions = list(coords.keys())
 y = y.reshape([len(coords[d]) for d in dimensions])
 y = convert_to_summary(data=y, dimensions=dimensions, coords=coords)
 ```	
+:::
+
+## API
+
+:::{automodule} acm.data.io_tools
+:members:
+:undoc-members:
+:show-inheritance:
 :::
