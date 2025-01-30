@@ -38,7 +38,7 @@ exclude_patterns = []
 
 # -- Autodoc configuration ---------------------------------------------------
 # Mock imports that can't be resolved during documentation build
-autodoc_mock_imports = [] #'cosmoprimo', 'mockfactory', 'pycorr', 'Corrfunc', 'pyrecon']
+autodoc_mock_imports = []#'kymatio','pyrecon', 'pypower', 'PolyBin3D', 'fastmodules','cosmoprimo', 'mockfactory', 'pycorr', 'Corrfunc', ]
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
@@ -61,11 +61,11 @@ html_title = 'Alternative Clustering Methods'
 # html_favicon = "images/logo_favicon.svg"
 html_show_sourcelink = False # Remove the "view source" link
 html_theme_options = {
-    # "repository_url": None,
-    # "repository_branch": "main",
-    # "use_edit_page_button": True,
-    # "use_issues_button": True,
-    # "use_repository_button": True,
+    "repository_url": "https://github.com/epaillas/acm",
+    "repository_branch": "main",
+    "use_edit_page_button": True,
+    "use_issues_button": True,
+    "use_repository_button": True,
     "use_download_button": True,
     "use_fullscreen_button": False,
     # "logo": {
