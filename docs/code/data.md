@@ -1,6 +1,6 @@
 # Storing the data
 
-Throughout the pipeline, we will need to store some data at specific points. To make sure that the data is stored in a consistent way, we will use some storage conventions, that allows for the use of i/o functions that are already implemented in the pipeline (see [i/o](../code/io)).
+Throughout the pipeline, we will need to store some data at specific points. To make sure that the data is stored in a consistent way, we will use some storage conventions, that allows for the use of [i/o functions](../code/io) that are already implemented in the pipeline.
 
 :::{important}
 Before the emulator training, the statistics have to be computed independently for the data.
@@ -13,6 +13,10 @@ Come back here once the statistics are computed 😉
 ### LHC files
 
 After the statistics are computed (see [Statistics](../pipeline/statistics)), the data is stored in a `LHC` file (for Latin HyperCube, which is the way the simulations are sampled). 
+
+:::{hint}
+The [observables classes](../code/projects) have a `create_lhc` method that can be used to create the LHC file from the unfiltered data, but depends on the computed statistic standard format. You will have to define it yourself ! 
+:::
 
 This file is a `<statistic>_lhc.npy` file containing a dictionary with the input parameters (`lhc_x`), the name of the parameters (`lhc_x_names`), 
 the output statistics concatenated (`lhc_y`), the covariance *array* of the statistic (`cov_y`) and `bin_values` the bin values on which the statistics has been computed. (e.g. the separation bins for the correlation functions, the k bins for the power spectrum, etc.)
