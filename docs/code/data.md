@@ -42,6 +42,7 @@ cov_matrix = np.cov(cov_array, rowvar=False) # each line is a simulation, so row
 
 The optimization of the models is done with `optuna`. The summary of the optimization is stored in a `optuna/` directory, in a `<statistic>.pkl` file. 
 This file contains the `optuna` study object, which can be used to retrieve the best parameters of the model.
+During the optimization, all intermediate models are stored in `optuna/<statistic>/` directory, with the associated checkpoint file and symlink (e.g. `last-v<version>.ckpt`).
 
 :::{tip}
 A logger can also be used to track the progress of the study (see [emulator](../pipeline/emulator)), in which case the logger is also stored in the `optuna/` directory as a `<statistic>.log` file.
@@ -50,7 +51,7 @@ A logger can also be used to track the progress of the study (see [emulator](../
 
 ### Models
 
-The models are stored in a `trained_models/` directory, with a subdirectory for each statistic. The model file is a `last.ckpt` PyTorch checkpoint file.
+The best models are stored in a `trained_models/` directory, with a subdirectory for each statistic. The model file is a `last.ckpt` PyTorch checkpoint file.
 
 :::{tip}
 Other models can be loaded with different directories and names, given the right path in the [`read_model`](../code/io) function.
@@ -61,12 +62,10 @@ Other models can be loaded with different directories and names, given the right
 While `PyTorch` usually names the last model `last-v<version>.ckpt`, a symbolic link to the last version of the model, 
 we recommend to store the final version of the model (after training) as `last.ckpt`.
 This allows for the pipeline to always use the last version of the model, without having to worry about the file name in the code, and only change the statistics name.
-
-:::{admonition} Question ?
-:class: important
-I'm not sure about this convention, to check.
 :::
 
+:::{seealso}
+The best model can be selected from the study object with the `get_best_model` function in `acm.model`. See [`acm`](../code/acm) for more details.
 :::
 
 
@@ -74,7 +73,7 @@ I'm not sure about this convention, to check.
 
 :::{admonition} Project dependant
 :class: caution
-The model error definition depends on the project. (For example, it can be defined as the mean of the difference between the model prediction and the data for the test set)
+The model error definition depends on the project, and is defined on each `acm.observable` project class. (For example, it can be defined as the mean of the difference between the model prediction and the data for the test set)
 :::
 
 The emulator error is saved in a `emulator_error/` directory, with a subdirectory for each statistic. 
@@ -90,7 +89,7 @@ The chain file nomenclature depends on the project.
 Feel free to name them as you wish, be creative ! ✨
 :::
 
-The inference chains are stored in a `chains/` directory. The chains are computed trough the inference wrappers in `sunbird.inference`, and stored as a `<statistic>_chain.npy` file with the `save_chain` method of the infernce base class. The file contains a dictionary with `samples` the chain values, `weights` the chain weights, `ranges` the varying parameter ranges, `names`the varying parameters names, `labels` the labels of the varying parameters in latex mode (with the `$` symbols) that will be used in the plots of the chains (see [Inference](../pipeline/inference)).
+The inference chains are stored in a `chains/` directory. The chains are computed trough the inference wrappers in `sunbird.inference`, and stored as a file with the `save_chain` method of the inference base class. The file contains a dictionary with `samples` the chain values, `weights` the chain weights, `ranges` the varying parameter ranges, `names`the varying parameters names, `labels` the labels of the varying parameters in latex mode (with the `$` symbols) that will be used in the plots of the chains.
 
 :::{seealso}
 Depending on the inference method, the chains can also contain the `log_likelihood` and `log_prior` values, as well as the `log_posterior` values. See the documentation of the [inference](../pipeline/inference) method for more details.
@@ -106,6 +105,10 @@ ACM_data/
 │   ├── tpcf_lhc.npy
 ├── trained_models/
 │   ├── optuna/
+│   │   ├── tpcf/
+│   │   │   ├── last-v1.ckpt
+│   │   │   ├── last-v2.ckpt
+│   │   │   ├── ...
 │   │   ├── tpcf.pkl
 │   │   ├── tpcf.log
 │   ├── tpcf/
@@ -119,20 +122,23 @@ ACM_data/
 
 :::{note}
 Other paths can be used, as the pipeline is modular and the i/o functions can be adapted to the user's needs.
-However, we recommend to use the same paths as the ones in the example, as the i/o functions are already implemented for these paths and it will make the use of the pipeline easier, 
-as well as using the default path format (see [Default paths](#default-paths)).
+However, we recommend to use the same file naming convention as the ones in the example, as the i/o functions are already implemented for those, and it will make the use of the pipeline easier to use. 
 :::
 
 
 (default-paths)=
-## Default paths 
+## Default paths dictionary
 
-The pipeline implements some default paths, that link to existing models, data and statistics on NERSC.
-This allows for easy testing of the pipeline, as well as sharing of the data and models between users.
+The pipeline has [i/o functions](../code/io) and [observables classes](../code/projects) that allow the user to easily read and write data, models, and statistics, following the file conventions described above.
 
-The default paths are stored in the `acm/data/paths.py` file, and can be imported in the pipeline with the `acm.data.paths` module.
+The i/o functions functions expect a path in input. In the observables classes, paths are stored in a dictionary that is passed to the i/o functions coded inside.
 
-A defalut path is a dictionary with the following structure:
+:::{admonition} Project dependant
+:class: caution
+While any path can be used in the i/o functions, we recommend using a project-wide dictionnary containing the paths relevant to the project, to easily access all the paths in the project whithout having to hard-code them.
+:::
+
+The expected format of the dictionary is the following:
 
 ```python
 default_path = {
@@ -158,13 +164,4 @@ Some paths are repeated for code reability when calling the dictionary, as the s
 For example, when calling the statistics in `read_lhc`, we use `default_path['lhc_dir']`, while when calling the covariance matrix in `read_covariance`, we use `default_path['covariance_dir']`.
 
 While the same file is called, the readibility of the code is improved by using different keys for the same file. This also allows for the user to change the path of the covariance matrix without changing the path of the LHC file, if needed.
-:::
-
-Default paths are implemented for two tracers : LRG (Luminous Red Galaxies) and BGS (Bright Galaxy Survey).
-
-:::{admonition} TODO
-:class: error
-Implement `acm.data.paths` in the pipeline :D
-
-Then, provide the names of the dictionaries here
 :::
