@@ -1,10 +1,5 @@
 # Density-Split statistics
 
-:::{admonition} Question ?
-:class: important
-Do we keep the two statistics separate (CCF/ACF) or do we combine them ?
-:::
-
 :::{warning}
 Right now, the `cosmodesi` environement on NERSC has a version of the `pyrecon` package that breaks the `densitysplit` code.
 
@@ -99,4 +94,12 @@ For more infomration on the `pycorr` objects, see the [pycorr documentation](htt
 
 :::{seealso}
 For more information on the `DensitySplit` class, see the [DensitySplit documentation](https://acm.readthedocs.io/en/latest/api/acm.estimators.galaxy_clustering.densitysplit.html).
+:::
+
+## API
+
+:::{automodule} acm.estimators.galaxy_clustering.densitysplit
+:members:
+:undoc-members:
+:show-inheritance:
 :::
