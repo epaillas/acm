@@ -50,10 +50,14 @@ pipeline/inference
 ```
 
 ```{toctree}	
-:maxdepth: 2
+:maxdepth: 1
 :caption: Code structure
 
 code/overview
+```
+
+```{toctree}	
+:maxdepth: 2
 code/sunbird
 code/acm
 code/projects
@@ -76,11 +80,12 @@ notebooks/densitysplit
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: Credits
 
 credits/contributors
 credits/dependencies
+credits/citations
 ```
 
 :::{note}
