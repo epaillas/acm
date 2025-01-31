@@ -190,10 +190,12 @@ def read_lhc(statistics: list,
     
     Example
     -------
-    ```python
-    slice_filters = {'bin_values': (0, 0.5),} 
-    select_filters = {'multipoles': [0, 2],}
-    ```
+    ::
+    
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+    
+    
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
    
@@ -264,10 +266,12 @@ def read_covariance_y(statistic: str,
     
     Example
     -------
-    ```python
-    slice_filters = {'bin_values': (0, 0.5),} 
-    select_filters = {'multipoles': [0, 2],}
-    ```
+    ::
+    
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+    
+    
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     data_fn = lhc_fnames(statistic, data_dir)
@@ -318,12 +322,14 @@ def read_covariance(statistics: list,
     
     Example
     -------
-    ```python
-    slice_filters = {'bin_values': (0, 0.5),} 
-    select_filters = {'multipoles': [0, 2],}
-    ```
+    ::
+    
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+    
+    
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
-        
+    
     Volume factor
     -------------
     The volume factor is used to account for the fact that the covariance matrix is computed on a smaller volume than the data.
@@ -368,11 +374,13 @@ def read_model(statistics: list,
     
     Example
     -------
-    ```python
-    >>> model_path = {'tpcf': '/ACM_pipeline/sunbird_training/models/cosmo+hod/last.ckpt',
-    ...               'ccf': '/ACM_pipeline/sunbird_training/models/cosmo/last.ckpt'}
-    >>> statistics = ['tpcf', 'acf']
-    ```
+    ::
+    
+        >>> model_path = {'tpcf': '/ACM_pipeline/sunbird_training/models/cosmo+hod/last.ckpt',
+        ...               'ccf': '/ACM_pipeline/sunbird_training/models/cosmo/last.ckpt'}
+        >>> statistics = ['tpcf', 'acf']
+    
+    
     The model for the TPCF statistic will be loaded from the checkpoint file `/ACM_pipeline/sunbird_training/models/tpcf/cosmo+hod/last.ckpt`\n
     The model for the ACF statistic will be loaded from the checkpoint file `/ACM_pipeline/sunbird_training/models/acf/cosmo/last.ckpt`
     """
@@ -426,10 +434,12 @@ def read_emulator_error(statistics: list,
     
     Example
     -------
-    ```python
-    slice_filters = {'bin_values': (0, 0.5),} 
-    select_filters = {'multipoles': [0, 2],}
-    ```
+    ::
+    
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+    
+    
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     
@@ -506,10 +516,12 @@ def read_emulator_covariance(statistics: list,
     
     Example
     -------
-    ```python
-    slice_filters = {'bin_values': (0, 0.5),} 
-    select_filters = {'multipoles': [0, 2],}
-    ```
+    ::
+    
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+    
+    
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     
@@ -560,10 +572,12 @@ def filter(y,
         
     Example
     -------
-    ```python
-    slice_filters = {'bin_values': (0, 0.5),} 
-    select_filters = {'multipoles': [0, 2],}
-    ```
+    ::
+    
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+    
+    
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     
