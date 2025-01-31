@@ -98,8 +98,9 @@ For more information on the `DensitySplit` class, see the [DensitySplit document
 
 ## API
 
-:::{automodule} acm.estimators.galaxy_clustering.densitysplit
-:members:
-:undoc-members:
-:show-inheritance:
-:::
+```{eval-rst}
+.. automodule:: acm.estimators.galaxy_clustering.density_split
+    :members:
+    :undoc-members:
+    :show-inheritance:
+```

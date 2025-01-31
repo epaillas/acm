@@ -19,7 +19,7 @@ extensions = [
     'sphinx.ext.autodoc', # For automatically documenting the functions
     'sphinx.ext.napoleon', # For documenting the parameters of the functions
     'sphinx.ext.intersphinx', # For linking to other packages' documentation
-    # 'sphinx.ext.viewcode', # For linking to the source code
+    'sphinx.ext.viewcode', # For linking to the source code
     # 'sphinx.ext.linkcode', # For linking to external codes --> Requires a function linkcode_resolve in the conf.py
     'sphinx.ext.autosectionlabel', # For automatically labelling the sections
     'myst_nb', # For including jupyter notebooks
@@ -32,13 +32,32 @@ source_suffix = {
     '.ipynb': 'myst-nb',
 }
 
+autosectionlabel_prefix_document = True
+# autosectionlabel_maxdepth = 3
+# Fix for warnings from : https://isrc.iscas.ac.cn/gitlab/mirrors/github.com/raspberrypi_linux/-/commit/4658b0eb9430e2c228a0a9cc6e66f0b90d3853e1#298cd67c5c9902349f76688ed9a3f31f4a57c702
+
 # templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = ['_build']
 
 
 # -- Autodoc configuration ---------------------------------------------------
 # Mock imports that can't be resolved during documentation build
-autodoc_mock_imports = []#'kymatio','pyrecon', 'pypower', 'PolyBin3D', 'fastmodules','cosmoprimo', 'mockfactory', 'pycorr', 'Corrfunc', ]
+autodoc_mock_imports = [
+    'sunbird',
+    'torch',
+    'getdist',
+    'kymatio',
+    'pyrecon',
+    'pypower',
+    'PolyBin3D',
+    'ray',
+    'fast_histogram',
+    'pyfnntw',
+    'acm.estimators.galaxy_clustering.src', # To avoid c-compiled modules
+    'abacusnbody',
+    'cosmoprimo',
+    'mockfactory',
+]# 'pycorr', 'Corrfunc', ]
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True

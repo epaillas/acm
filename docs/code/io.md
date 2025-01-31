@@ -162,8 +162,9 @@ y = convert_to_summary(data=y, dimensions=dimensions, coords=coords)
 
 ## API
 
-:::{automodule} acm.data.io_tools
-:members:
-:undoc-members:
-:show-inheritance:
-:::
+```{eval-rst}
+.. automodule:: acm.data.io_tools
+    :members:
+    :undoc-members:
+    :show-inheritance:
+```
