@@ -76,8 +76,8 @@ html_static_path = ['_static']
 
 html_theme = 'sphinx_book_theme'
 html_title = 'Alternative Clustering Methods'
-# html_logo = "images/logo.svg"
-# html_favicon = "images/logo_favicon.svg"
+html_logo = "images/logo.svg"
+html_favicon = "images/logo_favicon.svg"
 html_show_sourcelink = False # Remove the "view source" link
 html_theme_options = {
     "repository_url": "https://github.com/epaillas/acm",
@@ -87,8 +87,8 @@ html_theme_options = {
     "use_repository_button": True,
     "use_download_button": True,
     "use_fullscreen_button": False,
-    # "logo": {
-    #   "image_light": "images/logo.svg",
-    #   "image_dark": "images/logo_dark.svg", # Change logo when dark mode is activated
-    # },
+    "logo": {
+      "image_light": "images/logo.svg",
+      "image_dark": "images/logo_dark.svg", # Change logo when dark mode is activated
+    },
 }
