@@ -15,7 +15,17 @@ The `sunbird` package contains the more abstract components of the pipeline, suc
 
 ## The `acm` package
 
-The `acm` package contains the code that is called in the projects, and that is used to run the pipeline (galaxy population, statistics computation, data handling, model training, etc.).
+The `acm` package contains the code that is called in the projects, and that is used to run the pipeline:
+
+:::{seealso}
+The halo population is handled by [`acm.hod`](../pipeline/galaxy_halo.md#implementation) classes.
+The statistics are computed trough the [`acm.estimators`](../pipeline/statistics.md) module.
+The emulator, from `sunbird`, is optimized with `optuna` trough the [`acm.model`](../pipeline/emulator.md) module.
+:::
+
+:::{note}
+The data storage is handled by the [`acm.data`](../code/io.md) module trough the [`acm.observables`](../code/projects.md#acmobservables-classes) classes if the conventions are followed, otherwise the methods to read the data need to be provided.
+:::
 
 ## The bridges
 
