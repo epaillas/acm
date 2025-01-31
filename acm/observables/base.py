@@ -32,10 +32,12 @@ class BaseObservable(ABC):
         
         Example
         -------
-        ```python
-        slice_filters = {'bin_values': (0, 0.5),} 
-        select_filters = {'multipoles': [0, 2],}
-        ```
+        ::
+        
+            slice_filters = {'bin_values': (0, 0.5),} 
+            select_filters = {'multipoles': [0, 2],}
+        
+        
         will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
         """
         self.select_filters = select_filters
