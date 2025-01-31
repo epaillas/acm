@@ -91,10 +91,12 @@ def TrainFCN(
         
     Example
     -------
-    ```python
-    slice_filters = {'bin_values': (0, 0.5),} 
-    select_filters = {'multipoles': [0, 2],}
-    ```
+    ::
+    
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+    
+    
     will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
     """
     lhc_x, lhc_y, coords = read_lhc(statistics=[statistic],
