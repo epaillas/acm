@@ -50,32 +50,29 @@ pipeline/inference
 ```
 
 ```{toctree}	
+:hidden:
 :maxdepth: 1
 :caption: Code structure
 
 code/overview
-```
-
-```{toctree}	
-:maxdepth: 2
-code/sunbird
-code/acm
 code/projects
 code/data
 code/io
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: Statistics
 
 statistics/densitysplit
 ```
 
 ```{toctree}
+:hidden:
 :maxdepth: 1
 :caption: Tutorials and examples
 
+notebooks/observables
 notebooks/densitysplit
 ```
 
@@ -93,14 +90,9 @@ credits/citations
 :::
 
 ```{toctree}
+:hidden:
 :maxdepth: 2
 :caption: API Reference
 
 source/api
 ```
-
-# Indices and tables
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
