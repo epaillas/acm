@@ -23,8 +23,20 @@ class BaseObservable(ABC):
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
         """
-        Expecting setting up : 
-        - self.stat_name : name of the statistic (class attribute)
+        Parameters
+        ----------
+        select_filters : dict, optional
+            Filters to select values in coordinates. Defaults to None.
+        slice_filters : dict, optional
+            Filters to slice values in coordinates. Defaults to None.
+        
+        Example
+        -------
+        ```python
+        slice_filters = {'bin_values': (0, 0.5),} 
+        select_filters = {'multipoles': [0, 2],}
+        ```
+        will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
         """
         self.select_filters = select_filters
         self.slice_filters = slice_filters
