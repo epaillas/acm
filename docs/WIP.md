@@ -7,8 +7,8 @@ This page will disappear once the documentation is complete.
 For each statistic, we need : 
 - A file with 
   - a brief description of the statistic (see the article)
-  - An explanation of the main geatures of the code, with code snippets and tips/notes
-  - A standard of storage for this statitic
+  - An explanation of the main features of the code, with code snippets and tips/notes
+  - A standard of storage for this statitic (optional)
 - A notebook with an example of how to compute this statitic on a mock data catalog
 
 ## Custom boxes
@@ -69,18 +69,19 @@ This is a tip
   - [ ] Installation
     - [ ] Requirements
     - [ ] Installation guide
-  - [ ] Quickstart
 - [ ] Pipeline
   - [ ] Overview
   - [ ] Galaxy-Halo model
+    - [ ] Theory
+    - [x] Code
   - [ ] Statistics
   - [ ] Emulator
+    - [ ] Theory
+    - [x] Code (ACM)
   - [ ] Inference
 - [ ] Code
   - [x] Overview
-  - [ ] sunbird
-  - [ ] acm
-  - [ ] projects (guidelines and organisation)
+  - [x] projects (guidelines and organisation)
   - [x] Data storage conventions
   - [x] i/o functions 
 - [ ] Statistics
@@ -91,4 +92,4 @@ This is a tip
   - [x] Dependencies
   - [ ] Citations
 - [ ] Tutorials
-- [ ] API
+- [x] API
