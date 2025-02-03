@@ -162,7 +162,7 @@ default_path = {
 }
 ```
 
-:::{note}
+:::{tip}
 Some paths are repeated for code reability when calling the dictionary, as the same directories can be used for different purposes.
 
 For example, when calling the statistics in `read_lhc`, we use `default_path['lhc_dir']`, while when calling the covariance matrix in `read_covariance`, we use `default_path['covariance_dir']`.

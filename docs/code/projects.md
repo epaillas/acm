@@ -54,7 +54,7 @@ To avoid copying all this information trough the classes, we recommend creating 
 
 ### Integration in the `acm` package
 
-You can integrate the project to the `acm` package, by adding a subfolder in `acm/projects` with the name of the project, and adding the project classes in the `__init__.py` file.
+You can integrate the project to the `acm` package, by adding a subfolder in `acm/projects` with the name of the project, and adding the project classes names in the `__init__.py` file.
 In this file, you can add the `default.py` file, and all the statistics classes created trough the `acm.observables` classes (we recommend one file per statistic).
 
 This way, the statistic handling can be easily accessed trough the `acm` package, and the project can be shared with others.

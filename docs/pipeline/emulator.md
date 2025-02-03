@@ -12,9 +12,13 @@ Explain the emulator
 Training the emulator is done trough the `sunbird.train` module.
 The `acm.model.train` module contains the `TrainFCN` function, which trains the emulator on a given statistic, with a given set of hyperparameters.
 
-:::{note}
+:::{warning}
 This function uses the `acm.data.io_tools` module to load the training and validation sets. This assumes that the data follows the standard storage format.
 If it is not the case, you will need to adapt the `TrainFCN` function to your data storage format **locally**.
+:::
+
+:::{tip}
+An example script on how to use the TrainFCN function is provided in the `acm.model.train.py` file.
 :::
 
 ## Optmizing the emulator
@@ -43,6 +47,10 @@ best_model = get_best_model(statistic='tpcf', study_dir='path/to/study')
 
 :::{note}
 If provided with a `copy_to` argument, the best model will be copied to the `copy_to` directory. (useful to move it to the `models` directory 😉)
+:::
+
+:::{tip}
+An example script on how to use the `objective` and `get_best_model` functions is provided in the `acm.model.optimize.py` file.
 :::
 
 ## Computing the emulator error file
