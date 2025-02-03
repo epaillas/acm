@@ -164,7 +164,7 @@ if __name__ == '__main__':
         'lhc_dir': emc_paths['lhc_dir'],
         'covariance_dir': emc_paths['covariance_dir'],
         'model_dir': emc_paths['study_dir'], # Save the intermediate models in the study directory
-        'n_train': 600,
+        'n_test': 600,
         'transform': Log(),
     }
     
