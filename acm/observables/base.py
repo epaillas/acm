@@ -259,7 +259,7 @@ class BaseObservable(ABC):
         Emulator covariance of the statistic. See `acm.data.io_tools.read_emulator_covariance_y` for more details.
         """
         return read_emulator_covariance_y(
-            statistics=self.stat_name,
+            statistic=self.stat_name,
             error_dir=self.paths['error_dir'],
             select_filters=self.select_filters,
             slice_filters=self.slice_filters,
