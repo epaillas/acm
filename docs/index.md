@@ -58,6 +58,7 @@ code/overview
 code/projects
 code/data
 code/io
+code/utils
 ```
 
 ```{toctree}
