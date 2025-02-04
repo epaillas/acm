@@ -18,7 +18,7 @@ If it is not the case, you will need to adapt the `TrainFCN` function to your da
 :::
 
 :::{tip}
-An example script on how to use the TrainFCN function is provided in the `acm.model.train.py` file.
+An example script on how to use the `TrainFCN` function is provided in the `acm.model.train.py` file.
 :::
 
 ## Optmizing the emulator
