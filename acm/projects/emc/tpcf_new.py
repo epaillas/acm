@@ -1,8 +1,15 @@
 from acm.observables.base import BaseObservable
 from .default import emc_summary_coords_dict, emc_paths
 
+# LHC creation imports
 import numpy as np
-from acm.data.io_tools import emulator_error_fnames, get_bin_values, summary_coords, filter
+import pandas as pd
+from pathlib import Path
+from pycorr import TwoPointCorrelationFunction
+
+import logging
+from acm.utils import setup_logging
+
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     """
@@ -37,6 +44,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         paths = emc_paths
         # expecting model_fn = model_path/stat_name/checkpoint_name
         paths['checkpoint_name'] = 'cosmo+hod/optuna_log/last-v54.ckpt' 
+        
+        # To create the lhc files
+        paths['param_dir'] = f'/pscratch/sd/e/epaillas/emc/cosmo+hod_params/'
+        paths['covariance_statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/{self.stat_name}/z0.5/yuan23_prior'
+        paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/{self.stat_name}/cosmo+hod_bugfix/z0.5/yuan23_prior/'
         return paths
 
     @property
@@ -57,13 +69,86 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         """
         From the statistics files for small AbacusSummit boxes, create the covariance array to store in the lhc file under the `cov_y` key.
         """
-        raise NotImplementedError
+        y = []
+        data_dir = Path(self.paths['covariance_statistic_dir'])
+        data_fns = list(data_dir.glob('tpcf_ph*_hod466.npy')) # NOTE: Hardcoded ! 
+        for data_fn in data_fns:
+            data = TwoPointCorrelationFunction.load(data_fn)[::4]
+            multipoles = data(ells=(0, 2))
+            y.append(np.concatenate(multipoles))
+        return np.asarray(y)
     
-    def create_lhc(self):
+    def create_lhc(self, phase_idx: int = 0, save_to: str = None) -> dict:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the LHC data.
+        
+        Parameters
+        ----------
+        phase_idx : int
+            Index of the phase to consider in the statistics files. Default is 0.
+        save_to : str
+            Path of the directory where to save the LHC data. If None, the LHC data is not saved.
+            Default is None.
+            
+        Returns
+        -------
+        dict
+            Dictionary containing the LHC data with the following keys:
+            - 'bin_values' : Array of the bin values.
+            - 'lhc_x' : Array of the parameters used to generate the simulations.
+            - 'lhc_y' : Array of the statistics values.
+            - 'lhc_x_names' : List of the names of the parameters.
+            - 'cov_y' : Array of the covariance matrix of the statistics values
         """
-        raise NotImplementedError
+        # Logging
+        setup_logging()
+        logger = logging.getLogger(self.stat_name + '_lhc')
+        
+        # Directories
+        param_dir = self.paths['param_dir']
+        statistic_dir = self.paths['statistic_dir']
+        
+        # LHC_y & bin_values
+        cosmos = self.summary_coords_dict['cosmo_idx']
+        n_hod = self.summary_coords_dict['hod_number']
+        
+        lhc_y = []
+        for cosmo_idx in cosmos:
+            logger.info(f'Loading LHC data for cosmo {cosmo_idx}')
+            data_dir = statistic_dir + f'c{cosmo_idx:03}_ph{phase_idx:03}/seed0/' # NOTE: Hardcoded !
+            for hod in range(n_hod):
+                data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy'
+                data = TwoPointCorrelationFunction.load(data_fn)[::4]
+                s, multipoles = data(ells=(0, 2), return_sep=True)
+                lhc_y.append(np.concatenate(multipoles))
+        lhc_y = np.asarray(lhc_y)
+        bin_values = s
+        
+        # LHC_x
+        lhc_x = []
+        for cosmo_idx in cosmos:
+            data_fn = Path(param_dir) / f'AbacusSummit_c{cosmo_idx:03}.csv'
+            lhc_x_i = pd.read_csv(data_fn)
+            lhc_x_names = list(lhc_x_i.columns)
+            lhc_x_names = [name.replace(' ', '').replace('#', '') for name in lhc_x_names]
+            lhc_x.append(lhc_x_i.values[:n_hod, :])
+        lhc_x = np.concatenate(lhc_x)
+        # assuming all lhc_x_names are the same
+        
+        logger.info(f'Loaded 2PCF LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
+        
+        cov_y = self.create_covariance()
+        print(f'Loaded 2PCF covariance with shape: {cov_y.shape}')
+
+        cout = {'bin_values': bin_values, 'lhc_x': lhc_x, 'lhc_y': lhc_y, 'lhc_x_names': lhc_x_names, 'cov_y': cov_y}
+        
+        if save_to is not None:
+            Path(save_to).mkdir(parents=True, exist_ok=True)
+            save_fn = Path(save_to) / f'{self.stat_name}_lhc.npy'
+            np.save(save_fn, cout)
+            logger.info(f'Saving LHC data to {save_fn}')
+        
+        return cout
     
     #%% Emulator creation : Methods to create the emulator error file from the model and the LHC data
     
