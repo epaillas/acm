@@ -32,7 +32,7 @@ def adot(a, Om0):
 def H(a, Om0):
  return adot(a, Om0)/a
 import fitsio
-
+from cosmoprimo.fiducial import AbacusSummit
 
 gridlittle = 200 #200 #200 #300 #200 #200
 D3d = gridlittle#256
@@ -61,17 +61,24 @@ txt_file = open("/pscratch/sd/g/gvalogia/wst/log_kron/tasks.disbatch_copy", "r")
 content_list = txt_file.read().splitlines()
 cosmos = np.loadtxt("/pscratch/sd/g/gvalogia/wst/Emulator_cosmo.txt")
 
+#Make list of cosmologies
+cosmolist1 = list(range(0, 5))
+cosmolist1.append(13)
+cosmolist2 = [x for x in range(100, 182) if x not in (127,128,129)]
+cosmolist = cosmolist1 + cosmolist2
+
 #New loop to evaluate WST for 85 abacus cosmologies produced by Enrique, for 350 HOD configurations each
 n_HOD = 350
-begin = 0
 #for i in range(0):
+begin = 0
 for idx, cosmoid in enumerate(content_list[begin:]):
     st = cosmoid.split('_')[2]
-    print (idx, st, 100*cosmos[begin+idx,2])
-    #Load hubble factor needed for RSD
-    hubble = 100*cosmos[begin+idx,2]
+    #Load expansion factor needed for RSD
     redshift = 0.50
     scale_factor = 1 / (1 + redshift)
+    cosmo = AbacusSummit(cosmolist[begin+idx])
+    hubble = 100 * cosmo.efunc(redshift)
+    print (idx, st, 100*cosmo.h)
     for i in range(n_HOD):
         if (i<10):
             input_fn = '/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/'+str(st)+'_ph000/seed0/hod00'+str(i)+'.fits'

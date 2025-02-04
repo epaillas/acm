@@ -32,7 +32,7 @@ def adot(a, Om0):
 def H(a, Om0):
  return adot(a, Om0)/a
 import fitsio
-
+from cosmoprimo.fiducial import AbacusSummit
 
 gridlittle = 50 #200 #200 #300 #200 #200
 D3d = gridlittle#256
@@ -62,10 +62,12 @@ content_list = txt_file.read().splitlines()
 cosmos = np.loadtxt("/pscratch/sd/g/gvalogia/wst/Emulator_cosmo.txt")
 
 #Now loop over small boxes for the covariance
+
 #Cosmo values for fiducial cosmology
 redshift = 0.50
 scale_factor = 1 / (1 + redshift)
-hubble = 100*cosmos[0,2]
+cosmo = AbacusSummit(0)
+hubble = 100 * cosmo.efunc(redshift)
 
 i=0
 #Load file with mock ids, in order to loop over below.
