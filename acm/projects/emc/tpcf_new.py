@@ -15,6 +15,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
+    
+    Note
+    ----
+    The bin_values are the separation bins of the correlation function (s, in Mpc/h).
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
         super().__init__(select_filters, slice_filters)
