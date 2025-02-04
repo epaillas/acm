@@ -49,6 +49,13 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         paths['param_dir'] = f'/pscratch/sd/e/epaillas/emc/cosmo+hod_params/'
         paths['covariance_statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/{self.stat_name}/z0.5/yuan23_prior'
         paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/{self.stat_name}/cosmo+hod_bugfix/z0.5/yuan23_prior/'
+        
+        # Temporary : For the tests, the lhc data and error dir will be surcharged (TODO : remove this eventually)
+        paths['lhc_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/input_data/'
+        paths['covariance_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/input_data/'
+        paths['error_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/emulator_error/'
+        paths['emulator_covariance_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/emulator_error/'
+        paths['save_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/emulator_error/'
         return paths
 
     @property
@@ -151,7 +158,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         return cout
     
     #%% Emulator creation : Methods to create the emulator error file from the model and the LHC data
-    
     def create_emulator_covariance(self):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator covariance file.
