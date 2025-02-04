@@ -1,13 +1,13 @@
 from .base import BaseObservable
 
 
-class GalaxyCorrelationFunctionMultipoles(BaseObservable):
+class DTVoidGalaxyCorrelationFunctionMultipoles(BaseObservable):
     """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
+    Class for the Emulator's Mock Challenge void-galaxy correlation
+    function multipoles using the DT void finder.
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
-        self.stat_name = 'tpcf'
+        self.stat_name = 'dt_gv'
         self.sep_name = 's'
         self.select_filters = select_filters
         self.slice_filters = slice_filters
@@ -47,4 +47,4 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
 
     @property
     def model_fn(self):
-        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/tpcf/cosmo+hod/optuna_log/last-v54.ckpt'
+        return '/pscratch/sd/d/dforero/emc/trained_models/DTvoids_gv/cosmo+hod/optuna/last.ckpt'
