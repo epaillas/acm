@@ -5,6 +5,7 @@ from .default import emc_summary_coords_dict, emc_paths
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import torch
 from pycorr import TwoPointCorrelationFunction
 
 import logging
@@ -162,14 +163,72 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         return cout
     
     #%% Emulator creation : Methods to create the emulator error file from the model and the LHC data
-    def create_emulator_covariance(self):
+    def create_emulator_covariance(self, n_test: int|list):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator covariance file.
+        Assuming the model is already trained and the LHC file is created.
+        
+        Parameters
+        ----------
+        n_test : int|list
+            Number of test samples or list of indices of the test samples.
+            
+        Returns
+        -------
+        np.ndarray
+            Array of the emulator covariance matrix.
         """
-        raise NotImplementedError
+        # Unfiltered lhc
+        lhc_x, lhc_y, lhc_x_names = self.read_lhc() # Unfiltered lhc !
+        
+        if isinstance(n_test, int):
+            idx_test = list(range(n_test))
+        else:
+            idx_test = n_test
+        lhc_test_x = lhc_x[idx_test]
+        lhc_test_y = lhc_y[idx_test]
+        
+        with torch.no_grad():
+            pred = self.model.get_prediction(torch.Tensor(lhc_test_x)) # Unfiltered prediction !
+            pred = pred.numpy()
+        
+        diff = lhc_test_y - pred
+        return diff
     
-    def create_emulator_error(self):
+    def create_emulator_error(self, n_test:int|list, save_to: str = None):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
+        
+        Parameters
+        ----------
+        n_test : int|list
+            Number of test samples or list of indices of the test samples.
+        save_to : str
+            Path of the directory where to save the emulator error file. If None, the emulator error file is not saved.
+            Default is None.
+        
+        Returns
+        -------
+        dict
+            Dictionary containing the emulator error with the following keys:
+            - 'bin_values' : Array of the bin values.
+            - 'emulator_error' : Array of the emulator error.
+            - 'emulator_cov_y' : Array of the emulator covariance matrix.
         """
-        raise NotImplementedError
+        emulator_cov_y = self.create_emulator_covariance(n_test)
+        emulator_error = np.median(np.abs(emulator_cov_y), axis=0)
+        bin_values, lhc_x, lhc_y, lhc_x_names = self.read_lhc(return_sep=True)
+        
+        emulator_error_dict = {
+            'bin_values': bin_values,
+            'emulator_error': emulator_error,
+            'emulator_cov_y': emulator_cov_y,
+        }
+
+        if save_to:
+            Path(save_to).mkdir(parents=True, exist_ok=True)
+            save_fn = Path(save_to) / f'{self.stat_name}_emulator_error.npy'
+            np.save(save_fn, emulator_error_dict)
+        
+        return emulator_error_dict
+        
