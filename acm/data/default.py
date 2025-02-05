@@ -5,6 +5,7 @@
 cosmo_list = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
 
 # Statistics coordinates, defining the array shape of the summary statistics
+# NOTE : Default values here, to be updated for each project !
 summary_coords_dict = {
     'cosmo_idx': cosmo_list,# List of cosmologies index in AbacusSummit
     'hod_number': 100,      # Number of HODs sampled by cosmology

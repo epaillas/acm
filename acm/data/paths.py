@@ -37,10 +37,6 @@ LRG_Abacus_DM = {
     },
 }
 
-# ACM project path dictionaries - Toy models and examples
-emc_paths = {} # TODO : add paths for the EMC project here
-
-
 
 #%% reference dictionary for the paths (not used)
 tmp_paths = {
