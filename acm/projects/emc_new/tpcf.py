@@ -1,4 +1,4 @@
-from acm.observables.base import BaseObservable
+from .base import BaseObservableEMC
 from .default import emc_summary_coords_dict, emc_paths
 
 # LHC creation imports
@@ -9,10 +9,9 @@ import torch
 from pycorr import TwoPointCorrelationFunction
 
 import logging
-from acm.utils import setup_logging
 
 
-class GalaxyCorrelationFunctionMultipoles(BaseObservable):
+class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
@@ -47,36 +46,15 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
             - 'model_dir' : Directory where the model is saved.
         """
         paths = emc_paths
-        # expecting model_fn = model_path/stat_name/checkpoint_name
-        paths['checkpoint_name'] = 'cosmo+hod/optuna_log/last-v54.ckpt' 
         
         # To create the lhc files
         paths['param_dir'] = f'/pscratch/sd/e/epaillas/emc/cosmo+hod_params/'
         paths['covariance_statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/{self.stat_name}/z0.5/yuan23_prior'
         paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/{self.stat_name}/cosmo+hod_bugfix/z0.5/yuan23_prior/'
         
-        # Temporary : For the tests, the lhc data and error dir will be surcharged (TODO : remove this eventually)
-        paths['lhc_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/input_data/'
-        paths['covariance_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/input_data/'
-        paths['error_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/emulator_error/'
-        paths['emulator_covariance_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/emulator_error/'
-        paths['save_dir'] = '/pscratch/sd/s/sbouchar/acm/emc/emulator_error/'
         return paths
-
-    @property
-    def summary_coords_dict(self):
-        """
-        Defines the default coordinates for the statistics results. 
-        """
-        return emc_summary_coords_dict
     
-    # NOTE: Right now, the emulator files don't contain the emulator covariance array
-    # This will cause self.emulator_covariance_y and self.get_emulator_covariance_matrix() 
-    # to raise an error
-    
-    # TODO : redefine the lhc and error files trough the creation functions
     #%% LHC creation : Methods to create the LHC data from statistics files
-    # Not mandatory to implement, but can be useful to create the LHC data from the statistics files.
     def create_covariance(self):
         """
         From the statistics files for small AbacusSummit boxes, create the covariance array to store in the lhc file under the `cov_y` key.
@@ -113,7 +91,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
             - 'cov_y' : Array of the covariance matrix of the statistics values
         """
         # Logging
-        setup_logging()
         logger = logging.getLogger(self.stat_name + '_lhc')
         
         # Directories
