@@ -123,10 +123,10 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
         # LHC_x
         lhc_x, lhc_x_names = self.create_lhc_x()
         
-        logger.info(f'Loaded 2PCF LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
+        logger.info(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
         
         cov_y = self.create_covariance()
-        print(f'Loaded 2PCF covariance with shape: {cov_y.shape}')
+        print(f'Loaded covariance with shape: {cov_y.shape}')
 
         cout = {'bin_values': bin_values, 'lhc_x': lhc_x, 'lhc_y': lhc_y, 'lhc_x_names': lhc_x_names, 'cov_y': cov_y}
         
