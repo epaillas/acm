@@ -50,6 +50,7 @@ def get_best_model(
     checkpoint_offset: int = 0,
     copy_to: str = False,
     model_symlink: str = 'last.ckpt', # To follow pytorch convention
+    overwrite: bool = True,
     )-> Path: 
     """
     Get the best model checkpoint from the study.
@@ -67,6 +68,8 @@ def get_best_model(
         As the standard practice, the model will be copied to a '{statistic}' subdirectory in the given path.
     model_symlink : str, optional 
         Name of the symlink to create when copying the model. If set to None, the symlink will be named 'last.ckpt'. Defaults to None.
+    overwrite : bool, optional
+        If True, the symlink to the model will be overwritten if it already exists in the copy_to directory. Defaults to True.
 
     Returns
     -------
@@ -105,7 +108,7 @@ def get_best_model(
         
         # Create the symlink
         symlink = Path(copy_to) / model_symlink
-        os.symlink(model_fn, symlink)
+        os.symlink(model_fn, symlink, overwrite=overwrite)
         return model_fn
     
     return model_fn
