@@ -108,7 +108,9 @@ def get_best_model(
         
         # Create the symlink
         symlink = Path(copy_to) / model_symlink
-        os.symlink(model_fn, symlink, overwrite=overwrite)
+        if overwrite:
+            symlink.unlink(missing_ok=True) # Remove the symlink if it already exists
+        os.symlink(model_fn, symlink)
         return model_fn
     
     return model_fn
