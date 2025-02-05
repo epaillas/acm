@@ -198,7 +198,7 @@ if __name__ == '__main__':
     transform = Log()
     
     # Set the paths
-    from acm.data.paths import emc_paths
+    from acm.projects.emc.default import emc_paths
     lhc_dir = emc_paths['lhc_dir']
     covariance_dir = emc_paths['covariance_dir']
     model_dir = emc_paths['model_dir']

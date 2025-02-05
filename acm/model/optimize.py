@@ -128,7 +128,7 @@ if __name__ == '__main__':
     same_n_hidden = args.same_n_hidden
     n_trials = args.n_trials
     
-    from acm.data.paths import emc_paths
+    from acm.projects.emc.default import emc_paths
     study_dir = emc_paths['study_dir']
     Path(study_dir).mkdir(parents=True, exist_ok=True)
     study_fn = Path(study_dir) / f'{statistic}.pkl'
