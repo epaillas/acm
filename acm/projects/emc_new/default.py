@@ -40,6 +40,9 @@ emc_summary_coords_dict = {
             'quantiles': [0, 1, 3, 4],
             'multipoles': [0, 2],
         },
+        'bispectrum': {
+            'multipoles': [0, 2],
+        },
         'number_density': {},
         'cgf_r10': {},
         'pdf': {},
