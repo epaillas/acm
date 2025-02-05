@@ -30,6 +30,12 @@ class BaseObservable(ABC):
         data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box'
         return Path(data_dir) / f'{self.stat_name}.npy'
 
+    def diffsky_fname(self):
+        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/diffsky/data_vectors/galsampled_67120_fixedAmp_001_mass_conc_v0.3'
+        # data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/diffsky/data_vectors/abacus'
+        # return Path(data_dir) / f'{self.stat_name}_wrong.npy'
+        return Path(data_dir) / f'{self.stat_name}.npy'
+
     @property
     @abstractmethod
     def model_fn(self):
@@ -91,6 +97,22 @@ class BaseObservable(ABC):
             data=small_box_y, dimensions=dimensions, coords=coords,
             select_filters=self.select_filters, slice_filters=self.slice_filters
         ).values.reshape(len(small_box_y), -1)
+
+    @property
+    def diffsky_y(self):
+        """
+        Measurements from Diffsky simulations.
+        """
+        fn = self.diffsky_fname()
+        diffsky_y = np.load(fn, allow_pickle=True).item()['diffsky_y']
+        coords = self.coords_model
+        coords_shape = tuple(len(v) for k, v in coords.items())
+        dimensions = list(coords.keys())
+        diffsky_y = diffsky_y.reshape(*coords_shape)
+        return convert_to_summary(
+            data=diffsky_y, dimensions=dimensions, coords=coords,
+            select_filters=self.select_filters, slice_filters=self.slice_filters
+        ).values.reshape(-1)
 
     @property
     def model(self):
