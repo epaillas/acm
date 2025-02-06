@@ -80,9 +80,7 @@ The best model can be selected from the study object with the `get_best_model` f
 The model error definition depends on the project, and is defined on each `acm.observable` project class. (For example, it can be defined as the mean of the difference between the model prediction and the data for the test set)
 :::
 
-The emulator error is saved in a `emulator_error/` directory, with a subdirectory for each statistic. 
-The error is saved as a `<statistic>_emulator_error.npy` file, containing a dictionary
-with `bin_values` the bins values on which the emulator predicts the statistic, `emulator_error` the error on the emulator and `emulator_cov_y` the covariance array of the emulator error.
+The emulator error is saved in a `emulator_error/` directory, as a `<statistic>_emulator_error.npy` file, containing a dictionary with `bin_values` the bins values on which the emulator predicts the statistic, `emulator_error` the error on the emulator and `emulator_cov_y` the covariance array of the emulator error.
 
 
 ## Inference chains
@@ -118,8 +116,7 @@ ACM_data/
 │   ├── tpcf/
 │   │   ├── last.ckpt
 ├── emulator_error/
-│   ├── tpcf/
-│   │   ├── tpcf_emulator_error.npy
+│   ├── tpcf_emulator_error.npy
 ├── chains/
 
 ```

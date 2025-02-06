@@ -108,7 +108,7 @@ def lhc_fnames(statistic: str,
 
 def emulator_error_fnames(statistic: str, 
                           error_dir: str,
-                          add_statistic: bool = True) -> Path:
+                          add_statistic: bool = False) -> Path:
     """
     Finds the file name of the emulator error data for the emulator. The file name can be constructed from the statistic and the data directory.
 
@@ -119,7 +119,7 @@ def emulator_error_fnames(statistic: str,
     error_dir : str
         Directory where the error is stored.
     add_statistic : bool, optional
-        Weather to add the statistic to the file name. Defaults to True.
+        Weather to add the statistic to the file name (for retrocompatibility). Defaults to False.
 
     Returns
     -------
