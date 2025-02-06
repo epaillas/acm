@@ -11,8 +11,8 @@ class BaseObservableEMC(BaseObservable):
     """
     Base class for the application of the ACM pipeline to the BGS dataset.
     """
-    def __init__(self, slice_filters: dict = None, select_filters: dict = None):
-        super().__init__(slice_filters=slice_filters, select_filters=select_filters)
+    def __init__(self, select_filters: dict = None, slice_filters: dict = None):
+        super().__init__(select_filters=select_filters, slice_filters=slice_filters)
         
     # NOTE: Define the stat name in the child class !
         

@@ -12,7 +12,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     Class for the Emulator's Mock Challenge bispectrum.
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
-        super().__init__(select_filters, slice_filters)
+        super().__init__(select_filters=select_filters, slice_filters=slice_filters)
         
     @property
     def stat_name(self) -> str:
@@ -125,7 +125,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         logger.info(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
         
         cov_y = self.create_covariance()
-        print(f'Loaded covariance with shape: {cov_y.shape}')
+        logger.info(f'Loaded covariance with shape: {cov_y.shape}')
 
         cout = {'bin_values': bin_values, 'lhc_x': lhc_x, 'lhc_y': lhc_y, 'lhc_x_names': lhc_x_names, 'cov_y': cov_y}
         
