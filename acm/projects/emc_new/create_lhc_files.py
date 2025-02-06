@@ -85,14 +85,15 @@ if __name__ == '__main__':
         # Create the lhc file
         try:
             obs.create_lhc(save_to=obs.paths['lhc_dir'])
-        except NotImplementedError:
+        except:
             logger.info(f'No LHC creation method for {obs.stat_name}, using old lhc instead')
             old_filename = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod/{obs.stat_name}.npy'
             lhc_from_old(filename=old_filename, statistic_name=obs.stat_name, save_to=obs.paths['lhc_dir'])
         
         # Copy the best model
         model_fn = stat_dict[obs.stat_name]['model_fn']
-        copy_to = stat.paths['model_dir'] + f'{stat.stat_name}/' # ACM standard storage (see train and io_tools)
+        model_fn = Path(model_fn).resolve()
+        copy_to = obs.paths['model_dir'] + f'{obs.stat_name}/' # ACM standard storage (see train and io_tools)
         Path(copy_to).mkdir(parents=True, exist_ok=True) # Check if the directory exists, if not create it
         model_fn = shutil.copy(model_fn, copy_to) # Copy the model to the desired path
 
@@ -103,7 +104,7 @@ if __name__ == '__main__':
         
         # Create the error file
         n_test = 6 * obs.summary_coords_dict['hod_number'] # 6 cosmologies w/ all HODs
-        stat.create_emulator_error(n_test=n_test, save_to=stat.paths['error_dir'])
+        obs.create_emulator_error(n_test=n_test, save_to=obs.paths['error_dir'])
 
         logger.info(f'Created LHC with shape: {obs.lhc_x.shape}, {obs.lhc_y.shape}')
         logger.info(f'Created covariance with shape: {obs.covariance_y.shape}')
