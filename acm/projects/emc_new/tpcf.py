@@ -47,7 +47,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         
         # To create the lhc files
         paths['covariance_statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/{self.stat_name}/z0.5/yuan23_prior'
-        paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/{self.stat_name}/cosmo+hod_bugfix/z0.5/yuan23_prior/'
+        paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/{self.stat_name}/cosmo+hod/z0.5/yuan23_prior/'
         
         return paths
     
