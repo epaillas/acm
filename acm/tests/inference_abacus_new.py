@@ -83,7 +83,7 @@ observable = CombinedObservable([
         select_filters={
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
         },
-        slice_filters={'bin_values': [0, 30]
+        slice_filters={
         }
     ),
     # emc.WaveletScatteringTransform(
