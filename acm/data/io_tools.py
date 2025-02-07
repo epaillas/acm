@@ -176,7 +176,7 @@ def read_lhc(statistics: list,
     slice_filters : dict, optional
        Filters to slice values in coordinates. Defaults to None.
     return_sep : bool, optional
-        Weather to return the bin_values array. Defaults to False.
+        Wether to return the bin_values array. Defaults to False.
     summary_coords_dict : dict, optional
         Dictionary containing the summary coordinates for each statistic. 
         It also contains the comology indexes, the number of HODs, parameters and phases.
@@ -185,7 +185,7 @@ def read_lhc(statistics: list,
     Returns
     -------
     tuple
-        Tuple of arrays with the input features, output features and separation array if `return_sep` is True : 
+        Tuple of arrays with the input features, output features and bin_values array if `return_sep` is True : 
         `(bin_values), lhc_x, lhc_y, lhc_x_names` 
     
     Example
