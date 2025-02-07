@@ -3,18 +3,18 @@ from acm.data.default import cosmo_list # List of cosmologies in AbacusSummit
 # Reference paths for the BGS project
 bgs_paths = {
     # dir of the input data and covariance
-    'lhc_dir': '/pscratch/sd/s/sbouchar/acm/input_data/',
-    'covariance_dir': '/pscratch/sd/s/sbouchar/acm/input_data/',
+    'lhc_dir': '/pscratch/sd/s/sbouchar/acm/bgs/input_data/',
+    'covariance_dir': '/pscratch/sd/s/sbouchar/acm/bgs/input_data/',
     # dir of the errors
-    'error_dir': '/pscratch/sd/s/sbouchar/acm/emulator_error/',
-    'emulator_covariance_dir': '/pscratch/sd/s/sbouchar/acm/emulator_error/',
-    'save_dir': '/pscratch/sd/s/sbouchar/acm/emulator_error/',
+    'error_dir': '/pscratch/sd/s/sbouchar/acm/bgs/emulator_error/',
+    'emulator_covariance_dir': '/pscratch/sd/s/sbouchar/acm/bgs/emulator_error/',
+    'save_dir': '/pscratch/sd/s/sbouchar/acm/bgs/emulator_error/',
     # dir of the trained models
-    'study_dir': '/pscratch/sd/s/sbouchar/acm/trained_models/optuna/',
-    'model_dir': '/pscratch/sd/s/sbouchar/acm/trained_models/',
+    'study_dir': '/pscratch/sd/s/sbouchar/acm/bgs/trained_models/optuna/',
+    'model_dir': '/pscratch/sd/s/sbouchar/acm/bgs/trained_models/',
     'checkpoint_name': 'last.ckpt',
     # dir of the inference
-    'chain_dir': '/pscratch/sd/s/sbouchar/acm/chains/',
+    'chain_dir': '/pscratch/sd/s/sbouchar/acm/bgs/chains/',
 }
 
 # Statistics coordinates, defining the array shape of the summary statistics

@@ -1,9 +1,11 @@
-import numpy as np
-import torch
-from pathlib import Path
-
 from acm.observables.base import BaseObservable
 from .default import bgs_summary_coords_dict, bgs_paths
+
+# LHC_x creation
+import numpy as np
+import pandas as pd
+from pathlib import Path
+import torch
 
 class BaseObservableBGS(BaseObservable):
     """
@@ -28,7 +30,12 @@ class BaseObservableBGS(BaseObservable):
             - 'covariance_dir' : Directory containing the covariance array of the LHC data.
             - 'model_dir' : Directory where the model is saved.
         """
-        return bgs_paths
+        paths = bgs_paths
+        
+        # To create the lhc files
+        paths['param_dir'] = f'/pscratch/sd/s/sbouchar/acm/bgs/cosmo+hod_params/'
+        
+        return paths
 
     @property
     def summary_coords_dict(self):
@@ -36,6 +43,30 @@ class BaseObservableBGS(BaseObservable):
         Defines the default coordinates for the statistics results. 
         """
         return bgs_summary_coords_dict
+    
+    #%% LHC creation : Methods to create the LHC data from statistics files
+    def create_lhc_x(self):
+        """
+        From the statistics files for the simulations, create the LHC x data.
+        """
+        # Directories
+        param_dir = self.paths['param_dir']
+        
+        # LHC_y & bin_values
+        cosmos = self.summary_coords_dict['cosmo_idx']
+        n_hod = self.summary_coords_dict['hod_number']
+        
+        lhc_x = []
+        for cosmo_idx in cosmos:
+            data_fn = Path(param_dir) / f'AbacusSummit_c{cosmo_idx:03}.csv'
+            lhc_x_i = pd.read_csv(data_fn)
+            lhc_x_names = list(lhc_x_i.columns)
+            lhc_x_names = [name.replace(' ', '').replace('#', '') for name in lhc_x_names]
+            lhc_x.append(lhc_x_i.values[:n_hod, :])
+        lhc_x = np.concatenate(lhc_x)
+        # assuming all lhc_x_names are the same
+        
+        return lhc_x, lhc_x_names
     
     #%% Emulator error file
     def create_emulator_covariance(self, n_test: int|list):
