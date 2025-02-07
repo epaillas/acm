@@ -3,12 +3,12 @@ from sunbird.inference.priors import Yuan23, AbacusSummit
 from sunbird import setup_logging
 
 import acm.projects.emc as emc
-from acm.data.io_tools import *
 
 import numpy as np
 import argparse
 import torch
 import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 def get_priors(cosmo=True, hod=True):
