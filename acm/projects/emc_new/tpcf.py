@@ -51,6 +51,19 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         
         return paths
     
+    @property
+    def summary_coords_dict(self):
+        """
+        Defines the default coordinates for the statistics results. 
+        """
+        coords = super().summary_coords_dict
+        coords['statistics'] = {
+            self.stat_name: {
+                'multipoles': [0, 2],
+            },
+        }
+        return coords
+    
     #%% LHC creation : Methods to create the LHC data from statistics files
     def create_covariance(self):
         """

@@ -29,4 +29,9 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """        
         coords = super().summary_coords_dict
         coords['hod_number'] = 250
+        coords['statistics'] = {
+            self.stat_name: {
+                'multipoles': [0, 2],
+            },
+        }
         return coords

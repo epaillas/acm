@@ -65,6 +65,11 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         """        
         coords = super().summary_coords_dict
         coords['hod_number'] = 350
+        coords['statistics'] = {
+            self.stat_name: {
+                'multipoles': [0, 2],
+            },
+        }
         return coords
     
     # Because of the shape of the bin_values, we need to redefine the read_lhc method

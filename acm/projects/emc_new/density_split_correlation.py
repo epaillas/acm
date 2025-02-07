@@ -44,6 +44,21 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
         paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/{self.stat_name}/cosmo+hod/z0.5/yuan23_prior/'
         
         return paths
+
+    @property
+    def summary_coords_dict(self):
+        """
+        Defines the default coordinates for the statistics results. 
+        """
+        coords = super().summary_coords_dict
+        coords['statistics'] = {
+            self.stat_name: {
+                'statistics': ['quantile_data_correlation', 'quantile_correlation'],
+                'quantiles': [0, 1, 3, 4],
+                'multipoles': [0, 2],
+            },
+        }
+        return coords
     
     #%% LHC creation : Methods to create the LHC data from statistics files
     def create_covariance(self):
