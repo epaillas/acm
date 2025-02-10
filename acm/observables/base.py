@@ -1,6 +1,4 @@
 from abc import ABC, abstractmethod
-from sunbird.data.data_utils import convert_to_summary
-from pathlib import Path
 import numpy as np
 import torch
 
@@ -245,9 +243,10 @@ class BaseObservable(ABC):
         """
         Emulator error of the statistic. See `acm.data.io_tools.read_emulator_error` for more details.
         """
+        error_dir = self.paths['error_dir']
         return read_emulator_error(
             statistics=[self.stat_name],
-            error_dir=self.paths['error_dir'],
+            error_dir=error_dir,
             select_filters=self.select_filters,
             slice_filters=self.slice_filters,
             summary_coords_dict=self.summary_coords_dict,
@@ -258,9 +257,10 @@ class BaseObservable(ABC):
         """
         Emulator covariance of the statistic. See `acm.data.io_tools.read_emulator_covariance_y` for more details.
         """
+        error_dir = self.paths['emulator_covariance_dir']
         return read_emulator_covariance_y(
             statistic=self.stat_name,
-            error_dir=self.paths['error_dir'],
+            error_dir=error_dir,
             select_filters=self.select_filters,
             slice_filters=self.slice_filters,
             summary_coords_dict=self.summary_coords_dict,

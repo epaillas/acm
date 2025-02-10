@@ -8,7 +8,6 @@ bgs_paths = {
     # dir of the errors
     'error_dir': '/pscratch/sd/s/sbouchar/acm/bgs/emulator_error/',
     'emulator_covariance_dir': '/pscratch/sd/s/sbouchar/acm/bgs/emulator_error/',
-    'save_dir': '/pscratch/sd/s/sbouchar/acm/bgs/emulator_error/',
     # dir of the trained models
     'study_dir': '/pscratch/sd/s/sbouchar/acm/bgs/trained_models/optuna/',
     'model_dir': '/pscratch/sd/s/sbouchar/acm/bgs/trained_models/',

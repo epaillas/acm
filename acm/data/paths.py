@@ -46,7 +46,6 @@ tmp_paths = {
     # dir of the errors
     'error_dir': '',
     'emulator_covariance_dir': '',
-    'save_dir': '',
     # dir of the trained models
     'study_dir': '',
     'model_dir': '',
