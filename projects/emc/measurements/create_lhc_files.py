@@ -3,7 +3,6 @@ import shutil
 import numpy as np
 from pathlib import Path
 from acm.projects.emc_new import *
-from acm.projects.emc_new.base import BaseObservableEMC
 
 import logging
 
