@@ -2,7 +2,6 @@ from .base import BaseObservableEMC
 
 # LHC creation imports
 import numpy as np
-import pandas as pd
 from pathlib import Path
 from pycorr import TwoPointCorrelationFunction
 

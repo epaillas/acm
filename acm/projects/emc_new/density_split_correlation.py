@@ -2,7 +2,6 @@ from .base import BaseObservableEMC
 
 # LHC creation imports
 import numpy as np
-import pandas as pd
 from pathlib import Path
 
 import logging
@@ -65,14 +64,17 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
         """
         From the statistics files for small AbacusSummit boxes, create the covariance array to store in the lhc file under the `cov_y` key.
         """
+        logger = logging.getLogger(self.stat_name + '_lhc')
         y = []
         for phase in range(3000, 5000):
             multipoles_stat = []
             for stat in ['quantile_data_correlation', 'quantile_correlation']:
-                data_dir = Path(self.paths['covariance_statistic_dir']) / f'{stat}/z0.5/yuan23_prior/' # NOTE: Hardcoded !)
+                data_dir = Path(self.paths['covariance_statistic_dir']) / f'{stat}/z0.5/yuan23_prior/' # NOTE: Hardcoded !
                 data_fn = data_dir / f'{stat}_ph{phase:03}_hod466.npy' # NOTE: Hardcoded !
                 if not data_fn.exists():
+                    logger.warning(f'File {data_fn} does not exist')
                     break
+                logger.info(f'Loading covariance data for phase {phase} and stat {stat}')
                 data = np.load(data_fn, allow_pickle=True)
                 multipoles_quantiles = []
                 for q in [0, 1, 3, 4]:

@@ -5,7 +5,6 @@ from acm.data.io_tools import lhc_fnames, get_bin_values, summary_coords, filter
 
 # LHC creation imports
 import numpy as np
-import pandas as pd
 from pathlib import Path
 
 import logging
