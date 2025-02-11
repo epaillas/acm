@@ -21,15 +21,6 @@ bgs_summary_coords_dict = {
     'cosmo_idx': cosmo_list,# List of cosmologies index in AbacusSummit
     'hod_number': 100,      # Number of HODs sampled by cosmology
     'param_number': 17,     # Number of parameters in lhc_x used to generate the simulations
-    'phase_number': 1629,   # Number of phases in the small box simulations
-    'statistics': {         # Statistic organization in lhc_y 
-        'tpcf': {
-            'multipoles': [0, 2],
-        },
-        'dsc_conf': {
-            'statistics': ['quantile_data_correlation', 'quantile_correlation'],
-            'quantiles': [0, 1, 3, 4],
-            'multipoles': [0, 2],
-        },
-    },
+    'phase_number': 1639,   # Number of phases in the small box simulations after removing outliers phases for any statistic
+    'statistics': {},       # Statistic organization in lhc_y 
 }
