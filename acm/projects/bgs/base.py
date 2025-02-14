@@ -33,7 +33,7 @@ class BaseObservableBGS(BaseObservable):
         paths = bgs_paths
         
         # To create the lhc files
-        paths['param_dir'] = f'/pscratch/sd/s/sbouchar/acm/bgs/cosmo+hod_params/'
+        paths['param_dir'] = f'/pscratch/sd/s/sbouchar/acm/bgs/parameters/cosmo+hod_params/'
         
         return paths
 
