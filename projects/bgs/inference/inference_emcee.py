@@ -1,3 +1,4 @@
+# NOTE : Bugged, but since PocoMC is used I'll come back to this later if needed
 import acm.projects.bgs as bgs
 from acm.observables import BaseCombinedObservable as CombinedObservable
 from sunbird.inference.emcee import EmceeSampler
@@ -70,10 +71,6 @@ observable = CombinedObservable([
         }
     ),
 ])
-
-# TODO : remove this when the model is finally decided !!!
-for obs in observable.observables:
-    obs.paths['model_dir'] = '/pscratch/sd/s/sbouchar/acm/old/trained_models_log/'
 
 statistics = observable.stat_name
 print(f'Fitting {statistics} with cosmo_idx={args.cosmo_idx} and hod_idx={args.hod_idx}')
