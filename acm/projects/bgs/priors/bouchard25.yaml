@@ -15,9 +15,9 @@ logM_1:
 sigma:
   prior:
     distribution: uniform
-    min: 0.001
-    max: 1.99
-  latex: \sigma
+    min: -2.99 #-3.
+    max: 0.96 #0.3
+  latex: \log \sigma
 
 alpha:
   prior:
@@ -47,6 +47,27 @@ alpha_s:
     max: 1.3
   latex: \alpha_{\rm sat}
 
+s:
+  prior:
+    distribution: uniform
+    min: -0.98
+    max: 1.
+  latex: s
+  
+A_cen:
+  prior:
+    distribution: uniform
+    min: -0.99
+    max: 0.93
+  latex: A_{\rm cen}
+
+A_sat:
+  prior:
+    distribution: uniform
+    min: -1.
+    max: 1.
+  latex: A_{\rm sat}
+
 B_cen:
   prior:
     distribution: uniform
@@ -60,24 +81,3 @@ B_sat:
     min: -1.
     max: 1.
   latex: B_{\rm sat}
-
-# A_cen:
-#   prior:
-#     distribution: uniform
-#     min: -0.99
-#     max: 0.93
-#   latex: A_{\rm cen}
-
-# A_sat:
-#   prior:
-#     distribution: uniform
-#     min: -1.
-#     max: 1.
-#   latex: A_{\rm sat}
-
-# s:
-#   prior:
-#     distribution: uniform
-#     min: -0.98
-#     max: 1.
-#   latex: s
