@@ -62,12 +62,13 @@ class ControlPlots(BaseSampler):
         
         if add_bestfit:
             for c, chain in enumerate(self.chains):
-                names = chain['names']
+                names = chain['names'] # To get the right index later
+                params = kwargs.get('params', chain['names'])
                 maxl = chain['samples'][chain['log_likelihood'].argmax()]
                 finished = []
                 ax_idx = 0
-                for i, param1 in enumerate(names):
-                    for j, param2 in enumerate(names[::-1]):
+                for i, param1 in enumerate(params):
+                    for j, param2 in enumerate(params[::-1]):
                         if param2 in finished: continue
                         if param1 != param2:
                             g.fig.axes[ax_idx].plot(maxl[names.index(param1)], maxl[names.index(param2)],
