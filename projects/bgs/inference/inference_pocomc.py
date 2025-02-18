@@ -49,7 +49,7 @@ def get_covariance_correction(n_s, n_d, n_theta=None, method='percival'):
 
 # set up the inference
 priors, ranges, labels = get_priors(cosmo=True, hod=True)
-fixed_params = ['w0_fld', 'wa_fld', 'nrun', 'N_ur', 'sigma']
+fixed_parameters = ['w0_fld', 'wa_fld', 'nrun', 'N_ur', 'sigma']
 add_emulator_error = True
 
 
@@ -97,13 +97,13 @@ if add_emulator_error:
 correction = get_covariance_correction(
     n_s=len(observable.covariance_y),
     n_d=len(covariance_matrix),
-    n_theta=len(data_x_names) - len(fixed_params),
+    n_theta=len(data_x_names) - len(fixed_parameters),
     method='percival',
 )
 precision_matrix = np.linalg.inv(correction * covariance_matrix)
 
-fixed_params = {key: data_x[data_x_names.index(key)]
-                    for key in fixed_params}
+fixed_parameters = {key: data_x[data_x_names.index(key)]
+                    for key in fixed_parameters}
 
 # load the model
 models = observable.model
@@ -113,7 +113,7 @@ sampler = PocoMCSampler(
     observation=data_y,
     precision_matrix=precision_matrix,
     theory_model=models,
-    fixed_parameters=fixed_params,
+    fixed_parameters=fixed_parameters,
     priors=priors,
     ranges=ranges,
     labels=labels,
@@ -124,12 +124,12 @@ sampler = PocoMCSampler(
 sampler(vectorize=True, n_total=4096)
 
 # plot and save results
-markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
+markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_parameters}
 
 sampler.plot_triangle(save_fn=f'{save_handle()}_triangle.pdf', thin=128,
                     markers=markers, title_limit=1)
 sampler.plot_trace(save_fn=f'{save_handle()}_trace.pdf', thin=128)
-sampler.save_chain(f'{save_handle()}_chain.npy', metadata={'markers': markers, 'fixed_params': fixed_params})
+sampler.save_chain(f'{save_handle()}_chain.npy', metadata={'markers': markers, 'fixed_parameters': fixed_parameters})
 sampler.save_table(f'{save_handle()}_stats.txt')
 sampler.plot_bestfit(save_fn=f'{save_handle()}_model_maxl.pdf', model='maxl')
 sampler.plot_bestfit(save_fn=f'{save_handle()}_model_mean.pdf', model='mean')

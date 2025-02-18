@@ -22,9 +22,6 @@ def get_priors(cosmo: bool = True,
         Whether to include the cosmological parameters. Defaults to True.
     hod : bool, optional
         Whether to include the HOD parameters. Defaults to True.
-    custom_hod : bool, optional
-        Whether to include the BGS HOD parameters. Defaults to False.
-        If set to True, it will overwrite the hod parameter.
 
     Returns
     -------
