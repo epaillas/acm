@@ -110,7 +110,7 @@ class ControlPlots(BaseSampler):
         chain = self.chains[index]
         
         names = chain['names']
-        labels = chain['labels']
+        labels = [chain['labels'][n] for n in names]
         fig, ax = plt.subplots(len(names), 1, figsize=(10, 2*len(names)))
         for i, name in enumerate(names):
             ax[i].plot(chain['samples'][:, i])
