@@ -1,5 +1,4 @@
 import acm.projects.bgs as project
-from acm.projects.bgs import get_priors # TODO : change this if restrained to Yuan23 priors later ?
 from acm.data.io_tools import get_covariance_correction
 from acm.observables import BaseCombinedObservable as CombinedObservable
 from sunbird.inference.pocomc import PocoMCSampler
@@ -84,7 +83,7 @@ print(f'Loaded LHC x with shape: {data_x.shape}')
 print(f'Loaded LHC y with shape {data_y.shape}')
 
 # Order of the parameters needs to be the same as the data_x_names (also removes unused keys)
-priors, ranges, labels = get_priors(cosmo=True, hod=True)
+priors, ranges, labels = project.get_priors(cosmo=True, hod=True)
 priors = {key: priors[key] for key in observable.lhc_x_names}
 
 # Load the covariance matrix
