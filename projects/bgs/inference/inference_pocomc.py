@@ -1,4 +1,4 @@
-import acm.projects.bgs as bgs
+import acm.projects.bgs as project
 from acm.projects.bgs import get_priors # TODO : change this if restrained to Yuan23 priors later ?
 from acm.data.io_tools import get_covariance_correction
 from acm.observables import BaseCombinedObservable as CombinedObservable
@@ -24,14 +24,14 @@ save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/'
 
 # Load observables with their custom filters
 observable = CombinedObservable([
-    bgs.GalaxyCorrelationFunctionMultipoles(
+    project.GalaxyCorrelationFunctionMultipoles(
         select_filters={
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
         },
         slice_filters={
         }
     ),
-    bgs.DensitySplitCorrelationFunctionMultipoles(
+    project.DensitySplitCorrelationFunctionMultipoles(
         select_filters={
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
         },
