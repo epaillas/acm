@@ -39,7 +39,6 @@ class BaseCombinedObservable(BaseObservable):
         self.observables = observables
         self.slice_filters = [obs.slice_filters for obs in self.observables]
         self.select_filters = [obs.select_filters for obs in self.observables]
-        super().__init__()
 
     @property
     def stat_name(self):
