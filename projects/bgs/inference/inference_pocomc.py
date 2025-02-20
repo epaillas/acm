@@ -15,13 +15,14 @@ parser.add_argument("--cosmo_idx", type=int, default=0)
 parser.add_argument("--hod_idx", type=int, default=96)
 args = parser.parse_args()
 
-# set up the inference (NOTE : hardcoded values !)
+# Set up the inference (NOTE : hardcoded values !)
 fixed_parameters = ['omega_b', 'w0_fld', 'wa_fld', 'nrun', 'N_ur', 'B_cen', 'B_sat']
 add_emulator_error = True
 
 save_dir = '/pscratch/sd/s/sbouchar/acm/bgs/chains/' 
+save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/'
 
-# load observables with their custom filters
+# Load observables with their custom filters
 observable = CombinedObservable([
     bgs.GalaxyCorrelationFunctionMultipoles(
         select_filters={
@@ -39,15 +40,28 @@ observable = CombinedObservable([
     ),
 ])
 
-# define utility functions
-def save_handle():
-    # NOTE : bad practice to use global variables (TODO : change later)
-    save_dir = save_dir 
+#%% From this point, everything is automated !
+
+# Define utility functions
+def get_save_handle(save_dir: str|Path, observable: CombinedObservable):
+    """
+    Creates a handle for saving the results of the inference that includes the statistics and filters used.
+
+    Parameters
+    ----------
+    save_dir : str
+        Directory where the results will be saved.
+    observable : CombinedObservable
+        The observable object used for the inference.
+
+    Returns
+    -------
+    Path
+        The handle for saving the results, to be completed with the file extension.
+    """
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
     statistics = observable.stat_name
     slice_filters = observable.slice_filters
-    
-    save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/'
-    Path(save_dir).mkdir(parents=True, exist_ok=True)
     
     statistic_handles = []
     for i, statistic in enumerate(statistics):
@@ -62,7 +76,7 @@ def save_handle():
 statistics = observable.stat_name
 print(f'Fitting {statistics} with cosmo_idx={args.cosmo_idx} and hod_idx={args.hod_idx}')
 
-# load the data
+# Load the data
 data_x = observable.lhc_x
 data_x_names = observable.lhc_x_names
 data_y = observable.lhc_y
@@ -73,16 +87,16 @@ print(f'Loaded LHC y with shape {data_y.shape}')
 priors, ranges, labels = get_priors(cosmo=True, hod=True)
 priors = {key: priors[key] for key in observable.lhc_x_names}
 
-# load the covariance matrix
+# Load the covariance matrix
 covariance_matrix = observable.get_covariance_matrix(volume_factor=64)
 print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
-# load emulator error
+# Load emulator error
 if add_emulator_error:
     emulator_error = observable.emulator_error
     covariance_matrix += np.diag(emulator_error**2)
 
-# get the debiased inverse
+# Get the debiased inverse
 correction = get_covariance_correction(
     n_s=len(observable.covariance_y),
     n_d=len(covariance_matrix),
@@ -94,10 +108,10 @@ precision_matrix = np.linalg.inv(correction * covariance_matrix)
 fixed_parameters = {key: data_x[data_x_names.index(key)]
                     for key in fixed_parameters}
 
-# load the model
+# Load the model
 models = observable.model
 
-# sample the posterior
+# Sample the posterior
 sampler = PocoMCSampler(
     observation=data_y,
     precision_matrix=precision_matrix,
@@ -112,13 +126,14 @@ sampler = PocoMCSampler(
 # sampler(vectorize=True, n_total=10_000)
 sampler(vectorize=True, n_total=4096)
 
-# plot and save results
+# Plot and save results
 markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_parameters}
 
-sampler.plot_triangle(save_fn=f'{save_handle()}_triangle.pdf', thin=128,
+save_handle = get_save_handle(save_dir, observable)
+sampler.plot_triangle(save_fn=f'{save_handle}_triangle.pdf', thin=128,
                     markers=markers, title_limit=1)
-sampler.plot_trace(save_fn=f'{save_handle()}_trace.pdf', thin=128)
-sampler.save_chain(f'{save_handle()}_chain.npy', metadata={'markers': markers, 'fixed_parameters': fixed_parameters})
-sampler.save_table(f'{save_handle()}_stats.txt')
-sampler.plot_bestfit(save_fn=f'{save_handle()}_model_maxl.pdf', model='maxl')
-sampler.plot_bestfit(save_fn=f'{save_handle()}_model_mean.pdf', model='mean')
+sampler.plot_trace(save_fn=f'{save_handle}_trace.pdf', thin=128)
+sampler.save_chain(f'{save_handle}_chain.npy', metadata={'markers': markers, 'fixed_parameters': fixed_parameters})
+sampler.save_table(f'{save_handle}_stats.txt')
+sampler.plot_bestfit(save_fn=f'{save_handle}_model_maxl.pdf', model='maxl')
+sampler.plot_bestfit(save_fn=f'{save_handle}_model_mean.pdf', model='mean')
