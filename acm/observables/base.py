@@ -220,6 +220,7 @@ class BaseObservable(ABC):
         """
         if model is None:
             model = self.model
+        x = np.asarray(x) # Ensure x is an array to make torch.Tensor faster
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x))
             pred = pred.numpy()
