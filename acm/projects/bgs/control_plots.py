@@ -3,16 +3,22 @@ import matplotlib.pyplot as plt
 from getdist import plots, MCSamples
 from sunbird.inference import BaseSampler
 
+import logging
+
 class ControlPlots(BaseSampler):
     """
     A class to generale control plots for inference chains from sunbird.BaseSampler.
     """
     def __init__(self):
+        self.logger = logging.getLogger('ControlPlots')
+        
+        # Chains
         self.chains = []
-        self.samplers = []
+        self.samplers = [] # Not used yet
         self.index_chain_dict = {}
-    
-    def load_chain(self, chain_fn: str, label: str = None):
+        
+    #%% Inference control plots
+    def load_chain(self, chain_fn: str, label: str = None, ignore_checks: bool = False):
         """
         Loads the chains in the class and performs tests to check they are coherent between them
 
@@ -23,6 +29,11 @@ class ControlPlots(BaseSampler):
             with the 'ranges', 'names', 'labels',  'markers' keys. 
         label : str, optional
             The name of the chain loaded, to be displayed in the corner plot later
+        ignore_checks : bool, optional
+            If True, will ignore the checks for chain consistency (not recommended).
+            Might cause issues later if the chains are not consistent, but can be useful to compare
+            chains with different parameters.
+            Default is False.
 
         Returns
         -------
@@ -36,7 +47,7 @@ class ControlPlots(BaseSampler):
         if label is not None : 
             self.index_chain_dict[label] = len(self.chains) # Store the index of this chain
         
-        # For later
+        # For later, if load_chain is implemented in BaseSampler
         # sampler = BaseSampler().load_chain(chain_fn)
         # chain = sampler.get_chain()
         # self.chains.append(chain)
@@ -48,7 +59,16 @@ class ControlPlots(BaseSampler):
             if getattr(self, key, None) is None:
                 setattr(self, key, chain[key])
             else: # Check that the key is the same for all chains
+                if ignore_checks: continue
                 assert getattr(self, key) == chain[key], f'{key} does not match'
+                
+        if ignore_checks:
+            self.logger.warning(
+                'Ignoring checks for chain consistency might cause issues later. '
+                'The following keys will be overriden by the values of the last chain loaded: '
+                f'{setup_keys} '
+                "Please check that the longer ones are loaded last or some parameters won't be found !"
+            )
             
         return chain
     
@@ -85,7 +105,8 @@ class ControlPlots(BaseSampler):
         if add_bestfit:
             for c, chain in enumerate(self.chains):
                 names = chain['names'] # To get the right index later
-                params = kwargs.get('params', chain['names']) # Will luckily already be in order because params will re-order the axes in the triangle plot 
+                params = kwargs.get('params', names) # Will luckily already be in order because params will re-order the axes in the triangle plot 
+                params = [p for p in params if p in names] # Remove any parameter that is not in the chain (just in case)
                 maxl = chain['samples'][chain['log_likelihood'].argmax()]
                 finished = []
                 ax_idx = 0
