@@ -380,7 +380,7 @@ class ControlPlots(BaseSampler):
         
         return g
     
-    def plot_trace(self, label):
+    def plot_trace(self, label: str):
         """
         Plots the trace of each parameter in the chain
         """
@@ -399,3 +399,6 @@ class ControlPlots(BaseSampler):
         fig.tight_layout()
         
         return fig, ax
+    
+    # TODO : add a function that returns the parameters in the right order for a the maxl and mean of a chain
+    # To allow the prediction of that chain to be plotted on the model plot

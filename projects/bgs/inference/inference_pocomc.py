@@ -15,10 +15,10 @@ parser.add_argument("--hod_idx", type=int, default=96)
 args = parser.parse_args()
 
 # Set up the inference (NOTE : hardcoded values !)
-fixed_parameters = ['omega_b', 'w0_fld', 'wa_fld', 'nrun', 'N_ur', 'B_cen', 'B_sat']
+fixed_parameters = []
 add_emulator_error = True
 
-save_dir = '/pscratch/sd/s/sbouchar/acm/bgs/chains/' 
+save_dir = '/pscratch/sd/s/sbouchar/acm/bgs/chains/full_space/' 
 save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/'
 
 # Load observables with their custom filters
