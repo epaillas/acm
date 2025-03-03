@@ -161,7 +161,7 @@ class ControlPlots(BaseSampler):
         fig, ax = plt.subplots(len(names), 1, figsize=figsize) 
         kwargs['density'] = kwargs.get('density', True)
         kwargs['color'] = kwargs.get('color', 'k')
-        kwargs['alpha'] = kwargs.get('alpha', 0.5)
+        kwargs['alpha'] = kwargs.get('alpha', 1)
 
         for i, name in enumerate(names):
             index = lhc_x_names.index(name)
@@ -175,7 +175,20 @@ class ControlPlots(BaseSampler):
             return fig, ax, histograms
         return fig, ax
     
-    def get_separators(self, observable: BaseCombinedObservable, **kwargs):
+    def get_separators(self, observable: BaseCombinedObservable):
+        """
+        Returns the separators to plot in order to separate the different observables in the CombinedObservable plots.
+
+        Parameters
+        ----------
+        observable : BaseCombinedObservable
+            The observable to get the separators for.
+
+        Returns
+        -------
+        np.ndarray
+            An array containing values of the separators to plot.
+        """
         
         if not isinstance(observable, BaseCombinedObservable):
             return []
@@ -199,6 +212,37 @@ class ControlPlots(BaseSampler):
         return separations
     
     def plot_model(self, label: str, truth: int|np.ndarray, params: list = None):
+        """
+        Plots the model prediction and the truth for a given observable.
+
+        Parameters
+        ----------
+        label : str
+            The label of the observable to plot, defined when loading the observable.
+        truth : int | np.ndarray
+            The truth to plot. If an integer is provided, the function will use the LHC y-value at this index.
+            If an array is provided, it will be used as the truth.
+        params : list, optional
+            The parameters to use to predict the model. It must match the expected number of parameters of the model.
+            If None, the truth will be used (as the LHC x-value at the given index).
+            Defaults to None.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The figure object containing the plot.
+        ax : numpy.ndarray of matplotlib.axes._subplots.AxesSubplot
+            The axes object containing the plot.
+
+        Raises
+        ------
+        KeyError
+            If no observable is loaded with the given label.
+        ValueError
+            If the prediction and the truth do not have the same length.
+        ValueError
+            If neither a truth index nor a set of parameters is provided.
+        """
         
         index = self.index_observable_dict.get(label, None)
         if index is None:
@@ -247,6 +291,28 @@ class ControlPlots(BaseSampler):
         return fig, ax
     
     def plot_correlation_matrix(self, label:str, **kwargs):
+        """
+        Plots the correlation matrix of the observable with the given label.
+
+        Parameters
+        ----------
+        label : str
+            The label of the observable to plot.
+        **kwargs : dict, optional
+            Additional keyword arguments to customize the plot.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The figure object containing the plot.
+        ax : matplotlib.axes._subplots.AxesSubplot
+            The axes object containing the plot.
+
+        Raises
+        ------
+        KeyError
+            If no observable is loaded with the given label
+        """
         
         index = self.index_observable_dict.get(label, None)
         if index is None:
@@ -285,7 +351,7 @@ class ControlPlots(BaseSampler):
         ----------
         chain_fn : str
             Chain filename. Expects a numpy file containing a dictionnary 
-            with the 'ranges', 'names', 'labels',  'markers' keys. 
+            with the 'ranges', 'names', 'labels', 'markers' keys. 
         label : str, optional
             The name of the chain loaded, to be displayed in the corner plot later
         ignore_checks : bool, optional
@@ -332,6 +398,23 @@ class ControlPlots(BaseSampler):
         return chain
     
     def plot_triangle(self, add_bestfit=False, **kwargs):
+        """
+        Plots the triangle plot of the chains loaded in the class, using the getdist package.
+
+        Parameters
+        ----------
+        add_bestfit : bool, optional
+            If True, will add the best fit point for each chain on the triangle plot.
+            Defaults to False.
+        **kwargs : dict, optional
+            Additional keyword arguments to customize the plot. 
+            See the getdist documentation for more options.
+
+        Returns
+        -------
+        getdist.plots.GetDistPlotter
+            The plotter object containing the triangle plot.
+        """
         
         # Note : Ignore the thin argument, as it causes warnings in the getdist package
         colors = kwargs.get('colors', ['k'] + [f'C{i}' for i in range(len(self.chains))])
@@ -400,5 +483,49 @@ class ControlPlots(BaseSampler):
         
         return fig, ax
     
-    # TODO : add a function that returns the parameters in the right order for a the maxl and mean of a chain
-    # To allow the prediction of that chain to be plotted on the model plot
+    # Useful to get the model prediction from a chain !
+    def get_params(self, label:str, param_names: str, mode:str = 'mean', fixed_params: dict = None):
+        """
+        Returns the parameters of the chain with the given label, in the right order for the model prediction.
+
+        Parameters
+        ----------
+        label : str
+            The label of the chain to get the parameters from.
+        param_names : str
+            The names, in order, of the parameters expected in the returned array.
+            Needs to be provided in order to get the right parameters from the chain.
+        mode : str, optional
+            The mode to use to get the parameters values from the chain. Can be 'mean' or 'maxl'.
+            Defaults to 'mean'.
+        fixed_params : dict, optional
+            A dictionary containing the fixed parameters to add to the returned parameters.
+            Defaults to None.
+
+        Returns
+        -------
+        np.ndarray
+            An array containing the parameters in the right order for the model prediction.
+        """
+        
+        if mode not in ['mean', 'maxl']:
+            raise ValueError('mode must be either mean or maxl')
+        
+        index = self.index_chain_dict.get(label, None)
+        if index is None:
+            raise KeyError(f'No chain loaded with label {label}')
+        chain = self.chains[index]
+        
+        names = chain['names']
+        maxl = chain['samples'][chain['log_likelihood'].argmax()]
+        mean = chain['samples'].mean(axis=0)
+        parameters = {}
+        for n in names:
+            parameters[n] = mean[names.index(n)] if mode == 'mean' else maxl[names.index(n)]
+        
+        if fixed_params is not None:
+           parameters = {**parameters, **fixed_params}
+           
+        params = [parameters[p] for p in param_names]
+        
+        return params
