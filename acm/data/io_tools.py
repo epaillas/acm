@@ -30,6 +30,7 @@ def summary_coords(
         - `'lhc_x'` will return the summary coordinates for the LHC data (cosmo_idx, hod_idx, param_idx).
         - `'smallbox'` will return the summary coordinates for the small box data (phase_idx, statistics and bin_values). 
         - `'emulator_error'` will return the summary coordinates for the emulator error data (statistics and bin_values).
+        - `'statistic'` will return the summary coordinates for the statistic (statistics and bin_values).
         
     bin_values : _type_, optional
         Values of the bins on which the summary statistics are computed. 
@@ -79,7 +80,7 @@ def summary_coords(
         return {**input_dict, **param_dict}
     elif coord_type == 'smallbox':
         return {**phase_dict, **stat_dict}
-    elif coord_type == 'emulator_error':
+    elif coord_type == 'emulator_error' or coord_type == 'statistic':
         return {**stat_dict}
     else:
         raise ValueError(f'Unknown coord_type: {coord_type}')
