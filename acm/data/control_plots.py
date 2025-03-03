@@ -484,7 +484,7 @@ class ControlPlots(BaseSampler):
         return fig, ax
     
     # Useful to get the model prediction from a chain !
-    def get_params(self, label:str, param_names: str, mode:str = 'mean', fixed_params: dict = None):
+    def get_chain_params(self, label:str, param_names: str, mode:str = 'mean', fixed_params: dict = None):
         """
         Returns the parameters of the chain with the given label, in the right order for the model prediction.
 
@@ -504,8 +504,8 @@ class ControlPlots(BaseSampler):
 
         Returns
         -------
-        np.ndarray
-            An array containing the parameters in the right order for the model prediction.
+        list
+            A list containing the parameters in the right order for the model prediction.
         """
         
         if mode not in ['mean', 'maxl']:
