@@ -17,7 +17,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     ----
     The bin_values have two definitions here ! 
     They are either the index of the bin_values array (when calling `self.get_bin_values(return_index=True)`), or the bin values themselves (k123).
-    The data is computed using the bin indexes, to match the shape of the statistics, but calling `self.bin_values` will return the bin values.
+    The data is computed using the bin indexes, to match the shape of the statistics : calling `self.bin_values` will return the bin **index**.
     
     Warning
     -------
@@ -191,7 +191,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         """
         Return the bin values array.
         """
-        return self.get_bin_values()
+        return self.get_bin_values(return_index=True)  # often called to define the shape of the data, so we return the bin index !
     
     #%% LHC creation : Methods to create the LHC data from statistics files
     def create_covariance(self):
