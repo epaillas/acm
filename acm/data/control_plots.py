@@ -463,7 +463,7 @@ class ControlPlots(BaseSampler):
         
         return g
     
-    def plot_trace(self, label: str):
+    def plot_trace(self, label: str, params: list[str] = None):
         """
         Plots the trace of each parameter in the chain
         """
@@ -472,7 +472,7 @@ class ControlPlots(BaseSampler):
             raise KeyError(f'No chain loaded with label{label}')
         chain = self.chains[index]
         
-        names = chain['names']
+        names = chain['names'] if params is None else params
         labels = [chain['labels'][n] for n in names]
         fig, ax = plt.subplots(len(names), 1, figsize=(10, 2*len(names)))
         for i, name in enumerate(names):
@@ -529,3 +529,71 @@ class ControlPlots(BaseSampler):
         params = [parameters[p] for p in param_names]
         
         return params
+    
+    def plot_map(self, percentile: int|list = 95, **kwargs):
+        """
+        Plots the Maximum A Posteriori (MAP) point for each parameter of the chains.
+
+        Parameters
+        ----------
+        percentile : int | list, optional
+            The percentile to use for the error bars. 
+            If an integer is provided, the error bars will both be the same and correspond to the given percentile.
+            If a list is provided, the first element will be the lower percentile and the second element the upper percentile.
+            Defaults to 95.
+        **kwargs : dict, optional
+            Additional keyword arguments to customize the plots.
+            Can contain the following keys:
+            - colors: list of str, the colors to use for the chains. Defaults to ['k'] + [f'C{i}' for i in range(len(self.chains))].
+            - label_dict: dict, a dictionary containing the labels to use for the chains. Defaults to {}.
+            - params: list of str, the parameters to plot. Defaults to self.names.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The figure object containing the plot.
+        ax : numpy.ndarray of matplotlib.axes._subplots.AxesSubplot
+            The axes object containing the plot.
+        """
+        percentile_list = [percentile, percentile] if isinstance(percentile, int) else percentile
+        colors = kwargs.get('colors', ['k'] + [f'C{i}' for i in range(len(self.chains))])
+        label_dict = kwargs.get('label_dict', {}) 
+        names = kwargs.get('params', self.names)
+        labels = [self.labels[n] for n in names]
+        chain_labels = [label_dict.get(chain['label'], chain['label']) for chain in self.chains] # replace label with actual name if provided
+        
+        fig, ax = plt.subplots(1, len(names), sharey=True, figsize=(3*len(names), 3))
+
+        for i, chain in enumerate(self.chains):
+            maxl = chain['samples'][chain['log_likelihood'].argmax()]
+            mean = chain['samples'].mean(axis=0)
+            percentiles = np.percentile(chain['samples'], percentile_list, axis=0)
+            
+            sc = colors[i] # Solid color
+            fc = colors[i] + '99' # Transparent color
+            
+            for j, n in enumerate(names):
+                err = np.abs([mean[j] - percentiles[0][j], percentiles[1][j] - mean[j]]).reshape(2, 1) # 2 values, 1 parameter, expected shape by errorbar
+                ax[j].errorbar(mean[j], i, xerr=err, fmt='', ecolor=sc, lw=2, capsize=5)
+                ax[j].plot(maxl[j], i, 'o', mec=sc, mfc='white', ms=8)
+                ax[j].plot(mean[j], i, 'o', mec=sc, mfc=fc)
+        
+        # Markers
+        markers = kwargs.get('markers', None)
+        if markers is not None:
+            for i, n in enumerate(names):
+                ax[i].axvline(markers[n], color='k', linestyle='--', lw=0.8, alpha=0.5)
+        
+        # Set labels for first plot
+        ax[0].set_yticks(np.arange(len(chain_labels)))
+        ax[0].set_yticklabels(chain_labels)
+        ax[0].set_xlabel(labels[0])
+        
+        # Make y ticks invisible for all other plots
+        for i, a in enumerate(ax[1:], start=1):
+            plt.setp(a.get_yticklines(), visible=False)
+            a.set_xlabel(labels[i])
+        
+        fig.tight_layout()
+        
+        return fig, ax
