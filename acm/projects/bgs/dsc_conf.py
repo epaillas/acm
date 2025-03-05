@@ -39,8 +39,8 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
         paths = super().paths
         
         # To create the lhc files
-        paths['covariance_statistic_dir'] = f'/pscratch/sd/s/sbouchar/ACM_DS_small/{self.stat_name}/'
-        paths['statistic_dir'] = f'/pscratch/sd/s/sbouchar/ACM_DS_data/{self.stat_name}/'
+        paths['covariance_statistic_dir'] = f'/pscratch/sd/s/sbouchar/acm/bgs/measurements/small/{self.stat_name}/'
+        paths['statistic_dir'] = f'/pscratch/sd/s/sbouchar/acm/bgs/measurements/base/{self.stat_name}/'
         
         return paths
     
