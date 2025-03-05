@@ -573,10 +573,11 @@ class ControlPlots(BaseSampler):
             fc = colors[i] + '99' # Transparent color
             
             for j, n in enumerate(names):
-                err = np.abs([mean[j] - percentiles[0][j], percentiles[1][j] - mean[j]]).reshape(2, 1) # 2 values, 1 parameter, expected shape by errorbar
-                ax[j].errorbar(mean[j], i, xerr=err, fmt='', ecolor=sc, lw=2, capsize=5)
-                ax[j].plot(maxl[j], i, 'o', mec=sc, mfc='white', ms=8)
-                ax[j].plot(mean[j], i, 'o', mec=sc, mfc=fc)
+                idx = chain['names'].index(n) # Get the right index for the parameter to plot !
+                err = np.abs([mean[idx] - percentiles[0][idx], percentiles[1][idx] - mean[idx]]).reshape(2, 1) # 2 values, 1 parameter, expected shape by errorbar
+                ax[j].errorbar(mean[idx], i, xerr=err, fmt='', ecolor=sc, lw=2, capsize=5)
+                ax[j].plot(maxl[idx], i, 'o', mec=sc, mfc='white', ms=8)
+                ax[j].plot(mean[idx], i, 'o', mec=sc, mfc=fc)
         
         # Markers
         markers = kwargs.get('markers', None)
