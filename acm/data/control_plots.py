@@ -532,7 +532,7 @@ class ControlPlots(BaseSampler):
     
     def plot_map(self, percentile: int|list = 95, **kwargs):
         """
-        Plots the Maximum A Posteriori (MAP) point for each parameter of the chains.
+        Plots the Maximum A Posteriori (MAP) point, the mean and the 95% confidence interval (default) for each parameter in the chain.
 
         Parameters
         ----------
@@ -547,6 +547,7 @@ class ControlPlots(BaseSampler):
             - colors: list of str, the colors to use for the chains. Defaults to ['k'] + [f'C{i}' for i in range(len(self.chains))].
             - label_dict: dict, a dictionary containing the labels to use for the chains. Defaults to {}.
             - params: list of str, the parameters to plot. Defaults to self.names.
+            - markers: dict, a dictionary containing the value of vertical markers to plot for each parameter. Defaults to None.
 
         Returns
         -------
