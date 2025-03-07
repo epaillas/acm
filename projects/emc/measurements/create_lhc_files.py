@@ -64,6 +64,10 @@ if __name__ == '__main__':
             'class': GalaxyPowerSpectrumMultipoles,
             'model_fn': '/pscratch/sd/e/epaillas/emc/trained_models/pk/cosmo+hod/optuna/last-v31.ckpt',
         },
+        'mst': {
+            'class': MinimumSpanningTree,
+            'model_fn': '/pscratch/sd/e/epaillas/emc/trained_models/mst/cosmo+hod/optuna/last-v8.ckpt',
+        },
     }
     
     for stat in stat_dict.keys():

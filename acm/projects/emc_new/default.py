@@ -38,6 +38,5 @@ emc_summary_coords_dict = {
         'knn': {},
         'wst': {},
         'minkowski': {},
-        'mst': {},
     },
 }
