@@ -36,6 +36,12 @@ class BaseCombinedObservable(BaseObservable):
     Class for the combination of observables.
     """
     def __init__(self, observables: list[BaseObservable]):
+        """
+        Parameters
+        ----------
+        observables : list[BaseObservable]
+            List of observables to be combined, initialized with their respective filters.
+        """
         self.observables = observables
         self.slice_filters = [obs.slice_filters for obs in self.observables]
         self.select_filters = [obs.select_filters for obs in self.observables]
