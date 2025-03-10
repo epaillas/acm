@@ -74,6 +74,7 @@ statistics/mst
 :maxdepth: 1
 :caption: Tutorials and examples
 
+notebooks/summary_coords
 notebooks/observables
 notebooks/densitysplit
 ```

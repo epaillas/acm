@@ -59,6 +59,31 @@ In this file, you can add the `default.py` file, and all the statistics classes 
 
 This way, the statistic handling can be easily accessed trough the `acm` package, and the project can be shared with others.
 
+## How to add a project or a statistic to the `acm` package
+
+### Adding a project
+
+To add a project to the `acm` package, you need to create a subfolder in the `acm/projects` directory, with the name of the project.
+In this folder, you need to add :
+- An `__init__.py` file, that imports the project classes
+- A `default.py` file, that contains the default paths and coordinates dictionaries for the project
+- A `base.py` file, that contains the base `Observable` class for the project
+- The `acm.observables` classes files that handle the statistics for the project
+
+You also can create a subfolder in the `projects` directory, that contains all the scripts, notebooks, tests, etc. specific to the project.
+
+### Adding a statistic
+
+To add the computation of the statistic to the `acm` package, you need to provide a class in `acm.estimators` that computes the statistic.
+
+:::{note}
+It is also recommended to provide a documentation for the statistic, that explains how the statistic is computed, and what it represents,
+to be added to the doc under the `Statistics` section.
+:::
+
+:::{seealso}
+To handle the statistic in a project, see [`acm.observables` classes](../code/projects.md#acmobservables-classes)
+:::
 
 ## API
 
