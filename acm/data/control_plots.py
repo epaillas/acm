@@ -463,7 +463,7 @@ class ControlPlots(BaseSampler):
         
         return g
     
-    def plot_trace(self, label: str, params: list[str] = None):
+    def plot_trace(self, label: str, **kwargs):
         """
         Plots the trace of each parameter in the chain
         """
@@ -472,10 +472,12 @@ class ControlPlots(BaseSampler):
             raise KeyError(f'No chain loaded with label{label}')
         chain = self.chains[index]
         
-        names = chain['names'] if params is None else params
-        labels = [chain['labels'][n] for n in names]
-        fig, ax = plt.subplots(len(names), 1, figsize=(10, 2*len(names)))
-        for i, name in enumerate(names):
+        names = chain['names']
+        params = kwargs.get('params', names)
+        params = [p for p in params if p in names]
+        labels = [chain['labels'][p] for p in params]
+        fig, ax = plt.subplots(len(params), 1, figsize=(10, 2*len(params)))
+        for i, name in enumerate(params):
             ax[i].plot(chain['samples'][:, i])
             ax[i].set_ylabel(labels[i])
         ax[i].set_xlabel('Iteration')
@@ -559,7 +561,8 @@ class ControlPlots(BaseSampler):
         percentile_list = [percentile, percentile] if isinstance(percentile, int) else percentile
         colors = kwargs.get('colors', ['k'] + [f'C{i}' for i in range(len(self.chains))])
         label_dict = kwargs.get('label_dict', {}) 
-        names = kwargs.get('params', self.names)
+        params = kwargs.get('params', self.names)
+        names = [p for p in params if p in self.names]
         labels = [self.labels[n] for n in names]
         chain_labels = [label_dict.get(chain['label'], chain['label']) for chain in self.chains] # replace label with actual name if provided
         
@@ -574,6 +577,8 @@ class ControlPlots(BaseSampler):
             fc = colors[i] + '99' # Transparent color
             
             for j, n in enumerate(names):
+                if n not in chain['names']: continue # Skip if the parameter is not in the chain
+                
                 idx = chain['names'].index(n) # Get the right index for the parameter to plot !
                 err = np.abs([mean[idx] - percentiles[0][idx], percentiles[1][idx] - mean[idx]]).reshape(2, 1) # 2 values, 1 parameter, expected shape by errorbar
                 ax[j].errorbar(mean[idx], i, xerr=err, fmt='', ecolor=sc, lw=2, capsize=5)
@@ -584,6 +589,7 @@ class ControlPlots(BaseSampler):
         markers = kwargs.get('markers', None)
         if markers is not None:
             for i, n in enumerate(names):
+                if n not in markers: continue # Skip if the parameter is not in the markers
                 ax[i].axvline(markers[n], color='k', linestyle='--', lw=0.8, alpha=0.5)
         
         # Set labels for first plot
