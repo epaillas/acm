@@ -66,6 +66,7 @@ code/utils
 :caption: Statistics
 
 statistics/densitysplit
+statistics/mst
 ```
 
 ```{toctree}

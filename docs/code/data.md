@@ -69,7 +69,7 @@ This allows for the pipeline to always use the last version of the model, withou
 :::
 
 :::{seealso}
-The best model can be selected from the study object with the `get_best_model` function in `acm.model`. See [`acm`](../code/acm) for more details.
+The best model can be selected from the study object with the `get_best_model` function in `acm.model`. See [`acm`](../pipeline/emulator) for more details.
 :::
 
 

@@ -12,6 +12,7 @@ class MinimumSpanningTree(BaseObservableEMC):
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
         super().__init__(select_filters=select_filters, slice_filters=slice_filters)
+        self.sigmaJ_str = '3p0' # NOTE: Hardcoded smoothing scale
         
     @property
     def stat_name(self) -> str:
@@ -38,8 +39,8 @@ class MinimumSpanningTree(BaseObservableEMC):
         paths = super().paths
         
         # To create the lhc files
-        paths['covariance_statistic_dir'] = f'/pscratch/sd/k/knaidoo/ACM/MockChallenge/Outputs/'
-        paths['statistic_dir'] = f'/pscratch/sd/k/knaidoo/ACM/MockChallenge/Outputs/'
+        paths['covariance_statistic_dir'] = f'/pscratch/sd/k/knaidoo/ACM/MockChallenge/data/'
+        paths['statistic_dir'] = f'/pscratch/sd/k/knaidoo/ACM/MockChallenge/data/'
         
         return paths
     
@@ -59,13 +60,8 @@ class MinimumSpanningTree(BaseObservableEMC):
         """
         From the statistics files for small AbacusSummit boxes, create the covariance array to store in the lhc file under the `cov_y` key.
         """
-        y = []
-        data_dir = Path(self.paths['covariance_statistic_dir'])
-        data_fns = list(data_dir.glob('covariance_mocks_*_10p0.npz')) # NOTE: Hardcoded ! 
-        for data_fn in data_fns:
-            data = np.load(data_fn)
-            tree = np.concatenate([data['yd'], data['yl'], data['yb'], data['ys']])
-            y.append(np.concatenate(tree))
+        data = np.load(self.paths['covariance_statistic_dir'] + 'mst_cov_data_with_smoothing_%s_Npt_10.npz' % self.sigmaJ_str) # NOTE: Hardcoded
+        y = data['data']
         return np.asarray(y)
     
     def create_lhc(self, phase_idx: int = 0, save_to: str = None) -> dict:
@@ -98,22 +94,19 @@ class MinimumSpanningTree(BaseObservableEMC):
         
         cosmos = self.summary_coords_dict['cosmo_idx']
         n_hod = self.summary_coords_dict['hod_number']
-        
+
         # LHC_y & bin_values
-        lhc_y = []
-        data_dir = statistic_dir
-        for cosmo_idx in cosmos:
-            logger.info(f'Loading LHC data for cosmo {cosmo_idx}')
-            for hod in range(n_hod):
-                data_fn = Path(data_dir) / f'emulator_{cosmo_idx}_hod_{hod}_smooth_10p0.npz' # NOTE: Hardcoded !
-                data = np.load(data_fn)
-                tree = np.concatenate([data['yd'], data['yl'], data['yb'], data['ys']])
-                lhc_y.append(np.concatenate(tree))
-        lhc_y = np.asarray(lhc_y)
+        data = np.load(statistic_dir + 'mst_emu_data_with_smoothing_%s_Npt_10.npz' % self.sigmaJ_str) # NOTE: Hardcoded  
+        aind = data['aind'] # abacus simulation index
+        hind = data['hind'] # HOD index
+        params = data['params'] # the corresponding cosmology + extended HOD parameters
+        lhc_y = data['data'] # same as before but now for the emulator data vectors.
+        
         bin_values = np.arange(0, lhc_y.shape[-1]) # Index of the statistic values
         
         # LHC_x
         lhc_x, lhc_x_names = self.create_lhc_x()
+        lhc_x = params # Get rid of the lhc_x for the true corresponding parameters.
         
         logger.info(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
         
