@@ -50,6 +50,8 @@ if __name__ == '__main__':
             data_positions = get_data(data_dir, cosmology, 0, hod, boxsize)
             pos_rand = get_randoms(n_randoms=10000, boxsize=boxsize)
             lhc_y.append(knn.run_knn(rps, pis, data_positions, pos_rand, kneighbors = ks))
+    
+    lhc_x_names = params.columns.to_list()[8:] # HOD parameters only ??
 
     # read cosmo + hod paramters
     lhc_y = np.array(lhc_y)
