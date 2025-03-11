@@ -176,6 +176,7 @@ cython_debug/
 # acm src compiled files
 fastmodules.c
 minkowski.c
+pydive.cpp
 
 # Training logger
 lightning_logs/
