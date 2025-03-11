@@ -9,7 +9,7 @@ class HODLatinHypercube:
     a Latin hypercube.
 
     Parameters
-
+    ----------
     ranges : dict
         Dictionary with the prior ranges for each parameter.
     seed : int
@@ -26,12 +26,12 @@ class HODLatinHypercube:
         Sample HOD parameters from the prior.
 
         Parameters
-
+        ----------
         n : int
             Number of samples to draw.
 
         Returns
-
+        -------
         params : dict
             Dictionary with the sampled parameters.
         """
@@ -49,7 +49,7 @@ class HODLatinHypercube:
         Split the sampled parameters by cosmology.
 
         Parameters
-
+        ----------
         cosmos : list
             List of cosmologies to split the parameters for. If none are provided,
             the default AbacusSummit list of cosmologies is used
@@ -57,7 +57,7 @@ class HODLatinHypercube:
             List of filenames to save the split parameters to.
 
         Returns
-
+        -------
         split_params : dict
             Dictionary with the split parameters.
         """
@@ -80,7 +80,7 @@ class HODLatinHypercube:
         Save the sampled parameters to disk.
 
         Parameters
-
+        ----------
         filename : str
             Directory to save the parameters to.
         """
@@ -89,7 +89,7 @@ class HODLatinHypercube:
         df.to_csv(filename, index=False, float_format='%.5f')
 
 if __name__ == '__main__':
-    from sunbird.inference.ranges import Yuan23
+    from sunbird.inference.priors import Yuan23
     ranges = Yuan23().ranges
 
     lhc = HODLatinHypercube(ranges)

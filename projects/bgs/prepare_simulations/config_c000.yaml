@@ -1,0 +1,21 @@
+sim_params:
+  sim_name: AbacusSummit_base_c000_ph000
+  sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus
+  z_mock: 0.2
+  subsample_dir: /pscratch/sd/s/sbouchar/abacus_subsamples_cleaned/
+  cleaned_halos: true
+prepare_sim:
+  Nparallel_load: 14
+HOD_params:
+  want_ranks: true
+  want_AB: true
+  tracer_flags:
+    LRG: true
+    ELG: false
+    QSO: false
+
+# Script call : 
+  # PATH2CONFIG='/global/homes/s/sbouchar/ACM_pipeline/prepare_simulations/config_c000.yaml'
+  # PATH2LOG='/global/homes/s/sbouchar/ACM_pipeline/prepare_simulations/logs_cosmos/log_c000.log'
+  # SIMNAME='AbacusSummit_base_c000_ph000'
+  # python /global/homes/s/sbouchar/ACM_pipeline/prepare_simulations/prepare_sim_logged_bgs.py --path2config $PATH2CONFIG --path2log $PATH2LOG --overwrite 0 --alt_simname $SIMNAME 

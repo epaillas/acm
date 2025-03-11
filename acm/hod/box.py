@@ -13,9 +13,53 @@ import sys
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
+from acm.data.paths import LRG_Abacus_DM
+
 class BoxHOD:
-    def __init__(self, varied_params, config_file=None, cosmo_idx=0, phase_idx=0,
-        sim_type='base', redshift=0.5):
+    """
+    BoxHOD is a wrapper around AbacusHOD, a class for handling Halo Occupation Distribution (HOD) modeling 
+    using the AbacusSummit simulations.
+    
+    Note
+    ----
+    Only the 'LRG' tracers are currently supported.
+    Note that BGS is also supported, by using `tracer='LRG'` and BGS characteristics (mean density, redhsift, etc.)
+    """
+    def __init__(
+        self,
+        varied_params, 
+        config_file: str = None, 
+        cosmo_idx: int = 0, 
+        phase_idx: int = 0,
+        sim_type: str = 'base', 
+        redshift: float = 0.5,
+        DM_DICT: dict = LRG_Abacus_DM['box']):
+        """
+        Initialize the BoxHOD class.
+        
+        Parameters
+        ----------
+        varied_params : dict
+            Dictionary of parameters that vary.
+        config_file : str, optional
+            Path to the configuration file. If None, defaults to 'box.yaml' in `acm.hod`.
+            See `setup()` for more details. Default is None.
+        cosmo_idx : int, optional
+            Index of the cosmology to use. Default is 0.
+        phase_idx : int, optional
+            Index of the phase to use. Default is 0.
+        sim_type : str, optional
+            Type of simulation. Must be either 'base' or 'small'. Default is 'base'.
+        redshift : float, optional
+            Redshift value. Default is 0.5.
+        DM_DICT : dict, optional
+            Dictionary containing dark matter information. Default is the LRG_Abacus_DM dictionary for boxes from `acm.data.paths`.
+            
+        Raises
+        ------
+        ValueError
+            If `sim_type` is not 'base' or 'small'.
+        """
         self.logger = logging.getLogger('AbacusHOD')
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
@@ -28,12 +72,24 @@ class BoxHOD:
             config_dir = os.path.dirname(os.path.abspath(__file__))
             config_file = Path(config_dir) /  'box.yaml'
         config = yaml.safe_load(open(config_file))
-        self.setup(config)
+        self.setup(config, DM_DICT)
         self.check_params(varied_params)
 
-    def setup(self, config):
+    def setup(self, config: dict, DM_DICT: dict): # Will override most of the config file !
+        """
+        Set up the simulation parameters and initialize the AbacusHOD object.
+        This method overrides most of the configuration file settings with the provided
+        `config` and `DM_DICT` parameters. 
+        
+        Parameters
+        ----------
+        config : dict
+            Configuration dictionary containing simulation parameters and HOD parameters.
+        DM_DICT : dict
+            Dictionary containing dark matter simulation directories.
+        """
         sim_params = config['sim_params']
-        sim_dir, subsample_dir = self.abacus_simdirs()
+        sim_dir, subsample_dir = self.abacus_simdirs(DM_DICT) 
         sim_params['sim_dir'] = sim_dir
         sim_params['subsample_dir'] = subsample_dir
         sim_params['sim_name'] = self.abacus_simname()
@@ -46,22 +102,51 @@ class BoxHOD:
         self.hubble = 100 * self.cosmo.efunc(self.redshift)
         self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
 
-    def abacus_simdirs(self):
-        if self.sim_type == 'small':
-            sim_dir = '/global/cfs/cdirs/desi/cosmosim/Abacus/small/'
-            subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/boxes/small/'
-        else:
-            sim_dir = '/global/cfs/cdirs/desi/cosmosim/Abacus/'
-            # subsample_dir = '/pscratch/sd/s/sihany/summit_subsamples_cleaned_desi'
-            subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/boxes/base/'
+    def abacus_simdirs(self, DM_DICT: dict):
+        """
+        Get the simulation and subsample directories from the dark matter dictionary.
+
+        Parameters
+        ----------
+        DM_DICT : dict
+            Dictionary containing dark matter simulation directories.
+
+        Returns
+        -------
+        tuple
+            Tuple containing the simulation and subsample directories.
+        """
+        sim_dir = DM_DICT[self.sim_type]['sim_dir']
+        subsample_dir = DM_DICT[self.sim_type]['subsample_dir']
         return sim_dir, subsample_dir
 
     def abacus_simname(self):
+        """
+        Get the simulation name.
+
+        Returns
+        -------
+        str
+            Simulation name, following the Abacus format.
+        """
         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
 
     def check_params(self, params):
+        """
+        Check if the parameters are valid, i.e. if they are in the list of valid parameters.
+
+        Parameters
+        ----------
+        params : list
+            List of parameters to check.
+
+        Raises
+        ------
+        ValueError
+            If the parameters are invalid.
+        """
         params = list(params)
-        params = self.param_mapping(params)
+        params = self.param_mapping(params) # re-map custom keys to Abacus keys
         for param in params:
             if param not in self.ball.tracers['LRG'].keys():
                 raise ValueError(f'Invalid parameter: {param}. Valid list '
@@ -71,8 +156,49 @@ class BoxHOD:
         default = {key: value for key, value in self.ball.tracers['LRG'].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
-    def run(self, hod_params, nthreads=1, tracer='LRG', tracer_density_mean=None,
-        seed=None, save_fn=None, add_rsd=False):
+    def run(
+        self, 
+        hod_params: dict, 
+        nthreads: int = 1, 
+        tracer: str = 'LRG', 
+        tracer_density_mean: float = None,
+        seed = None, 
+        save_fn: str = None, 
+        add_rsd: bool = False,
+        )-> dict:
+        """
+        Run the HOD model with the given parameters.
+
+        Parameters
+        ----------
+        hod_params : dict
+            Dictionary of HOD parameters.
+        nthreads : int, optional
+            Number of threads to use. Default is 1.
+        tracer : str, optional
+            Tracer type. Default is 'LRG'.
+        tracer_density_mean : float, optional
+            To force the mean density of the tracers. Will downsample the catalog to the desired density if needed.
+            Default is None.
+        seed : int, optional
+            Random seed. Default is None.
+        save_fn : str, optional
+            Filename to save the catalog. Default is None.
+        add_rsd : bool, optional
+            Wether to add redshift-space distortions to the catalog or not. Default is False.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the HOD catalog.
+
+        Raises
+        ------
+        ValueError
+            If the tracer is not 'LRG'.
+        ValueError
+            If the HOD parameters do not match the varied parameters.
+        """
         if seed == 0: seed = None
         if tracer not in ['LRG']:
             raise ValueError('Only LRGs are currently supported.')
@@ -96,7 +222,26 @@ class BoxHOD:
         self.format_catalog(hod_dict, save_fn, tracer, add_rsd)
         return hod_dict
 
-    def format_catalog(self, hod_dict, save_fn=False, tracer='LRG', add_rsd=False):
+    def format_catalog(
+        self, 
+        hod_dict: dict, 
+        save_fn: str = False, 
+        tracer: str = 'LRG', 
+        add_rsd: bool = False):
+        """
+        Format the HOD catalog and save it to a FITS file if requested.
+
+        Parameters
+        ----------
+        hod_dict : dict
+            Dictionary containing the HOD catalog.
+        save_fn : str, optional
+            Filename to save the catalog. Default is False.
+        tracer : str, optional
+            Tracer type. Default is 'LRG'.
+        add_rsd : bool, optional
+            Wether to add redshift-space distortions to the catalog or not. Default is False.
+        """
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
         is_central = np.zeros(len(hod_dict[tracer]['x']))
@@ -152,7 +297,26 @@ class BoxHOD:
                     
         return hod_params
 
-    def _add_rsd(self, hod_dict, tracer='LRG'):
+    def _add_rsd(
+        self, 
+        hod_dict: dict, 
+        tracer: str = 'LRG',
+        )-> dict:
+        """
+        Add redshift-space distortions to the catalog.
+        
+        Parameters
+        ----------
+        hod_dict : dict
+            Dictionary containing the HOD catalog.
+        tracer : str, optional
+            Tracer type. Default is 'LRG'.
+        
+        Returns
+        -------
+        dict
+            Dictionary containing the HOD catalog with redshift-space distortions.
+        """
         data = hod_dict[tracer]
         x = data['X'] + self.boxsize / 2
         y = data['Y'] + self.boxsize / 2
