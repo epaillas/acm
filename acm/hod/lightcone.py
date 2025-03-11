@@ -1,21 +1,32 @@
 import os
-from pathlib import Path
 import yaml
 import numpy as np
-from abacusnbody.hod import abacus_hod
-from cosmoprimo.fiducial import AbacusSummit
-import mockfactory
+from pathlib import Path
 from astropy.io import fits
 from astropy.table import Table
+
+# cosmodesi/acm
+import mockfactory
+from abacusnbody.hod import abacus_hod
+from cosmoprimo.fiducial import AbacusSummit
+from acm.data.paths import LRG_Abacus_DM
+
+
 import logging
 import warnings
-import sys
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
-
+# TODO : add docstrings !
 class LightconeHOD:
-    def __init__(self, varied_params, config_file=None, cosmo_idx=0, phase_idx=0,
-        zrange=[0.4, 0.8]):
+    def __init__(
+        self, 
+        varied_params, 
+        config_file: str = None, 
+        cosmo_idx: int = 0, 
+        phase_idx: int = 0,
+        zrange: list = [0.4, 0.8],
+        DM_DICT: dict = LRG_Abacus_DM['lightcone'],
+        ):
         self.logger = logging.getLogger('LightconeHOD')
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
@@ -26,7 +37,7 @@ class LightconeHOD:
             config_dir = os.path.dirname(os.path.abspath(__file__))
             config_file = Path(config_dir) /  'lightcone.yaml'
         config = yaml.safe_load(open(config_file))
-        self.setup(config)
+        self.setup(config, DM_DICT)
         self.check_params(varied_params)
 
     @property
@@ -41,17 +52,17 @@ class LightconeHOD:
         return snaps
         # return [z for z in self.snap_redshifts if z >= self.zrange[0] and z <= self.zrange[1]]
 
-    def abacus_simdirs(self):
-        sim_dir = '/global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/halo_light_cones/'
-        subsample_dir = '/pscratch/sd/e/epaillas/summit_subsamples/lightcones/'
+    def abacus_simdirs(self, DM_DICT: dict):
+        sim_dir = DM_DICT[self.sim_type]['sim_dir']
+        subsample_dir = DM_DICT[self.sim_type]['subsample_dir']
         return sim_dir, subsample_dir
 
     def abacus_simname(self):
         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
 
-    def setup(self, config):
+    def setup(self, config: dict, DM_DICT: dict):
         sim_params = config['sim_params']
-        sim_dir, subsample_dir = self.abacus_simdirs()
+        sim_dir, subsample_dir = self.abacus_simdirs(DM_DICT)
         sim_params['sim_dir'] = sim_dir
         sim_params['subsample_dir'] = subsample_dir
         sim_params['sim_name'] = self.abacus_simname()
@@ -77,8 +88,19 @@ class LightconeHOD:
         default = {key: value for key, value in self.balls[0].tracers['LRG'].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
-    def run(self, hod_params, nthreads=1, tracer='LRG', make_randoms=False, add_weights=False,
-        seed=None, save_fn=None, full_sky=False, alpha_rand=1, apply_radial_mask=False):
+    def run(
+        self, 
+        hod_params, 
+        nthreads: int = 1, 
+        tracer: str = 'LRG', 
+        make_randoms: bool = False, 
+        add_weights: bool = False,
+        seed: float = None, 
+        save_fn: str = None, 
+        full_sky: bool = False, 
+        alpha_rand: int = 1, 
+        apply_radial_mask: bool = False,
+        ):
         if seed == 0: seed = None
         if tracer not in ['LRG']:
             raise ValueError('Only LRGs are currently supported.')
@@ -112,24 +134,24 @@ class LightconeHOD:
             return hod_dict, randoms_dict
         return hod_dict
 
-    def recenter_box(self, hod_dict, tracer='LRG'):
+    def recenter_box(self, hod_dict, tracer: str = 'LRG'):
         data = hod_dict[tracer]
         data['X'] += 990
         data['Y'] += 990
         data['Z'] += 990
 
-    def remove_outbounds(self, hod_dict, tracer='LRG'):
+    def remove_outbounds(self, hod_dict, tracer: str = 'LRG'):
         mask = (hod_dict[tracer]['X'] >= 0) & (hod_dict[tracer]['Y'] >= 0) & (hod_dict[tracer]['Z'] >= 0)
         for key in hod_dict[tracer].keys():
             hod_dict[tracer][key] = hod_dict[tracer][key][mask]
 
-    def apply_zcut(self, hod_dict, zmin, zmax, tracer='LRG'):
+    def apply_zcut(self, hod_dict, zmin: float, zmax: float, tracer: str = 'LRG'):
         self.logger.info(f'Applying redshift cut: {zmin} < z < {zmax}.')
         mask = (hod_dict[tracer]['Z'] >= zmin) & (hod_dict[tracer]['Z'] <= zmax)
         for key in hod_dict[tracer].keys():
             hod_dict[tracer][key] = hod_dict[tracer][key][mask]
 
-    def get_sky_coordinates(self, hod_dict, tracer='LRG'):
+    def get_sky_coordinates(self, hod_dict, tracer: str = 'LRG'):
         from mockfactory import cartesian_to_sky, DistanceToRedshift
         data = hod_dict[tracer]
         dist, ra, dec = cartesian_to_sky(np.c_[data['X'], data['Y'], data['Z']])
@@ -139,7 +161,7 @@ class LightconeHOD:
         hod_dict[tracer]['DEC'] = dec
         hod_dict[tracer]['Redshift'] = redshift
 
-    def make_full_sky(self, hod_dict, tracer='LRG'):
+    def make_full_sky(self, hod_dict, tracer: str = 'LRG'):
         data = hod_dict[tracer]
         x = data['X']
         y = data['Y']
@@ -163,7 +185,7 @@ class LightconeHOD:
             if key in hod_dict[tracer]:
                 hod_dict[tracer][key] = np.tile(hod_dict[tracer][key], 8)
 
-    def get_data_nbar(self, hod_dict, tracer='LRG', full_sky=False):
+    def get_data_nbar(self, hod_dict, tracer: str = 'LRG', full_sky: bool = False):
         """
         Compute the number density of the data catalog, which is defined
         by an octant of the spherical shell delimited by the redshift cuts.
@@ -175,7 +197,7 @@ class LightconeHOD:
         nbar = len(data['Z']) / (volume / correction)
         return nbar
 
-    def format_catalog(self, hod_dict, save_fn=False, tracer='LRG', full_sky=False, apply_radial_mask=False):
+    def format_catalog(self, hod_dict, save_fn: str = False, tracer: str = 'LRG', full_sky: str = False, apply_radial_mask: str = False):
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
         is_central = np.zeros(len(hod_dict[tracer]['x']))
@@ -201,7 +223,7 @@ class LightconeHOD:
             myfits.writeto(save_fn, overwrite=True)
             self.logger.info(f'Saving {save_fn}.')
 
-    def drop_cartesian(self, hod_dict, tracer='LRG'):
+    def drop_cartesian(self, hod_dict, tracer: str = 'LRG'):
         hod_dict[tracer].pop('X')
         hod_dict[tracer].pop('Y')
         hod_dict[tracer].pop('Z')
@@ -248,7 +270,16 @@ class LightconeHOD:
                         raise ValueError('Invalid type for hod_params. Must be either dict or list.')
         return hod_params
 
-    def _make_randoms(self, nbar, zmin, zmax, alpha=1, full_sky=False, apply_radial_mask=False, tracer='LRG'):
+    def _make_randoms(
+        self, 
+        nbar: float, 
+        zmin: float, 
+        zmax: float, 
+        alpha: float=1, 
+        full_sky: bool = False, 
+        apply_radial_mask: bool = False, 
+        tracer: str = 'LRG'
+        ):
         from mockfactory import RandomBoxCatalog
         self.logger.info(f'Generating random catalog.')
         # nbar = 6e-4  # hardcoded for LRG
@@ -268,7 +299,7 @@ class LightconeHOD:
         return randoms
 
     
-    def apply_radial_mask(self, hod_dict, nz_filename, norm=None, tracer='LRG'):
+    def apply_radial_mask(self, hod_dict, nz_filename: str, norm=None, tracer: str = 'LRG'):
         # example from https://github.com/cosmodesi/mockfactory/
         from mockfactory import TabulatedRadialMask
         self.logger.info(f'Applying radial mask from {nz_filename}.')
