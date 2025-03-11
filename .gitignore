@@ -5,6 +5,8 @@ __pycache__/
 
 # C extensions
 *.so
+*.o
+*.exe
 
 # Distribution / packaging
 .Python
@@ -170,6 +172,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# acm src compiled files
+fastmodules.c
+minkowski.c
 
 # Training logger
 lightning_logs/
