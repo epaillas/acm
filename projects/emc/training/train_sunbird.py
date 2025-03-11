@@ -6,24 +6,31 @@ from sunbird.data.data_utils import convert_to_summary
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
 import torch
 from acm.data.io_tools import *
+import acm.observables.emc as emc
 
 torch.set_float32_matmul_precision('high')
 
-def TrainFCN(statistic, learning_rate, n_hidden, dropout_rate, weight_decay):
+def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, model_dir=None):
+    observable = getattr(emc, observable)()
     final_model = False
     apply_transform = True
     select_filters = {}
     slice_filters = {}
 
-    lhc_x, lhc_y, coords = read_lhc(statistics=[statistic],
-                                    select_filters=select_filters,
-                                    slice_filters=slice_filters)
+    # load the data
+    lhc_x = observable.lhc_x
+    lhc_y = observable.lhc_y
+    coordinates = observable.coords_model
     print(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
 
-    covariance_matrix, n_sim = read_covariance(statistics=[statistic],
-                                                select_filters=select_filters,
-                                                slice_filters=slice_filters)
-    print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
+    # reshape the features to have the format (n_samples, n_features)
+    n_samples = len(observable.coords_lhc_x['cosmo_idx']) * len(observable.coords_lhc_x['hod_idx'])
+    lhc_x = lhc_x.reshape(n_samples, -1)
+    lhc_y = lhc_y.reshape(n_samples, -1)
+    print(f'Reshaped LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
+
+    # covariance_matrix = observable.get_covariance_matrix(divide_factor=64)
+    # print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
     if apply_transform:
         transform = ArcsinhTransform()
@@ -79,13 +86,12 @@ def TrainFCN(statistic, learning_rate, n_hidden, dropout_rate, weight_decay):
             mean_input=train_mean_x,
             std_input=train_std_x,
             transform_output=transform,
-            standarize_output=True,
-            coordinates=coords,
-            covariance_matrix=covariance_matrix,
+            standarize_output=False,
+            coordinates=coordinates,
+            # covariance_matrix=covariance_matrix,
         )
 
-    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/optuna_log/'
-    # model_dir = f'/pscratch/sd/e/epaillas/emc/trained_models/{statistic}/cosmo+hod/nov20/'
+    model_dir = './' if model_dir is None else model_dir
     Path(model_dir).mkdir(parents=True, exist_ok=True)
     print(f'Saving model to {model_dir}')
 
@@ -98,11 +104,13 @@ def TrainFCN(statistic, learning_rate, n_hidden, dropout_rate, weight_decay):
     return val_loss
 
 if __name__ == '__main__':
-    statistic = 'pdf_r20'
+    observable = 'WaveletScatteringTransform'
+    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}/cosmo+hod/'
     TrainFCN(
-        statistic=statistic,
+        observable=observable,
         learning_rate=1.e-3,
         n_hidden=[512, 512, 512, 512],
         dropout_rate=0.,
         weight_decay=0,
+        model_dir=model_dir
     )

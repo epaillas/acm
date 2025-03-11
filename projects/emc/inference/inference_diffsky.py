@@ -29,17 +29,22 @@ def get_priors(cosmo=True, hod=True):
     return priors, ranges, labels
         
 def get_save_fn(statistic):
-    save_dir = f'/pscratch/sd/e/epaillas/emc/posteriors/diffsky/oct2/{statistic}/'
+    save_dir = f'/pscratch/sd/e/epaillas/emc/posteriors/diffsky/{statistic}/base'
     Path(save_dir).mkdir(parents=True, exist_ok=True)
-    scales_str = ''
+    slice_str = ''
+    select_str = ''
     if slice_filters:
         for key, value in slice_filters.items():
-            scales_str += f'_{key}{value[0]:.1f}_{key}{value[1]:.1f}'
-    return Path(save_dir) / f'chain{scales_str}_z{redshift}_fixedAmp_{phase_idx:03}_{galsample}_v{version}.npy'
+            slice_str += f'_{key}{value[0]:.2f}-{value[1]:.2f}'
+    if select_filters:
+        for key, value in select_filters.items():
+            if key in ['cosmo_idx', 'hod_idx']:
+                select_str += '_' + f'{key}{value}'.replace('_', '-').replace("'", "")
+    return Path(save_dir) / f'chain_z{redshift}_fixedAmp_ph{phase_idx:03}_{galsample}_v{version}{select_str}{slice_str}.npy'
 
 fixed_params = {
-    'A_cen': 0.0,
-    'A_sat': 0.0,
+    # 'A_cen': 0.0,
+    # 'A_sat': 0.0,
     # 's': 0.0,
     'w0_fld': -1.0,
     'wa_fld': 0.0,
@@ -54,28 +59,28 @@ fixed_params = {
 
 # data vector settings
 redshift = 0.5
-phase_idx = 2
+phase_idx = 1
 galsample = 'mass_conc'
 version = 0.3
 
 
 priors, ranges, labels = get_priors(cosmo=True, hod=True)
-select_filters = {}
+select_filters = {'statistics': ['quantile_data_power']}
 smins = [0]
 add_emulator_error = True
-statistics = ['pk']
+statistics = ['dsc_fourier']
 
 num_chains = 1
 smax = 152
 kmin = 0.0
-# smins = [0, 5, 10, 20, 40, 60, 80, 100]
-smins = [12.5]
+# smins = [80, 40, 20, 10, 5.0]
+smins = [5.0]
 kmaxs = [0.5]
 
 for smin in smins:
     for kmax in kmaxs:
-        # slice_filters = {'k': [kmin, kmax]}
-        slice_filters = {}
+        slice_filters = {'k': [kmin, kmax]}
+        # slice_filters = {'s': [smin, smax]}
 
         covariance_matrix, n_sim = read_covariance(statistics=statistics,
                                                    select_filters=select_filters,
@@ -135,8 +140,15 @@ for smin in smins:
             model_filters=model_filters,
         )
 
+        # metadata = {
+        #     'covariance_matrix': covariance_matrix,
+        #     'fixed_params': fixed_params,
+        #     'true_params': dict(zip(data_x_names, data_x)),
+        #     'data': data_y,
+        # }
+
         save_fn = get_save_fn(statistic='+'.join(statistics))
 
-        posterior = hmc(num_warmup=4000, num_samples=4000, dense_mass=True,
+        posterior = hmc(num_warmup=500, num_samples=2000, dense_mass=True,
                         target_accept_prob=0.95,
                         num_chains=num_chains, save_fn=save_fn)

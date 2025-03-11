@@ -1,0 +1,17 @@
+/var/spool/slurmd/job33388181/slurm_script: line 16: ecosmodesi: command not found
+Loaded covariance matrix with shape: (79, 79)
+[000000.43]  11-28 19:19  Exception                    CRITICAL 
+====================================================================================================
+Traceback (most recent call last):
+  File "/global/u1/e/epaillas/code/acm/projects/emc/inference/inference_abacus_pocomc.py", line 70, in <module>
+    data_x, data_y, data_x_names, model_filters = read_lhc(statistics=statistics,
+                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/global/u1/e/epaillas/code/acm/acm/data/io_tools.py", line 375, in read_lhc
+    lhc_y, mask = filter_lhc(lhc_y, coords_y, select_filters, slice_filters)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/global/u1/e/epaillas/code/acm/acm/data/io_tools.py", line 499, in filter_lhc
+    return lhc_y.values[~mask], mask[np.where(~mask)[0][0], np.where(~mask)[1][0]].reshape(-1)
+                                     ~~~~~~~~~~~~~~~~~~^^^
+IndexError: index 0 is out of bounds for axis 0 with size 0
+====================================================================================================
+[000000.43]  11-28 19:19  Exception                    CRITICAL An error occured.

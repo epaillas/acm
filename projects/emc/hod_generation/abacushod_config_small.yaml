@@ -1,0 +1,75 @@
+# Comment out the probes you don't need
+# CAREFUL: yaml is super sensitive to spaces - don't use tabs
+
+# Simulation parameters
+sim_params:
+    sim_name: 'AbacusSummit_base_c000_ph3000'                                 # which simulation 
+    sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus/small/
+    output_dir: '/global/homes/e/epaillas/pscratch/dump'          # where to output galaxy mocks
+    subsample_dir: '/pscratch/sd/e/epaillas/summit_subsamples/boxes/small/'                 # where to output subsample data
+    z_mock: 0.5                                                              # which redshift slice
+    cleaned_halos: True                                                     # load cleaned halos?
+prepare_sim:
+    Nparallel_load: 3 # best for cori haswell node  
+
+# HOD parameters
+HOD_params:
+    use_particles: True
+    want_ranks: True               # want to implement satellite profile flexiblities?
+    want_AB: True                  
+    density_sigma: 3               # scale radius in Mpc / h for local density calculation
+    tracer_flags:                  # which tracer do we want?
+        LRG: True 
+        ELG: False
+        QSO: False
+    want_rsd: False                 # want RSD? 
+    write_to_disk: True
+
+    # parameters I found on marvin
+    LRG_params:
+        logM_cut: 12.87
+        logM1: 14.06
+        sigma: 0.02083802
+        alpha: 1.15
+        kappa: 0.42
+        alpha_c: 0.22
+        alpha_s: 0.94
+        s: 0
+        s_v: 0
+        s_p: 0
+        s_r: 0
+        Acent: 0
+        Asat: 0
+        Bcent: 0
+        Bsat: 0
+        ic: 1.0
+
+fit_params:
+    logM_cut: [0, 'LRG']
+    logM1: [1, 'LRG']
+    sigma: [2, 'LRG']
+    alpha: [3,  'LRG']
+    kappa: [4, 'LRG']
+    alpha_c: [5, 'LRG']
+    alpha_s: [6, 'LRG']
+    s: [7, 'LRG']
+    Acent: [8, 'LRG']
+    Asat: [9, 'LRG']
+    Bcent: [10, 'LRG']
+    Bsat: [11, 'LRG']
+
+# ===========================================================================================
+# The following dictionaries are for using the provided emcee/likelihood templates. They 
+# are not needed for using the AbacusHOD class and running HODs. 
+
+# parameters that indicate where the observed data that you would like to fit live. 
+data_params:
+    tracer_density_mean:
+        LRG: 0.0005  # (Mpc/h)^{-3}
+        # LRG: 0.00042832686
+    tracer_density_std:
+        LRG: 1.0e-5  # (Mpc/h)^-3
+
+
+    nthread: 256
+

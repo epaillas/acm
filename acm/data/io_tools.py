@@ -397,10 +397,12 @@ def read_model(statistics: list,
 
         # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
-        model.eval()
-        # NOTE : There was a condition on the minkowski statistic here. Keep it here or move it out ? (best would be to move it *in* the model w/ transforms !)
-        model_all.append(model) 
-        
+        model.eval().to('cpu')
+        if statistic == 'minkowski':
+            from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
+            model.transform_output = WeiLiuOutputTransForm()
+            model.transform_input = WeiLiuInputTransform()
+        model_all.append(model)
     return model_all
 
 

@@ -1,0 +1,11 @@
+
+emc:
+  training_sets: /pscratch/sd/e/epaillas/emc/abacus/training_sets/cosmo+hod/
+  coordinates: /pscratch/sd/e/epaillas/emc/abacus/coordinates/
+  covariance_sets: /pscratch/sd/e/epaillas/emc/abacus/covariance_sets/
+  raw_measurements: /pscratch/sd/e/epaillas/emc/abacus/raw_measurements/
+  emulator_error: /pscratch/sd/e/epaillas/emc/emulator_error/
+  chains: /pscratch/sd/e/epaillas/emc/posteriors/
+
+diffsky:
+  data_vectors: /pscratch/sd/e/epaillas/emc/data_vectors/diffsky/

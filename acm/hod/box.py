@@ -12,6 +12,7 @@ import warnings
 import sys
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
+
 from acm.data.paths import LRG_Abacus_DM
 
 class BoxHOD:

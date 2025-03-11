@@ -33,7 +33,7 @@ if __name__ == "__main__":
     statistic = args.statistic
 
     n_trials = 100
-    study_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/transformer/optuna/'
+    study_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{statistic}/cosmo+hod/transformer/test/optuna/'
     Path(study_dir).mkdir(parents=True, exist_ok=True)
     study_fn = Path(study_dir) / f'{statistic}.pkl'
 

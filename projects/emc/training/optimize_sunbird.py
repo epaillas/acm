@@ -26,27 +26,27 @@ def objective(
     dropout_rate = trial.suggest_float("dropout_rate", 0.0, 0.15)
     return TrainFCN(learning_rate=learning_rate, n_hidden=n_hidden,
                     dropout_rate=dropout_rate, weight_decay=weight_decay,
-                    statistic=statistic)
+                    observable=args.observable, model_dir=study_dir)
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--statistic", type=str, default='wst')
+    parser.add_argument("--observable", type=str, default='GalaxyBispectrumMultipoles')
     args = parser.parse_args()
-    statistic = args.statistic
+    observable = args.observable
 
     n_trials = 100
-    study_dir = f'/pscratch/sd/e/epaillas/emc/trained_models/{statistic}/cosmo+hod/optuna/'
+    study_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}/cosmo+hod/optuna/'
     Path(study_dir).mkdir(parents=True, exist_ok=True)
-    study_fn = Path(study_dir) / f'{statistic}.pkl'
+    study_fn = Path(study_dir) / f'{observable}.pkl'
 
     for i in range(n_trials):
         if study_fn.exists():
             print(f"Loading existing study from {study_fn}")
             study = joblib.load(study_fn)
         else:
-            study = optuna.create_study(study_name=f'{statistic}')
+            study = optuna.create_study(study_name=f'{observable}')
         optimize_objective = lambda trial: objective(trial)
         study.optimize(optimize_objective, n_trials=1)
 

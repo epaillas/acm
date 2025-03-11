@@ -40,9 +40,11 @@ priors, ranges, labels = get_priors(cosmo=True, hod=True)
 select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
 }
 fixed_params = ['w0_fld', 'wa_fld', 'N_ur', 'nrun']
+# fixed_params = ['w0_fld', 'wa_fld', 'N_ur', 'nrun', 's', 'A_cen', 'A_sat',
+# 'B_cen', 'B_sat', 'alpha', 'kappa', 'sigma', 'alpha_c', 'alpha_s']
 add_emulator_error = True
-statistics = ['pk']
-kmin, kmax = 0.0, 0.2
+statistics = ['pk', 'number_density']
+kmin, kmax = 0.0, 0.5
 slice_filters = {'k': [kmin, kmax]}
 
 # load the covariance matrix
@@ -87,7 +89,7 @@ print(f'Covariance correction factor: {correction}')
 covariance_matrix *= correction
 precision_matrix = np.linalg.inv(covariance_matrix)
 
-start = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
+# start = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
 
 # run the profiler
 minuit = MinuitProfiler(
@@ -95,11 +97,15 @@ minuit = MinuitProfiler(
     precision_matrix=precision_matrix,
     theory_model=models,
     fixed_params=fixed_params,
-    start=start,
     priors=priors,
     ranges=ranges,
     labels=labels,
     model_filters=model_filters,
 )
 
-minuit.minimize()
+profiles = minuit.minimize(niter=50, nstart=100, sigma_iter=2)
+
+print(profiles[-1])
+
+# save to disk
+np.save('minuit_profiles.npy', profiles)
