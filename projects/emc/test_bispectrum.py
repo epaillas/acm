@@ -14,7 +14,7 @@ for ell in ells:
     observable = GalaxyBispectrumMultipoles(select_filters={'multipoles': [ell]})
     k123 = observable.separation
     weight = k123.prod(axis=0)
-    bin_idex = list(range(len(weight)))
+    bin_index = list(range(len(weight)))
     lhc_x = observable.lhc_x
     lhc_y = observable.lhc_y
     cov = observable.get_covariance_matrix(divide_factor=64)
@@ -31,18 +31,23 @@ for ell in ells:
 
     fig, ax = plt.subplots(figsize=(10, 3))
     weight = 1
-    for test_idx in range(5):
-        color = plt.cm.viridis(test_idx / 5)
-        if test_idx == 0:
-            ax.plot(weight * lhc_y[test_idx], marker='o', ls='', label='simulation', ms=2.0, color=color, mew=1.0, mfc='none')
-            ax.plot(weight * pred_y[test_idx], label='emulator', ls='--', color=color, lw=0.5)
+    test_idxs = [30]
+    for i, test_idx in enumerate(test_idxs):
+        # color = plt.cm.viridis(test_idx / 5)
+        color = 'k'
+        if i == 0:
+            ax.errorbar(bin_index, lhc_y[test_idx], error, marker='o', ls='', label='simulation',
+                ms=2.0, color=color, mew=1.0, mfc='none', elinewidth=1.0)
+            ax.plot(pred_y[test_idx], label='emulator', ls='--', color=color, lw=0.5)
         else:
-            ax.plot(weight * lhc_y[test_idx], marker='o', ls='', ms=2.0, color=color, mew=1.0, mfc='none')
-            ax.plot(weight * pred_y[test_idx], ls='--', color=color, lw=0.5)
+            ax.errorbar(bin_index, lhc_y[test_idx], error, marker='o', ls='', ms=2.0,
+                        color=color, mew=1.0, mfc='none')
+            ax.plot(pred_y[test_idx], ls='--', color=color, lw=0.5)
     ax.legend()
     ax.set_xlabel(r'$\textrm{bin index}$')
     ax.set_ylabel(rf'$k_1k_2k_3B_{ell}(k_1, k_2, k_3)\,[h^{-3}{{\rm Mpc}}^3]$')
-    ax.set_yscale('log')
+    # if ell == 0:
+    #     ax.set_yscale('log')
     plt.savefig(f'bispectrum_b{ell}_emulator.png', dpi=300, bbox_inches='tight')
     plt.close()
 

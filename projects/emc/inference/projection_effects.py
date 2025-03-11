@@ -4,7 +4,6 @@ from sunbird import setup_logging
 
 import acm.observables.emc as emc
 
-from pathlib import Path
 import numpy as np
 import argparse
 
@@ -32,61 +31,17 @@ setup_logging()
 
 # set up the inference
 priors, ranges, labels = get_priors(cosmo=True, hod=True)
-# fixed_params = []
 fixed_params = ['w0_fld', 'wa_fld', 'nrun', 'N_ur']
-# , 'sigma', 'kappa', 'alpha', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat', 'alpha_s', 'alpha_c']
 add_emulator_error = True
 
 # load observables with their custom filters
-observable = emc.CombinedObservable([
-    emc.GalaxyNumberDensity(
-        select_filters={
-            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-        },
-    ),
-    emc.GalaxyProjectedCorrelationFunction(
+observable = emc.GalaxyCorrelationFunctionMultipoles(
         select_filters={
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
         },
         slice_filters={
         }
-    ),
-    emc.GalaxyCorrelationFunctionMultipoles(
-        select_filters={
-            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-        },
-        slice_filters={
-        }
-    ),
-    # emc.GalaxyPowerSpectrumMultipoles(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    #     slice_filters={
-    #     }
-    # ),
-    # emc.GalaxyBispectrumMultipoles(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    #     slice_filters={
-    #     }
-    # ),
-    # emc.WaveletScatteringTransform(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    #     slice_filters={
-    #     }
-    # )
-    # emc.DTVoidGalaxyCorrelationFunctionMultipoles(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    #     slice_filters={
-    #     }
-    # )
-])
+    )
 
 statistics = observable.stat_name
 print(f'Fitting {statistics} with cosmo_idx={args.cosmo_idx} and hod_idx={args.hod_idx}')
@@ -97,6 +52,10 @@ data_x_names = observable.lhc_x_names
 data_y = observable.lhc_y
 print(f'Loaded LHC x with shape: {data_x.shape}')
 print(f'Loaded LHC y with shape {data_y.shape}')
+
+# model prediction at the true cosmology
+pred_y = observable.get_model_prediction(data_x)
+print(f'Loaded model prediction with shape: {pred_y.shape}')
 
 # load the covariance matrix
 covariance_matrix = observable.get_covariance_matrix(divide_factor=64)
@@ -125,7 +84,7 @@ model_coordinates = observable.coords_model
 
 # sample the posterior
 sampler = PocoMCSampler(
-    observation=data_y,
+    observation=pred_y,
     precision_matrix=precision_matrix,
     theory_model=models,
     fixed_parameters=fixed_params,
@@ -135,23 +94,21 @@ sampler = PocoMCSampler(
     slice_filters=observable.slice_filters,
     select_filters=observable.select_filters,
     coordinates=model_coordinates,
-    ellipsoid=True,
 )
 
 sampler(vectorize=True, n_total=4096)
 
 # plot and save results
 markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
-statistics = '+'.join(statistics)
 
-save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/mar11/'
-save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/LCDM/'
+save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/feb11/'
+save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/lcdm/projection_effects/'
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 
 sampler.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,
-                      markers=markers, title_limit=1)
+                      markers=markers, title_limit=1, add_bestfit=True)
 sampler.plot_trace(save_fn=save_dir / f'chain_{statistics}_trace.pdf', thin=128)
 sampler.save_chain(save_fn=save_dir / f'chain_{statistics}.npy', metadata={'markers': markers})
-sampler.save_table(save_fn=save_dir / f'chain_{statistics}_stats.txt')
-sampler.plot_bestfit(save_fn=save_dir / f'chain_{statistics}_bestfit.png', model='maxl')
-sampler.plot_bestfit(save_fn=save_dir / f'chain_{statistics}_mean.png', model='mean')
+sampler.save_table(save_fn=f'chain_{statistics}_stats.txt')
+sampler.plot_bestfit(save_fn=save_dir / f'chain_{statistics}_model_maxl.pdf', model='maxl')
+sampler.plot_bestfit(save_fn=save_dir / f'chain_{statistics}_model_mean.pdf', model='mean')

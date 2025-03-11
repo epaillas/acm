@@ -104,8 +104,8 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, mo
     return val_loss
 
 if __name__ == '__main__':
-    observable = 'WaveletScatteringTransform'
-    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}/cosmo+hod/'
+    observable = 'CumulantGeneratingFunction'
+    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}_asinh/cosmo+hod/'
     TrainFCN(
         observable=observable,
         learning_rate=1.e-3,
