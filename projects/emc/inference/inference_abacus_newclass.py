@@ -39,18 +39,18 @@ add_emulator_error = True
 
 # load observables with their custom filters
 observable = emc.CombinedObservable([
-    emc.GalaxyNumberDensity(
-        select_filters={
-            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-        },
-    ),
-    emc.GalaxyProjectedCorrelationFunction(
-        select_filters={
-            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-        },
-        slice_filters={
-        }
-    ),
+    # emc.GalaxyNumberDensity(
+    #     select_filters={
+    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+    #     },
+    # ),
+    # emc.GalaxyProjectedCorrelationFunction(
+    #     select_filters={
+    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+    #     },
+    #     slice_filters={
+    #     }
+    # ),
     emc.GalaxyCorrelationFunctionMultipoles(
         select_filters={
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
