@@ -31,7 +31,9 @@ class LightconeHOD:
 
     @property
     def snap_redshifts(self):
-        return [0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
+        return [0.100, 0.150, 0.200, 0.250, 0.300, 0.350,
+                0.400, 0.450, 0.500, 0.575, 0.650, 0.725,
+                0.800, 0.875, 0.950, 1.025, 1.100]
 
     def snap_in_zrange(self):
         snap_min = np.abs(np.array(self.snap_redshifts) - self.zrange[0]).argmin()
