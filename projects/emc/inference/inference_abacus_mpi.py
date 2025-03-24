@@ -45,12 +45,17 @@ for cosmo_idx in [2, 0, 1, 3]:
 
         # set up the inference
         priors, ranges, labels = get_priors(cosmo=True, hod=True)
-        fixed_params = ['nrun', 'N_ur']
+        fixed_params = ['w0_fld', 'wa_fld', 'nrun', 'N_ur']
         # , 'sigma', 'kappa', 'alpha', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat', 'alpha_s', 'alpha_c']
         add_emulator_error = True
 
         # load observables with their custom filters
         observable = emc.CombinedObservable([
+            emc.GalaxyNumberDensity(
+                select_filters={
+                    'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+                },
+            ),
             # emc.GalaxyProjectedCorrelationFunction(
             #     select_filters={
             #         'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,
@@ -137,6 +142,7 @@ for cosmo_idx in [2, 0, 1, 3]:
             slice_filters=observable.slice_filters,
             select_filters=observable.select_filters,
             coordinates=model_coordinates,
+            ellipsoid=True,
         )
 
         sampler(vectorize=True, n_total=4096, progress=False)
@@ -145,8 +151,8 @@ for cosmo_idx in [2, 0, 1, 3]:
         markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
         statistics = '+'.join(statistics)
 
-        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/feb14/'
-        save_dir = Path(save_dir) / f'c{cosmo_idx:03}_hod{hod_idx:03}/w0waCDM/'
+        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/mar24/'
+        save_dir = Path(save_dir) / f'c{cosmo_idx:03}_hod{hod_idx:03}/LCDM/'
         Path(save_dir).mkdir(parents=True, exist_ok=True)
 
         sampler.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,

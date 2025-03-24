@@ -39,25 +39,25 @@ add_emulator_error = True
 
 # load observables with their custom filters
 observable = emc.CombinedObservable([
-    # emc.GalaxyNumberDensity(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    # ),
-    # emc.GalaxyProjectedCorrelationFunction(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    #     slice_filters={
-    #     }
-    # ),
-    emc.GalaxyCorrelationFunctionMultipoles(
+    emc.GalaxyNumberDensity(
+        select_filters={
+            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+        },
+    ),
+    emc.GalaxyProjectedCorrelationFunction(
         select_filters={
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
         },
         slice_filters={
         }
     ),
+    # emc.GalaxyCorrelationFunctionMultipoles(
+    #     select_filters={
+    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+    #     },
+    #     slice_filters={
+    #     }
+    # ),
     # emc.GalaxyPowerSpectrumMultipoles(
     #     select_filters={
     #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
@@ -144,7 +144,7 @@ sampler(vectorize=True, n_total=4096)
 markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
 statistics = '+'.join(statistics)
 
-save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/mar11/'
+save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/mar24/'
 save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/LCDM/'
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 
