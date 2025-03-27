@@ -44,7 +44,7 @@ observable = emc.CombinedObservable([
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
         },
     ),
-    emc.GalaxyProjectedCorrelationFunction(
+    emc.CorrectedGalaxyProjectedCorrelationFunction(
         select_filters={
             'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
         },
