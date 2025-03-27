@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 import numpy as np
 from abacusnbody.hod import abacus_hod
+from .box import BoxHOD
 from cosmoprimo.fiducial import AbacusSummit
 import mockfactory
 from astropy.io import fits
@@ -40,13 +41,16 @@ class CutskyHOD:
         self.cosmo = AbacusSummit(self.cosmo_idx)
 
     def run(self, hod_params, nthreads=1, seed=0, generate_randoms=False, alpha_randoms=5,
-            randoms_seed=42):
+            randoms_seed=42, replications=True):
         data_cutsky = {}
         randoms_cutsky = {}
         for ball, zsnap, zranges in zip(self.balls, self.snapshots, self.zranges):
             hod_dict_i = ball.run(hod_params, seed=seed, nthreads=nthreads)['LRG']
             pos = np.c_[hod_dict_i['X'], hod_dict_i['Y'], hod_dict_i['Z']]
             vel = np.c_[hod_dict_i['VX'], hod_dict_i['VY'], hod_dict_i['VZ']]
+            if replications:
+                pos, vel = self._box_replications(pos, vel, mappings=[-1, 0, 1])
+                self.boxsize = self.boxsize * 3
             print('Generating data')
             data = mockfactory.BoxCatalog(
                 data={'Position': pos, 'Velocity': vel},
@@ -92,6 +96,18 @@ class CutskyHOD:
         if generate_randoms:
             return data_cutsky, randoms_cutsky
         return data_cutsky
+
+    def _box_replications(self, pos, vel, mappings=[-1, 0, 1]):
+        rep_pos = []
+        rep_vel = []
+        for i in mappings:
+            for j in mappings:
+                for k in mappings:
+                    rep_pos.append(pos + [self.boxsize * idx for idx in [i, j, k]])
+                    rep_vel.append(vel)
+        rep_pos = np.concatenate(rep_pos)
+        rep_vel = np.concatenate(rep_vel)
+        return rep_pos, rep_vel
 
     def _to_cutsky(self, catalog, zmin, zmax, zsnap, apply_rsd=False, apply_radial_mask=False,
         apply_footprint_mask=False, radial_mask_norm=None):
