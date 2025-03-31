@@ -1,23 +1,22 @@
 from .base import BaseObservable
 
 
-class GalaxyCorrelationFunctionMultipoles(BaseObservable):
+class CorrectedGalaxyProjectedCorrelationFunction(BaseObservable):
     """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
+    Class for the Emulator's Mock Challenge projected galaxy correlation function.
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
-        self.stat_name = 'tpcf'
-        self.sep_name = 's'
+        self.stat_name = 'corrected_wp'
+        self.sep_name = 'rp'
         self.select_filters = select_filters
         self.slice_filters = slice_filters
         super().__init__()
-        
+
     @property
     def coords_lhc_x(self):
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
+            'hod_idx': list(range(350)),
             'param_idx': list(range(20))
         }
 
@@ -25,31 +24,28 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     def coords_lhc_y(self):
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
-            'multipoles': [0, 2],
-            's': self.separation,
+            'hod_idx': list(range(350)),
+            self.sep_name: self.separation,
         }
 
     @property
     def coords_small_box(self):
         return {
             'phase_idx': list(range(1786)),
-            'multipoles': [0, 2],
-            's': self.separation,
+            self.sep_name: self.separation,
         }
 
     @property
     def coords_model(self):
         return {
-            'multipoles': [0, 2],
-            's': self.separation,
+            self.sep_name: self.separation,
         }
 
     @property
     def model_fn(self):
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/tpcf/cosmo+hod/optuna_log/last-v54.ckpt'
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/optuna/asinh/last-v48.ckpt'
-        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/asinh/last-v7.ckpt'
+        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/CorrectedGalaxyProjectedCorrelationFunction/cosmo+hod/optuna/log/last-v35.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/CorrectedGalaxyProjectedCorrelationFunction/cosmo+hod/asinh/last-v3.ckpt'
+        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/CorrectedGalaxyProjectedCorrelationFunction/cosmo+hod/optuna/mar29/log/last-v91.ckpt'
 
     def create_lhc(self, n_hod=20, cosmos=None, phase_idx=0, seed_idx=0):
         x, x_names = self.create_lhc_x(cosmos=cosmos, n_hod=n_hod)
@@ -59,7 +55,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     def create_lhc_y(self, n_hod=100, cosmos=None, phase_idx=0, seed_idx=0):
         import numpy as np
         from pycorr import TwoPointCorrelationFunction
-        base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
+        base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/xi_rppi/cosmo+hod/z0.5/yuan23_prior/'
         if cosmos is None:
             cosmos = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
         y = []
@@ -67,11 +63,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
             print(cosmo_idx)
             data_dir = base_dir + f'c{cosmo_idx:03}_ph{phase_idx:03}/seed0/'
             for hod_idx in range(n_hod):
-                data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy"
-                data = TwoPointCorrelationFunction.load(data_fn)[::4]
-                s, multipoles = data(ells=(0, 2), return_sep=True)
-                y.append(np.concatenate(multipoles))
-        return s, np.array(y)
+                data_fn = f"{data_dir}/xi_rppi_hod{hod_idx:03}.npy"
+                data = TwoPointCorrelationFunction.load(data_fn)
+                rp, wp = data(pimax=None, return_sep=True)
+                y.append(wp)
+        return rp, np.array(y)
 
     def create_lhc_x(self, cosmos=None, n_hod=100):
         import pandas
@@ -90,7 +86,17 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         return lhc_x, lhc_x_names
 
     def create_small_box_y(self):
-        raise NotImplementedError
+        from pycorr import TwoPointCorrelationFunction
+        from pathlib import Path
+        import numpy as np
+        data_dir = Path('/pscratch/sd/e/epaillas/emc/covariance_sets/xi_rppi/z0.5/yuan23_prior/')
+        data_fns = list(data_dir.glob('xi_rppi_ph*_hod466.npy'))
+        y = []
+        for data_fn in data_fns:
+            data = TwoPointCorrelationFunction.load(data_fn)
+            rp, wp = data(pimax=None, return_sep=True)
+            y.append(wp)
+        return rp, np.array(y)
 
     def get_emulator_error(self, select_filters=None, slice_filters=None):
         """
@@ -104,7 +110,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         if select_filters is None:
             select_filters = self.select_filters
             select_filters['cosmo_idx'] = list(range(0, 5)) + list(range(13, 14))
-            select_filters['hod_idx'] = list(range(250))
+            select_filters['hod_idx'] = list(range(350))
         if slice_filters is None:
             slice_filters = self.slice_filters
         # instantiate class with test set filters

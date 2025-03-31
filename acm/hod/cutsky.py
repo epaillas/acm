@@ -121,7 +121,7 @@ class CutskyHOD:
             cutsky = self._apply_radial_mask(cutsky, zmin=zmin, zmax=zmax,
                                              norm=radial_mask_norm)
         if apply_footprint_mask:
-            cutsky = self._apply_footprint_mask(cutsky)
+            cutsky = self._apply_photo_footprint_mask(cutsky)
         return cutsky
 
     def _apply_geometric_cuts(self, catalog, boxsize, dist):
@@ -163,8 +163,63 @@ class CutskyHOD:
                                                       zrange=(zmin, zmax), norm=norm)
         return catalog[mask_radial(catalog['Z'], seed=seed)]
 
-    def _apply_footprint_mask(self, catalog):
-        print('Applying footprint mask.')
+    # def _apply_footprint_mask(self, catalog):
+    #     print('Applying footprint mask.')
+    #     from mockfactory.desi import is_in_desi_footprint
+    #     is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release='y1', program='dark', npasses=None)
+    #     return catalog[is_in_desi]
+
+    def _apply_photo_footprint_mask(self, catalog, region='N+SNGC', release='y1', program='dark', npasses=None):
+        """
+        Remove part of the cutsky to match as best as possible (precision is healpix map at nside)
+        the DESI release (e.g. y1) footprint and DR9 photometric footprint.
+        """
         from mockfactory.desi import is_in_desi_footprint
-        is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release='y1', program='dark', npasses=None)
-        return catalog[is_in_desi]
+
+        # Mask objects outside DESI footprint:
+        is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release=release, program=program, npasses=npasses)
+
+        catalog['HPX'], is_in_photo = self._is_in_photometric_region(catalog['RA'], catalog['DEC'], region)
+        return catalog[is_in_desi & is_in_photo]
+
+
+    def _is_in_photometric_region(self, ra, dec, region, rank=0):
+        """DN=NNGC and DS = SNGC"""
+        region = region.upper()
+        assert region in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES']
+
+        DR9Footprint = None
+        try:
+            from regressis import DR9Footprint
+        except ImportError:
+            if rank == 0: logger.info('Regressis not found, falling back to RA/Dec cuts')
+
+        if DR9Footprint is None:
+            mask = np.ones_like(ra, dtype='?')
+            if region == 'DES':
+                raise ValueError('Do not know DES cuts, install regressis')
+            dec_cut = 32.375
+            if region == 'N':
+                mask &= dec > dec_cut
+            else:  # S
+                mask &= dec < dec_cut
+            if region in ['DN', 'DS', 'SNGC', 'SSGC']:
+                mask_ra = (ra > 100 - dec)
+                mask_ra &= (ra < 280 + dec)
+                if region in ['DN', 'SNGC']:
+                    mask &= mask_ra
+                else:  # DS
+                    mask &= dec > -25
+                    mask &= ~mask_ra
+            return np.nan * np.ones(ra.size), mask
+        else:
+            from regressis.utils import build_healpix_map
+            # Precompute the healpix number
+            nside = 256
+            _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)
+
+            # Load DR9 footprint and create corresponding mask
+            dr9_footprint = DR9Footprint(nside, mask_lmc=False, clear_south=False, mask_around_des=False, cut_desi=False, verbose=(rank == 0))
+            convert_dict = {'N': 'north', 'DN': 'south_mid_ngc', 'N+SNGC': 'ngc', 'SNGC': 'south_mid_ngc', 'DS': 'south_mid_sgc', 'SSGC': 'south_mid_sgc', 'DES': 'des'}
+            return pixels, dr9_footprint(convert_dict[region])[pixels]
+

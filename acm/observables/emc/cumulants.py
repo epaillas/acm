@@ -57,7 +57,7 @@ class CumulantGeneratingFunction(BaseObservable):
         if select_filters is None:
             select_filters = self.select_filters
             select_filters['cosmo_idx'] = list(range(0, 5)) + list(range(13, 14))
-            select_filters['hod_idx'] = list(range(350))
+            select_filters['hod_idx'] = list(range(100))
         if slice_filters is None:
             slice_filters = self.slice_filters
         # instantiate class with test set filters

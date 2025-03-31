@@ -1,13 +1,13 @@
 from .base import BaseObservable
 
 
-class VoxelVoidGalaxyCorrelationFunctionMultipoles(BaseObservable):
+class APInfusedGalaxyCorrelationFunctionMultipoles(BaseObservable):
     """
-    Class for the Emulator's Mock Challenge void-galaxy correlation
-    function multipoles using the voxel void finder.
+    Class for the Emulator's Mock Challenge galaxy correlation
+    function multipoles.
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
-        self.stat_name = 'voxel_voids'
+        self.stat_name = 'ap_tpcf'
         self.sep_name = 's'
         self.select_filters = select_filters
         self.slice_filters = slice_filters
@@ -47,13 +47,54 @@ class VoxelVoidGalaxyCorrelationFunctionMultipoles(BaseObservable):
 
     @property
     def model_fn(self):
-        return f'/pscratch/sd/e/epaillas/emc/trained_models/voxel_voids/cosmo+hod/sep16/last.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/APInfusedGalaxyCorrelationFunctionMultipoles/cosmo+hod/optuna/asinh/last-v82.ckpt'
+
+    def create_lhc(self, n_hod=20, cosmos=None, phase_idx=0, seed_idx=0):
+        x, x_names = self.create_lhc_x(cosmos=cosmos, n_hod=n_hod)
+        sep, y = self.create_lhc_y(n_hod=n_hod, cosmos=cosmos, phase_idx=phase_idx, seed_idx=seed_idx)
+        return sep, x, x_names, y
+
+    def create_lhc_y(self, n_hod=100, cosmos=None, phase_idx=0, seed_idx=0):
+        import numpy as np
+        from pycorr import TwoPointCorrelationFunction
+        base_dir = '/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod/raw/tpcf/ap/'
+        if cosmos is None:
+            cosmos = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
+        y = []
+        for cosmo_idx in cosmos:
+            print(cosmo_idx)
+            data_dir = base_dir + f'c{cosmo_idx:03}_ph{phase_idx:03}/seed0/'
+            for hod_idx in range(n_hod):
+                data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy"
+                data = TwoPointCorrelationFunction.load(data_fn)[::4]
+                s, multipoles = data(ells=(0, 2), return_sep=True)
+                y.append(np.concatenate(multipoles))
+        return s, np.array(y)
+
+    def create_lhc_x(self, cosmos=None, n_hod=100):
+        import pandas
+        import numpy as np
+        if cosmos is None:
+            cosmos = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
+        lhc_x = []
+        for cosmo_idx in cosmos:
+            data_dir = '/pscratch/sd/e/epaillas/emc/cosmo+hod_params/'
+            data_fn = data_dir + f'AbacusSummit_c{cosmo_idx:03}.csv'
+            lhc_x_i = pandas.read_csv(data_fn)
+            lhc_x_names = list(lhc_x_i.columns)
+            lhc_x_names = [name.replace(' ', '').replace('#', '') for name in lhc_x_names]
+            lhc_x.append(lhc_x_i.values[:n_hod, :])
+        lhc_x = np.concatenate(lhc_x)
+        return lhc_x, lhc_x_names
+
+    def create_small_box_y(self):
+        raise NotImplementedError
 
     def get_emulator_error(self, select_filters=None, slice_filters=None):
         """
         Calculate the emulator error from a subset of the Latin hypercube,
         which we treat as the test set.
-
+        
         We make a new instance of the class with the test set filters and
         compare the emulator prediction to the true values.
         """
@@ -74,3 +115,4 @@ class VoxelVoidGalaxyCorrelationFunctionMultipoles(BaseObservable):
         test_y = test_y.reshape(n_samples, -1)
         pred_y = observable.get_model_prediction(test_x, batch=True)
         return np.median(np.abs(test_y - pred_y), axis=0)
+        
