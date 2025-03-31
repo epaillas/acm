@@ -39,18 +39,18 @@ add_emulator_error = True
 
 # load observables with their custom filters
 observable = emc.CombinedObservable([
-    # emc.GalaxyNumberDensity(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    # ),
-    # emc.CorrectedGalaxyProjectedCorrelationFunction(
-    #     select_filters={
-    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-    #     },
-    #     slice_filters={
-    #     }
-    # ),
+    emc.GalaxyNumberDensity(
+        select_filters={
+            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+        },
+    ),
+    emc.CorrectedGalaxyProjectedCorrelationFunction(
+        select_filters={
+            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+        },
+        slice_filters={
+        }
+    ),
     # emc.GalaxyCorrelationFunctionMultipoles(
     #     select_filters={
     #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
@@ -65,13 +65,13 @@ observable = emc.CombinedObservable([
     #     slice_filters={
     #     }
     # ),
-    emc.GalaxyBispectrumMultipoles(
-        select_filters={
-            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-        },
-        slice_filters={
-        }
-    )
+    # emc.GalaxyBispectrumMultipoles(
+    #     select_filters={
+    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+    #     },
+    #     slice_filters={
+    #     }
+    # )
     # emc.DensitySplitPowerSpectrumMultipoles(
     #     select_filters={
     #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
@@ -128,22 +128,23 @@ fixed_params = {key: data_x[data_x_names.index(key)]
                     for key in fixed_params}
 
 # load the model
-models = observable.model
+model = observable.model
 model_coordinates = observable.coords_model
 
 # sample the posterior
 sampler = PocoMCSampler(
     observation=data_y,
     precision_matrix=precision_matrix,
-    theory_model=models,
+    theory_model=model,
     fixed_parameters=fixed_params,
     priors=priors,
     ranges=ranges,
     labels=labels,
-    slice_filters=observable.slice_filters,
-    select_filters=observable.select_filters,
-    coordinates=model_coordinates,
     ellipsoid=True,
+    select_filters=observable.select_filters,
+    slice_filters=observable.slice_filters,
+    coordinates=model_coordinates,
+
 )
 
 sampler(vectorize=True, n_total=4096)
@@ -153,7 +154,7 @@ sampler(vectorize=True, n_total=4096)
 markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
 statistics = '+'.join(statistics)
 
-save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/mar24/'
+save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/abacus/mar31/main/'
 save_dir = Path(save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/LCDM/'
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 
