@@ -1,0 +1,177 @@
+from pathlib import Path
+import fitsio
+import numpy as np
+from cosmoprimo.fiducial import DESI
+from mockfactory import BoxCatalog, RandomBoxCatalog, DistanceToRedshift, box_to_cutsky, cartesian_to_sky
+import matplotlib.pyplot as plt
+
+
+def get_data_fn(hod_idx=30, cosmo_idx=0, phase_idx=0, seed_idx=0, redshift=0.5):
+    return Path(f'/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z{redshift:.1f}/yuan23_prior', 
+                f'c{phase_idx:03}_ph{phase_idx:03}/seed{seed_idx:01}',
+                f'hod{hod_idx:03}_raw.fits')
+
+def get_data_box():
+    print('Reading data in a box')
+    data_fn = get_data_fn()
+    data = fitsio.read(data_fn)
+    pos = np.c_[data['X'], data['Y'], data['Z']]
+    vel = np.c_[data['VX'], data['VY'], data['VZ']]
+    data = BoxCatalog(
+        data={'Position': pos, 'Velocity': vel},
+        position='Position',
+        velocity='Velocity',
+        boxsize=boxsize,
+        boxcenter=boxcenter,
+    )
+    data.recenter()
+    return data
+
+def get_randoms_box(nbar, boxsize, boxcenter, seed=42):
+    print('Generating randoms with nbar =', nbar)
+    return RandomBoxCatalog(nbar=nbar, boxsize=boxsize, boxcenter=boxcenter, seed=seed)
+
+def apply_geometric_cuts(catalog, boxsize, dmax):
+    print('Applying geometric cuts.')
+    # largest (RA, Dec) range we can achieve for a maximum distance of dist + boxsize / 2.
+    drange, rarange, decrange = box_to_cutsky(boxsize=boxsize, dmax=dist + boxsize / 2.)
+    rarange = np.array(rarange) + 192
+    decrange = np.array(decrange) + 35
+    # print('Choosing distance, RA, Dec ranges [{:.2f} - {:.2f}], [{:.2f} - {:.2f}], [{:.2f} - {:.2f}].'.format(*drange, *rarange, *decrange))
+    # returned isometry corresponds to a displacement of the box along the x-axis to match drange, then a rotation to match rarange and decrange
+    isometry, mask_radial, mask_angular = catalog.isometry_for_cutsky(drange=drange, rarange=rarange, decrange=decrange)
+    return catalog.cutsky_from_isometry(isometry, rdd=None)
+
+def apply_rsd(catalog):
+    print('Applying RSD.')
+    a = 1 / (1 + z) # scale factor
+    H = 100.0 * cosmo.efunc(z)  # Hubble parameter in km/s/Mpc
+    rsd_factor = 1 / (a * H)  # multiply velocities by this factor to convert to Mpc/h
+    catalog['RSDPosition'] = catalog.rsd_position(f=rsd_factor)
+    return catalog
+
+def get_sky_positions(catalog, use_rsd=False):
+    print('Converting to sky positions.')
+    pos = 'RSDPosition' if use_rsd else 'Position'
+    catalog['Distance'], catalog['RA'], catalog['DEC'] = cartesian_to_sky(catalog[pos])
+    catalog['Z'] = distance_to_redshift(catalog['Distance'])
+    return catalog
+
+def apply_radial_mask(catalog, zmin=0., zmax=6., seed=42, norm=None):
+    print('Applying radial mask.')
+    from mockfactory import TabulatedRadialMask
+    nz_filename = '/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+    zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
+    zbin_mid = (zbin_min + zbin_max) / 2
+    zedges = np.insert(zbin_max, 0, zbin_min[0])
+    dedges = cosmo.comoving_radial_distance(zedges)
+    volume = dedges[1:]**3 - dedges[:-1]**3
+    mask_radial = TabulatedRadialMask(z=zbin_mid, nbar=n_z, interp_order=2, zrange=(zmin, zmax), norm=norm)
+    return catalog[mask_radial(catalog['Z'], seed=seed)]
+
+def apply_footprint_mask(catalog):
+    print('Applying footprint mask.')
+    from mockfactory.desi import is_in_desi_footprint
+    is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release='y1', program='dark', npasses=None)
+    return catalog[is_in_desi]
+
+def get_data_cutsky():
+    print('Getting data cutsky.')
+    data_cutsky = apply_geometric_cuts(data, boxsize, dist)
+    data_cutsky = apply_rsd(data_cutsky)
+    data_cutsky = get_sky_positions(data_cutsky, use_rsd=True)
+    data_cutsky = apply_radial_mask(data_cutsky, zmin=zmin, zmax=zmax, norm=1/data_nbar)
+    data_cutsky = apply_footprint_mask(data_cutsky)
+    return data_cutsky
+
+def get_randoms_cutsky():
+    print('Getting randoms cutsky.')
+    randoms_cutsky = apply_geometric_cuts(randoms, boxsize, dist)
+    randoms_cutsky = get_sky_positions(randoms_cutsky, use_rsd=False)
+    randoms_cutsky = apply_radial_mask(randoms_cutsky, zmin=zmin, zmax=zmax, norm=1/data_nbar)
+    randoms_cutsky = apply_footprint_mask(randoms_cutsky)
+    return randoms_cutsky
+
+def get_twopoint_clustering():
+    print('Computing clustering.')
+    from pycorr import setup_logging, TwoPointCorrelationFunction
+    setup_logging()
+    sedges = np.arange(0, 201, 1)
+    muedges = np.linspace(-1, 1, 241)
+    edges = (sedges, muedges)
+    return TwoPointCorrelationFunction(
+        data_positions1=data_cutsky['RSDPosition'], randoms_positions1=randoms_cutsky['Position'],
+        position_type='pos', edges=edges, mode='smu', gpu=False, nthreads=16, estimator='landyszalay',
+    )
+
+def plot_footprint():
+    print('Plotting footprint.')
+    fig, ax = plt.subplots(1, 2, figsize=(6, 3))
+    ax[0].scatter(data_cutsky['RA'], data_cutsky['DEC'], s=0.1)
+    ax[1].scatter(randoms_cutsky['RA'], randoms_cutsky['DEC'], s=0.1)
+    ax[0].set_title('Data')
+    ax[1].set_title('Randoms')
+    for aa in ax:
+        aa.set_xlabel('right ascension [deg]')
+        aa.set_ylabel('declination [deg]')
+    plt.tight_layout()
+    plt.savefig('footprint.png', dpi=300)
+    plt.close()
+
+def plot_redshift_distribution():
+    print('Plotting redshift distribution.')
+    fig, ax = plt.subplots(1, 2, figsize=(6, 3))
+    ax[0].hist(data_cutsky['Z'], density=True, label='data')
+    ax[0].hist(randoms_cutsky['Z'], density=True, label='randoms', ls='--', histtype='step')
+    ax[1].hist(data_cutsky['Z'], density=False, label='data')
+    ax[1].hist(randoms_cutsky['Z'], density=False, label='randoms', ls='--', histtype='step')
+    ax[0].set_title('Normalized')
+    ax[1].set_title('Counts')
+    for aa in ax:
+        aa.set_xlabel('redshift')
+        aa.legend()
+    plt.tight_layout()
+    plt.savefig('redshift_distribution.png', dpi=300)
+    plt.close()
+
+def plot_multipoles():
+    print('Plotting multipoles.')
+    import matplotlib.pyplot as plt
+    s, multipoles = tpcf(ells=(0, 2), return_sep=True)
+    fig, ax = plt.subplots(figsize=(4, 3))
+    ax.plot(s, s**2 * multipoles[0], ls='--')
+    ax.plot(s, s**2 * multipoles[1], ls='--')
+    ax.grid()
+    ax.set_xlabel(r'$s\,[h^{-1}{\rm Mpc}]$')
+    ax.set_ylabel(r'$s^2\xi_{\ell}(s)\,[h^{-2}{\rm Mpc}^2]$')
+    plt.tight_layout()
+    plt.savefig('multipoles.png', dpi=300)
+    plt.close()
+    
+
+# define cosmology and redshifts
+cosmo = DESI()
+zmin, zmax = 0.41, 0.6
+z = (zmin + zmax) / 2
+dist = cosmo.comoving_radial_distance(z)
+distance_to_redshift = DistanceToRedshift(distance=cosmo.comoving_radial_distance)
+
+# define data and randoms catalogs in a box
+boxsize = 2000
+boxcenter = 0.0 
+data = get_data_box()
+data_nbar = len(data) / boxsize ** 3
+randoms_nbar = data_nbar * 5
+randoms = get_randoms_box(randoms_nbar, boxsize, boxcenter)
+
+# convert to cutsky
+data_cutsky = get_data_cutsky()
+randoms_cutsky = get_randoms_cutsky()
+
+# get clustering
+tpcf = get_twopoint_clustering()
+
+# plot results
+plot_footprint()
+plot_redshift_distribution()
+plot_multipoles()
