@@ -1,0 +1,44 @@
+Traceback (most recent call last):
+  File "/global/u1/e/epaillas/code/acm/projects/emc/train_density_split.py", line 101, in <module>
+    val_loss, model, early_stop_callback = train.fit(
+                                           ^^^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/sunbird/sunbird/emulators/train.py", line 32, in fit
+    trainer = Trainer(
+              ^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/lightning/pytorch/utilities/argparse.py", line 70, in insert_env_defaults
+    return fn(self, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 401, in __init__
+    self._accelerator_connector = _AcceleratorConnector(
+                                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/accelerator_connector.py", line 119, in __init__
+    _register_external_accelerators_and_strategies()
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/accelerator_connector.py", line 697, in _register_external_accelerators_and_strategies
+    if _LIGHTNING_BAGUA_AVAILABLE:
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/lightning_utilities/core/imports.py", line 164, in __bool__
+    self._check_available()
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/lightning_utilities/core/imports.py", line 158, in _check_available
+    self._check_requirement()
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/lightning_utilities/core/imports.py", line 132, in _check_requirement
+    pkg_resources.require(self.requirement)
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/pkg_resources/__init__.py", line 968, in require
+    needed = self.resolve(parse_requirements(requirements))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/pkg_resources/__init__.py", line 829, in resolve
+    dist = self._resolve_dist(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/pkg_resources/__init__.py", line 858, in _resolve_dist
+    env = Environment(self.entries)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/pkg_resources/__init__.py", line 1056, in __init__
+    self.scan(search_path)
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/pkg_resources/__init__.py", line 1088, in scan
+    for dist in find_distributions(item):
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/pkg_resources/__init__.py", line 2133, in find_on_path
+    factory = dist_factory(path_item, entry, only)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/global/cfs/cdirs/desicollab/users/epaillas/code/anaconda3/lib/python3.11/site-packages/pkg_resources/__init__.py", line 2142, in dist_factory
+    is_dist_info = lower.endswith('.dist-info') and os.path.isdir(
+                                                    ^^^^^^^^^^^^^^
+  File "<frozen genericpath>", line 42, in isdir
+KeyboardInterrupt

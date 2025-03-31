@@ -61,13 +61,16 @@ if __name__ == '__main__':
     edges = (sedges, muedges)
 
     for cosmo_idx in cosmos:
-        cosmo = AbacusSummit(cosmo_idx)
         for phase_idx in phases:
             for hod_idx in hods:
                 for seed in seeds:
                     hod_dir = f'/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed}/'
                     hod_fn = Path(hod_dir) / f'hod{hod_idx:03}.fits'
+                    if not hod_fn.exists():
+                        continue
                     logger.info(f'Reading {hod_fn}')
+                    
+                    cosmo = AbacusSummit(cosmo_idx)
 
                     for i, los in enumerate(['x', 'y', 'z']):
                         data_positions = get_hod_positions(hod_fn, los=los)

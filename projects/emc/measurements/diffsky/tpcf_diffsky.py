@@ -35,7 +35,7 @@ hubble = 100 * cosmo.efunc(redshift)
 adict = {0.5: '67120', 0.8: '54980'}  # redshift to scale factor string for UNIT
 scale_factor = 1 / (1 + redshift)
 los = 'z'
-galsample = 'mass_conc'
+galsample = 'mass'
 version = 0.3
 
 # loop over the different lines of sight
@@ -49,7 +49,7 @@ for phase_idx in phases:
     sedges = np.arange(0, 201, 1)
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
-    tpcf = compute_tpcf(data_positions, edges, boxsize, nthreads=4, gpu=True, los=los)[::4]
+    tpcf = compute_tpcf(data_positions, edges, boxsize, nthreads=64, gpu=False, los=los)[::4]
 
     s, multipoles = tpcf(ells=(0, 2), return_sep=True)
 

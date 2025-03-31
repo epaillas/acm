@@ -41,7 +41,7 @@ ax[0][0].set_ylabel(r'$w_p(r)$', fontsize=15)
 ax[0][0].set_title(r'$\textrm{Projected 2PCF}$', fontsize=15)
 
 # 2PCF multipoles
-statistic = 'GalaxyCorrelationFunctionMultipoles'
+statistic = 'APInfusedGalaxyCorrelationFunctionMultipoles'
 for ell in [0, 2]:
     select_filters = {'multipoles': [ell], 'cosmo_idx': 0, 'hod_idx': 30}
     slice_filters = {'s': (0, 150)}
@@ -190,4 +190,4 @@ for ax in fig.axes:
     ax.yaxis.set_tick_params(labelsize=15)
 
 plt.tight_layout()
-plt.savefig('fig/summaries_multipanel.pdf', bbox_inches='tight')
+plt.savefig('summaries_multipanel.pdf', bbox_inches='tight')

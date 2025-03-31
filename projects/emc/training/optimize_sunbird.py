@@ -8,25 +8,29 @@ import argparse
 def objective(
     trial,
 ):
-    same_n_hidden = True
+    nlayers = 4
+    n_hidden = [512] * nlayers
     learning_rate = trial.suggest_float(
         "learning_rate",
         1.0e-3,
         0.01,
     )
     weight_decay = trial.suggest_float("weight_decay", 1.0e-5, 0.001)
-    n_layers = trial.suggest_int("n_layers", 1, 10)
-    if same_n_hidden:
-        n_hidden = [trial.suggest_int("n_hidden", 200, 1024)] * n_layers
-    else:
-        n_hidden = [
-            trial.suggest_int(f"n_hidden_{layer}", 200, 1024)
-            for layer in range(n_layers)
-        ]
+    # same_n_hidden = True
+    # n_layers = trial.suggest_int("n_layers", 1, 10)
+    # if same_n_hidden:
+    #     n_hidden = [trial.suggest_int("n_hidden", 200, 1024)] * n_layers
+    # else:
+    #     n_hidden = [
+    #         trial.suggest_int(f"n_hidden_{layer}", 200, 1024)
+    #         for layer in range(n_layers)
+    #     ]
     dropout_rate = trial.suggest_float("dropout_rate", 0.0, 0.15)
+    batch_size = trial.suggest_int("batch_size", 64, 512)
     return TrainFCN(learning_rate=learning_rate, n_hidden=n_hidden,
                     dropout_rate=dropout_rate, weight_decay=weight_decay,
-                    observable=args.observable, model_dir=study_dir)
+                    batch_size=batch_size, observable=args.observable,
+                    model_dir=study_dir)
 
 
 if __name__ == "__main__":
@@ -37,7 +41,7 @@ if __name__ == "__main__":
     observable = args.observable
 
     n_trials = 100
-    study_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}/cosmo+hod/optuna/'
+    study_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}/cosmo+hod/optuna/mar29/log'
     Path(study_dir).mkdir(parents=True, exist_ok=True)
     study_fn = Path(study_dir) / f'{observable}.pkl'
 

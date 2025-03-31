@@ -39,7 +39,7 @@ observable = emc.CombinedObservable([
         select_filters={
         },
     ),
-    emc.GalaxyProjectedCorrelationFunction(
+    emc.CorrectedGalaxyProjectedCorrelationFunction(
         select_filters={
         },
     ),
@@ -47,6 +47,10 @@ observable = emc.CombinedObservable([
         select_filters={
         },
     ),
+    # emc.WaveletScatteringTransform(
+    #     select_filters={
+    #     },
+    # ),
 ])
 
 statistics = observable.stat_name
@@ -115,7 +119,7 @@ markers = {
 # plot and save results
 statistics = '+'.join(statistics)
 
-save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/diffsky/mar11/'
+save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/fits_emc/diffsky/mar24/'
 save_dir = Path(save_dir) / f'galsampled_67120_fixedAmp_{phase_idx:03}_{sampling}_v0.3/LCDM/'
 Path(save_dir).mkdir(parents=True, exist_ok=True)
 

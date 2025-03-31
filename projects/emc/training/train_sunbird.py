@@ -10,7 +10,8 @@ import acm.observables.emc as emc
 
 torch.set_float32_matmul_precision('high')
 
-def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, model_dir=None):
+def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, 
+    batch_size, model_dir=None):
     observable = getattr(emc, observable)()
     final_model = False
     apply_transform = True
@@ -20,6 +21,7 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, mo
     # load the data
     lhc_x = observable.lhc_x
     lhc_y = observable.lhc_y
+    covariance_matrix = observable.get_covariance_matrix(divide_factor=64)
     coordinates = observable.coords_model
     print(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
 
@@ -62,7 +64,7 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, mo
 
     data = ArrayDataModule(x=torch.Tensor(lhc_train_x),
                         y=torch.Tensor(lhc_train_y), 
-                        val_fraction=0.2, batch_size=128,
+                        val_fraction=0.1, batch_size=batch_size,
                         num_workers=0)
     data.setup()
 
@@ -86,9 +88,9 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, mo
             mean_input=train_mean_x,
             std_input=train_std_x,
             transform_output=transform,
-            standarize_output=False,
+            standarize_output=True,
             coordinates=coordinates,
-            # covariance_matrix=covariance_matrix,
+            covariance_matrix=covariance_matrix,
         )
 
     model_dir = './' if model_dir is None else model_dir
@@ -104,13 +106,14 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, mo
     return val_loss
 
 if __name__ == '__main__':
-    observable = 'CumulantGeneratingFunction'
-    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}_asinh/cosmo+hod/'
+    observable = 'GalaxyCorrelationFunctionMultipoles'
+    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/{observable}/cosmo+hod/asinh/'
     TrainFCN(
         observable=observable,
         learning_rate=1.e-3,
         n_hidden=[512, 512, 512, 512],
         dropout_rate=0.,
         weight_decay=0,
+        batch_size=128,
         model_dir=model_dir
     )

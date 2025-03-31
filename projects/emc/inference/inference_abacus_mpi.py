@@ -53,30 +53,30 @@ for cosmo_idx in [2, 0, 1, 3]:
         observable = emc.CombinedObservable([
             emc.GalaxyNumberDensity(
                 select_filters={
-                    'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+                    'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,
                 },
             ),
-            # emc.GalaxyProjectedCorrelationFunction(
+            emc.GalaxyProjectedCorrelationFunction(
+                select_filters={
+                    'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,
+                },
+                slice_filters={
+                }
+            ),
+            # emc.GalaxyPowerSpectrumMultipoles(
             #     select_filters={
             #         'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,
             #     },
             #     slice_filters={
             #     }
             # ),
-            emc.GalaxyPowerSpectrumMultipoles(
-                select_filters={
-                    'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,
-                },
-                slice_filters={
-                }
-            ),
-            emc.GalaxyBispectrumMultipoles(
-                select_filters={
-                    'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,
-                },
-                slice_filters={
-                }
-            ),
+            # emc.GalaxyBispectrumMultipoles(
+            #     select_filters={
+            #         'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,
+            #     },
+            #     slice_filters={
+            #     }
+            # ),
             # emc.WaveletScatteringTransform(
             #     select_filters={
             #         'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx,

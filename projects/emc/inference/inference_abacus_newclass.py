@@ -39,18 +39,18 @@ add_emulator_error = True
 
 # load observables with their custom filters
 observable = emc.CombinedObservable([
-    emc.GalaxyNumberDensity(
-        select_filters={
-            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-        },
-    ),
-    emc.CorrectedGalaxyProjectedCorrelationFunction(
-        select_filters={
-            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
-        },
-        slice_filters={
-        }
-    ),
+    # emc.GalaxyNumberDensity(
+    #     select_filters={
+    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+    #     },
+    # ),
+    # emc.CorrectedGalaxyProjectedCorrelationFunction(
+    #     select_filters={
+    #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+    #     },
+    #     slice_filters={
+    #     }
+    # ),
     # emc.GalaxyCorrelationFunctionMultipoles(
     #     select_filters={
     #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
@@ -65,9 +65,17 @@ observable = emc.CombinedObservable([
     #     slice_filters={
     #     }
     # ),
-    # emc.GalaxyBispectrumMultipoles(
+    emc.GalaxyBispectrumMultipoles(
+        select_filters={
+            'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+        },
+        slice_filters={
+        }
+    )
+    # emc.DensitySplitPowerSpectrumMultipoles(
     #     select_filters={
     #         'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx,
+    #         'statistics': ['quantile_data_power']
     #     },
     #     slice_filters={
     #     }
@@ -139,6 +147,7 @@ sampler = PocoMCSampler(
 )
 
 sampler(vectorize=True, n_total=4096)
+# sampler(vectorize=True, n_total=10_000)
 
 # plot and save results
 markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
@@ -151,7 +160,7 @@ Path(save_dir).mkdir(parents=True, exist_ok=True)
 sampler.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,
                       markers=markers, title_limit=1)
 sampler.plot_trace(save_fn=save_dir / f'chain_{statistics}_trace.pdf', thin=128)
-sampler.save_chain(save_fn=save_dir / f'chain_{statistics}.npy', metadata={'markers': markers})
+sampler.save_chain(save_fn=save_dir / f'chain_{statistics}.npy', metadata={'markers': markers, 'zeff': 0.5})
 sampler.save_table(save_fn=save_dir / f'chain_{statistics}_stats.txt')
 sampler.plot_bestfit(save_fn=save_dir / f'chain_{statistics}_bestfit.png', model='maxl')
 sampler.plot_bestfit(save_fn=save_dir / f'chain_{statistics}_mean.png', model='mean')

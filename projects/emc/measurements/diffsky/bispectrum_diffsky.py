@@ -36,7 +36,7 @@ hubble = 100 * cosmo.efunc(redshift)
 adict = {0.5: '67120', 0.8: '54980'}  # redshift to scale factor string for UNIT
 scale_factor = 1 / (1 + redshift)
 los = 'z'
-galsample = 'mass_conc'
+galsample = 'mass'
 version = 0.3
 
 bspec = Bispectrum(boxsize=boxsize, boxcenter=0, nmesh=160,

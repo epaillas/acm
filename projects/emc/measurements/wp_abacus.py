@@ -27,7 +27,7 @@ def get_hod_positions(input_fn, los='z'):
 
 def compute_tpcf(data_positions, edges, boxsize, nthreads=4, gpu=True, los='z'):
     return TwoPointCorrelationFunction(
-        'rp', edges=edges, data_positions1=data_positions,
+        'rppi', edges=edges, data_positions1=data_positions,
         engine='corrfunc', boxsize=boxsize, nthreads=nthreads, gpu=gpu,
         compute_sepsavg=False, position_type='pos', los=los,
     )
@@ -55,27 +55,34 @@ if __name__ == '__main__':
     logger = logging.getLogger('tpcf_abacus')
     boxsize = 2000
     redshift = 0.5
-    edges = np.logspace(-1, 1.5, num = 19, endpoint = True, base = 10.0)
+    seed = 0
+    rp_edges = np.logspace(-1, 1.5, num = 19, endpoint = True, base = 10.0)
+    pi_edges = np.linspace(-40, 40, 41)
+    edges = (rp_edges, pi_edges)
+    # edges = np.logspace(-1, 1.5, num = 19, endpoint = True, base = 10.0)
 
     for cosmo_idx in cosmos:
-        cosmo = AbacusSummit(cosmo_idx)
         for phase_idx in phases:
             for hod_idx in hods:
-                for seed in seeds:
-                    hod_dir = f'/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed}/'
-                    hod_fn = Path(hod_dir) / f'hod{hod_idx:03}.fits'
-                    logger.info(f'Reading {hod_fn}')
+                hod_dir = f'/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed}/'
+                hod_fn = Path(hod_dir) / f'hod{hod_idx:03}.fits'
+                if not hod_fn.exists():
+                    # print(f'{hod_fn} does not exist')
+                    continue
+                logger.info(f'Reading {hod_fn}')
 
-                    for i, los in enumerate(['x', 'y', 'z']):
-                        data_positions = get_hod_positions(hod_fn, los=los)
-                        tpcf_los = compute_tpcf(data_positions, edges, boxsize, nthreads=256, gpu=False, los=los).normalize()
-                        if i == 0:
-                            tpcf = tpcf_los
-                        else:
-                            tpcf += tpcf_los
+                cosmo = AbacusSummit(cosmo_idx)
 
-                    # save the results
-                    output_dir = f'/pscratch/sd/e/epaillas/emc/training_sets/wp/cosmo+hod/z0.5/yuan23_prior/c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed}/'
-                    Path(output_dir).mkdir(parents=True, exist_ok=True)
-                    output_fn = Path(output_dir) / f'wp_hod{hod_idx:03}.npy'
-                    tpcf.save(output_fn)
+                for i, los in enumerate(['x', 'y', 'z']):
+                    data_positions = get_hod_positions(hod_fn, los=los)
+                    tpcf_los = compute_tpcf(data_positions, edges, boxsize, nthreads=128, gpu=False, los=los).normalize()
+                    if i == 0:
+                        tpcf = tpcf_los
+                    else:
+                        tpcf += tpcf_los
+
+                # save the results
+                output_dir = f'/pscratch/sd/e/epaillas/emc/training_sets/xi_rppi/cosmo+hod/z0.5/yuan23_prior/c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed}/'
+                Path(output_dir).mkdir(parents=True, exist_ok=True)
+                output_fn = Path(output_dir) / f'xi_rppi_hod{hod_idx:03}.npy'
+                tpcf.save(output_fn)

@@ -15,16 +15,16 @@ def get_hod_params(cosmo_idx=0):
     return df.to_dict('list')
 
 # hods = [466]
-hods = list(range(30, 31))
-phases = list(range(1))
+hods = list(range(50))
+phases = list(range(1, 25))
 seeds = list(range(1))
 # cosmos = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
 cosmos = list(range(1))
 
 redshift = 0.5
 
-# tracer_density_mean = 5e-4
-tracer_density_mean = None
+tracer_density_mean = 5e-4
+# tracer_density_mean = None
 
 for cosmo_idx in cosmos:
     hod_params = get_hod_params(cosmo_idx=cosmo_idx)
@@ -41,5 +41,6 @@ for cosmo_idx in cosmos:
             for seed in seeds:
                 save_dir = f'/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z{redshift:.1f}/yuan23_prior/c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed}/'
                 Path(save_dir).mkdir(parents=True, exist_ok=True)
-                save_fn = Path(save_dir) / f'hod{hod_idx:03}_raw.fits'
+                # save_fn = Path(save_dir) / f'hod{hod_idx:03}_raw.fits'
+                save_fn = Path(save_dir) / f'hod{hod_idx:03}.fits'
                 hod_dict = abacus.run(hod, nthreads=64, save_fn=save_fn, tracer_density_mean=tracer_density_mean, seed=seed)
