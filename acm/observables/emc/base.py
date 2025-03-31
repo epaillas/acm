@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from sunbird.data.data_utils import convert_to_summary
+from .paths import emc_paths
 from pathlib import Path
 import numpy as np
 import torch
@@ -16,25 +17,30 @@ class BaseObservable(ABC):
         """
         File containing Latin hypercube samples.
         """
-        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod'
-        return Path(data_dir) / f'{self.stat_name}.npy'
+        lhc_dir = Path(emc_paths['lhc_dir'])
+        return lhc_dir / f'{self.stat_name}.npy'
 
     def emulator_error_fname(self):
         """
         File containing the emulator error.
         """
-        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
-        return Path(data_dir) / f'{self.stat_name}.npy'
+        emulator_error_dir = Path(emc_paths['emulator_error_dir'])
+        return emulator_error_dir / f'{self.stat_name}.npy'
 
     def small_box_fname(self):
-        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box'
-        return Path(data_dir) / f'{self.stat_name}.npy'
+        """
+        File containing the output features from the small AbacusSummit box.
+        """
+        covariance_dir = Path(emc_paths['covariance_dir'])
+        return covariance_dir / f'{self.stat_name}.npy'
 
-    def diffsky_fname(self):
-        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/diffsky/data_vectors/galsampled_67120_fixedAmp_001_mass_conc_v0.3'
-        # data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/diffsky/data_vectors/abacus'
-        # return Path(data_dir) / f'{self.stat_name}_wrong.npy'
-        return Path(data_dir) / f'{self.stat_name}.npy'
+    def diffsky_fname(self, phase_idx, sampling):
+        """
+        File containing the measurements from Diffsky simulations.
+        """
+        base_dir = Path(emc_paths['diffsky_dir'])
+        diffsky_dir = base_dir / f'galsampled_67120_fixedAmp_{phase_idx:03}_{sampling}_v0.3'
+        return diffsky / f'{self.stat_name}.npy'
 
     @property
     @abstractmethod
@@ -187,7 +193,7 @@ class BaseObservable(ABC):
             prediction = prediction.numpy()
         coords = self.coords_model
         coords_shape = tuple(len(v) for k, v in coords.items())
-        if batch:
+        if len(prediction.shape) > 1: # batch query
             dimensions = ["batch"] + list(coords.keys())
             coords["batch"] = range(len(prediction))
             prediction = prediction.reshape((len(prediction), *coords_shape))
