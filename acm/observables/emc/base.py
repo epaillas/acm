@@ -41,7 +41,7 @@ class BaseObservable(ABC):
         """
         base_dir = Path(emc_paths['diffsky_dir'])
         diffsky_dir = base_dir / f'galsampled_67120_fixedAmp_{phase_idx:03}_{sampling}_v0.3'
-        return diffsky / f'{self.stat_name}.npy'
+        return diffsky_dir / f'{self.stat_name}.npy'
 
     @property
     @abstractmethod
@@ -105,12 +105,11 @@ class BaseObservable(ABC):
             select_filters=self.select_filters, slice_filters=self.slice_filters
         ).values.reshape(len(small_box_y), -1)
 
-    @property
-    def diffsky_y(self):
+    def diffsky_y(self, phase_idx=1, sampling='mass_conc'):
         """
         Measurements from Diffsky simulations.
         """
-        fn = self.diffsky_fname()
+        fn = self.diffsky_fname(phase_idx=phase_idx, sampling=sampling)
         diffsky_y = np.load(fn, allow_pickle=True).item()['diffsky_y']
         coords = self.coords_model
         coords_shape = tuple(len(v) for k, v in coords.items())

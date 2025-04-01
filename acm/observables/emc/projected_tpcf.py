@@ -6,7 +6,7 @@ class GalaxyProjectedCorrelationFunction(BaseObservable):
     Class for the Emulator's Mock Challenge projected galaxy correlation function.
     """
     def __init__(self, select_filters: dict = None, slice_filters: dict = None):
-        self.stat_name = 'corrected_wp'
+        self.stat_name = 'wp'
         self.sep_name = 'rp'
         self.select_filters = select_filters
         self.slice_filters = slice_filters
@@ -45,9 +45,10 @@ class GalaxyProjectedCorrelationFunction(BaseObservable):
     def model_fn(self):
         # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/CorrectedGalaxyProjectedCorrelationFunction/cosmo+hod/optuna/log/last-v35.ckpt'
         # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/CorrectedGalaxyProjectedCorrelationFunction/cosmo+hod/asinh/last-v3.ckpt'
-        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyProjectedCorrelationFunction/cosmo+hod/optuna/apr1/log/last-v66.ckpt'
+        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyProjectedCorrelationFunction/cosmo+hod/optuna/apr1/log/last-v66.ckpt'
         # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/CorrectedGalaxyProjectedCorrelationFunction/cosmo+hod/log/last-v4.ckpt'
         # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/CorrectedGalaxyProjectedCorrelationFunction/cosmo+hod/optuna/mar29/log/last-v91.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyProjectedCorrelationFunction/last.ckpt'
 
     def create_lhc(self, n_hod=20, cosmos=None, phase_idx=0, seed_idx=0):
         x, x_names = self.create_lhc_x(cosmos=cosmos, n_hod=n_hod)
