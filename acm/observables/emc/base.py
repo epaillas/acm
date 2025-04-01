@@ -118,6 +118,7 @@ class BaseObservable(ABC):
         """
         Load trained theory model from checkpoint file.
         """
+        print('loading model', self.stat_name)
         from sunbird.emulators import FCN
         model = FCN.load_from_checkpoint(self.model_fn, strict=True)
         model = model.eval().to('cpu')
