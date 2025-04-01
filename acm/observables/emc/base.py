@@ -18,8 +18,6 @@ class BaseObservable(ABC):
         File containing Latin hypercube samples.
         """
         lhc_dir = Path(emc_paths['lhc_dir'])
-        print(self.stat_name)
-        print(lhc_dir / f'{self.stat_name}.npy')
         return lhc_dir / f'{self.stat_name}.npy'
 
     def emulator_error_fname(self):
@@ -129,7 +127,7 @@ class BaseObservable(ABC):
         Load trained theory model from checkpoint file.
         """
         from sunbird.emulators import FCN
-        print('importing model')
+        print('importing model', self.stat_name)
         model = FCN.load_from_checkpoint(self.model_fn, strict=True)
         model = model.eval().to('cpu')
         if self.stat_name == 'minkowski':
