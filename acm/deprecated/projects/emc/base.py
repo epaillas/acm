@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from sunbird.data.data_utils import convert_to_summary
-from .paths import emc_paths
 from pathlib import Path
 import numpy as np
 import torch
@@ -11,37 +10,25 @@ class BaseObservable(ABC):
     Base class for the Emulator's Mock Challenge observables.
     """
     def __init__(self):
-        self.model = self.load_model()
-        self.separation = self.load_separation()
+        pass
 
     def lhc_fname(self):
         """
         File containing Latin hypercube samples.
         """
-        lhc_dir = Path(emc_paths['lhc_dir'])
-        return lhc_dir / f'{self.stat_name}.npy'
+        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/training_sets/cosmo+hod'
+        return Path(data_dir) / f'{self.stat_name}.npy'
 
     def emulator_error_fname(self):
         """
         File containing the emulator error.
         """
-        emulator_error_dir = Path(emc_paths['emulator_error_dir'])
-        return emulator_error_dir / f'{self.stat_name}.npy'
+        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
+        return Path(data_dir) / f'{self.stat_name}.npy'
 
     def small_box_fname(self):
-        """
-        File containing the output features from the small AbacusSummit box.
-        """
-        covariance_dir = Path(emc_paths['covariance_dir'])
-        return covariance_dir / f'{self.stat_name}.npy'
-
-    def diffsky_fname(self, phase_idx, sampling):
-        """
-        File containing the measurements from Diffsky simulations.
-        """
-        base_dir = Path(emc_paths['diffsky_dir'])
-        diffsky_dir = base_dir / f'galsampled_67120_fixedAmp_{phase_idx:03}_{sampling}_v0.3'
-        return diffsky / f'{self.stat_name}.npy'
+        data_dir = f'/pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box'
+        return Path(data_dir) / f'{self.stat_name}.npy'
 
     @property
     @abstractmethod
@@ -106,27 +93,11 @@ class BaseObservable(ABC):
         ).values.reshape(len(small_box_y), -1)
 
     @property
-    def diffsky_y(self):
-        """
-        Measurements from Diffsky simulations.
-        """
-        fn = self.diffsky_fname()
-        diffsky_y = np.load(fn, allow_pickle=True).item()['diffsky_y']
-        coords = self.coords_model
-        coords_shape = tuple(len(v) for k, v in coords.items())
-        dimensions = list(coords.keys())
-        diffsky_y = diffsky_y.reshape(*coords_shape)
-        return convert_to_summary(
-            data=diffsky_y, dimensions=dimensions, coords=coords,
-            select_filters=self.select_filters, slice_filters=self.slice_filters
-        ).values.reshape(-1)
-
-    def load_model(self):
+    def model(self):
         """
         Load trained theory model from checkpoint file.
         """
         from sunbird.emulators import FCN
-        print('importing model', self.stat_name)
         model = FCN.load_from_checkpoint(self.model_fn, strict=True)
         model = model.eval().to('cpu')
         if self.stat_name == 'minkowski':
@@ -151,7 +122,8 @@ class BaseObservable(ABC):
             select_filters=self.select_filters, slice_filters=self.slice_filters
         ).values.reshape(-1)
 
-    def load_separation(self):
+    @property
+    def separation(self):
         """
         Separation values (s for the correlation function, k for power spectrum, etc.)
         """
@@ -193,7 +165,7 @@ class BaseObservable(ABC):
             prediction = prediction.numpy()
         coords = self.coords_model
         coords_shape = tuple(len(v) for k, v in coords.items())
-        if len(prediction.shape) > 1: # batch query
+        if batch:
             dimensions = ["batch"] + list(coords.keys())
             coords["batch"] = range(len(prediction))
             prediction = prediction.reshape((len(prediction), *coords_shape))
@@ -237,5 +209,5 @@ class BaseObservable(ABC):
         if method == 'percival':
             B = (n_s - n_d - 2) / ((n_s - n_d - 1)*(n_s - n_d - 4))
             return (n_s - 1)*(1 + B*(n_d - n_theta))/(n_s - n_d + n_theta - 1)
-        elif _method == 'hartlap':
+        elif method == 'hartlap':
             return (n_s - 1)/(n_s - n_d - 2)
