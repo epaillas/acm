@@ -44,3 +44,11 @@ class MinkowskiFunctionals(BaseObservable):
     @property
     def model_fn(self):
         return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/minkowski/cosmo+hod/best-model-epoch=132-val_loss=0.0319.ckpt'
+
+    def get_emulator_error(self, select_filters=None, slice_filters=None):
+        from pathlib import Path
+        import numpy as np
+        data_dir = '/global/homes/e/epaillas/pscratch/emc/v1.1/emulator_error/'
+        data_fn = Path(data_dir) / 'minkowski.npy'
+        data = np.load(data_fn, allow_pickle=True).item()
+        return data['emulator_error']
