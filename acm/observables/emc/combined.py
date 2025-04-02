@@ -76,13 +76,12 @@ class CombinedObservable:
         Features from small AbacusSummit box for covariance estimation.
         """
         return np.concatenate([obs.small_box_y for obs in self.observables], axis=1)
-    
-    @property
-    def diffsky_y(self):
+
+    def diffsky_y(self, **kwargs):
         """
         Measurements from Diffsky simulations.
         """
-        return np.concatenate([obs.diffsky_y for obs in self.observables])
+        return np.concatenate([obs.diffsky_y(**kwargs) for obs in self.observables])
 
     @property
     def model(self):
