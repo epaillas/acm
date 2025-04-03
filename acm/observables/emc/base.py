@@ -176,7 +176,7 @@ class BaseObservable(ABC):
     def coords_model(self):
         pass
 
-    def get_model_prediction(self, x, batch=False):
+    def get_model_prediction(self, x, batch=True):
         """
         Get model prediction for a given x.
 
@@ -189,6 +189,8 @@ class BaseObservable(ABC):
         with torch.no_grad():
             prediction = self.model.get_prediction(torch.Tensor(x))
             prediction = prediction.numpy()
+        if hasattr(self, 'phase_correction'):
+            prediction = self.apply_phase_correction(prediction)
         coords = self.coords_model
         coords_shape = tuple(len(v) for k, v in coords.items())
         if len(prediction.shape) > 1: # batch query

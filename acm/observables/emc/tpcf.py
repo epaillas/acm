@@ -1,4 +1,5 @@
 from .base import BaseObservable
+import logging
 
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservable):
@@ -6,11 +7,15 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, select_filters: dict = None, slice_filters: dict = None):
+    def __init__(self, select_filters: dict = None, slice_filters: dict = None, phase_correction=False):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.stat_name = 'tpcf'
         self.sep_name = 's'
         self.select_filters = select_filters
         self.slice_filters = slice_filters
+        if phase_correction and hasattr(self, 'compute_phase_correction'):
+            self.logger.info('Computing phase correction.')
+            self.phase_correction = self.compute_phase_correction()
         super().__init__()
         
     @property
@@ -26,7 +31,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(350)),
-            'multipoles': [0, 2],
+            'multipoles': [0, 2, 4],
             's': self.separation,
         }
 
@@ -34,14 +39,14 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     def coords_small_box(self):
         return {
             'phase_idx': list(range(1786)),
-            'multipoles': [0, 2],
+            'multipoles': [0, 2, 4],
             's': self.separation,
         }
 
     @property
     def coords_model(self):
         return {
-            'multipoles': [0, 2],
+            'multipoles': [0, 2, 4],
             's': self.separation,
         }
 
@@ -51,7 +56,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/optuna/asinh/last-v48.ckpt'
         # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/asinh/last-v8.ckpt'
         # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/optuna/apr1/asinh/last-v7.ckpt'
-        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
+        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/test/apr2/GalaxyCorrelationFunctionMultipoles/last.ckpt'
 
     def create_lhc(self, n_hod=20, cosmos=None, phase_idx=0, seed_idx=0):
         x, x_names = self.create_lhc_x(cosmos=cosmos, n_hod=n_hod)
@@ -71,7 +77,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
             for hod_idx in range(n_hod):
                 data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy"
                 data = TwoPointCorrelationFunction.load(data_fn)[::4]
-                s, multipoles = data(ells=(0, 2), return_sep=True)
+                s, multipoles = data(ells=(0, 2, 4), return_sep=True)
                 y.append(np.concatenate(multipoles))
         return s, np.array(y)
 
@@ -92,7 +98,17 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         return lhc_x, lhc_x_names
 
     def create_small_box_y(self):
-        raise NotImplementedError
+        from pathlib import Path
+        from pycorr import TwoPointCorrelationFunction
+        import numpy as np
+        data_dir = Path('/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior')
+        data_fns = list(data_dir.glob('tpcf_ph*_hod466.npy'))
+        y = []
+        for data_fn in data_fns:
+            data = TwoPointCorrelationFunction.load(data_fn)[::4]
+            s, multipoles = data(ells=(0, 2, 4), return_sep=True)
+            y.append(np.concatenate(multipoles))
+        return s, np.array(y)
 
     def get_emulator_error(self, select_filters=None, slice_filters=None):
         """
@@ -119,3 +135,52 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         test_y = test_y.reshape(n_samples, -1)
         pred_y = observable.get_model_prediction(test_x, batch=True)
         return np.median(np.abs(test_y - pred_y), axis=0)
+
+    def compute_phase_correction(self):
+        """
+        Correction factor to bring the fixed phase precictions (p000) to the ensemble average.
+        """
+        from pathlib import Path
+        import numpy as np
+        from pycorr import TwoPointCorrelationFunction, setup_logging
+        setup_logging(level='WARNING')
+        multipoles_mean = []
+        for phase in range(25):
+            data_dir = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/c000_ph{phase:03}/seed0'
+            multipoles_hods = []
+            for hod in range(50):
+                data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy'
+                data = TwoPointCorrelationFunction.load(data_fn)[::4]
+                s, multipoles = data(ells=(0, 2, 4), return_sep=True)
+                multipoles_hods.append(multipoles)
+            multipoles_hods = np.array(multipoles_hods).mean(axis=0)
+            multipoles_mean.append(multipoles_hods)
+        multipoles_mean = np.array(multipoles_mean).mean(axis=0)
+
+        data_dir = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/c000_ph000/seed0'
+        multipoles_ph0 = []
+        for hod in range(50):
+            data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy'
+            data = TwoPointCorrelationFunction.load(data_fn)[::4]
+            s, multipoles = data(ells=(0, 2, 4), return_sep=True)
+            multipoles_ph0.append(multipoles)
+        multipoles_ph0 = np.array(multipoles_ph0).mean(axis=0)
+        delta = ((multipoles_mean + 1) - (multipoles_ph0 + 1))/(multipoles_ph0 + 1)
+        return delta.reshape(-1)
+
+    def apply_phase_correction(self, prediction):
+        """
+        Apply the phase correction to the predictions.
+        We apply this to (1 + prediction) to avoid zero-crossings.
+
+        Parameters
+        ----------
+        prediction : np.ndarray
+            Array of predictions.
+
+        Returns
+        -------
+        np.ndarray
+            Corrected predictions.
+        """
+        return (1 + prediction) * (1 + self.phase_correction) - 1
