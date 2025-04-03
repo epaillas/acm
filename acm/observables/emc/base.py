@@ -210,6 +210,8 @@ class BaseObservable(ABC):
                 select_filters=self.select_filters, slice_filters=self.slice_filters
             ).values.reshape(-1)
 
+    #def get_model_derivative(self, x, batch=True):
+
     def get_covariance_matrix(self, divide_factor=64):
         """
         Covariance matrix of the combination of observables.
