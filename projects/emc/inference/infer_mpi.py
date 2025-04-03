@@ -166,7 +166,7 @@ if __name__ == "__main__":
             sampler(vectorize=True, n_total=4096, progress=False)
 
             # plot and save results
-            markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
+            markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if (fixed_params is not None) and (key not in fixed_params)}
             statistics = '+'.join(statistics)
 
             if lambda_cdm:
