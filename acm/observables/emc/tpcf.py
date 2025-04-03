@@ -52,12 +52,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
 
     @property
     def model_fn(self):
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/tpcf/cosmo+hod/optuna_log/last-v54.ckpt'
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/optuna/asinh/last-v48.ckpt'
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/asinh/last-v8.ckpt'
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/optuna/apr1/asinh/last-v7.ckpt'
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
-        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/test/apr2/GalaxyCorrelationFunctionMultipoles/last.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
 
     def create_lhc(self, n_hod=20, cosmos=None, phase_idx=0, seed_idx=0):
         x, x_names = self.create_lhc_x(cosmos=cosmos, n_hod=n_hod)
