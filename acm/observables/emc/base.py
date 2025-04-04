@@ -10,9 +10,33 @@ class BaseObservable(ABC):
     """
     Base class for the Emulator's Mock Challenge observables.
     """
-    def __init__(self):
+    def __init__(
+        self,
+        select_coordinates: dict = {},
+        select_mocks: dict = {},
+        select_indices: dict = {},
+        slice_coordinates: dict = {}
+    ):
+        if bool((select_coordinates or slice_coordinates) and select_indices):
+            raise ValueError(
+                "You can only select either coordinates or indices, not both."
+            )
+        self.select_coordinates = select_coordinates
+        self.select_mocks = select_mocks
+        self.slice_filters = slice_coordinates
+        self.select_indices = select_indices
+        self.select_filters = {**select_mocks, **select_coordinates, **select_indices}
+
         self.model = self.load_model()
         self.separation = self.load_separation()
+        
+    @property
+    def nparams(self):
+        """
+        Number of parameters in the Latin hypercube samples
+        (equal to the number of input parameters for the emulators.
+        """
+        return len(self.lhc_x_names)
 
     def lhc_fname(self):
         """
@@ -55,9 +79,10 @@ class BaseObservable(ABC):
         """
         fn = self.lhc_fname()
         lhc_x = np.load(fn, allow_pickle=True).item()['lhc_x']
-        coords = self.coords_lhc_x
+        coords = self.lhc_indices
+        coords.update({'param_idx': list(range(self.nparams))})
         coords_shape = tuple(len(v) for k, v in coords.items())
-        dimensions = list(self.coords_lhc_x.keys())
+        dimensions = list(coords.keys())
         lhc_x = lhc_x.reshape(*coords_shape)
         return convert_to_summary(
             data=lhc_x, dimensions=dimensions, coords=coords,
@@ -79,9 +104,13 @@ class BaseObservable(ABC):
         """
         fn = self.lhc_fname()
         lhc_y = np.load(fn, allow_pickle=True).item()['lhc_y']
-        coords = self.coords_lhc_y
+        coords = self.lhc_indices
+        if self.select_indices:
+            coords.update(self.coordinates_indices)
+        else:
+            coords.update(self.coordinates)
         coords_shape = tuple(len(v) for k, v in coords.items())
-        dimensions = list(self.coords_lhc_y.keys())
+        dimensions = list(coords.keys())
         lhc_y = lhc_y.reshape(*coords_shape)
         return convert_to_summary(
             data=lhc_y, dimensions=dimensions, coords=coords,
@@ -96,9 +125,13 @@ class BaseObservable(ABC):
         """
         fn = self.small_box_fname()
         small_box_y = np.load(fn, allow_pickle=True).item()['cov_y']
-        coords = self.coords_small_box
+        coords = self.small_box_indices
+        if self.select_indices:
+            coords.update(self.coordinates_indices)
+        else:
+            coords.update(self.coordinates)
         coords_shape = tuple(len(v) for k, v in coords.items())
-        dimensions = list(self.coords_small_box.keys())
+        dimensions = list(coords.keys())
         small_box_y = small_box_y.reshape(*coords_shape)
         return convert_to_summary(
             data=small_box_y, dimensions=dimensions, coords=coords,
@@ -111,7 +144,7 @@ class BaseObservable(ABC):
         """
         fn = self.diffsky_fname(phase_idx=phase_idx, sampling=sampling)
         diffsky_y = np.load(fn, allow_pickle=True).item()['diffsky_y']
-        coords = self.coords_model
+        coords = self.coordinates_indices if self.select_indices else self.coordinates
         coords_shape = tuple(len(v) for k, v in coords.items())
         dimensions = list(coords.keys())
         diffsky_y = diffsky_y.reshape(*coords_shape)
@@ -140,9 +173,9 @@ class BaseObservable(ABC):
         """
         fn = self.emulator_error_fname()
         error = np.load(fn, allow_pickle=True).item()['emulator_error']
-        coords = self.coords_model
+        coords = self.coordinates_indices if self.select_indices else self.coordinates
         coords_shape = tuple(len(v) for k, v in coords.items())
-        dimensions = list(self.coords_model.keys())
+        dimensions = list(self.coords.keys())
         error = error.reshape(*coords_shape)
         return convert_to_summary(
             data=error, dimensions=dimensions, coords=coords,
@@ -155,26 +188,6 @@ class BaseObservable(ABC):
         """
         fn = self.lhc_fname()
         return np.load(fn, allow_pickle=True).item()[self.sep_name]
-
-    @property
-    @abstractmethod
-    def coords_lhc_x(self):
-        pass
-
-    @property
-    @abstractmethod
-    def coords_lhc_y(self):
-        pass
-
-    @property
-    @abstractmethod
-    def coords_small_box(self):
-        pass
-
-    @property
-    @abstractmethod
-    def coords_model(self):
-        pass
 
     def get_model_prediction(self, x, batch=True):
         """
@@ -191,7 +204,7 @@ class BaseObservable(ABC):
             prediction = prediction.numpy()
         if hasattr(self, 'phase_correction'):
             prediction = self.apply_phase_correction(prediction)
-        coords = self.coords_model
+        coords = self.coordinates_indices if self.select_indices else self.coordinates
         coords_shape = tuple(len(v) for k, v in coords.items())
         if len(prediction.shape) > 1: # batch query
             dimensions = ["batch"] + list(coords.keys())
@@ -209,8 +222,6 @@ class BaseObservable(ABC):
                 data=prediction, dimensions=dimensions, coords=coords,
                 select_filters=self.select_filters, slice_filters=self.slice_filters
             ).values.reshape(-1)
-
-    #def get_model_derivative(self, x, batch=True):
 
     def get_covariance_matrix(self, divide_factor=64):
         """
