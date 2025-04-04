@@ -10,22 +10,15 @@ class BaseObservable(ABC):
     """
     Base class for the Emulator's Mock Challenge observables.
     """
-    def __init__(
-        self,
-        select_coordinates: dict = {},
-        select_mocks: dict = {},
-        select_indices: dict = {},
-        slice_coordinates: dict = {}
-    ):
-        if bool((select_coordinates or slice_coordinates) and select_indices):
-            raise ValueError(
-                "You can only select either coordinates or indices, not both."
-            )
-        self.select_coordinates = select_coordinates
-        self.select_mocks = select_mocks
-        self.slice_filters = slice_coordinates
-        self.select_indices = select_indices
-        self.select_filters = {**select_mocks, **select_coordinates, **select_indices}
+    def __init__(self):
+        if bool((self.select_coordinates or self.slice_coordinates) and self.select_indices):
+            raise ValueError("You can only select either coordinates or indices, not both.")
+        self.select_filters = {
+            **self.select_mocks,
+            **self.select_coordinates,
+            **self.select_indices
+        }
+        self.slice_filters = self.slice_coordinates
 
         self.model = self.load_model()
         self.separation = self.load_separation()
@@ -181,6 +174,44 @@ class BaseObservable(ABC):
             data=error, dimensions=dimensions, coords=coords,
             select_filters=self.select_filters, slice_filters=self.slice_filters
         ).values.reshape(-1)
+
+    def get_emulator_error(self, method: ['mae', 'cov'] = 'mae'):
+        """
+        Calculate the emulator error from the test set of the Latin hypercube. 
+        
+        We make a new instance of the class with the test set filters and
+        compare the emulator prediction to the true values.
+
+        Args:
+            method (str): Method to compute the error. Options are 'mae' for
+                mean absolute error and 'cov' to get the emulator error covariance,
+                which also accounts for correlations among bins.
+
+        Returns:
+            np.ndarray: Emulator error.
+        """
+        import numpy as np
+        select_mocks = self.test_set_indices
+        if self.select_indices:
+            select_indices = self.select_indices['bin_idx']
+        else:
+            select_indices = {}
+        observable = self.__class__(
+            select_mocks=select_mocks,
+            select_indices=select_indices,
+            select_coordinates=self.select_coordinates,
+            slice_coordinates=self.slice_coordinates)
+        test_x = observable.lhc_x
+        test_y = observable.lhc_y
+        # reshape to (n_samples, n_features)
+        n_samples = len(select_mocks['cosmo_idx']) * len(select_mocks['hod_idx'])
+        test_x = test_x.reshape(n_samples, -1)
+        test_y = test_y.reshape(n_samples, -1)
+        pred_y = observable.get_model_prediction(test_x, batch=True)
+        if method == 'mae':
+            return np.median(np.abs(test_y - pred_y), axis=0)
+        elif method == 'cov':
+            return np.cov(test_y - pred_y, rowvar=False)
 
     def load_separation(self):
         """

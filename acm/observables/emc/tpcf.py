@@ -7,14 +7,27 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, phase_correction=False, **kwargs):
+    def __init__(
+        self,
+        select_mocks: dict = None,
+        select_indices: list = None,
+        select_coordinates: dict = None,
+        slice_coordinates: dict = None,
+        phase_correction: bool = False,
+    ):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.stat_name = 'tpcf'
         self.sep_name = 's'
+
         if phase_correction and hasattr(self, 'compute_phase_correction'):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
-        super().__init__(**kwargs)
+
+        self.select_mocks = select_mocks
+        self.select_coordinates = select_coordinates
+        self.slice_coordinates = slice_coordinates
+        self.select_indices = {'bin_idx': select_indices} if select_indices else {}
+        super().__init__()
 
     @property
     def lhc_indices(self):
@@ -23,6 +36,16 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         """
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'hod_idx': list(range(350)),
+        }
+
+    @property
+    def test_set_indices(self):
+        """
+        Indices of the test set samples, including variations in cosmology and HOD parameters.
+        """
+        return {
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)),
             'hod_idx': list(range(350)),
         }
 
@@ -52,48 +75,25 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         """
         return{'bin_idx': list(range(3 * len(self.separation)))}
         
-    # @property
-    # def coords_lhc_x(self):
-    #     return {
-    #         'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-    #         'hod_idx': list(range(350)),
-    #         'param_idx': list(range(20))
-    #     }
-
-    # @property
-    # def coords_lhc_y(self):
-    #     return {
-    #         'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-    #         'hod_idx': list(range(350)),
-    #         'multipoles': [0, 2, 4],
-    #         's': self.separation,
-    #     }
-
-    # @property
-    # def coords_small_box(self):
-    #     return {
-    #         'phase_idx': list(range(1786)),
-    #         'multipoles': [0, 2, 4],
-    #         's': self.separation,
-    #     }
-
-    # @property
-    # def coords_model(self):
-    #     return {
-    #         'multipoles': [0, 2, 4],
-    #         's': self.separation,
-    #     }
-
     @property
     def model_fn(self):
+        """
+        Path to the trained emulator checkpoint file.
+        """
         return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
 
     def create_lhc(self, n_hod=20, cosmos=None, phase_idx=0, seed_idx=0):
+        """
+        Create the Latin hypercube samples for the emulator (both input and output features).
+        """
         x, x_names = self.create_lhc_x(cosmos=cosmos, n_hod=n_hod)
         sep, y = self.create_lhc_y(n_hod=n_hod, cosmos=cosmos, phase_idx=phase_idx, seed_idx=seed_idx)
         return sep, x, x_names, y
 
     def create_lhc_y(self, n_hod=100, cosmos=None, phase_idx=0, seed_idx=0):
+        """
+        Create the output features for the emulator (the galaxy correlation function multipoles).
+        """
         import numpy as np
         from pycorr import TwoPointCorrelationFunction
         base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
@@ -111,6 +111,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         return s, np.array(y)
 
     def create_lhc_x(self, cosmos=None, n_hod=100):
+        """
+        Create the input features for the emulator (the cosmological and HOD parameters).
+        """
         import pandas
         import numpy as np
         if cosmos is None:
@@ -127,6 +130,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         return lhc_x, lhc_x_names
 
     def create_small_box_y(self):
+        """
+        Create the output features for the emulator (the galaxy correlation function multipoles)
+        from the small AbacusSummit box.
+        """
         from pathlib import Path
         from pycorr import TwoPointCorrelationFunction
         import numpy as np
@@ -138,32 +145,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
             s, multipoles = data(ells=(0, 2, 4), return_sep=True)
             y.append(np.concatenate(multipoles))
         return s, np.array(y)
-
-    def get_emulator_error(self, select_filters=None, slice_filters=None):
-        """
-        Calculate the emulator error from a subset of the Latin hypercube,
-        which we treat as the test set.
-        
-        We make a new instance of the class with the test set filters and
-        compare the emulator prediction to the true values.
-        """
-        import numpy as np
-        if select_filters is None:
-            select_filters = self.select_filters
-            select_filters['cosmo_idx'] = list(range(0, 5)) + list(range(13, 14))
-            select_filters['hod_idx'] = list(range(350))
-        if slice_filters is None:
-            slice_filters = self.slice_filters
-        # instantiate class with test set filters
-        observable = self.__class__(select_filters=select_filters, slice_filters=slice_filters)
-        test_x = observable.lhc_x
-        test_y = observable.lhc_y
-        # reshape to (n_samples, n_features)
-        n_samples = len(select_filters['cosmo_idx']) * len(select_filters['hod_idx'])
-        test_x = test_x.reshape(n_samples, -1)
-        test_y = test_y.reshape(n_samples, -1)
-        pred_y = observable.get_model_prediction(test_x, batch=True)
-        return np.median(np.abs(test_y - pred_y), axis=0)
 
     def compute_phase_correction(self):
         """
