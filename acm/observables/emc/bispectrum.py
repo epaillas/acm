@@ -5,45 +5,74 @@ class GalaxyBispectrumMultipoles(BaseObservable):
     """
     Class for the Emulator's Mock Challenge bispectrum.
     """
-    def __init__(self, select_filters: dict = None, slice_filters: dict = None):
+    def __init__(
+        self,
+        select_coordinates: dict = {},
+        select_mocks: dict = {},
+        select_indices: dict = {},
+        slice_coordinates: dict = {},
+        phase_correction: bool = False,
+    ):
         self.stat_name = 'bk'
         self.sep_name = 'k123'
-        self.select_filters = select_filters
-        self.slice_filters = slice_filters
+
+        if phase_correction and hasattr(self, 'compute_phase_correction'):
+            self.logger.info('Computing phase correction.')
+            self.phase_correction = self.compute_phase_correction()
+
+        self.select_mocks = select_mocks
+        self.select_coordinates = select_coordinates
+        self.slice_coordinates = slice_coordinates
+        assert type(select_indices) == list, "select_indices should be a list of indices"
+        self.select_indices = {'bin_idx': select_indices} if select_indices else {}
         super().__init__()
-        
+
     @property
-    def coords_lhc_x(self):
+    def lhc_indices(self):
+        """
+        Indices of the Latin hypercube samples, including variations in cosmology and HOD parameters.
+        """
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(350)),
-            'param_idx': list(range(20))
         }
 
     @property
-    def coords_lhc_y(self):
+    def test_set_indices(self):
+        """
+        Indices of the test set samples, including variations in cosmology and HOD parameters.
+        """
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)),
             'hod_idx': list(range(350)),
-            'multipoles': [0, 2],
-            'bin_index': list(range(len(self.separation.prod(axis=0)))),
         }
 
     @property
-    def coords_small_box(self):
+    def small_box_indices(self):
+        """
+        Indices of the covariance samples, including variations in phase and HOD parameters.
+        """
         return {
             'phase_idx': list(range(1786)),
-            'multipoles': [0, 2],
-            'bin_index': list(range(len(self.separation.prod(axis=0)))),
         }
 
     @property
-    def coords_model(self):
-        return {
+    def coordinates(self):
+        """
+        Coordinates of the data and model vectors.
+        """
+        return{
             'multipoles': [0, 2],
-            'bin_index': list(range(len(self.separation.prod(axis=0)))),
+            'bin_idx': list(range(len(self.separation.prod(axis=0)))),
         }
-
+    
+    @property
+    def coordinates_indices(self):
+        """
+        Indices of the (flat) coordinates of the data and model vectors.
+        """
+        return{'bin_idx': list(range(2 * len(self.separation.prod(axis=0))))}
+        
     @property
     def model_fn(self):
         # return '/pscratch/sd/e/epaillas/emc/v1.1/trained_models/bk/cosmo+hod/optuna/last-v55.ckpt'
@@ -104,30 +133,3 @@ class GalaxyBispectrumMultipoles(BaseObservable):
             multipoles = np.concatenate([weight * bk[f'b{i}'] for i in [0, 2]])
             y.append(multipoles)
         return k123, np.array(y)
-
-    def get_emulator_error(self, select_filters=None, slice_filters=None):
-        """
-        Calculate the emulator error from a subset of the Latin hypercube,
-        which we treat as the test set.
-        
-        We make a new instance of the class with the test set filters and
-        compare the emulator prediction to the true values.
-        """
-        import numpy as np
-        if select_filters is None:
-            select_filters = self.select_filters
-            select_filters['cosmo_idx'] = list(range(0, 5)) + list(range(13, 14))
-            select_filters['hod_idx'] = list(range(350))
-        if slice_filters is None:
-            slice_filters = self.slice_filters
-        # instantiate class with test set filters
-        observable = self.__class__(select_filters=select_filters, slice_filters=slice_filters)
-        test_x = observable.lhc_x
-        test_y = observable.lhc_y
-        # reshape to (n_samples, n_features)
-        n_samples = len(select_filters['cosmo_idx']) * len(select_filters['hod_idx'])
-        test_x = test_x.reshape(n_samples, -1)
-        test_y = test_y.reshape(n_samples, -1)
-        pred_y = observable.get_model_prediction(test_x, batch=True)
-        return np.median(np.abs(test_y - pred_y), axis=0)
-        
