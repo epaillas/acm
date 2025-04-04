@@ -26,6 +26,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
         self.select_mocks = select_mocks
         self.select_coordinates = select_coordinates
         self.slice_coordinates = slice_coordinates
+        assert type(select_indices) == list, "select_indices should be a list of indices"
         self.select_indices = {'bin_idx': select_indices} if select_indices else {}
         super().__init__()
 
