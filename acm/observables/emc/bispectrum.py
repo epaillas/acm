@@ -5,14 +5,7 @@ class GalaxyBispectrumMultipoles(BaseObservable):
     """
     Class for the Emulator's Mock Challenge bispectrum.
     """
-    def __init__(
-        self,
-        select_coordinates: dict = {},
-        select_mocks: dict = {},
-        select_indices: dict = {},
-        slice_coordinates: dict = {},
-        phase_correction: bool = False,
-    ):
+    def __init__(self, phase_correction: bool = False, **kwargs):
         self.stat_name = 'bk'
         self.sep_name = 'k123'
 
@@ -20,12 +13,7 @@ class GalaxyBispectrumMultipoles(BaseObservable):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
 
-        self.select_mocks = select_mocks
-        self.select_coordinates = select_coordinates
-        self.slice_coordinates = slice_coordinates
-        assert type(select_indices) == list, "select_indices should be a list of indices"
-        self.select_indices = {'bin_idx': select_indices} if select_indices else {}
-        super().__init__()
+        super().__init__(**kwargs)
 
     @property
     def lhc_indices(self):

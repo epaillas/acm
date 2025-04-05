@@ -10,7 +10,20 @@ class BaseObservable(ABC):
     """
     Base class for the Emulator's Mock Challenge observables.
     """
-    def __init__(self):
+    def __init__(
+        self,
+        select_mocks: dict = {},
+        select_indices: list = [],
+        select_coordinates: dict = {},
+        slice_coordinates: dict = {},
+    ):
+        if select_indices:
+            assert type(select_indices) == list, "select_indices should be a list of indices"
+        self.select_indices = {'bin_idx': select_indices} if select_indices else {}
+        self.select_mocks = select_mocks
+        self.select_coordinates = select_coordinates
+        self.slice_coordinates = slice_coordinates
+
         if bool((self.select_coordinates or self.slice_coordinates) and self.select_indices):
             raise ValueError("You can only select either coordinates or indices, not both.")
         self.select_filters = {

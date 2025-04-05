@@ -40,8 +40,6 @@ class CombinedObservable:
     def __init__(self, observables: list):
         self.observables = observables
         self.stat_name = [obs.stat_name for obs in self.observables]
-        self.slice_filters = [obs.slice_filters for obs in self.observables]
-        self.select_filters = [obs.select_filters for obs in self.observables]
 
     @property
     def lhc_x(self):
@@ -64,7 +62,7 @@ class CombinedObservable:
         return [obs.lhc_x_names for obs in self.observables][0]
 
     @property
-    def lhc_y(self, select_filters=None, slice_filters=None):
+    def lhc_y(self):
         """
         Latin hypercube of output features (tpcf, power spectrum, etc).
         """
@@ -151,7 +149,7 @@ class CombinedObservable:
         """
         return [obs.model_fn for obs in self.observables]
 
-    def get_emulator_error(self, select_filters=None, slice_filters=None):
+    def get_emulator_error(self, method: ['mae', 'cov'] = 'mae'):
         """
         Calculate the emulator error from a subset of the Latin hypercube,
         which we treat as the test set.
@@ -159,8 +157,7 @@ class CombinedObservable:
         We make a new instance of the class with the test set filters and
         compare the emulator prediction to the true values.
         """
-        return np.concatenate([obs.get_emulator_error(select_filters=select_filters,
-            slice_filters=slice_filters) for obs in self.observables], axis=0)
+        return np.concatenate([obs.get_emulator_error(method) for obs in self.observables], axis=0)
 
     def get_covariance_matrix(self, divide_factor=64):
         """

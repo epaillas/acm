@@ -7,14 +7,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(
-        self,
-        select_mocks: dict = None,
-        select_indices: list = None,
-        select_coordinates: dict = None,
-        slice_coordinates: dict = None,
-        phase_correction: bool = False,
-    ):
+    def __init__(self, phase_correction=False, **kwargs):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.stat_name = 'tpcf'
         self.sep_name = 's'
@@ -23,12 +16,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservable):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
 
-        self.select_mocks = select_mocks
-        self.select_coordinates = select_coordinates
-        self.slice_coordinates = slice_coordinates
-        assert type(select_indices) == list, "select_indices should be a list of indices"
-        self.select_indices = {'bin_idx': select_indices} if select_indices else {}
-        super().__init__()
+        super().__init__(**kwargs)
 
     @property
     def lhc_indices(self):
