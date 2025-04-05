@@ -26,11 +26,20 @@ class BaseObservable(ABC):
 
         if bool((self.select_coordinates or self.slice_coordinates) and self.select_indices):
             raise ValueError("You can only select either coordinates or indices, not both.")
-        self.select_filters = {
-            **self.select_mocks,
-            **self.select_coordinates,
-            **self.select_indices
-        }
+        self.select_filters = {}
+
+        # Add each dictionary only if it's not None
+        if self.select_mocks is not None:
+            self.select_filters.update(self.select_mocks)
+        if self.select_coordinates is not None:
+            self.select_filters.update(self.select_coordinates)
+        if self.select_indices is not None:
+            self.select_filters.update(self.select_indices)
+        # self.select_filters = {
+        #     **self.select_mocks,
+        #     **self.select_coordinates,
+        #     **self.select_indices
+        # }
         self.slice_filters = self.slice_coordinates
 
         self.model = self.load_model()
