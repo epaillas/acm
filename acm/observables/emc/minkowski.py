@@ -1,45 +1,67 @@
 from .base import BaseObservable
+import logging
 
 
 class MinkowskiFunctionals(BaseObservable):
     """
     Class for the Emulator's Mock Challenge Minkowski functionals.
     """
-    def __init__(self, select_filters: dict = None, slice_filters: dict = None):
+    def __init__(self, phase_correction=False, **kwargs):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.stat_name = 'minkowski'
         self.sep_name = 'delta'
-        self.select_filters = select_filters
-        self.slice_filters = slice_filters
-        super().__init__()
+
+        if phase_correction and hasattr(self, 'compute_phase_correction'):
+            self.logger.info('Computing phase correction.')
+            self.phase_correction = self.compute_phase_correction()
+
+        super().__init__(**kwargs)
 
     @property
-    def coords_lhc_x(self):
+    def lhc_indices(self):
+        """
+        Indices of the Latin hypercube samples, including variations in cosmology and HOD parameters.
+        """
         return {
             'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
             'hod_idx': list(range(200)),
-            'param_idx': list(range(20))
         }
 
     @property
-    def coords_lhc_y(self):
+    def test_set_indices(self):
+        """
+        Indices of the test set samples, including variations in cosmology and HOD parameters.
+        """
         return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
+            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)),
             'hod_idx': list(range(200)),
-            self.sep_name: self.separation,
         }
 
     @property
-    def coords_small_box(self):
+    def small_box_indices(self):
+        """
+        Indices of the covariance samples, including variations in phase and HOD parameters.
+        """
         return {
             'phase_idx': list(range(1786)),
-            self.sep_name: self.separation,
         }
 
     @property
-    def coords_model(self):
-        return {
-            self.sep_name: self.separation,
+    def coordinates(self):
+        """
+        Coordinates of the data and model vectors.
+        """
+        return{
+            'delta': self.separation,
         }
+    
+    @property
+    def coordinates_indices(self):
+        """
+        Indices of the (flat) coordinates of the data and model vectors.
+        """
+        return{'bin_idx': list(range(len(self.separation)))}
+
 
     @property
     def model_fn(self):

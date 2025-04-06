@@ -17,6 +17,7 @@ class BaseObservable(ABC):
         select_coordinates: dict = {},
         slice_coordinates: dict = {},
     ):
+        print(self.__class__.__name__)
         if select_indices:
             assert type(select_indices) == list, "select_indices should be a list of indices"
         self.select_indices = {'bin_idx': select_indices} if select_indices else {}

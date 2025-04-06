@@ -1,4 +1,5 @@
 from .base import BaseObservable
+import logging
 
 
 class GalaxyBispectrumMultipoles(BaseObservable):
