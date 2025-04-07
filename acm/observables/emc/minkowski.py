@@ -69,6 +69,7 @@ class MinkowskiFunctionals(BaseObservable):
         return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/minkowski/cosmo+hod/best-model-epoch=132-val_loss=0.0319.ckpt'
 
     def get_emulator_error(self, select_filters=None, slice_filters=None):
+        from sunbird.data.data_utils import convert_to_summary
         from pathlib import Path
         import numpy as np
         error_dir = '/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
