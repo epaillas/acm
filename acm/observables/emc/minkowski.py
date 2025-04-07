@@ -70,7 +70,16 @@ class MinkowskiFunctionals(BaseObservable):
     def get_emulator_error(self, select_filters=None, slice_filters=None):
         from pathlib import Path
         import numpy as np
-        data_dir = '/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
-        data_fn = Path(data_dir) / 'minkowski.npy'
-        data = np.load(data_fn, allow_pickle=True).item()
-        return data['emulator_error']
+        error_dir = '/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
+        error_fn = Path(data_dir) / 'minkowski.npy'
+        error = np.load(data_fn, allow_pickle=True).item()['emulator_error']
+        coords = self.coordinates_indices if self.select_indices else self.coordinates
+        coords_shape = tuple(len(v) for k, v in coords.items())
+        dimensions = list(self.coords.keys())
+        error = error.reshape(*coords_shape)
+        select_filters = self.select_coordinates
+        slice_filters = self.slice_coordinates
+        return convert_to_summary(
+            data=error, dimensions=dimensions, coords=coords,
+            select_filters=select_filters, slice_filters=slice_filters
+        ).values.reshape(-1)
