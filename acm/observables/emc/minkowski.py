@@ -75,7 +75,7 @@ class MinkowskiFunctionals(BaseObservable):
         error = np.load(error_fn, allow_pickle=True).item()['emulator_error']
         coords = self.coordinates_indices if self.select_indices else self.coordinates
         coords_shape = tuple(len(v) for k, v in coords.items())
-        dimensions = list(self.coords.keys())
+        dimensions = list(coords.keys())
         error = error.reshape(*coords_shape)
         select_filters = self.select_coordinates
         slice_filters = self.slice_coordinates
