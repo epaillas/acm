@@ -79,7 +79,7 @@ class MinkowskiFunctionals(BaseObservable):
         coords_shape = tuple(len(v) for k, v in coords.items())
         dimensions = list(coords.keys())
         error = error.reshape(*coords_shape)
-        select_filters = self.select_coordinates
+        select_filters = self.select_coordinates if self.select_coordinates else self.select_indices
         slice_filters = self.slice_coordinates
         return convert_to_summary(
             data=error, dimensions=dimensions, coords=coords,
