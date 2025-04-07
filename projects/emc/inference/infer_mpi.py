@@ -59,8 +59,8 @@ def get_observables(
     observables = []
     for stat in statistics:
         obs = stat_map[stat]
-        obs.select_filters['cosmo_idx'] = cosmo_idx
-        obs.select_filters['hod_idx'] = hod_idx
+        obs.select_mocks['cosmo_idx'] = cosmo_idx
+        obs.select_mocks['hod_idx'] = hod_idx
         observables.append(obs)
     return emc.CombinedObservable(observables)
 
@@ -74,25 +74,25 @@ if __name__ == "__main__":
 
     stat_map = {
         'number_density': emc.GalaxyNumberDensity(
-            select_filters={'cosmo_idx': None, 'hod_idx': None}),
+            select_mocks={'cosmo_idx': None, 'hod_idx': None}),
         'wp': emc.GalaxyProjectedCorrelationFunction(
-            select_filters={'cosmo_idx': None, 'hod_idx': None},
-            slice_filters={}),
+            select_mocks={'cosmo_idx': None, 'hod_idx': None}),
         'tpcf': emc.GalaxyCorrelationFunctionMultipoles(
-            select_filters={'cosmo_idx': None, 'hod_idx': None, 'multipoles': [0, 2]},
-            slice_filters={}),
+            select_mocks={'cosmo_idx': None, 'hod_idx': None,},
+            select_filters={'multipoles': [0, 2]},
+        ),
         'pk': emc.GalaxyPowerSpectrumMultipoles(
-            select_filters={'cosmo_idx': None, 'hod_idx': None},
-            slice_filters={}),
+            select_mocks={'cosmo_idx': None, 'hod_idx': None},
+        ),
         'bk': emc.GalaxyBispectrumMultipoles(
-            select_filters={'cosmo_idx': None, 'hod_idx': None},
-            slice_filters={}),
+            select_mocks={'cosmo_idx': None, 'hod_idx': None},
+        ),
         'wst': emc.WaveletScatteringTransform(
-            select_filters={'cosmo_idx': None, 'hod_idx': None},
-            slice_filters={}),
+            select_mocks={'cosmo_idx': None, 'hod_idx': None},
+        ),
         'dt_voids': emc.DTVoidGalaxyCorrelationFunctionMultipoles(
-            select_filters={'cosmo_idx': None, 'hod_idx': None},
-            slice_filters={})
+            select_mocks={'cosmo_idx': None, 'hod_idx': None},
+        ),
     }
 
     mpicomm = mpi.COMM_WORLD
