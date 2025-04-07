@@ -79,7 +79,7 @@ if __name__ == "__main__":
             select_mocks={'cosmo_idx': None, 'hod_idx': None}),
         'tpcf': emc.GalaxyCorrelationFunctionMultipoles(
             select_mocks={'cosmo_idx': None, 'hod_idx': None,},
-            select_filters={'multipoles': [0, 2]},
+            select_coordinates={'multipoles': [0, 2]},
         ),
         'pk': emc.GalaxyPowerSpectrumMultipoles(
             select_mocks={'cosmo_idx': None, 'hod_idx': None},
