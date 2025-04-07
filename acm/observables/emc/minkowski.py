@@ -71,8 +71,8 @@ class MinkowskiFunctionals(BaseObservable):
         from pathlib import Path
         import numpy as np
         error_dir = '/pscratch/sd/e/epaillas/emc/v1.1/emulator_error/'
-        error_fn = Path(data_dir) / 'minkowski.npy'
-        error = np.load(data_fn, allow_pickle=True).item()['emulator_error']
+        error_fn = Path(error_dir) / 'minkowski.npy'
+        error = np.load(error_fn, allow_pickle=True).item()['emulator_error']
         coords = self.coordinates_indices if self.select_indices else self.coordinates
         coords_shape = tuple(len(v) for k, v in coords.items())
         dimensions = list(self.coords.keys())
