@@ -49,10 +49,11 @@ def get_gradient(statistic):
     return torch.func.jacrev(model_fn)(fiducial_parameters).detach().squeeze().numpy()
 
 
-def get_individual_fisher_information(statistic, add_inverse_correction=True, add_emulator_error=True,):
+def get_individual_fisher_information(statistic, add_inverse_correction=True, add_emulator_error=True, volume_factor=64.):
     small_box_y = statistic.small_box_y
     fiducial_parameters = statistic.lhc_x
-    covariance_matrix = np.cov(small_box_y.T)
+    prefactor = 1 / volume_factor
+    covariance_matrix = prefactor * np.cov(small_box_y.T)
     if add_emulator_error:
         covariance_matrix += statistic.get_emulator_error()**2
     if add_inverse_correction:
@@ -102,6 +103,7 @@ def compute_precision_matrices(
         available_bin_emulator_error=None,
         add_emulator_error=False,
         add_inverse_correction=True,
+        volume_factor = 64.,
     ):
     if selected_bin_data.shape[1] == 0:
         covariance_mocks = available_bin_data
@@ -124,8 +126,9 @@ def compute_precision_matrices(
     else:
         correction = 1.
     precision_matrices = np.zeros((n_options, n_dim, n_dim))
+    prefactor = 1 / volume_factor
     for i in range(n_options):
-        covariance_matrix = np.atleast_2d(np.cov(covariance_mocks[i].T))
+        covariance_matrix = np.atleast_2d(prefactor*np.cov(covariance_mocks[i].T))
         if add_emulator_error:
             error = np.hstack((selected_bin_emulator_error, available_bin_emulator_error[i]))
             covariance_matrix += np.diag(error)
@@ -372,14 +375,14 @@ if __name__ == '__main__':
 
 
     for stat_str, statistic in statistics.items():
-        print(stat_str)
-        selected_bins, final_fisher, all_fisher_values = run_greedy_fisher(
-            {stat_str: statistic},
-            max_bins=100, 
-            add_emulator_error=True,
-            add_inverse_correction=True,
-        )
-        print(f"Greedy Fisher log-determinant: {final_fisher:.4f}")
+        # print(stat_str)
+        # selected_bins, final_fisher, all_fisher_values = run_greedy_fisher(
+        #     {stat_str: statistic},
+        #     max_bins=100, 
+        #     add_emulator_error=True,
+        #     add_inverse_correction=True,
+        # )
+        # print(f"Greedy Fisher log-determinant: {final_fisher:.4f}")
         fisher_information = get_individual_fisher_information(
             statistic,
             add_inverse_correction=True,
@@ -387,3 +390,12 @@ if __name__ == '__main__':
         )
         print(f"Individual Fisher information: {stat_str} = {fisher_information:.4f}")
         print('*'*100)
+
+
+    selected_bins, final_fisher, all_fisher_values = run_greedy_fisher(
+        statistics,
+        max_bins=100, 
+        add_emulator_error=True,
+        add_inverse_correction=True,
+    )
+    print(f"Greedy Fisher log-determinant: {final_fisher:.4f}")
