@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from acm.compression.greedy_fisher import safe_inverse, get_fisher_information
+from acm.compression.greedy_fisher import safe_inverse, get_individual_fisher_information 
 import acm.observables.emc as emc
 
 STAT_NAMES = [
@@ -77,5 +77,5 @@ def test_well_behaved_covariance(statistics, stat_name, atol=1e-4, rtol=1e-4):
 def test_well_behaved_fisher(statistics, stat_name):
     """Test that Fisher information is positive."""
     stat = statistics[stat_name]
-    fisher_information = get_fisher_information(stat)
+    fisher_information = get_individual_fisher_information(stat)
     assert fisher_information > 0., f"Fisher < 0 for {stat_name}"
