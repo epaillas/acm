@@ -147,12 +147,12 @@ class CutskyHOD:
                 for key in self.keys_randoms:
                     randoms[key].extend(randoms_rep[key])
 
-            for key in self.keys_data:
-                data[key] = np.array(data[key])
-            if generate_randoms:
-                for key in self.keys_randoms:
-                    randoms[key] = np.array(randoms[key])
-                return data, randoms
+        for key in self.keys_data:
+            data[key] = np.array(data[key])
+        if generate_randoms:
+            for key in self.keys_randoms:
+                randoms[key] = np.array(randoms[key])
+            return data, randoms
         return data
 
     def get_box_shifts(self, mappings: list = [-1, 0, 1]):
