@@ -36,7 +36,6 @@ class BaseDataObservable(BaseClass):
         
         if self.slice_filters or self.select_filters:
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = load_key,
                 summary_coords_dict = self.summary_coords_dict,
                 bin_values = self.unfiltered_bin_values, # Unfiltered bin values (just in case)
@@ -64,12 +63,10 @@ class BaseDataObservable(BaseClass):
         
         if self.slice_filters or self.select_filters:
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = load_key,
                 summary_coords_dict = self.summary_coords_dict,
             )
             sample_coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = 'samples',
                 summary_coords_dict = self.summary_coords_dict,
             )
@@ -111,14 +108,12 @@ class BaseDataObservable(BaseClass):
         if self.slice_filters or self.select_filters:
             flattened = bool(self.select_indices) # If we are using the bin_idx filter, we need to flatten the data
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = load_key,
                 summary_coords_dict = self.summary_coords_dict,
                 bin_values = self.unfiltered_bin_values, # Unfiltered bin values
                 flattened = flattened,
             )
             sample_coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = 'samples',
                 summary_coords_dict = self.summary_coords_dict,
             )
@@ -149,7 +144,6 @@ class BaseDataObservable(BaseClass):
         if self.slice_filters or self.select_filters:
             flattened = bool(self.select_indices) # If we are using the bin_idx filter, we need to flatten the data
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = load_key,
                 summary_coords_dict = self.summary_coords_dict,
                 bin_values = self.unfiltered_bin_values, # Unfiltered bin values

@@ -6,7 +6,7 @@ import warnings
 from sunbird.data.data_utils import convert_to_summary
 import logging
 
-# NOTE : bugs if bin_values is a dict
+# FIXME : bugs if bin_values is a dict
 
 class BaseClass(ABC):
     """
@@ -48,53 +48,22 @@ class BaseClass(ABC):
             self.select_filters.update({'flat_bin_idx': select_indices})
         self.select_indices = select_indices
         
+        # Checkup
+        assert self.stat_name is not None, f"stat_name should be defined in the subclass {self.__class__.__name__}"
+        assert self.paths is not None, f"paths should be defined in the subclass {self.__class__.__name__}"
+        assert self.summary_coords_dict is not None, f"summary_coords_dict should be defined in the subclass {self.__class__.__name__}"
+        
     def __str__(self):
         """
         Returns a string representation of the object (statistic names and slice filters).
         """
         return self.get_save_handle()
     
-    #%% Abstract Properties
-    @property
-    @abstractmethod
-    def stat_name(self) -> str:
-        """
-        Name of the statistic.
-        """
-        pass
+    #%% Class attributes
     
-    @property  
-    @abstractmethod
-    def paths(self) -> dict:
-        """
-        Defines the default paths for the statistics results.
-        
-        Returns
-        -------
-        dict
-            Dictionary with the paths for the statistics results.
-            It must contain the following keys:
-            - 'data_dir' : Directory containing the compressed data.
-            - 'covariance_dir' : Directory containing the covariance array. 
-            If not provided, the covariance will be read from 'data_dir'.
-            - 'error_dir' : Directory containing the emulator error.
-            - 'model_dir' : Directory where the model is saved.
-            - 'checkpoint_name' : Name of the checkpoint file.
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def summary_coords_dict(self) -> dict:
-        """
-        Defines the default coordinates for the statistics results. 
-        Contains the following keys :
-        - 'sample_features' : Dictionary containing the sample features ('cosmo_idx', 'hod_idx')
-        - 'param_number' : Number of parameters in x_names (unfiltered)
-        - 'phase_number' : Number of phases in cov_y (unfiltered)
-        - self.stat_name : Dictionary containing the summary coordinates for the statistic. 
-        """
-        pass
+    stat_name = None
+    paths = None
+    summary_coords_dict = None
     
     #%% Static and class methods
     @staticmethod
@@ -156,9 +125,9 @@ class BaseClass(ABC):
         Parameters
         ----------
         statistic : str
-            Statistic to read.
+            Statistic name (filename) to read.
         data_dir : str
-            Directory containing the data.
+            Directory containing the data. Expects to find a file named `{statistic}.npy` in this directory.
         load_key : str
             Which key to return from the file. Can be 'x', 'y', 'x_names', 'bin_values', or 'cov_y', unless ignore_key_check is True.
             Defaults to 'x'.
@@ -191,7 +160,6 @@ class BaseClass(ABC):
         
     @staticmethod
     def summary_coords(
-        statistic: str,
         coord_type: str,
         summary_coords_dict: dict,
         bin_values = None,
@@ -203,8 +171,6 @@ class BaseClass(ABC):
         
         Parameters
         ----------
-        statistic : str
-            Statistic name
         coord_type : str
             Type of coordinates for which to find the coordinates.
             can be set to : 
@@ -264,7 +230,7 @@ class BaseClass(ABC):
         elif isinstance(bin_values, dict):
             bin_dict = bin_values
             
-        coord_stat_dict = summary_coords_dict.get(statistic, {}) # Summary coordinates for the statistic
+        coord_stat_dict = summary_coords_dict.get('data_features', {}) # Summary coordinates for the statistic
         unflattened_stat_dict = {
             **coord_stat_dict,
             **bin_dict,

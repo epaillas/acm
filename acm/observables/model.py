@@ -47,7 +47,6 @@ class BaseModelObservable(BaseClass):
         
         if self.slice_filters or self.select_filters:
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = load_key,
                 summary_coords_dict = self.summary_coords_dict,
                 bin_values = self.unfiltered_bin_values, # Unfiltered bin values (just in case)
@@ -84,7 +83,6 @@ class BaseModelObservable(BaseClass):
         if self.slice_filters or self.select_filters:
             flattened = bool(self.select_indices) # If we are using the bin_idx filter, we need to flatten the data
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = load_key,
                 summary_coords_dict = self.summary_coords_dict,
                 bin_values = self.unfiltered_bin_values, # Unfiltered bin values
@@ -121,7 +119,6 @@ class BaseModelObservable(BaseClass):
         if self.slice_filters or self.select_filters:
             flattened = bool(self.select_indices)
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = 'emulator_error',
                 summary_coords_dict = self.summary_coords_dict,
                 bin_values = self.unfiltered_bin_values, # Unfiltered bin values
@@ -143,7 +140,7 @@ class BaseModelObservable(BaseClass):
         """
         Path to the checkpoint file of the model, constructed from the paths and the statistic name.
         """
-        return self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name']
+        return self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name'] # FIXME : Update this format later
     
     #%% Methods
     def load_model(self, checkpoint_fn: str = None) -> FCN:
@@ -190,7 +187,6 @@ class BaseModelObservable(BaseClass):
         if self.slice_filters or self.select_filters:
             flattened = bool(self.select_indices) # If we are using the bin_idx filter, we need to flatten the data
             coords = self.summary_coords(
-                statistic = self.stat_name,
                 coord_type = 'emulator_error',
                 summary_coords_dict = self.summary_coords_dict,
                 bin_values = self.unfiltered_bin_values, # Unfiltered bin values
