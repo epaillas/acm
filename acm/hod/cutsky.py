@@ -5,11 +5,13 @@ import mockfactory
 from mockfactory.desi import is_in_desi_footprint
 from cosmoprimo.fiducial import AbacusSummit
 from .box import BoxHOD
-from acm.utils.paths import LRG_Abacus_DM
 from astropy.io import fits
 import logging
 import warnings
 warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
+
+from acm.utils.paths import get_Abacus_dirs
+LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
 #TODO : add docstrings !
 
@@ -21,7 +23,7 @@ class CutskyHOD:
     def __init__(
             self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
             phase_idx: int = 0, zranges: list[list] = [[0.41, 0.6]], 
-            snapshots: list = [0.5], DM_DICT: dict = LRG_Abacus_DM['box'],
+            snapshots: list = [0.5], DM_DICT: dict = LRG_Abacus_DM,
             debug: bool = False):
         self.logger = logging.getLogger('CutskyHOD')
         self.debug = debug

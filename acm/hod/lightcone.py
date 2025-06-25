@@ -9,7 +9,9 @@ from astropy.table import Table
 import mockfactory
 from abacusnbody.hod import abacus_hod
 from cosmoprimo.fiducial import AbacusSummit
-from acm.utils.paths import LRG_Abacus_DM
+
+from acm.utils.paths import get_Abacus_dirs
+LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='lightcone')
 
 
 import logging
@@ -25,7 +27,7 @@ class LightconeHOD:
         cosmo_idx: int = 0, 
         phase_idx: int = 0,
         zrange: list = [0.4, 0.8],
-        DM_DICT: dict = LRG_Abacus_DM['lightcone'],
+        DM_DICT: dict = LRG_Abacus_DM,
         ):
         self.logger = logging.getLogger('LightconeHOD')
         self.cosmo_idx = cosmo_idx

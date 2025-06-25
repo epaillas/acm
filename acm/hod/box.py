@@ -13,7 +13,8 @@ import sys
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
-from acm.utils.paths import LRG_Abacus_DM
+from acm.utils.paths import get_Abacus_dirs
+LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
 class BoxHOD:
     """
@@ -33,7 +34,7 @@ class BoxHOD:
         phase_idx: int = 0,
         sim_type: str = 'base', 
         redshift: float = 0.5,
-        DM_DICT: dict = LRG_Abacus_DM['box']):
+        DM_DICT: dict = LRG_Abacus_DM):
         """
         Initialize the BoxHOD class.
         
