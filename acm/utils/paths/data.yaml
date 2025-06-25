@@ -1,0 +1,13 @@
+emc:
+  data_dir: /pscratch/sd/s/sbouchar/acm/emc/input_data/
+  covariance_dir: /pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box/
+  param_dir: /pscratch/sd/e/epaillas/emc/cosmo+hod_params/
+
+bgs:  
+  data_dir: /pscratch/sd/s/sbouchar/acm/bgs/input_data/     
+  error_dir: /pscratch/sd/s/sbouchar/acm/bgs/emulator_error/
+  study_dir: /pscratch/sd/s/sbouchar/acm/bgs/trained_models/optuna/
+  model_dir: /pscratch/sd/s/sbouchar/acm/bgs/trained_models/
+  chain_dir: /pscratch/sd/s/sbouchar/acm/bgs/chains/
+  param_dir: /pscratch/sd/s/sbouchar/acm/bgs/parameters/cosmo+hod_params/
+  measurements_dir: /pscratch/sd/s/sbouchar/acm/bgs/measurements/
