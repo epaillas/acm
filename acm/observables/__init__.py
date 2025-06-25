@@ -1,4 +1,4 @@
-from .observable import BaseObservable
+from .observable import Observable
 from .data import BaseDataObservable
 from .model import BaseModelObservable
 
