@@ -92,13 +92,13 @@ class DensitySplit(BaseEnvironmentEstimator):
                 kwargs['boxsize'] = self.delta_mesh.boxsize
         self._quantile_data_correlation = []
         R1R2 = None
-        for quantile in self.quantiles:
+        for quantile in self.quantiles: 
             result = TwoPointCorrelationFunction(
-                data_positions1=quantile,
-                data_positions2=data_positions,
-                mode='smu',
-                position_type='pos',
-                R1R2=R1R2,
+                data_positions1 = quantile,
+                data_positions2 = data_positions,
+                mode = 'smu',
+                position_type = 'pos',
+                R1R2 = R1R2,
                 **kwargs,
             )
             self._quantile_data_correlation.append(result)
@@ -125,15 +125,17 @@ class DensitySplit(BaseEnvironmentEstimator):
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
+            kwargs['randoms_positions1'] = kwargs['randoms_positions']
+            kwargs.pop('randoms_positions')
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.delta_mesh.boxsize
         self._quantile_correlation = []
-        for quantile in self.quantiles:
+        for quantile in self.quantiles: 
             result = TwoPointCorrelationFunction(
-                data_positions1=quantile,
-                mode='smu',
-                position_type='pos',
+                data_positions1 = quantile,
+                mode = 'smu',
+                position_type = 'pos',
                 **kwargs,
             )
             self._quantile_correlation.append(result)
@@ -176,10 +178,10 @@ class DensitySplit(BaseEnvironmentEstimator):
         self._quantile_data_power = []
         for quantile in self.quantiles:
             result = CatalogFFTPower(
-                data_positions1=quantile,
-                data_positions2=data_positions,
-                ells=(0, 2, 4),
-                position_type='pos',
+                data_positions1 = quantile,
+                data_positions2 = data_positions,
+                ells = (0, 2, 4),
+                position_type = 'pos',
                 **kwargs,
             ).poles
             self._quantile_data_power.append(result)
@@ -217,9 +219,9 @@ class DensitySplit(BaseEnvironmentEstimator):
         self._quantile_power = []
         for quantile in self.quantiles:
             result = CatalogFFTPower(
-                data_positions1=quantile,
-                ells=(0, 2, 4),
-                position_type='pos',
+                data_positions1 = quantile,
+                ells = (0, 2, 4),
+                position_type = 'pos',
                 **kwargs,
             ).poles
             self._quantile_power.append(result)
@@ -398,13 +400,13 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
                 kwargs['boxsize'] = self.mesh.boxsize
         self._quantile_data_correlation = []
         R1R2 = None
-        for quantile in self.quantiles:
+        for quantile in self.quantiles:  
             result = TwoPointCorrelationFunction(
-                data_positions1=quantile,
-                data_positions2=data_positions,
-                mode='smu',
-                position_type='pos',
-                R1R2=R1R2,
+                data_positions1 = quantile,
+                data_positions2 = data_positions,
+                mode = 'smu',
+                position_type = 'pos',
+                R1R2 = R1R2,
                 **kwargs,
             )
             self._quantile_data_correlation.append(result)
@@ -439,9 +441,9 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
         self._quantile_correlation = []
         for quantile in self.quantiles:
             result = TwoPointCorrelationFunction(
-                data_positions1=quantile,
-                mode='smu',
-                position_type='pos',
+                data_positions1 = quantile,
+                mode = 'smu',
+                position_type = 'pos',
                 **kwargs,
             )
             self._quantile_correlation.append(result)
@@ -484,10 +486,10 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
         self._quantile_data_power = []
         for quantile in self.quantiles:
             result = CatalogFFTPower(
-                data_positions1=quantile,
-                data_positions2=data_positions,
-                ells=(0, 2, 4),
-                position_type='pos',
+                data_positions1 = quantile,
+                data_positions2 = data_positions,
+                ells = (0, 2, 4),
+                position_type = 'pos',
                 **kwargs,
             ).poles
             self._quantile_data_power.append(result)
@@ -525,9 +527,9 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
         self._quantile_power = []
         for quantile in self.quantiles:
             result = CatalogFFTPower(
-                data_positions1=quantile,
-                ells=(0, 2, 4),
-                position_type='pos',
+                data_positions1 = quantile,
+                ells = (0, 2, 4),
+                position_type = 'pos',
                 **kwargs,
             ).poles
             self._quantile_power.append(result)
