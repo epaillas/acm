@@ -36,7 +36,7 @@ nersc = [
     # Estimators (base)
     'polybin3d[mkl_fft] @ git+https://github.com/oliverphilcox/PolyBin3D',
 ]
-comsodesi = [
+cosmodesi = [
     # Estimators (base)
     'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
     'pypower @ git+https://github.com/cosmodesi/pypower', 
