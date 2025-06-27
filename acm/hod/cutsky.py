@@ -64,7 +64,7 @@ class CutskyHOD:
         vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']]
         return pos.astype(np.float32), vel.astype(np.float32)
 
-    def setup_hod_debug(self, DM_DICT: dict = LRG_Abacus_DM['box']):
+    def setup_hod_debug(self, DM_DICT: dict = LRG_Abacus_DM):
         """
         Convenience function only used to speed up debugging.
         """
