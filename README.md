@@ -27,6 +27,8 @@ Strict requirements are:
 - `matplotlib`
 - `getdist`
 
+> Note : `Make` is required to compile some C files during the installation, so it should be available in your environment.
+
 To run the estimators, you will also need:
 - [`PolyBin3D`](https://github.com/oliverphilcox/PolyBin3D)
 > Installed trough the `nersc` dependency.
