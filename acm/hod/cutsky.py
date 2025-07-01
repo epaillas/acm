@@ -81,7 +81,7 @@ class CutskyHOD:
         import fitsio
         from pathlib import Path
         data_dir = '/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c000_ph000/seed0'
-        data_fn = Path(data_dir) / 'hod030.fits'
+        data_fn = Path(data_dir) / 'hod030_raw.fits'
         data = fitsio.read(data_fn)
         pos = np.c_[data['X'], data['Y'], data['Z']]
         vel = np.c_[data['VX'], data['VY'], data['VZ']]
@@ -126,7 +126,7 @@ class CutskyHOD:
             # replicate the box along each axis to cover more volume
             shifts = self.get_box_shifts(mappings=[-1, 0, 1])  # shifts to translate particle positions
             target_nbar = self.get_target_nbar(zmin=zranges[0], zmax=zranges[1])
-            pos_min,pos_max = self.get_reference_borders(zranges,box_margin=300)
+            pos_min,pos_max = self.get_reference_borders(zranges,box_margin=1000)
             pos_rep, vel_rep = self.get_box_replications(pos_box, vel_box,
                                                          pos_min, pos_max, target_nbar, shifts=shifts)
             # data_nbar = len(pos_box) / (self.boxsize_snapshot ** 3)
@@ -211,7 +211,8 @@ class CutskyHOD:
         new_pos = []
         new_vel = []
         for shift in shifts:
-            temp_pos,temp_vel = self.get_pos_within_borders(position + shift,velocity,pos_min,pos_max,target_nbar)
+            temp_pos,temp_vel = self.get_pos_within_borders(position + shift, velocity,
+                                                            pos_min, pos_max, target_nbar)
             new_pos.append(temp_pos)
             new_vel.append(temp_vel)
         new_pos = np.concatenate(new_pos)
@@ -319,7 +320,7 @@ class CutskyHOD:
             convert_dict = {'N': 'north', 'DN': 'south_mid_ngc', 'N+SNGC': 'ngc', 'SNGC': 'south_mid_ngc', 'DS': 'south_mid_sgc', 'SSGC': 'south_mid_sgc', 'DES': 'des'}
             return pixels, dr9_footprint(convert_dict[region])[pixels]
 
-    def get_reference_borders(self,zranges,box_margin,mock_dir=None):
+    def get_reference_borders(self, zranges, box_margin, mock_dir=None):
 
         assert box_margin>0
         
