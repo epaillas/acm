@@ -5,6 +5,7 @@ import mockfactory
 from mockfactory.desi import is_in_desi_footprint
 from cosmoprimo.fiducial import AbacusSummit
 from .box import BoxHOD
+from .footprint import *
 from astropy.io import fits
 import logging
 import warnings
@@ -126,7 +127,9 @@ class CutskyHOD:
     def run(
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
             generate_randoms: bool = False,  box_margin: float = 300, alpha_randoms: int = 5, 
-            randoms_seed: float = 42, existing_mock_path: str = 'None'):
+            randoms_seed: float = 42, existing_mock_path: str = 'None', 
+            region='NGC', release='Y1'):
+
         data = self.init_data()
         randoms = self.init_randoms() if generate_randoms else None
 
@@ -145,9 +148,11 @@ class CutskyHOD:
                 pos_box, vel_box = self.sample_hod(ball, hod_params, nthreads=nthreads, seed=seed)
 
             target_nbar = self.get_target_nbar(zmin=zranges[0], zmax=zranges[1])
-            pos_min,pos_max = self.get_reference_borders(zranges,box_margin=box_margin)
+
+            pos_min,pos_max = self.get_reference_borders(zranges, boxpad=1000, region=region, release=release)
             # replicate the box along each axis to cover more volume
-            shifts = self.get_box_shifts(pos_min,pos_max)  # shifts to translate particle positions
+            shifts = self.get_box_shifts(pos_min, pos_max)  # shifts to translate particle positions
+
             pos_rep, vel_rep = self.get_box_replications(pos_box, vel_box,
                                                          pos_min, pos_max, target_nbar, shifts=shifts)
             # data_nbar = len(pos_box) / (self.boxsize_snapshot ** 3)
@@ -157,7 +162,8 @@ class CutskyHOD:
                                               boxsize=pos_max-pos_min, boxcenter=(pos_max+pos_min)/2,)
             data_rep = self.box_to_cutsky(box=data_rep, zmin=zranges[0], zmax=zranges[1], 
                                           zrsd=zsnap, radial_mask_norm=1/data_nbar, apply_rsd=True,
-                                          apply_radial_mask=True, apply_footprint_mask=True)
+                                          apply_radial_mask=True, apply_footprint_mask=True,
+                                          region=region, release=release)
             for key in self.keys_data:
                 data[key].extend(data_rep[key])
 
@@ -169,7 +175,8 @@ class CutskyHOD:
                 randoms_rep = self.box_to_cutsky(randoms_rep, zmin=zranges[0], zmax=zranges[1],
                                                  apply_rsd=False, apply_radial_mask=True,
                                                  radial_mask_norm=1/data_nbar,
-                                                 apply_footprint_mask=True)
+                                                 apply_footprint_mask=True,
+                                                 region=region, release=release)
                 for key in self.keys_randoms:
                     randoms[key].extend(randoms_rep[key])
 
@@ -244,7 +251,8 @@ class CutskyHOD:
     def box_to_cutsky(
             self, box, zmin: float, zmax: float, zrsd: float = None, 
             apply_rsd: bool = False, apply_radial_mask: bool = False,
-            apply_footprint_mask: bool = False, radial_mask_norm: float = None):
+            apply_footprint_mask: bool = False, radial_mask_norm: bool = None,
+            region: str = 'NGC', release: str = 'Y1',):
         """
         Convert a box catalog to a cutsky catalog by applying geometric cuts, RSD, and masks.
         """
@@ -255,15 +263,16 @@ class CutskyHOD:
         cutsky = self._get_sky_positions(cutsky, apply_rsd)
         if apply_radial_mask:
             cutsky = self.apply_radial_mask(cutsky, zmin=zmin, zmax=zmax,
-                                             norm=radial_mask_norm)
+                                             norm=radial_mask_norm,
+                                             region=region, release=release)
         if apply_footprint_mask:
-            cutsky = self.apply_footprint_mask(cutsky)
+            cutsky = self.apply_footprint_mask(cutsky, region=region, release=release)
         return cutsky
 
-    def apply_geometric_cuts(self, catalog, zmin, zmax):
+    def apply_geometric_cuts(self, catalog, zmin, zmax, region='NGC', release='Y1'):
         self.logger.info('Applying geometric cuts.')
         # largest (RA, Dec) range we can achieve for a maximum distance of dist + boxsize / 2.
-        drange, rarange, decrange = self.get_reference_skyrange((zmin,zmax),mock_dir=None)
+        drange, rarange, decrange = self.get_reference_skyrange((zmin, zmax), region=region, release=release)
         # returned isometry corresponds to a displacement of the box along the x-axis to match drange, then a rotation to match rarange and decrange
         isometry, mask_radial, mask_angular = catalog.isometry_for_cutsky(drange=drange, rarange=rarange, decrange=decrange)
         return catalog.cutsky_from_isometry(isometry, rdd=None)
@@ -284,9 +293,11 @@ class CutskyHOD:
         catalog['Z'] = distance_to_redshift(catalog['Distance'])
         return catalog
 
-    def apply_radial_mask(self, catalog, zmin: float = 0., zmax: float = 6., seed: float = 42, norm=None):
+    def apply_radial_mask(self, catalog, zmin: float = 0., zmax: float = 6., seed: float = 42, norm=None,
+        region='NGC', release='Y1'):
+        # TODO need to make this work for other releases
         self.logger.info('Applying radial mask.')
-        nz_filename = '/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+        nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_{region}_nz.txt'
         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = (zbin_min + zbin_max) / 2
         zedges = np.insert(zbin_max, 0, zbin_min[0])
@@ -296,16 +307,16 @@ class CutskyHOD:
                                                       zrange=(zmin, zmax), norm=norm)
         return catalog[mask_radial(catalog['Z'], seed=seed)]
 
-    def apply_footprint_mask(self, catalog, region='N+SNGC'):
+    def apply_footprint_mask(self, catalog, region='N+SNGC', release='Y1', npasses=None, program='dark'):
         self.logger.info('Applying footprint mask.')
-        is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release='y1', program='dark', npasses=None)
-        catalog['HPX'], is_in_photo = self.is_in_photometric_region(catalog['RA'], catalog['DEC'], region)
+        is_in_desi = is_in_desi_footprint(catalog['RA'], catalog['DEC'], release=release, program=program, npasses=npasses)
+        catalog['HPX'], is_in_photo = self.is_in_photometric_region(catalog['RA'], catalog['DEC'], region=region)
         return catalog[is_in_desi & is_in_photo]
 
     def is_in_photometric_region(self, ra, dec, region, rank=0):
         """DN=NNGC and DS = SNGC"""
         region = region.upper()
-        assert region in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES']
+        assert region in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC']
 
         DR9Footprint = None
         try:
@@ -338,60 +349,45 @@ class CutskyHOD:
             _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)
 
             # Load DR9 footprint and create corresponding mask
-            dr9_footprint = DR9Footprint(nside, mask_lmc=False, clear_south=False, mask_around_des=False, cut_desi=False, verbose=(rank == 0))
-            convert_dict = {'N': 'north', 'DN': 'south_mid_ngc', 'N+SNGC': 'ngc', 'SNGC': 'south_mid_ngc', 'DS': 'south_mid_sgc', 'SSGC': 'south_mid_sgc', 'DES': 'des'}
+            dr9_footprint = DR9Footprint(nside, mask_lmc=False, clear_south=False,
+                                         mask_around_des=False, cut_desi=False,
+                                         verbose=(rank == 0))
+            convert_dict = {
+                'N': 'north',
+                'DN': 'south_mid_ngc',
+                'N+SNGC': 'ngc', 'SNGC': 'south_mid_ngc',
+                'DS': 'south_mid_sgc',
+                'SSGC': 'south_mid_sgc',
+                'DES': 'des',
+                'NGC': 'ngc',
+                'SGC': 'south_mid_sgc',
+            }
             return pixels, dr9_footprint(convert_dict[region])[pixels]
 
-    def get_reference_borders(self, zranges, box_margin, mock_dir=None):
-
-        assert box_margin>0
-        
-        if mock_dir==None:
-            mock_dir  = '/global/cfs/cdirs/desi/survey/catalogs/Y1/mocks/SecondGenMocks/AbacusSummit_v4_1/'
-            mock_dir += 'altmtl0/mock0/LSScats/LRG_NGC_clustering.dat.fits'
-        hdul = fits.open(mock_dir) 
-        data  = hdul[1].data
-        hdul.close()
-        
-        zmin,zmax = zranges
-        chosen = np.logical_and(data['Z']<zmax,data['Z']>zmin)
-        dist = self.cosmo.comoving_radial_distance(data['Z'][chosen])
-        pos = mockfactory.sky_to_cartesian(dist,data['RA'][chosen],data['DEC'][chosen])
-        pos_min = np.min(pos,axis=0)
-        pos_max = np.max(pos,axis=0)
-        if box_margin>1:
-            return pos_min - box_margin, pos_max + box_margin
+    def get_reference_borders(self, zranges, boxpad=1000, region='NGC', release='Y1'):
+        """
+        Gets the reference borders in cartesian borders to apply to the box replications.
+        """
+        assert boxpad > 0
+        pos_min, pos_max = minmax_xyz_desi(zranges, region=region, release=release, tracer='LRG') 
+        if boxpad > 1:
+            return pos_min - boxpad, pos_max + boxpad
         else:
-            return pos_min - box_margin*self.boxsize_snapshot, pos_max + box_margin*self.boxsize_snapshot
+            return pos_min - boxpad * self.boxsize_snapshot, pos_max + boxpad * self.boxsize_snapshot
 
-    def get_reference_skyrange(self,zranges,mock_dir=None):
-
-        if mock_dir==None:
-            mock_dir  = '/global/cfs/cdirs/desi/survey/catalogs/Y1/mocks/SecondGenMocks/AbacusSummit_v4_1/'
-            mock_dir += 'altmtl0/mock0/LSScats/LRG_NGC_clustering.dat.fits'
-        hdul = fits.open(mock_dir) 
-        data  = hdul[1].data
-        hdul.close()
-        
-        zmin,zmax = zranges
-        chosen = np.logical_and(data['Z']<zmax,data['Z']>zmin)
-        RA = data['RA'][chosen]
-        DEC = data['DEC'][chosen]
-        Z = data['Z'][chosen]
-        dist = self.cosmo.comoving_radial_distance(data['Z'][chosen])
-        dist_min = np.min(dist,axis=0)
-        dist_max = np.max(dist,axis=0)
-        RA_min   = np.min(RA,axis=0)
-        RA_max   = np.max(RA,axis=0)
-        DEC_min  = np.min(DEC,axis=0)
-        DEC_max  = np.max(DEC,axis=0)
-        return (dist_min,dist_max),(RA_min,RA_max),(DEC_min,DEC_max)
+    def get_reference_skyrange(self, zranges, region='NGC', release='Y1'):
+        """
+        Gets the reference ra, min, distance ranges in degrees and Mpc/h.
+        """
+        return minmax_skycoord_desi(zranges, region=region, release=release, tracer='LRG')
             
-    def get_target_nbar(self, zmin: float = 0., zmax: float = 6., nzbuff=1.1):
-        nz_filename = '/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+    def get_target_nbar(self, zmin: float = 0., zmax: float = 6., nzpad=1.1, region='NGC', release='Y1'):
+        # TODO need to make this work for other releases
+        self.logger.info('Applying radial mask.')
+        nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_{region}_nz.txt'
         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         chosen = np.logical_and(zbin_min>=zmin,zbin_max<=zmax)
-        return nzbuff*np.max(n_z[chosen])
+        return nzpad * np.max(n_z[chosen])
 
     def get_pos_within_borders(self,pos,vel,pos_min,pos_max,target_nbar):
         target_ngal = int(target_nbar*self.boxsize_snapshot**3)

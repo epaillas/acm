@@ -35,7 +35,7 @@ def plot_footprint():
     print('Plotting footprint.')
     fig, ax = plt.subplots(1, 2, figsize=(6, 3))
     ax[0].scatter(data['RA'], data['DEC'], s=0.1)
-    ax[1].scatter(randoms['RA'], randoms['DEC'], s=0.1)
+    # ax[1].scatter(randoms['RA'], randoms['DEC'], s=0.1)
     ax[0].set_title('Data')
     ax[1].set_title('Randoms')
     for aa in ax:
@@ -50,9 +50,9 @@ def plot_redshift_distribution():
     print('Plotting redshift distribution.')
     fig, ax = plt.subplots(1, 2, figsize=(6, 3))
     ax[0].hist(data['Z'], density=True, label='data')
-    ax[0].hist(randoms['Z'], density=True, label='randoms', ls='--', histtype='step')
+    # ax[0].hist(randoms['Z'], density=True, label='randoms', ls='--', histtype='step')
     ax[1].hist(data['Z'], density=False, label='data')
-    ax[1].hist(randoms['Z'], density=False, label='randoms', ls='--', histtype='step')
+    # ax[1].hist(randoms['Z'], density=False, label='randoms', ls='--', histtype='step')
     ax[0].set_title('Normalized')
     ax[1].set_title('Counts')
     for aa in ax:
@@ -108,7 +108,8 @@ abacus = CutskyHOD(varied_params=hod_params.keys(),
 
 # sample HOD parameters and build the cutsky mock
 hod = {key: hod_params[key][30] for key in hod_params.keys()}
-data, randoms = abacus.run(hod, nthreads=128, generate_randoms=True, alpha_randoms=5)
+data, randoms = abacus.run(hod, nthreads=128, generate_randoms=True, alpha_randoms=5,
+                  region='NGC', release='Y1')
 
 # get positions for clustering analysis
 data_positions = get_clustering_positions(data)
