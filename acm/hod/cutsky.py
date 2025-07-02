@@ -24,9 +24,10 @@ class CutskyHOD:
             self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
             phase_idx: int = 0, zranges: list[list] = [[0.41, 0.6]], 
             snapshots: list = [0.5], DM_DICT: dict = LRG_Abacus_DM,
-            debug: bool = False):
+            debug: bool = False, load_existing_hod: bool = False):
         self.logger = logging.getLogger('CutskyHOD')
         self.debug = debug
+        self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
@@ -35,7 +36,10 @@ class CutskyHOD:
         self.snapshots = snapshots
         self.boxsize_snapshot = 2000  # Mpc/h
         self.boxcenter = np.array([0, 0, 0])  # Mpc/h
-        if self.debug:
+        if self.load_existing_hod:
+            self.cosmo = AbacusSummit(self.cosmo_idx)
+            self.logger.info('Load existing hod instead of generating new ones.')
+        elif self.debug:
             self.logger.info('Running in debug mode.')
             self.setup_hod_debug(DM_DICT=DM_DICT)
         else:
@@ -62,6 +66,17 @@ class CutskyHOD:
         hod_dict = ball.run(hod_params, seed=seed, nthreads=nthreads)['LRG']
         pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']]
         vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']]
+        return pos.astype(np.float32), vel.astype(np.float32)
+
+    def load_hod(self, mock_path='None'):
+        if mock_path=='None':
+            base_path = '/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/LRG/z0.500/AbacusSummit_base_c000_ph000'
+            mock_path = base_path +'/LRG_real_space.fits'
+        hdul = fits.open(mock_path) 
+        data  = hdul[1].data
+        hdul.close()
+        pos = np.vstack([data['x'],data['y'],data['z']]).T
+        vel = np.vstack([data['vx'],data['vy'],data['vz']]).T
         return pos.astype(np.float32), vel.astype(np.float32)
 
     def setup_hod_debug(self, DM_DICT: dict = LRG_Abacus_DM):
@@ -111,16 +126,22 @@ class CutskyHOD:
     def run(
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
             generate_randoms: bool = False, replications: list = [-1, 0, 1],
-            alpha_randoms: int = 5, randoms_seed: float = 42):
+            alpha_randoms: int = 5, randoms_seed: float = 42, existing_mock_path: str = 'None'):
         data = self.init_data()
         randoms = self.init_randoms() if generate_randoms else None
 
         # construct one redshift shell at a time from the snapshots
-        for ball, zsnap, zranges in zip(self.balls, self.snapshots, self.zranges):
+        for i in range(len(self.snapshots)):
+            zsnap   = self.snapshots[i]
+            zranges = self.zranges[i]
             self.logger.info(f'Processing snapshot at z = {zsnap} with redshift range {zranges}')
-            if self.debug:
+            if self.load_existing_hod:
+                pos_box, vel_box = self.load_hod(mock_path=existing_mock_path)
+            elif self.debug:
+                ball    = self.balls[i]
                 pos_box, vel_box = self.sample_hod_debug(ball, hod_params, nthreads=nthreads, seed=seed)
             else:
+                ball    = self.balls[i]
                 pos_box, vel_box = self.sample_hod(ball, hod_params, nthreads=nthreads, seed=seed)
 
             # replicate the box along each axis to cover more volume
