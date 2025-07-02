@@ -125,8 +125,8 @@ class CutskyHOD:
 
     def run(
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
-            generate_randoms: bool = False, replications: list = [-1, 0, 1],
-            alpha_randoms: int = 5, randoms_seed: float = 42, existing_mock_path: str = 'None'):
+            generate_randoms: bool = False,  box_margin: float = 300, alpha_randoms: int = 5, 
+            randoms_seed: float = 42, existing_mock_path: str = 'None'):
         data = self.init_data()
         randoms = self.init_randoms() if generate_randoms else None
 
@@ -144,10 +144,10 @@ class CutskyHOD:
                 ball    = self.balls[i]
                 pos_box, vel_box = self.sample_hod(ball, hod_params, nthreads=nthreads, seed=seed)
 
-            # replicate the box along each axis to cover more volume
-            shifts = self.get_box_shifts(mappings=[-1, 0, 1])  # shifts to translate particle positions
             target_nbar = self.get_target_nbar(zmin=zranges[0], zmax=zranges[1])
-            pos_min,pos_max = self.get_reference_borders(zranges,box_margin=1000)
+            pos_min,pos_max = self.get_reference_borders(zranges,box_margin=box_margin)
+            # replicate the box along each axis to cover more volume
+            shifts = self.get_box_shifts(pos_min,pos_max)  # shifts to translate particle positions
             pos_rep, vel_rep = self.get_box_replications(pos_box, vel_box,
                                                          pos_min, pos_max, target_nbar, shifts=shifts)
             # data_nbar = len(pos_box) / (self.boxsize_snapshot ** 3)
@@ -181,24 +181,25 @@ class CutskyHOD:
             return data, randoms
         return data
 
-    def get_box_shifts(self, mappings: list = [-1, 0, 1]):
+    def get_box_shifts(self, pos_min, pos_max):
         """
         Get the shifts that need to be applied to replicate the box along
         one or more axes of the simulation.
         Parameters
         ----------
-        mappings : list, optional
-            List of integers representing the replication mappings along each axis, by default [-1, 0, 1].
-            -1 translates the box by -boxsize, 0 keeps the original position, and 1 translates it by +boxsize.
+        pos_min, pos_max: both should be 1-d array, the minimum and maximum of postion from the reference mock.
         Returns
         -------
         list
             List of shifts to be applied to the box positions.
         """
+        mappings_max = np.int32(np.ceil((pos_max - 1000)/2000))
+        mappings_min = np.int32(np.floor((pos_min + 1000)/2000))
         shifts = []
-        for i in mappings:
-            for j in mappings:
-                for k in mappings:
+        mappings = [np.arange(mappings_min[i],mappings_max[i]+1) for i in range(3)]
+        for i in mappings[0]:
+            for j in mappings[1]:
+                for k in mappings[2]:
                     shifts.append([self.boxsize_snapshot * np.array([i, j, k])])
         return shifts
 
@@ -243,14 +244,14 @@ class CutskyHOD:
     def box_to_cutsky(
             self, box, zmin: float, zmax: float, zrsd: float = None, 
             apply_rsd: bool = False, apply_radial_mask: bool = False,
-            apply_footprint_mask: bool = False, radial_mask_norm: bool = None):
+            apply_footprint_mask: bool = False, radial_mask_norm: float = None):
         """
         Convert a box catalog to a cutsky catalog by applying geometric cuts, RSD, and masks.
         """
-        dist = self.cosmo.comoving_radial_distance((zmin + zmax) / 2)
-        cutsky = self.apply_geometric_cuts(box,zmin,zmax)
         if apply_rsd: 
-            cutsky = self.apply_rsd(cutsky, zrsd)
+            cutsky = self.apply_rsd(box, zrsd)
+        else:
+            cutsky = box
         cutsky = self._get_sky_positions(cutsky, apply_rsd)
         if apply_radial_mask:
             cutsky = self.apply_radial_mask(cutsky, zmin=zmin, zmax=zmax,
@@ -387,7 +388,6 @@ class CutskyHOD:
         return (dist_min,dist_max),(RA_min,RA_max),(DEC_min,DEC_max)
             
     def get_target_nbar(self, zmin: float = 0., zmax: float = 6., nzbuff=1.1):
-        self.logger.info('Applying radial mask.')
         nz_filename = '/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         chosen = np.logical_and(zbin_min>=zmin,zbin_max<=zmax)
