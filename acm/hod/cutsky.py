@@ -25,9 +25,10 @@ class CutskyHOD:
             self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
             phase_idx: int = 0, zranges: list[list] = [[0.41, 0.6]], 
             snapshots: list = [0.5], DM_DICT: dict = LRG_Abacus_DM,
-            debug: bool = False):
+            debug: bool = False, load_existing_hod: bool = False):
         self.logger = logging.getLogger('CutskyHOD')
         self.debug = debug
+        self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
@@ -36,7 +37,10 @@ class CutskyHOD:
         self.snapshots = snapshots
         self.boxsize_snapshot = 2000  # Mpc/h
         self.boxcenter = np.array([0, 0, 0])  # Mpc/h
-        if self.debug:
+        if self.load_existing_hod:
+            self.cosmo = AbacusSummit(self.cosmo_idx)
+            self.logger.info('Load existing hod instead of generating new ones.')
+        elif self.debug:
             self.logger.info('Running in debug mode.')
             self.setup_hod_debug(DM_DICT=DM_DICT)
         else:
@@ -63,6 +67,17 @@ class CutskyHOD:
         hod_dict = ball.run(hod_params, seed=seed, nthreads=nthreads)['LRG']
         pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']]
         vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']]
+        return pos.astype(np.float32), vel.astype(np.float32)
+
+    def load_hod(self, mock_path='None'):
+        if mock_path=='None':
+            base_path = '/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/LRG/z0.500/AbacusSummit_base_c000_ph000'
+            mock_path = base_path +'/LRG_real_space.fits'
+        hdul = fits.open(mock_path) 
+        data  = hdul[1].data
+        hdul.close()
+        pos = np.vstack([data['x'],data['y'],data['z']]).T
+        vel = np.vstack([data['vx'],data['vy'],data['vz']]).T
         return pos.astype(np.float32), vel.astype(np.float32)
 
     def setup_hod_debug(self, DM_DICT: dict = LRG_Abacus_DM):
@@ -111,24 +126,33 @@ class CutskyHOD:
 
     def run(
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
-            generate_randoms: bool = False, replications: list = [-1, 0, 1],
-            alpha_randoms: int = 5, randoms_seed: float = 42,
+            generate_randoms: bool = False,  box_margin: float = 300, alpha_randoms: int = 5, 
+            randoms_seed: float = 42, existing_mock_path: str = 'None', 
             region='NGC', release='Y1'):
+
         data = self.init_data()
         randoms = self.init_randoms() if generate_randoms else None
 
         # construct one redshift shell at a time from the snapshots
-        for ball, zsnap, zranges in zip(self.balls, self.snapshots, self.zranges):
+        for i in range(len(self.snapshots)):
+            zsnap   = self.snapshots[i]
+            zranges = self.zranges[i]
             self.logger.info(f'Processing snapshot at z = {zsnap} with redshift range {zranges}')
-            if self.debug:
+            if self.load_existing_hod:
+                pos_box, vel_box = self.load_hod(mock_path=existing_mock_path)
+            elif self.debug:
+                ball    = self.balls[i]
                 pos_box, vel_box = self.sample_hod_debug(ball, hod_params, nthreads=nthreads, seed=seed)
             else:
+                ball    = self.balls[i]
                 pos_box, vel_box = self.sample_hod(ball, hod_params, nthreads=nthreads, seed=seed)
 
-            # replicate the box along each axis to cover more volume
-            shifts = self.get_box_shifts(mappings=[-1, 0, 1])  # shifts to translate particle positions
             target_nbar = self.get_target_nbar(zmin=zranges[0], zmax=zranges[1])
+
             pos_min,pos_max = self.get_reference_borders(zranges, boxpad=1000, region=region, release=release)
+            # replicate the box along each axis to cover more volume
+            shifts = self.get_box_shifts(pos_min, pos_max)  # shifts to translate particle positions
+
             pos_rep, vel_rep = self.get_box_replications(pos_box, vel_box,
                                                          pos_min, pos_max, target_nbar, shifts=shifts)
             # data_nbar = len(pos_box) / (self.boxsize_snapshot ** 3)
@@ -164,24 +188,25 @@ class CutskyHOD:
             return data, randoms
         return data
 
-    def get_box_shifts(self, mappings: list = [-1, 0, 1]):
+    def get_box_shifts(self, pos_min, pos_max):
         """
         Get the shifts that need to be applied to replicate the box along
         one or more axes of the simulation.
         Parameters
         ----------
-        mappings : list, optional
-            List of integers representing the replication mappings along each axis, by default [-1, 0, 1].
-            -1 translates the box by -boxsize, 0 keeps the original position, and 1 translates it by +boxsize.
+        pos_min, pos_max: both should be 1-d array, the minimum and maximum of postion from the reference mock.
         Returns
         -------
         list
             List of shifts to be applied to the box positions.
         """
+        mappings_max = np.int32(np.ceil((pos_max - 1000)/2000))
+        mappings_min = np.int32(np.floor((pos_min + 1000)/2000))
         shifts = []
-        for i in mappings:
-            for j in mappings:
-                for k in mappings:
+        mappings = [np.arange(mappings_min[i],mappings_max[i]+1) for i in range(3)]
+        for i in mappings[0]:
+            for j in mappings[1]:
+                for k in mappings[2]:
                     shifts.append([self.boxsize_snapshot * np.array([i, j, k])])
         return shifts
 
@@ -231,10 +256,10 @@ class CutskyHOD:
         """
         Convert a box catalog to a cutsky catalog by applying geometric cuts, RSD, and masks.
         """
-        dist = self.cosmo.comoving_radial_distance((zmin + zmax) / 2)
-        cutsky = self.apply_geometric_cuts(box,zmin,zmax)
         if apply_rsd: 
-            cutsky = self.apply_rsd(cutsky, zrsd)
+            cutsky = self.apply_rsd(box, zrsd)
+        else:
+            cutsky = box
         cutsky = self._get_sky_positions(cutsky, apply_rsd)
         if apply_radial_mask:
             cutsky = self.apply_radial_mask(cutsky, zmin=zmin, zmax=zmax,
