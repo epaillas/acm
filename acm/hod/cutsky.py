@@ -6,7 +6,7 @@ from mockfactory.desi import is_in_desi_footprint
 from cosmoprimo.fiducial import AbacusSummit
 from .box import BoxHOD
 from .footprint import *
-from astropy.io import fits
+import fitsio
 import logging
 import warnings
 warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
@@ -25,9 +25,8 @@ class CutskyHOD:
             self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
             phase_idx: int = 0, zranges: list[list] = [[0.41, 0.6]], 
             snapshots: list = [0.5], DM_DICT: dict = LRG_Abacus_DM,
-            debug: bool = False, load_existing_hod: bool = False):
+            load_existing_hod: bool = False):
         self.logger = logging.getLogger('CutskyHOD')
-        self.debug = debug
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
         self.cosmo_idx = cosmo_idx
@@ -40,9 +39,6 @@ class CutskyHOD:
         if self.load_existing_hod:
             self.cosmo = AbacusSummit(self.cosmo_idx)
             self.logger.info('Load existing hod instead of generating new ones.')
-        elif self.debug:
-            self.logger.info('Running in debug mode.')
-            self.setup_hod_debug(DM_DICT=DM_DICT)
         else:
             self.setup_hod(DM_DICT=DM_DICT)
 
@@ -70,37 +66,14 @@ class CutskyHOD:
         return pos.astype(np.float32), vel.astype(np.float32)
 
     def load_hod(self, mock_path='None'):
-        if mock_path=='None':
+        if mock_path is None:
             base_path = '/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/LRG/z0.500/AbacusSummit_base_c000_ph000'
             mock_path = base_path +'/LRG_real_space.fits'
-        hdul = fits.open(mock_path) 
-        data  = hdul[1].data
-        hdul.close()
+            # data_dir = '/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c000_ph000/seed0'
+            # data_fn = Path(data_dir) / 'hod030_raw.fits'
+        data  = fitsio.read(mock_path)
         pos = np.vstack([data['x'],data['y'],data['z']]).T
         vel = np.vstack([data['vx'],data['vy'],data['vz']]).T
-        return pos.astype(np.float32), vel.astype(np.float32)
-
-    def setup_hod_debug(self, DM_DICT: dict = LRG_Abacus_DM):
-        """
-        Convenience function only used to speed up debugging.
-        """
-        self.balls = []
-        for zsnap in self.snapshots:
-            ball = None
-            self.balls += [ball]
-        self.cosmo = AbacusSummit(self.cosmo_idx)
-
-    def sample_hod_debug(self, ball, hod_params:dict, nthreads: int = 1, seed: float = 0):
-        """
-        Convenience function only used to speed up debugging.
-        """
-        import fitsio
-        from pathlib import Path
-        data_dir = '/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c000_ph000/seed0'
-        data_fn = Path(data_dir) / 'hod030_raw.fits'
-        data = fitsio.read(data_fn)
-        pos = np.c_[data['X'], data['Y'], data['Z']]
-        vel = np.c_[data['VX'], data['VY'], data['VZ']]
         return pos.astype(np.float32), vel.astype(np.float32)
 
     def init_data(self):
@@ -127,7 +100,7 @@ class CutskyHOD:
     def run(
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
             generate_randoms: bool = False,  box_margin: float = 300, alpha_randoms: int = 5, 
-            randoms_seed: float = 42, existing_mock_path: str = 'None', 
+            randoms_seed: float = 42, existing_hod_path: str = None, 
             region='NGC', release='Y1'):
 
         data = self.init_data()
@@ -139,10 +112,7 @@ class CutskyHOD:
             zranges = self.zranges[i]
             self.logger.info(f'Processing snapshot at z = {zsnap} with redshift range {zranges}')
             if self.load_existing_hod:
-                pos_box, vel_box = self.load_hod(mock_path=existing_mock_path)
-            elif self.debug:
-                ball    = self.balls[i]
-                pos_box, vel_box = self.sample_hod_debug(ball, hod_params, nthreads=nthreads, seed=seed)
+                pos_box, vel_box = self.load_hod(mock_path=existing_hod_path)
             else:
                 ball    = self.balls[i]
                 pos_box, vel_box = self.sample_hod(ball, hod_params, nthreads=nthreads, seed=seed)
