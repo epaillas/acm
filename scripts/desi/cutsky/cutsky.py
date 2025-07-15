@@ -109,7 +109,7 @@ abacus = CutskyHOD(varied_params=hod_params.keys(),
 # sample HOD parameters and build the cutsky mock
 hod = {key: hod_params[key][30] for key in hod_params.keys()}
 data, randoms = abacus.run(hod, nthreads=128, generate_randoms=True, alpha_randoms=5,
-                  region='NGC', release='Y1')
+                  region='NGC', release='Y1', program='dark')
 
 # get positions for clustering analysis
 data_positions = get_clustering_positions(data)

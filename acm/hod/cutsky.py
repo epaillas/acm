@@ -36,6 +36,7 @@ class CutskyHOD:
         self.zranges = zranges
         self.snapshots = snapshots
         self.boxsize_snapshot = 2000  # Mpc/h
+        self.boxpad = 1000  # Mpc/h
         self.boxcenter = np.array([0, 0, 0])  # Mpc/h
         if self.load_existing_hod:
             self.cosmo = AbacusSummit(self.cosmo_idx)
@@ -128,7 +129,7 @@ class CutskyHOD:
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
             generate_randoms: bool = False,  box_margin: float = 300, alpha_randoms: int = 5, 
             randoms_seed: float = 42, existing_mock_path: str = 'None', 
-            region='NGC', release='Y1'):
+            region: str ='NGC', release: str ='Y1', program: str ='dark'):
 
         data = self.init_data()
         randoms = self.init_randoms() if generate_randoms else None
@@ -149,7 +150,7 @@ class CutskyHOD:
 
             target_nbar = self.get_target_nbar(zmin=zranges[0], zmax=zranges[1])
 
-            pos_min,pos_max = self.get_reference_borders(zranges, boxpad=1000, region=region, release=release)
+            pos_min,pos_max = self.get_reference_borders(zranges, region=region, release=release)
             # replicate the box along each axis to cover more volume
             shifts = self.get_box_shifts(pos_min, pos_max)  # shifts to translate particle positions
 
@@ -163,7 +164,7 @@ class CutskyHOD:
             data_rep = self.box_to_cutsky(box=data_rep, zmin=zranges[0], zmax=zranges[1], 
                                           zrsd=zsnap, radial_mask_norm=1/data_nbar, apply_rsd=True,
                                           apply_radial_mask=True, apply_footprint_mask=True,
-                                          region=region, release=release)
+                                          region=region, release=release, program=program)
             for key in self.keys_data:
                 data[key].extend(data_rep[key])
 
@@ -176,7 +177,7 @@ class CutskyHOD:
                                                  apply_rsd=False, apply_radial_mask=True,
                                                  radial_mask_norm=1/data_nbar,
                                                  apply_footprint_mask=True,
-                                                 region=region, release=release)
+                                                 region=region, release=release, program=program)
                 for key in self.keys_randoms:
                     randoms[key].extend(randoms_rep[key])
 
@@ -200,8 +201,8 @@ class CutskyHOD:
         list
             List of shifts to be applied to the box positions.
         """
-        mappings_max = np.int32(np.ceil((pos_max - 1000)/2000))
-        mappings_min = np.int32(np.floor((pos_min + 1000)/2000))
+        mappings_max = np.int32(np.ceil((pos_max - self.boxpad)/self.boxsize_snapshot))
+        mappings_min = np.int32(np.floor((pos_min + self.boxpad)/self.boxsize_snapshot))
         shifts = []
         mappings = [np.arange(mappings_min[i],mappings_max[i]+1) for i in range(3)]
         for i in mappings[0]:
@@ -252,7 +253,7 @@ class CutskyHOD:
             self, box, zmin: float, zmax: float, zrsd: float = None, 
             apply_rsd: bool = False, apply_radial_mask: bool = False,
             apply_footprint_mask: bool = False, radial_mask_norm: bool = None,
-            region: str = 'NGC', release: str = 'Y1',):
+            region: str = 'NGC', release: str = 'Y1', program: str = 'dark',):
         """
         Convert a box catalog to a cutsky catalog by applying geometric cuts, RSD, and masks.
         """
@@ -266,7 +267,7 @@ class CutskyHOD:
                                              norm=radial_mask_norm,
                                              region=region, release=release)
         if apply_footprint_mask:
-            cutsky = self.apply_footprint_mask(cutsky, region=region, release=release)
+            cutsky = self.apply_footprint_mask(cutsky, region=region, release=release, program=program)
         return cutsky
 
     def apply_geometric_cuts(self, catalog, zmin, zmax, region='NGC', release='Y1'):
@@ -364,10 +365,11 @@ class CutskyHOD:
             }
             return pixels, dr9_footprint(convert_dict[region])[pixels]
 
-    def get_reference_borders(self, zranges, boxpad=1000, region='NGC', release='Y1'):
+    def get_reference_borders(self, zranges, region='NGC', release='Y1'):
         """
         Gets the reference borders in cartesian borders to apply to the box replications.
         """
+        boxpad = self.boxpad
         assert boxpad > 0
         pos_min, pos_max = minmax_xyz_desi(zranges, region=region, release=release, tracer='LRG') 
         if boxpad > 1:
