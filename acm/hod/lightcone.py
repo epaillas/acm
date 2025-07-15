@@ -28,6 +28,7 @@ class LightconeHOD:
         phase_idx: int = 0,
         zrange: list = [0.4, 0.8],
         DM_DICT: dict = LRG_Abacus_DM,
+        use_abacus_base: bool = False,
         ):
         self.logger = logging.getLogger('LightconeHOD')
         self.cosmo_idx = cosmo_idx
@@ -41,6 +42,7 @@ class LightconeHOD:
         config = yaml.safe_load(open(config_file))
         self.setup(config, DM_DICT)
         self.check_params(varied_params)
+        self.use_abacus_base = use_abacus_base
 
     @property
     def snap_redshifts(self):
@@ -183,7 +185,7 @@ class LightconeHOD:
         hod_dict[tracer]['X'] = pos[:, 0]
         hod_dict[tracer]['Y'] = pos[:, 1]
         hod_dict[tracer]['Z'] = pos[:, 2]
-        for key in ['MASS', 'ID', 'IS_CENT']:
+        for key in ['MASS', 'ID', 'IS_CENT', 'IN_VOL']:
             if key in hod_dict[tracer]:
                 hod_dict[tracer][key] = np.tile(hod_dict[tracer][key], 8)
 
@@ -194,11 +196,64 @@ class LightconeHOD:
         """
         data = hod_dict[tracer]
         dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
-        volume = 4/3 * np.pi * (dmax**3 - dmin**3)
-        correction = 1 if full_sky else 8  # divide by 8 if only using a sky octant
-        nbar = len(data['Z']) / (volume / correction)
+        
+        if self.use_abacus_base:
+            # Abacus base
+            # Monte Carlo sampling of Abacus lightcone volume
+            nsamples_per_box=10000
+            samples_x = np.random.uniform(low=0, high=2000, size = (3*nsamples_per_box))
+            samples_y = np.concatenate([np.random.uniform(low=0, high=2000, size = (nsamples_per_box)), 
+                                        np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)), 
+                                        np.random.uniform(low=0, high=2000, size = (nsamples_per_box))])
+            samples_z = np.concatenate([np.random.uniform(low=0, high=2000, size = (2*nsamples_per_box)),  
+                                        np.random.uniform(low=2000, high=4000, size = (nsamples_per_box))])
+            samples = np.vstack([samples_x, 
+                                 samples_y, 
+                                 samples_z] )
+            norm = np.linalg.norm(samples, axis=0)
+            num_in_lightcone = np.sum((norm>dmin) * (norm<dmax))
+            volume = 2000**3 * num_in_lightcone/nsamples_per_box
+            nbar = len(data['Z']) / volume
+            
+        else:
+            volume = 4/3 * np.pi * (dmax**3 - dmin**3)
+            correction = 1 if full_sky else 8  # divide by 8 if only using a sky octant
+            nbar = len(data['Z']) / (volume / correction)
         return nbar
 
+    def get_nz_buffer(self, hod_dict, tracer: str = 'LRG', nbar: float = None):
+        nsamples_per_box = int(2000**3 * nbar)
+        samples_x = np.concatenate([np.random.uniform(low=0, high=2000, size = (nsamples_per_box)),  
+                                    np.random.uniform(low=2000, high=4000, size = (4*nsamples_per_box))])
+        samples_y = np.concatenate([np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)), 
+                                    np.random.uniform(low=0, high=4000, size = (4*nsamples_per_box))])
+        samples_z = np.concatenate([np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)),  
+                                    np.random.uniform(low=0, high=4000, size = (4*nsamples_per_box))])
+        num_buffer = len(samples_x)
+        hod_dict[tracer]['IN_VOL'] = np.concatenate([np.full(len(hod_dict[tracer]['X']), True), np.full(num_buffer, False)])
+
+        for key in hod_dict[tracer].keys():
+            if key == 'IN_VOL':
+                pass
+            elif key == 'X':
+                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], samples_x])
+            elif key == 'Y':
+                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], samples_y])
+            elif key == 'Z':
+                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], samples_z])
+            elif key == 'ID':
+                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], np.full(num_buffer, -99999)])
+            else:
+                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], np.full(num_buffer, -99999.)])
+        
+    def drop_nz_buffer(self, hod_dict, tracer: str = 'LRG'):
+        select_tracers = hod_dict[tracer]['IN_VOL'] == True
+
+        for key in hod_dict[tracer].keys():
+            hod_dict[tracer][key] = hod_dict[tracer][key][select_tracers]
+
+        hod_dict[tracer].pop('IN_VOL')
+        
     def format_catalog(self, hod_dict, save_fn: str = False, tracer: str = 'LRG', full_sky: str = False, apply_radial_mask: str = False):
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
@@ -208,6 +263,9 @@ class LightconeHOD:
         hod_dict[tracer] = {k.upper():v  for k, v in hod_dict[tracer].items()}
         self.recenter_box(hod_dict, tracer)
         self.remove_outbounds(hod_dict, tracer)
+        if self.use_abacus_base:
+            data_nbar = self.get_data_nbar(hod_dict, tracer, full_sky)
+            self.get_nz_buffer(hod_dict, tracer, data_nbar)
         if full_sky: self.make_full_sky(hod_dict)
         self.get_sky_coordinates(hod_dict)
         self.drop_cartesian(hod_dict)
@@ -218,6 +276,7 @@ class LightconeHOD:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
             self.apply_radial_mask(hod_dict, nz_filename, norm=1/data_nbar)
             self.logger.info(f'Downsampled data nbar: {self.get_data_nbar(hod_dict, tracer, full_sky)}' )
+        if self.use_abacus_base: self.drop_nz_buffer(hod_dict, tracer)
         if save_fn:
             table = Table(hod_dict[tracer])
             header = fits.Header({'N_cent': Ncent, 'gal_type': tracer, **self.ball.tracers[tracer]})
@@ -285,10 +344,21 @@ class LightconeHOD:
         from mockfactory import RandomBoxCatalog
         self.logger.info(f'Generating random catalog.')
         # nbar = 6e-4  # hardcoded for LRG
-        pos = RandomBoxCatalog(
-            boxsize=self.boxsize, boxcenter=self.boxsize/2, nbar=nbar*alpha, seed=42
-        )['Position']
-        randoms = {tracer: {'X': pos[:, 0], 'Y': pos[:, 1], 'Z': pos[:, 2]}}
+        if self.use_abacus_base:
+            # Abacus base
+            pos = RandomBoxCatalog(
+                # create initial randoms with nbar > nbar*alpha for n(z) downsampling to work properly 
+                # TODO: this is still not working
+                boxsize=4000, boxcenter=2000, nbar=nbar*alpha*2, seed=42
+            )['Position']
+            in_vol = (pos[:, 0]<2000)*~((pos[:, 1]>2000)*(pos[:, 2]>2000))
+            randoms = {tracer: {'X': pos[:, 0], 'Y': pos[:, 1], 'Z': pos[:, 2], 'IN_VOL': in_vol}}
+        else:
+            # Abacus huge
+            pos = RandomBoxCatalog(
+                boxsize=self.boxsize, boxcenter=self.boxsize/2, nbar=nbar*alpha, seed=42
+            )['Position']
+            randoms = {tracer: {'X': pos[:, 0], 'Y': pos[:, 1], 'Z': pos[:, 2]}}
         if full_sky: self.make_full_sky(randoms)
         self.get_sky_coordinates(randoms)
         self.drop_cartesian(randoms)
@@ -297,7 +367,10 @@ class LightconeHOD:
             randoms[tracer][key] = randoms[tracer][key][zmask]
         if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-            self.apply_radial_mask(randoms, nz_filename)
+            randoms_nbar = self.get_data_nbar(randoms, tracer, full_sky)
+            self.apply_radial_mask(randoms, nz_filename, norm=alpha/randoms_nbar)
+        dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
+        if self.use_abacus_base: self.drop_nz_buffer(randoms, tracer)
         return randoms
 
     
@@ -310,5 +383,6 @@ class LightconeHOD:
         # if norm is not None and 1/norm <= n_z.max():
         #     norm = None
         mask_radial = TabulatedRadialMask(z=zbin_mid, nbar=n_z, interp_order=2, norm=norm)
+        select_mask = mask_radial(hod_dict[tracer]['Z'], seed=42)
         for key in hod_dict[tracer].keys():
-            hod_dict[tracer][key] = hod_dict[tracer][key][mask_radial(hod_dict[tracer]['Z'], seed=42)]
+            hod_dict[tracer][key] = hod_dict[tracer][key][select_mask]
