@@ -130,8 +130,8 @@ class LightconeHOD:
             # positions_dict = self.get_positions(hod_dict, tracer)
         self.format_catalog(hod_dict, save_fn, tracer, full_sky, apply_radial_mask)
         if make_randoms:
-            zmin = hod_dict[tracer]['Z'].min()
-            zmax = hod_dict[tracer]['Z'].max()
+            zmin = self.zrange[0]
+            zmax = self.zrange[1]
             nbar = self.get_data_nbar(hod_dict, tracer, full_sky)
             randoms_dict = self._make_randoms(nbar=nbar, zmin=zmin, zmax=zmax, apply_radial_mask=apply_radial_mask,
                                               full_sky=full_sky, alpha=alpha_rand, tracer=tracer)
@@ -274,7 +274,8 @@ class LightconeHOD:
         self.logger.info(f'Raw data nbar: {data_nbar}' )
         if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-            self.apply_radial_mask(hod_dict, nz_filename, norm=1/data_nbar)
+            print(1/data_nbar)
+            self.apply_radial_mask(hod_dict, nz_filename)
             self.logger.info(f'Downsampled data nbar: {self.get_data_nbar(hod_dict, tracer, full_sky)}' )
         if self.use_abacus_base: self.drop_nz_buffer(hod_dict, tracer)
         if save_fn:
@@ -368,21 +369,35 @@ class LightconeHOD:
         if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
             randoms_nbar = self.get_data_nbar(randoms, tracer, full_sky)
-            self.apply_radial_mask(randoms, nz_filename, norm=alpha/randoms_nbar)
+            self.apply_radial_mask(randoms, nz_filename, shape_only=True)
         dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
         if self.use_abacus_base: self.drop_nz_buffer(randoms, tracer)
         return randoms
 
-    
-    def apply_radial_mask(self, hod_dict, nz_filename: str, norm=None, tracer: str = 'LRG'):
-        # example from https://github.com/cosmodesi/mockfactory/
-        from mockfactory import TabulatedRadialMask
-        self.logger.info(f'Applying radial mask from {nz_filename}.')
-        # Load nz
-        zbin_mid, n_z = np.genfromtxt(nz_filename, skip_header=3, usecols=(0, 3)).T
-        # if norm is not None and 1/norm <= n_z.max():
-        #     norm = None
-        mask_radial = TabulatedRadialMask(z=zbin_mid, nbar=n_z, interp_order=2, norm=norm)
-        select_mask = mask_radial(hod_dict[tracer]['Z'], seed=42)
+    def apply_radial_mask(self, hod_dict, nz_filename: str, tracer: str = 'LRG', shape_only: bool = False):
+        # TODO need to make this work for other releases
+        self.logger.info('Applying radial mask.')
+        nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+        zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
+        zbin_mid = (zbin_min + zbin_max) / 2
+        zedges = np.insert(zbin_max, 0, zbin_min[0])
+        dedges = self.cosmo.comoving_radial_distance(zedges)
+        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) / 8  # TODO Hernan to fix this for z < 0.8
+        data_nz = np.histogram(hod_dict[tracer]['Z'], bins=zedges)[0] / volume
+        zmin_data = hod_dict[tracer]['Z'].min()
+        zmax_data = hod_dict[tracer]['Z'].max()
+        ratio = target_nz / data_nz
+        if shape_only:
+            ratio /= np.max(ratio[~np.isinf(ratio)])
+        select_mask = np.zeros_like(hod_dict[tracer]['Z'], dtype=bool)
+        for i in range(len(zbin_mid) - 1):
+            if zbin_mid[i] < zmin_data or zbin_mid[i + 1] > zmax_data:
+                continue
+            z_mask = (hod_dict[tracer]['Z'] >= zbin_mid[i]) & (hod_dict[tracer]['Z'] < zbin_mid[i + 1])
+            n_galaxies = np.sum(z_mask)
+            if n_galaxies > 0:
+                n_select = int(np.round(ratio[i] * n_galaxies))
+                select_indices = np.random.choice(np.where(z_mask)[0], size=n_select, replace=False)
+                select_mask[select_indices] = True
         for key in hod_dict[tracer].keys():
             hod_dict[tracer][key] = hod_dict[tracer][key][select_mask]
