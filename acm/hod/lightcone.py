@@ -185,7 +185,7 @@ class LightconeHOD:
         hod_dict[tracer]['X'] = pos[:, 0]
         hod_dict[tracer]['Y'] = pos[:, 1]
         hod_dict[tracer]['Z'] = pos[:, 2]
-        for key in ['MASS', 'ID', 'IS_CENT', 'IN_VOL']:
+        for key in ['MASS', 'ID', 'IS_CENT']:
             if key in hod_dict[tracer]:
                 hod_dict[tracer][key] = np.tile(hod_dict[tracer][key], 8)
 
@@ -216,43 +216,12 @@ class LightconeHOD:
             nbar = len(data['Z']) / volume
             
         else:
+            # Abacus huge (assumes that shells are entirely contained within the survey box)
+            # Monte carlo sampling would be more accurate if this is not the case
             volume = 4/3 * np.pi * (dmax**3 - dmin**3)
             correction = 1 if full_sky else 8  # divide by 8 if only using a sky octant
             nbar = len(data['Z']) / (volume / correction)
         return nbar
-
-    def get_nz_buffer(self, hod_dict, tracer: str = 'LRG', nbar: float = None):
-        nsamples_per_box = int(2000**3 * nbar)
-        samples_x = np.concatenate([np.random.uniform(low=0, high=2000, size = (nsamples_per_box)),  
-                                    np.random.uniform(low=2000, high=4000, size = (4*nsamples_per_box))])
-        samples_y = np.concatenate([np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)), 
-                                    np.random.uniform(low=0, high=4000, size = (4*nsamples_per_box))])
-        samples_z = np.concatenate([np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)),  
-                                    np.random.uniform(low=0, high=4000, size = (4*nsamples_per_box))])
-        num_buffer = len(samples_x)
-        hod_dict[tracer]['IN_VOL'] = np.concatenate([np.full(len(hod_dict[tracer]['X']), True), np.full(num_buffer, False)])
-
-        for key in hod_dict[tracer].keys():
-            if key == 'IN_VOL':
-                pass
-            elif key == 'X':
-                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], samples_x])
-            elif key == 'Y':
-                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], samples_y])
-            elif key == 'Z':
-                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], samples_z])
-            elif key == 'ID':
-                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], np.full(num_buffer, -99999)])
-            else:
-                hod_dict[tracer][key] = np.concatenate([hod_dict[tracer][key], np.full(num_buffer, -99999.)])
-        
-    def drop_nz_buffer(self, hod_dict, tracer: str = 'LRG'):
-        select_tracers = hod_dict[tracer]['IN_VOL'] == True
-
-        for key in hod_dict[tracer].keys():
-            hod_dict[tracer][key] = hod_dict[tracer][key][select_tracers]
-
-        hod_dict[tracer].pop('IN_VOL')
         
     def format_catalog(self, hod_dict, save_fn: str = False, tracer: str = 'LRG', full_sky: str = False, apply_radial_mask: str = False):
         Ncent = hod_dict[tracer]['Ncent']
@@ -263,9 +232,6 @@ class LightconeHOD:
         hod_dict[tracer] = {k.upper():v  for k, v in hod_dict[tracer].items()}
         self.recenter_box(hod_dict, tracer)
         self.remove_outbounds(hod_dict, tracer)
-        if self.use_abacus_base:
-            data_nbar = self.get_data_nbar(hod_dict, tracer, full_sky)
-            self.get_nz_buffer(hod_dict, tracer, data_nbar)
         if full_sky: self.make_full_sky(hod_dict)
         self.get_sky_coordinates(hod_dict)
         self.drop_cartesian(hod_dict)
@@ -274,10 +240,9 @@ class LightconeHOD:
         self.logger.info(f'Raw data nbar: {data_nbar}' )
         if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-            print(1/data_nbar)
+            #print(1/data_nbar)
             self.apply_radial_mask(hod_dict, nz_filename)
             self.logger.info(f'Downsampled data nbar: {self.get_data_nbar(hod_dict, tracer, full_sky)}' )
-        if self.use_abacus_base: self.drop_nz_buffer(hod_dict, tracer)
         if save_fn:
             table = Table(hod_dict[tracer])
             header = fits.Header({'N_cent': Ncent, 'gal_type': tracer, **self.ball.tracers[tracer]})
@@ -350,10 +315,10 @@ class LightconeHOD:
             pos = RandomBoxCatalog(
                 # create initial randoms with nbar > nbar*alpha for n(z) downsampling to work properly 
                 # TODO: this is still not working
-                boxsize=4000, boxcenter=2000, nbar=nbar*alpha*2, seed=42
+                boxsize=self.boxsize * 2, boxcenter=self.boxsize, nbar=nbar*alpha, seed=42
             )['Position']
-            in_vol = (pos[:, 0]<2000)*~((pos[:, 1]>2000)*(pos[:, 2]>2000))
-            randoms = {tracer: {'X': pos[:, 0], 'Y': pos[:, 1], 'Z': pos[:, 2], 'IN_VOL': in_vol}}
+            in_vol = (pos[:, 0]<self.boxsize)*~((pos[:, 1]>self.boxsize)*(pos[:, 2]>self.boxsize))
+            randoms = {tracer: {'X': pos[:, 0][in_vol], 'Y': pos[:, 1][in_vol], 'Z': pos[:, 2][in_vol]}}
         else:
             # Abacus huge
             pos = RandomBoxCatalog(
@@ -368,10 +333,9 @@ class LightconeHOD:
             randoms[tracer][key] = randoms[tracer][key][zmask]
         if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-            randoms_nbar = self.get_data_nbar(randoms, tracer, full_sky)
+            #randoms_nbar = self.get_data_nbar(randoms, tracer, full_sky)
             self.apply_radial_mask(randoms, nz_filename, shape_only=True)
         dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
-        if self.use_abacus_base: self.drop_nz_buffer(randoms, tracer)
         return randoms
 
     def apply_radial_mask(self, hod_dict, nz_filename: str, tracer: str = 'LRG', shape_only: bool = False):
@@ -382,7 +346,20 @@ class LightconeHOD:
         zbin_mid = (zbin_min + zbin_max) / 2
         zedges = np.insert(zbin_max, 0, zbin_min[0])
         dedges = self.cosmo.comoving_radial_distance(zedges)
-        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) / 8  # TODO Hernan to fix this for z < 0.8
+        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) / 8 
+        
+        # Handle shells exterior to the Abacus boxes
+        if np.any(dedges > self.boxsize):
+            
+            exterior_indices = np.where(dedges > self.boxsize)[0]
+            exterior_shells = (dedges[exterior_indices] + dedges[exterior_indices - 1]) / 2
+
+            # fraction of each shell inside the simulation volume
+            filling_fractions = self.shell_filling_fraction(exterior_shells)
+                    
+            # Adjust volumes using volume filling fractions
+            volume[exterior_indices-1] = volume[exterior_indices-1] * filling_fractions
+                
         data_nz = np.histogram(hod_dict[tracer]['Z'], bins=zedges)[0] / volume
         zmin_data = hod_dict[tracer]['Z'].min()
         zmax_data = hod_dict[tracer]['Z'].max()
@@ -401,3 +378,38 @@ class LightconeHOD:
                 select_mask[select_indices] = True
         for key in hod_dict[tracer].keys():
             hod_dict[tracer][key] = hod_dict[tracer][key][select_mask]
+
+    def shell_filling_fraction(self, shells):
+    
+        # Muller-Marsaglia octant sampling
+        # evenly distribute points along an octant of a unit sphere
+        num_samples = 10000
+        sample_points = np.abs(np.random.normal(0,1, (3,num_samples)))
+        sample_points /= np.linalg.norm(sample_points, axis=0)
+    
+        # fraction of each shell inside the simulation volume
+        vol_fractions = []
+    
+        if self.use_abacus_base:
+            # Abacus base
+            for shell_radius in shells:
+                # count how many points in the shell are in the L-shaped stack of periodic boxes
+                vol_fractions.append(
+                    np.sum((sample_points[0]<self.boxsize/shell_radius)*\
+                           (sample_points[1]<2*self.boxsize/shell_radius)*\
+                           (sample_points[2]<2*self.boxsize/shell_radius)*\
+                           ((sample_points[1]<=self.boxsize/shell_radius)+(sample_points[2]<=self.boxsize/shell_radius))\
+                          )/len(sample_points[0])
+                )
+        else:
+            # Abacus huge
+            for shell_radius in shells:
+                # count how many points in the shell are in the box
+                vol_fractions.append(
+                    np.sum((sample_points[0]<self.boxsize/shell_radius)*\
+                           (sample_points[1]<self.boxsize/shell_radius)*\
+                           (sample_points[2]<self.boxsize/shell_radius)\
+                          )/len(sample_points[0])
+                ) 
+
+        return np.array(vol_fractions)
