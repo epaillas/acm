@@ -77,3 +77,9 @@ Repository = "https://github.com/epaillas/acm.git"
 
 [tool.setuptools.packages.find]
 namespaces = false
+
+[tool.setuptools.package-data]
+acm = [
+    "*.yml",
+    "*.yaml",
+]
