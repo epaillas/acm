@@ -108,7 +108,7 @@ hod = {key: hod_params[key][30] for key in hod_params.keys()}
 cutsky.sample_hod(hod, nthreads=128, region='NGC', release='Y1', program='dark')
 
 # apply angular and radial masks
-cutsky.apply_angular_mask(region='NGC', release='Y3', npasses=None, program='dark')
+cutsky.apply_angular_mask(region='NGC', release='Y1', npasses=None, program='dark')
 nz_filename='/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
 cutsky.apply_radial_mask(nz_filename=nz_filename)
 
@@ -120,7 +120,7 @@ cutsky_randoms = CutskyRandoms(
     nbar=2000,  # this is *surface area* density, in (deg^2)^-1
     # csize=10_000_000,  # alternatively, pass the desired number of randoms
 )
-cutsky_randoms.apply_angular_mask(region='NGC', release='Y3', npasses=None, program='dark')
+cutsky_randoms.apply_angular_mask(region='NGC', release='Y1', npasses=None, program='dark')
 # we use `shape_only=True` to only match the n(z) shape, keeping the randoms amplitude
 cutsky_randoms.apply_radial_mask(nz_filename=nz_filename, shape_only=True)
 
