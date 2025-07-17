@@ -1,4 +1,4 @@
-from acm.hod import CutskyHOD
+from acm.hod import CutskyHOD, CutskyRandoms
 from acm import setup_logging
 from pyrecon.utils import sky_to_cartesian
 import numpy as np
@@ -8,10 +8,6 @@ from cosmoprimo.fiducial import AbacusSummit
 
 setup_logging()
 
-def get_hod_priors():
-    from sunbird.inference.priors import Yuan23
-    prior = Yuan23()
-    return prior.ranges
 
 def get_hod_params(nrows=None):
     """Some example HOD parameters."""
@@ -23,6 +19,7 @@ def get_hod_params(nrows=None):
     return df.to_dict('list')
 
 def get_clustering_positions(data):
+    """Comoving cartesian positions for clustering analysis."""
     ra = data['RA']
     dec = data['DEC']
     dist = cosmo.comoving_radial_distance(data['Z'])
@@ -32,10 +29,9 @@ def get_clustering_positions(data):
 
 def plot_footprint():
     import matplotlib.pyplot as plt
-    print('Plotting footprint.')
     fig, ax = plt.subplots(1, 2, figsize=(6, 3))
     ax[0].scatter(data['RA'], data['DEC'], s=0.1)
-    # ax[1].scatter(randoms['RA'], randoms['DEC'], s=0.1)
+    ax[1].scatter(randoms['RA'], randoms['DEC'], s=0.1)
     ax[0].set_title('Data')
     ax[1].set_title('Randoms')
     for aa in ax:
@@ -47,12 +43,11 @@ def plot_footprint():
 
 def plot_redshift_distribution():
     import matplotlib.pyplot as plt
-    print('Plotting redshift distribution.')
     fig, ax = plt.subplots(1, 2, figsize=(6, 3))
     ax[0].hist(data['Z'], density=True, label='data')
-    # ax[0].hist(randoms['Z'], density=True, label='randoms', ls='--', histtype='step')
+    ax[0].hist(randoms['Z'], density=True, label='randoms', ls='--', histtype='step')
     ax[1].hist(data['Z'], density=False, label='data')
-    # ax[1].hist(randoms['Z'], density=False, label='randoms', ls='--', histtype='step')
+    ax[1].hist(randoms['Z'], density=False, label='randoms', ls='--', histtype='step')
     ax[0].set_title('Normalized')
     ax[1].set_title('Counts')
     for aa in ax:
@@ -63,7 +58,6 @@ def plot_redshift_distribution():
     plt.close()
 
 def plot_multipoles():
-    print('Plotting multipoles.')
     import matplotlib.pyplot as plt
     s, multipoles = tpcf(ells=(0, 2), return_sep=True)
     fig, ax = plt.subplots(figsize=(4, 3))
@@ -76,9 +70,7 @@ def plot_multipoles():
     plt.savefig('multipoles_multisnap.png', dpi=300)
     plt.close()
 
-
 def get_twopoint_clustering(save_fn=False):
-    print('Computing clustering.')
     from pycorr import setup_logging, TwoPointCorrelationFunction
     setup_logging()
     sedges = np.arange(0, 201, 1)
@@ -86,14 +78,15 @@ def get_twopoint_clustering(save_fn=False):
     edges = (sedges, muedges)
     return TwoPointCorrelationFunction(
         data_positions1=data_positions, randoms_positions1=randoms_positions,
-        position_type='pos', edges=edges, mode='smu', gpu=False, nthreads=128, estimator='landyszalay',
+        position_type='pos', edges=edges, mode='smu', gpu=False, nthreads=128,
+        estimator='landyszalay',
     )
 
 # redshifts of the snapshots that will be used to build the cutsky
 snapshots = [0.5, 0.8]
 
 # redshift range (in the cutsky) that will be covered by each snapshot
-zranges = [(0.41, 0.6), (0.6, 1.09)]
+zranges = [(0.4, 0.8), (0.8, 1.1)]
 
 # fiducial cosmology for the redshift-distance relation and RSD
 cosmo = AbacusSummit(0)
@@ -101,17 +94,41 @@ cosmo = AbacusSummit(0)
 # read example HOD parameters
 hod_params = get_hod_params()
 
-# load abacusHOD class
-abacus = CutskyHOD(varied_params=hod_params.keys(),
+# initialize class
+cutsky = CutskyHOD(varied_params=hod_params.keys(),
                    zranges=zranges, snapshots=snapshots,
-                   cosmo_idx=0, phase_idx=0, debug=True)
+                   cosmo_idx=0, phase_idx=0,
+                   load_existing_hod=False)
+# you can set load_existing_hod=True to load a pre-made catalog rather
+# than actually sampling from AbacusSummit for a quick debugging
 
 # sample HOD parameters and build the cutsky mock
+# this does not have the angular or radial mask carved in yet
 hod = {key: hod_params[key][30] for key in hod_params.keys()}
-data, randoms = abacus.run(hod, nthreads=128, generate_randoms=True, alpha_randoms=5,
-                  region='NGC', release='Y1', program='dark')
+cutsky.sample_hod(hod, nthreads=128, region='NGC', release='Y1', program='dark')
 
-# get positions for clustering analysis
+# apply angular and radial masks
+cutsky.apply_angular_mask(region='NGC', release='Y3', npasses=None, program='dark')
+nz_filename='/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+cutsky.apply_radial_mask(nz_filename=nz_filename)
+
+# generate a random catalog with the same angular and radial masks
+cutsky_randoms = CutskyRandoms(
+    rarange=(cutsky.catalog['RA'].min(), cutsky.catalog['RA'].max()),
+    decrange=(cutsky.catalog['DEC'].min(), cutsky.catalog['DEC'].max()),
+    zrange=(0.4, 1.1),
+    nbar=2000,  # this is *surface area* density, in (deg^2)^-1
+    # csize=10_000_000,  # alternatively, pass the desired number of randoms
+)
+cutsky_randoms.apply_angular_mask(region='NGC', release='Y3', npasses=None, program='dark')
+# we use `shape_only=True` to only match the n(z) shape, keeping the randoms amplitude
+cutsky_randoms.apply_radial_mask(nz_filename=nz_filename, shape_only=True)
+
+# catalog is a dict that contains sky coordinates, redshifts and number density
+data = cutsky.catalog
+randoms = cutsky_randoms.catalog
+
+# get cartesian positions for clustering analysis
 data_positions = get_clustering_positions(data)
 randoms_positions = get_clustering_positions(randoms)
 
