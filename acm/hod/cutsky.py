@@ -20,6 +20,11 @@ LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
 
 class BaseCutskyCatalog(ABC):
+    """
+    Base class for cutsky catalogs. This class provides methods to apply angular and radial masks,
+    compute number density, and check if coordinates are within a specified photometric region.
+    It is intended to be subclassed for specific cutsky catalog implementations.
+    """
     def __init__(self):
         pass
 
@@ -88,7 +93,6 @@ class BaseCutskyCatalog(ABC):
         if shape_only:
             self.catalog['NZ'] /= max_ratio
 
-
     def compute_nz(self, zedges=None):
         """
         Computes the comoving number density n(z) of the cutsky catalog.
@@ -111,8 +115,26 @@ class BaseCutskyCatalog(ABC):
         zbin_mid = (zedges[:-1] + zedges[1:]) / 2
         return zbin_mid, data_nz / np.diff(zedges)
 
-    def is_in_photometric_region(self, ra, dec, region, rank=0):
-        """DN=NNGC and DS = SNGC"""
+    def is_in_photometric_region(self, ra, dec, region):
+        """
+        Determine if the given RA/Dec coordinates are within the specified photometric region.
+
+        Parameters
+        ----------
+        ra : np.ndarray
+            Array of right ascension values in degrees.
+        dec : np.ndarray
+            Array of declination values in degrees.
+        region : str
+            The photometric region to check. Options include 'N', 'DN', 'DS', 'N+SNGC',
+            'SNGC', 'SSGC', 'DES', 'NGC', 'SGC'.
+        Returns
+        -------
+        pixels : np.ndarray
+            Healpix pixel numbers corresponding to the RA/Dec coordinates.
+        mask : np.ndarray
+            Boolean mask indicating whether each RA/Dec coordinate is within the specified region.
+        """
         region = region.upper()
         assert region in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC']
 
@@ -120,7 +142,7 @@ class BaseCutskyCatalog(ABC):
         try:
             from regressis import DR9Footprint
         except ImportError:
-            if rank == 0: self.logger.info('Regressis not found, falling back to RA/Dec cuts')
+            self.logger.info('Regressis not found, falling back to RA/Dec cuts')
 
         if DR9Footprint is None:
             mask = np.ones_like(ra, dtype='?')
@@ -148,8 +170,7 @@ class BaseCutskyCatalog(ABC):
 
             # Load DR9 footprint and create corresponding mask
             dr9_footprint = DR9Footprint(nside, mask_lmc=False, clear_south=False,
-                                         mask_around_des=False, cut_desi=False,
-                                         verbose=(rank == 0))
+                                         mask_around_des=False, cut_desi=False)
             convert_dict = {
                 'N': 'north',
                 'DN': 'south_mid_ngc',
@@ -172,18 +193,49 @@ class CutskyHOD(BaseCutskyCatalog):
             self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
             phase_idx: int = 0, zranges: list[list] = [[0.4, 0.6]], 
             snapshots: list = [0.5], DM_DICT: dict = LRG_Abacus_DM,
-            load_existing_hod: bool = False):
+            load_existing_hod: bool = False, sim_type: str = 'base'):
+        """
+        Initialize the CutskyHOD class. This checks the HOD parameters and 
+        loads the relevant simulation data that will be used to sample the
+        HOD galaxies from the snapshots later.
+
+        Parameters
+        ----------
+        varied_params : list
+            List of HOD parameters that will be varied.
+        config_file : str, optional
+            Path to the configuration file for HOD parameters. If None,
+            it will read the default file stored in the package.
+        cosmo_idx : int, optional
+            Index of the cosmology to use for the AbacusSummit simulation.
+        phase_idx : int, optional
+            Index of the phase to use for the AbacusSummit simulation.
+        zranges : list[list], optional
+            List of redshift ranges for which to build the cutsky catalog.
+            Each sublist should contain two elements: [zmin, zmax].
+        snapshots : list, optional
+            List of snapshots (redshifts) to use for building each redshift range
+            specified in `zranges`.
+        DM_DICT : dict, optional
+            Dictionary containing the DM fields for the HOD sampling.
+            Defaults to LRG_Abacus_DM, which is defined in utils.paths.
+        load_existing_hod : bool, optional
+            If True, load an existing HOD catalog instead of generating a new one
+            (useful for quick debugging). Defaults to False.
+        sim_type : str, optional
+            Type of simulation to use for the HOD sampling. Defaults to 'base' (2 Gpc/h).
+        """
         self.logger = logging.getLogger('CutskyHOD')
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
-        self.sim_type = 'base'
+        self.sim_type = sim_type
         if len(zranges) != len(snapshots):
             raise ValueError('Number of redshift ranges must match number of snapshots.')
         self.zranges = zranges
         self.snapshots = snapshots
-        self.boxsize_snapshot = 2000  # Mpc/h
+        self.boxsize_snapshot = 500 if sim_type == 'small' else 2000
         self.boxpad = 1000  # Mpc/h
         self.boxcenter = np.array([0, 0, 0])  # Mpc/h
         if self.load_existing_hod:
@@ -214,7 +266,8 @@ class CutskyHOD(BaseCutskyCatalog):
     def _sample_hod(self, ball, hod_params: dict, nthreads: int = 1, seed: float = 0,
         target_nbar: float = None):
         """
-        Sample HOD galaxies from the given ball object using the provided HOD parameters.
+        Internal function to sample HOD galaxies from the given ball object
+        using the provided HOD parameters.
         
         Parameters
         ----------
@@ -271,19 +324,45 @@ class CutskyHOD(BaseCutskyCatalog):
 
     def sample_hod(
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
-            box_margin: float = 300, existing_hod_path: str = None, 
-            region: str ='NGC', release: str ='Y1', program: str ='dark'):
+            existing_hod_path: str = None, region: str ='NGC', release: str ='Y1',
+            program: str ='dark', target_nz_filename: str = None):
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
         This does not yet apply the angular or radial masks, which should be done
         separately after this method.
+
+        Parameters
+        ----------
+        hod_params : dict
+            Dictionary containing the HOD parameters to use for sampling.
+        nthreads : int, optional
+            Number of threads to use for sampling, by default 1.
+        seed : float, optional
+            HOD random seed for reproducibility, by default 0.
+        existing_hod_path : str, optional
+            Path to an existing HOD catalog file. If provided, this will be loaded
+            instead of sampling from the simulation.
+        region : str, optional
+            The DESI photometric region, e.g., 'NGC', or 'SGC', by default 'NGC'.
+        release : str, optional
+            The DESI data release, e.g., 'Y1', 'Y3', or 'Y5, by default 'Y1'.
+        program : str, optional
+            The DESI program to use for the angular mask, 'dark' or 'bright', by default 'dark'.
+        target_nz_filename : str, optional
+            Path to an n(z) filename that can be used as a reference to estimate what is the maximum
+            number density that the HOD boxes require to allow for a radial mask to be applied later.
+        Returns
+        -------
+        dict
+            The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
         self.catalog = self.init_cutsky()
 
         # construct one redshift shell at a time from the snapshots
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
             self.logger.info(f'Processing snapshot at z = {zsnap} for redshift range {zranges}')
-            target_nbar = self.get_target_nbar(zmin=zranges[0], zmax=zranges[1])
+            target_nbar = self.get_target_nbar(nz_filename=target_nz_filename,
+                                               zmin=zranges[0], zmax=zranges[1])
             if self.load_existing_hod:
                 box_positions, box_velocities = self.load_hod(mock_path=existing_hod_path)
             else:
@@ -451,7 +530,7 @@ class CutskyHOD(BaseCutskyCatalog):
         else:
             return pos_min - boxpad * self.boxsize_snapshot, pos_max + boxpad * self.boxsize_snapshot
 
-    def get_target_nbar(self, zmin: float = 0., zmax: float = 6., nzpad=1.1, region='NGC'):
+    def get_target_nbar(self, nz_filename: str = None, zmin: float = 0., zmax: float = 6., nzpad=1.1):
         """
         Get the maximum number density associated to a given tracer in a given redshift range
         from the observed n(z) file. This is to know what the number density of the created
@@ -459,6 +538,9 @@ class CutskyHOD(BaseCutskyCatalog):
 
         Parameters
         ----------
+        nz_filename : str, optional
+            Path to the n(z) file. If None, it defaults to the Y1 LRG n(z) file.
+            This file should contain columns (1, 2, 3) as zbin_min, zbin_max, and target_nz.
         zmin : float
             Minimum redshift for the target number density.
         zmax : float
@@ -473,7 +555,8 @@ class CutskyHOD(BaseCutskyCatalog):
         float
             The maximum number density in the specified redshift range, multiplied by nzpad.
         """
-        nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_{region}_nz.txt'
+        if filename is None:
+            nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_{region}_nz.txt'
         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         chosen = np.logical_and(zbin_min >= zmin, zbin_max <= zmax)
         return nzpad * np.max(n_z[chosen])
@@ -516,6 +599,27 @@ class CutskyRandoms(BaseCutskyCatalog):
     """
     def __init__(self, rarange=(0., 360.), decrange=(-90., 90.), zrange=(0.4, 0.6),
         csize=None, nbar=None, seed=None, cosmo_idx=0):
+        """
+        Initialize the CutskyRandoms class. This generates randoms in a cutsky region
+        that has a certain right ascension, declination and redshift range, but 
+        the proper angular and radial mask needs to be applied later with the dedicated methods.
+        Parameters
+        ----------
+        rarange : tuple, optional
+            Range of right ascension in degrees, by default (0., 360.).
+        decrange : tuple, optional
+            Range of declination in degrees, by default (-90., 90.).
+        zrange : tuple, optional
+            Range of redshift, by default (0.4, 0.6).
+        csize : int, optional
+            Number of randoms to generate if `nbar` is not specified.
+        nbar : float, optional
+            Surface area density of randoms in (deg^2)^-1, by default None.
+        seed : int, optional
+            Random seed for reproducibility, by default None.
+        cosmo_idx : int, optional
+            Index of the AbacusSummit cosmology. Used for the redshift-distance relation.
+            """
         from mockfactory import RandomCutskyCatalog
         from mockfactory.utils import radecbox_area
         self.logger = logging.getLogger('CutskyRandoms')

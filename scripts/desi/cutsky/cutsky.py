@@ -86,7 +86,7 @@ def get_twopoint_clustering(save_fn=False):
 snapshots = [0.5, 0.8]
 
 # redshift range (in the cutsky) that will be covered by each snapshot
-zranges = [(0.4, 0.8), (0.8, 1.1)]
+zranges = [(0.4, 0.6), (0.6, 1.1)]
 
 # fiducial cosmology for the redshift-distance relation and RSD
 cosmo = AbacusSummit(0)
