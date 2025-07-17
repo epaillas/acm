@@ -28,6 +28,7 @@ class LightconeHOD:
         phase_idx: int = 0,
         zrange: list = [0.4, 0.8],
         DM_DICT: dict = LRG_Abacus_DM,
+        use_abacus_base: bool = False,
         ):
         self.logger = logging.getLogger('LightconeHOD')
         self.cosmo_idx = cosmo_idx
@@ -41,6 +42,8 @@ class LightconeHOD:
         config = yaml.safe_load(open(config_file))
         self.setup(config, DM_DICT)
         self.check_params(varied_params)
+        self.use_abacus_base = use_abacus_base
+        self.monte_carlo_sampling_count = 10000
 
     @property
     def snap_redshifts(self):
@@ -128,8 +131,8 @@ class LightconeHOD:
             # positions_dict = self.get_positions(hod_dict, tracer)
         self.format_catalog(hod_dict, save_fn, tracer, full_sky, apply_radial_mask)
         if make_randoms:
-            zmin = hod_dict[tracer]['Z'].min()
-            zmax = hod_dict[tracer]['Z'].max()
+            zmin = self.zrange[0]
+            zmax = self.zrange[1]
             nbar = self.get_data_nbar(hod_dict, tracer, full_sky)
             randoms_dict = self._make_randoms(nbar=nbar, zmin=zmin, zmax=zmax, apply_radial_mask=apply_radial_mask,
                                               full_sky=full_sky, alpha=alpha_rand, tracer=tracer)
@@ -194,11 +197,33 @@ class LightconeHOD:
         """
         data = hod_dict[tracer]
         dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
-        volume = 4/3 * np.pi * (dmax**3 - dmin**3)
-        correction = 1 if full_sky else 8  # divide by 8 if only using a sky octant
-        nbar = len(data['Z']) / (volume / correction)
+        
+        if self.use_abacus_base:
+            # Abacus base
+            # Monte Carlo sampling of Abacus lightcone volume
+            nsamples_per_box=self.monte_carlo_sampling_count
+            samples_x = np.random.uniform(low=0, high=2000, size = (3*nsamples_per_box))
+            samples_y = np.concatenate([np.random.uniform(low=0, high=2000, size = (nsamples_per_box)), 
+                                        np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)), 
+                                        np.random.uniform(low=0, high=2000, size = (nsamples_per_box))])
+            samples_z = np.concatenate([np.random.uniform(low=0, high=2000, size = (2*nsamples_per_box)),  
+                                        np.random.uniform(low=2000, high=4000, size = (nsamples_per_box))])
+            samples = np.vstack([samples_x, 
+                                 samples_y, 
+                                 samples_z] )
+            norm = np.linalg.norm(samples, axis=0)
+            num_in_lightcone = np.sum((norm>dmin) * (norm<dmax))
+            volume = 2000**3 * num_in_lightcone/nsamples_per_box
+            nbar = len(data['Z']) / volume
+            
+        else:
+            # Abacus huge (assumes that shells are entirely contained within the survey box)
+            # Monte carlo sampling would be more accurate if this is not the case
+            volume = 4/3 * np.pi * (dmax**3 - dmin**3)
+            correction = 1 if full_sky else 8  # divide by 8 if only using a sky octant
+            nbar = len(data['Z']) / (volume / correction)
         return nbar
-
+        
     def format_catalog(self, hod_dict, save_fn: str = False, tracer: str = 'LRG', full_sky: str = False, apply_radial_mask: str = False):
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
@@ -216,7 +241,8 @@ class LightconeHOD:
         self.logger.info(f'Raw data nbar: {data_nbar}' )
         if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-            self.apply_radial_mask(hod_dict, nz_filename, norm=1/data_nbar)
+            #print(1/data_nbar)
+            self.apply_radial_mask(hod_dict, nz_filename)
             self.logger.info(f'Downsampled data nbar: {self.get_data_nbar(hod_dict, tracer, full_sky)}' )
         if save_fn:
             table = Table(hod_dict[tracer])
@@ -285,10 +311,19 @@ class LightconeHOD:
         from mockfactory import RandomBoxCatalog
         self.logger.info(f'Generating random catalog.')
         # nbar = 6e-4  # hardcoded for LRG
-        pos = RandomBoxCatalog(
-            boxsize=self.boxsize, boxcenter=self.boxsize/2, nbar=nbar*alpha, seed=42
-        )['Position']
-        randoms = {tracer: {'X': pos[:, 0], 'Y': pos[:, 1], 'Z': pos[:, 2]}}
+        if self.use_abacus_base:
+            # Abacus base
+            pos = RandomBoxCatalog(
+                boxsize=self.boxsize * 2, boxcenter=self.boxsize, nbar=nbar*alpha, seed=42
+            )['Position']
+            in_vol = (pos[:, 0]<self.boxsize)*~((pos[:, 1]>self.boxsize)*(pos[:, 2]>self.boxsize))
+            randoms = {tracer: {'X': pos[:, 0][in_vol], 'Y': pos[:, 1][in_vol], 'Z': pos[:, 2][in_vol]}}
+        else:
+            # Abacus huge
+            pos = RandomBoxCatalog(
+                boxsize=self.boxsize, boxcenter=self.boxsize/2, nbar=nbar*alpha, seed=42
+            )['Position']
+            randoms = {tracer: {'X': pos[:, 0], 'Y': pos[:, 1], 'Z': pos[:, 2]}}
         if full_sky: self.make_full_sky(randoms)
         self.get_sky_coordinates(randoms)
         self.drop_cartesian(randoms)
@@ -297,18 +332,83 @@ class LightconeHOD:
             randoms[tracer][key] = randoms[tracer][key][zmask]
         if apply_radial_mask:
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-            self.apply_radial_mask(randoms, nz_filename)
+            #randoms_nbar = self.get_data_nbar(randoms, tracer, full_sky)
+            self.apply_radial_mask(randoms, nz_filename, shape_only=True)
+        dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
         return randoms
 
-    
-    def apply_radial_mask(self, hod_dict, nz_filename: str, norm=None, tracer: str = 'LRG'):
-        # example from https://github.com/cosmodesi/mockfactory/
-        from mockfactory import TabulatedRadialMask
-        self.logger.info(f'Applying radial mask from {nz_filename}.')
-        # Load nz
-        zbin_mid, n_z = np.genfromtxt(nz_filename, skip_header=3, usecols=(0, 3)).T
-        # if norm is not None and 1/norm <= n_z.max():
-        #     norm = None
-        mask_radial = TabulatedRadialMask(z=zbin_mid, nbar=n_z, interp_order=2, norm=norm)
+    def apply_radial_mask(self, hod_dict, nz_filename: str, tracer: str = 'LRG', shape_only: bool = False):
+        # TODO need to make this work for other releases
+        self.logger.info('Applying radial mask.')
+        nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+        zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
+        zbin_mid = (zbin_min + zbin_max) / 2
+        zedges = np.insert(zbin_max, 0, zbin_min[0])
+        dedges = self.cosmo.comoving_radial_distance(zedges)
+        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) / 8 
+        
+        # Handle shells exterior to the Abacus boxes
+        if np.any(dedges > self.boxsize):
+            
+            exterior_indices = np.where(dedges > self.boxsize)[0]
+            exterior_shells = (dedges[exterior_indices] + dedges[exterior_indices - 1]) / 2
+
+            # fraction of each shell inside the simulation volume
+            filling_fractions = self.shell_filling_fraction(exterior_shells)
+                    
+            # Adjust volumes using volume filling fractions
+            volume[exterior_indices-1] = volume[exterior_indices-1] * filling_fractions
+                
+        data_nz = np.histogram(hod_dict[tracer]['Z'], bins=zedges)[0] / volume
+        zmin_data = hod_dict[tracer]['Z'].min()
+        zmax_data = hod_dict[tracer]['Z'].max()
+        ratio = target_nz / data_nz
+        if shape_only:
+            ratio /= np.max(ratio[~np.isinf(ratio)])
+        select_mask = np.zeros_like(hod_dict[tracer]['Z'], dtype=bool)
+        for i in range(len(zbin_mid) - 1):
+            if zbin_mid[i] < zmin_data or zbin_mid[i + 1] > zmax_data:
+                continue
+            z_mask = (hod_dict[tracer]['Z'] >= zbin_mid[i]) & (hod_dict[tracer]['Z'] < zbin_mid[i + 1])
+            n_galaxies = np.sum(z_mask)
+            if n_galaxies > 0:
+                n_select = int(np.round(ratio[i] * n_galaxies))
+                select_indices = np.random.choice(np.where(z_mask)[0], size=n_select, replace=False)
+                select_mask[select_indices] = True
         for key in hod_dict[tracer].keys():
-            hod_dict[tracer][key] = hod_dict[tracer][key][mask_radial(hod_dict[tracer]['Z'], seed=42)]
+            hod_dict[tracer][key] = hod_dict[tracer][key][select_mask]
+
+    def shell_filling_fraction(self, shells):
+    
+        # Muller-Marsaglia octant sampling
+        # evenly distribute points along an octant of a unit sphere
+        num_samples = self.monte_carlo_sampling_count
+        sample_points = np.abs(np.random.normal(0,1, (3,num_samples)))
+        sample_points /= np.linalg.norm(sample_points, axis=0)
+    
+        # fraction of each shell inside the simulation volume
+        vol_fractions = []
+    
+        if self.use_abacus_base:
+            # Abacus base
+            for shell_radius in shells:
+                # count how many points in the shell are in the L-shaped stack of periodic boxes
+                vol_fractions.append(
+                    np.sum((sample_points[0]<self.boxsize/shell_radius)*\
+                           (sample_points[1]<2*self.boxsize/shell_radius)*\
+                           (sample_points[2]<2*self.boxsize/shell_radius)*\
+                           ((sample_points[1]<=self.boxsize/shell_radius)+(sample_points[2]<=self.boxsize/shell_radius))\
+                          )/len(sample_points[0])
+                )
+        else:
+            # Abacus huge
+            for shell_radius in shells:
+                # count how many points in the shell are in the box
+                vol_fractions.append(
+                    np.sum((sample_points[0]<self.boxsize/shell_radius)*\
+                           (sample_points[1]<self.boxsize/shell_radius)*\
+                           (sample_points[2]<self.boxsize/shell_radius)\
+                          )/len(sample_points[0])
+                ) 
+
+        return np.array(vol_fractions)
