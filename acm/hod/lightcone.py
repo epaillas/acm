@@ -43,6 +43,7 @@ class LightconeHOD:
         self.setup(config, DM_DICT)
         self.check_params(varied_params)
         self.use_abacus_base = use_abacus_base
+        self.monte_carlo_sampling_count = 10000
 
     @property
     def snap_redshifts(self):
@@ -200,7 +201,7 @@ class LightconeHOD:
         if self.use_abacus_base:
             # Abacus base
             # Monte Carlo sampling of Abacus lightcone volume
-            nsamples_per_box=10000
+            nsamples_per_box=self.monte_carlo_sampling_count
             samples_x = np.random.uniform(low=0, high=2000, size = (3*nsamples_per_box))
             samples_y = np.concatenate([np.random.uniform(low=0, high=2000, size = (nsamples_per_box)), 
                                         np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)), 
@@ -313,8 +314,6 @@ class LightconeHOD:
         if self.use_abacus_base:
             # Abacus base
             pos = RandomBoxCatalog(
-                # create initial randoms with nbar > nbar*alpha for n(z) downsampling to work properly 
-                # TODO: this is still not working
                 boxsize=self.boxsize * 2, boxcenter=self.boxsize, nbar=nbar*alpha, seed=42
             )['Position']
             in_vol = (pos[:, 0]<self.boxsize)*~((pos[:, 1]>self.boxsize)*(pos[:, 2]>self.boxsize))
@@ -383,7 +382,7 @@ class LightconeHOD:
     
         # Muller-Marsaglia octant sampling
         # evenly distribute points along an octant of a unit sphere
-        num_samples = 10000
+        num_samples = self.monte_carlo_sampling_count
         sample_points = np.abs(np.random.normal(0,1, (3,num_samples)))
         sample_points /= np.linalg.norm(sample_points, axis=0)
     
