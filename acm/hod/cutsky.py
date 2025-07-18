@@ -183,6 +183,50 @@ class BaseCutskyCatalog(ABC):
             }
             return pixels, dr9_footprint(convert_dict[region])[pixels]
 
+    def add_columns_fiberassign(self, seed: int = 0):
+        """
+        Add columns to the catalog that are needed for fiber assignment.
+
+        Parameters
+        ----------
+        seed : int, optional
+            Random seed for reproducibility. Defaults to 0.
+        """
+        from desitarget.targetmask import desi_mask, obsconditions
+
+        self.logger.info('Adding columns for fiber assignment.')
+
+        priority = {'LRG': 3200, 'QSO': 3400, 'ELG': 3100, 'BGS': 2100}
+        tile = {'LRG': 'DARK', 'QSO': 'DARK', 'ELG': 'DARK', 'BGS': 'BRIGHT'}
+
+        csize = len(self.catalog['RA'])
+        self.catalog['DESI_TARGET'] = desi_mask[self.tracer] * np.ones(csize, dtype='i8')
+        self.catalog['PRIORITY'] = priority[self.tracer] * np.ones(csize, dtype='i8')
+        self.catalog['SUBPRIORITY'] = np.random.uniform(size=csize, low=0, high=1).astype('f8')
+        self.catalog['OBSCONDITIONS'] = obsconditions.mask(tile[self.tracer]) * np.ones(csize, dtype='i8')
+        self.catalog['NUMOBS_MORE'] = np.ones(csize, dtype='i8')
+        self.catalog['TARGETID'] = np.arange(csize, dtype='i8')
+
+    def save(self, filename: str):
+        """
+        Save the cutsky catalog to a FITS file.
+
+        Parameters
+        ----------
+        filename : str
+            The path to the output FITS file.
+        """
+        self.logger.info(f'Saving cutsky catalog to {filename}')
+        if filename.endswith('.fits'):
+            from astropy.table import Table
+            from astropy.io import fits
+            table = Table(self.catalog)
+            myfits = fits.BinTableHDU(data=table)
+            myfits.writeto(filename, overwrite=True)
+        elif filename.endswith('.npy'):
+            np.save(filename, self.catalog)
+        else:
+            raise ValueError('Unsupported file format. Use .fits or .npy.')
         
 
 class CutskyHOD(BaseCutskyCatalog):
@@ -193,7 +237,8 @@ class CutskyHOD(BaseCutskyCatalog):
             self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
             phase_idx: int = 0, zranges: list[list] = [[0.4, 0.6]], 
             snapshots: list = [0.5], DM_DICT: dict = LRG_Abacus_DM,
-            load_existing_hod: bool = False, sim_type: str = 'base'):
+            load_existing_hod: bool = False, sim_type: str = 'base',
+            tracer: str = 'LRG'):
         """
         Initialize the CutskyHOD class. This checks the HOD parameters and 
         loads the relevant simulation data that will be used to sample the
@@ -224,6 +269,8 @@ class CutskyHOD(BaseCutskyCatalog):
             (useful for quick debugging). Defaults to False.
         sim_type : str, optional
             Type of simulation to use for the HOD sampling. Defaults to 'base' (2 Gpc/h).
+        tracer : str, optional
+            The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
         """
         self.logger = logging.getLogger('CutskyHOD')
         self.load_existing_hod = load_existing_hod
@@ -231,6 +278,7 @@ class CutskyHOD(BaseCutskyCatalog):
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
         self.sim_type = sim_type
+        self.tracer = tracer
         if len(zranges) != len(snapshots):
             raise ValueError('Number of redshift ranges must match number of snapshots.')
         self.zranges = zranges
@@ -287,7 +335,7 @@ class CutskyHOD(BaseCutskyCatalog):
             Tuple containing positions and velocities of the sampled galaxies.
         """
         hod_dict = ball.run(hod_params, seed=seed, nthreads=nthreads,
-                            tracer_density_mean=target_nbar)['LRG']
+                            tracer_density_mean=target_nbar)[self.tracer]
         pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']]
         vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']]
         return pos.astype(np.float32), vel.astype(np.float32)
@@ -306,8 +354,8 @@ class CutskyHOD(BaseCutskyCatalog):
             Tuple containing positions and velocities of the galaxies.
         """
         if mock_path is None:
-            base_path = '/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/LRG/z0.500/AbacusSummit_base_c000_ph000'
-            mock_path = base_path +'/LRG_real_space.fits'
+            base_path = f'/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/{self.tracer}/z0.500/AbacusSummit_base_c000_ph000'
+            mock_path = base_path + f'/{self.tracer}_real_space.fits'
             # data_dir = '/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c000_ph000/seed0'
             # data_fn = Path(data_dir) / 'hod030_raw.fits'
         data  = fitsio.read(mock_path)
@@ -362,7 +410,8 @@ class CutskyHOD(BaseCutskyCatalog):
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
             self.logger.info(f'Processing snapshot at z = {zsnap} for redshift range {zranges}')
             target_nbar = self.get_target_nbar(nz_filename=target_nz_filename,
-                                               zmin=zranges[0], zmax=zranges[1])
+                                               zmin=zranges[0], zmax=zranges[1],
+                                               region=region)
             if self.load_existing_hod:
                 box_positions, box_velocities = self.load_hod(mock_path=existing_hod_path)
             else:
@@ -524,13 +573,14 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         boxpad = self.boxpad
         assert boxpad > 0
-        pos_min, pos_max = minmax_xyz_desi(zranges, region=region, release=release, tracer='LRG') 
+        pos_min, pos_max = minmax_xyz_desi(zranges, region=region, release=release, tracer=self.tracer) 
         if boxpad > 1:
             return pos_min - boxpad, pos_max + boxpad
         else:
             return pos_min - boxpad * self.boxsize_snapshot, pos_max + boxpad * self.boxsize_snapshot
 
-    def get_target_nbar(self, nz_filename: str = None, zmin: float = 0., zmax: float = 6., nzpad=1.1):
+    def get_target_nbar(self, nz_filename: str = None, zmin: float = 0., zmax: float = 6., nzpad=1.1,
+        region: str = 'NGC'):
         """
         Get the maximum number density associated to a given tracer in a given redshift range
         from the observed n(z) file. This is to know what the number density of the created
@@ -555,8 +605,8 @@ class CutskyHOD(BaseCutskyCatalog):
         float
             The maximum number density in the specified redshift range, multiplied by nzpad.
         """
-        if filename is None:
-            nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_{region}_nz.txt'
+        if nz_filename is None:
+            nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{self.tracer}_{region}_nz.txt'
         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         chosen = np.logical_and(zbin_min >= zmin, zbin_max <= zmax)
         return nzpad * np.max(n_z[chosen])
