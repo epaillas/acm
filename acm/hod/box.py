@@ -61,7 +61,7 @@ class BoxHOD:
         ValueError
             If `sim_type` is not 'base' or 'small'.
         """
-        self.logger = logging.getLogger('AbacusHOD')
+        self.logger = logging.getLogger('BoxHOD')
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
         if sim_type not in ['base', 'small', 'png']:
