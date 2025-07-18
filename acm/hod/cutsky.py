@@ -209,12 +209,12 @@ class BaseCutskyCatalog(ABC):
 
     def save(self, filename: str):
         """
-        Save the cutsky catalog to a FITS file.
+        Save the cutsky catalog to a file. Supports .fits and .npy formats.
 
         Parameters
         ----------
         filename : str
-            The path to the output FITS file.
+            The path to the output file.
         """
         self.logger.info(f'Saving cutsky catalog to {filename}')
         if filename.endswith('.fits'):
