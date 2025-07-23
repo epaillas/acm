@@ -105,7 +105,7 @@ cutsky = CutskyHOD(varied_params=hod_params.keys(),
 # sample HOD parameters and build the cutsky mock
 # this does not have the angular or radial mask carved in yet
 hod = {key: hod_params[key][30] for key in hod_params.keys()}
-cutsky.sample_hod(hod, nthreads=128, region='NGC', release='Y1', program='dark')
+cutsky.sample_hod(hod, nthreads=128, region='NGC', release='Y1')
 
 # apply angular and radial masks
 cutsky.apply_angular_mask(region='NGC', release='Y1', npasses=None, program='dark')
