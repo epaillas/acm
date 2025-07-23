@@ -116,13 +116,10 @@ lightcone.apply_radial_mask(nz_filename=nz_filename)
 
 # generate a random catalog with the same angular and radial masks
 lightcone_randoms = LightconeRandoms(
-    rarange=(lightcone.catalog['RA'].min(), lightcone.catalog['RA'].max()),
-    decrange=(lightcone.catalog['DEC'].min(), lightcone.catalog['DEC'].max()),
     zrange=zrange,
     nbar=2000,  # this is *surface area* density, in (deg^2)^-1
     # csize=10_000_000,  # alternatively, pass the desired number of randoms
 )
-lightcone_randoms.set_sim_type('base')
 #lightcone_randoms.apply_angular_mask(region='NGC', release='Y1', npasses=None, program='dark')
 # we use `shape_only=True` to only match the n(z) shape, keeping the randoms amplitude
 lightcone_randoms.apply_radial_mask(nz_filename=nz_filename, shape_only=True)
