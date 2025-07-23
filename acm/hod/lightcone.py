@@ -115,7 +115,8 @@ class BaseLightconeCatalog(ABC):
             norm = np.linalg.norm(samples, axis=0)
             num_in_lightcone = np.sum((norm>dmin) * (norm<dmax))
             volume = 2000**3 * num_in_lightcone/nsamples_per_box
-            nbar = len(data['Z']) / volume
+            correction = 8 if full_sky else 1  # multiply by 8 if only using the full sky
+            nbar = len(data['Z']) / (volume * correction)
             
         else:
             # Abacus huge (assumes that shells are entirely contained within the survey box)
@@ -388,19 +389,59 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
     """
     Class to generate randoms in a lightcone region.
     """
-
-    def set_sim_type(self, sim_type, full_sky=False):
-        #TODO move this to the init function and call super.init as well
+    def __init__(self, full_sky = False, zrange=(0.4, 0.6),
+        csize=None, nbar=None, seed=None, cosmo_idx=0, sim_type='base'):
+        """
+        Initialize the CutskyRandoms class. This generates randoms in a cutsky region
+        that has a certain right ascension, declination and redshift range, but 
+        the proper angular and radial mask needs to be applied later with the dedicated methods.
+        Parameters
+        ----------
+        rarange : tuple, optional
+            Range of right ascension in degrees, by default (0., 360.).
+        decrange : tuple, optional
+            Range of declination in degrees, by default (-90., 90.).
+        zrange : tuple, optional
+            Range of redshift, by default (0.4, 0.6).
+        csize : int, optional
+            Number of randoms to generate if `nbar` is not specified.
+        nbar : float, optional
+            Surface area density of randoms in (deg^2)^-1, by default None.
+        seed : int, optional
+            Random seed for reproducibility, by default None.
+        cosmo_idx : int, optional
+            Index of the AbacusSummit cosmology. Used for the redshift-distance relation.
+            """
+        from mockfactory import RandomCutskyCatalog
+        from mockfactory.utils import radecbox_area
         self.logger = logging.getLogger('LightconeRandoms')
+        self.rarange = (0., 360.) if full_sky else (0., 90.)
+        self.decrange = (-90., 90.) if full_sky else (0., 90.)
+        self.zrange = zrange
+        self.nbar = nbar
+        self.keys_cutsky = ['RA', 'DEC', 'Z', 'Distance', 'Position']
+        self.cosmo = AbacusSummit(cosmo_idx)
+        r2d = self.cosmo.comoving_radial_distance
+        self.drange = (r2d(zrange[0]), r2d(zrange[1]))
+        self.catalog = RandomCutskyCatalog(rarange=self.rarange, decrange=self.decrange,
+                                          drange=self.drange, csize=csize, nbar=nbar, seed=seed)
+        d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
+        self.catalog['Z'] = d2r(self.catalog['Distance'])
+        self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
+        self.raw_nbar = self.calculate_raw_nbar()
+        # TODO: docstrings for below params
         self.sim_type = sim_type
-        self.boxsize = 7500 if sim_type == 'huge' else 2000
+        self.boxsize = 7500 if self.sim_type == 'huge' else 2000
         self.monte_carlo_sampling_count = 10000
 
-        if not full_sky:
-            select = (self.catalog['RA']>0)*(self.catalog['RA']<90.)
-            for key in self.catalog.keys():
-                self.catalog[key] = self.catalog[key][select]
+        if self.sim_type == 'base':
+            xyz_pos = self.catalog['Position']
+            mask = (xyz_pos[:,0] < 2000) * (xyz_pos[:,1] < 4000) * (xyz_pos[:,2] < 4000)
+            mask = mask * ( (xyz_pos[:,1] < 2000) + (xyz_pos[:,2] < 2000) )
 
+            for key in self.catalog.keys():
+                self.catalog[key] = self.catalog[key][mask]
+        
     def apply_angular_mask(self):
         # TODO: determine args
         BaseLightconeCatalog.apply_angular_mask(self)
