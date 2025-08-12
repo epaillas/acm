@@ -28,7 +28,7 @@ class BaseCutskyCatalog(ABC):
     def __init__(self):
         pass
 
-    def apply_angular_mask(self, region='N+SNGC', release='Y1', npasses=None, program='dark'):
+    def apply_angular_mask(self, region='N+SNGC', release='Y1', npasses=None, program='dark', custom_mask_path = None):
         """
         Applies the angular mask to the cutsky catalog based on the specified region.
 
@@ -42,6 +42,9 @@ class BaseCutskyCatalog(ABC):
             The number of passes for the mask. If None, defaults to 1.
         program : str
             The program to use for the mask, e.g., 'dark'.
+        custom_mask_path : str
+            If not set to None, a custom mask file is read for applying the angular mask. The file should be in FITS format
+            and should include a column named IN_MASK that corresponds to a boolean healpix mask
 
         Returns
         -------
@@ -49,10 +52,22 @@ class BaseCutskyCatalog(ABC):
             The cutsky catalog is modified in place.
         """
         self.logger.info('Applying angular mask.')
-        is_in_desi = is_in_desi_footprint(self.catalog['RA'], self.catalog['DEC'], release=release, program=program, npasses=npasses)
-        self.catalog['HPX'], is_in_photo = self.is_in_photometric_region(self.catalog['RA'], self.catalog['DEC'], region=region)
-        for key in self.catalog.keys():
-            self.catalog[key] = self.catalog[key][is_in_desi & is_in_photo]
+        if custom_mask_path is None:
+            is_in_desi = is_in_desi_footprint(self.catalog['RA'], self.catalog['DEC'], release=release, program=program, npasses=npasses)
+            self.catalog['HPX'], is_in_photo = self.is_in_photometric_region(self.catalog['RA'], self.catalog['DEC'], region=region)
+            for key in self.catalog.keys():
+                self.catalog[key] = self.catalog[key][is_in_desi & is_in_photo]
+        else:
+            import healpy as hp
+            mask = fitsio.read(custom_mask_path)
+            nside = hp.npix2nside(len(mask['IN_MASK']))
+            phi = np.radians(self.catalog['RA'])
+            theta = np.radians(90 - self.catalog['DEC'])
+            target_pixels = hp.ang2pix(nside, theta, phi)
+            is_in_mask = mask['IN_MASK'][target_pixels]
+            for key in self.catalog.keys():
+                self.catalog[key] = self.catalog[key][is_in_mask]
+            
 
     def apply_radial_mask(self, nz_filename: str, shape_only: bool = False):
         """
@@ -374,7 +389,7 @@ class CutskyHOD(BaseCutskyCatalog):
     def sample_hod(
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
             existing_hod_path: str = None, region: str ='NGC', release: str ='Y1',
-            target_nz_filename: str = None):
+            target_nz_filename: str = None, custom_xyz_file=None):
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
         This does not yet apply the angular or radial masks, which should be done
@@ -398,6 +413,9 @@ class CutskyHOD(BaseCutskyCatalog):
         target_nz_filename : str, optional
             Path to an n(z) filename that can be used as a reference to estimate what is the maximum
             number density that the HOD boxes require to allow for a radial mask to be applied later.
+        custom_xyz_file : str
+            If not None, a custom file is read for the positions of the tracers that define
+            the survey volume bounds
         Returns
         -------
         dict
@@ -419,7 +437,7 @@ class CutskyHOD(BaseCutskyCatalog):
                                                                  target_nbar=target_nbar, seed=seed)
             self.raw_nbar = len(box_positions) / (self.boxsize**3)
             # replicate the box along each axis to cover more volume
-            pos_min, pos_max = self.get_reference_borders(zranges, region=region, release=release)
+            pos_min, pos_max = self.get_reference_borders(zranges, region=region, release=release, custom_xyz_file=custom_xyz_file)
             shifts = self.get_box_shifts(pos_min, pos_max)
             box_positions, box_velocities = self.get_box_replications(box_positions, box_velocities,
                                                                       pos_min, pos_max, target_nbar,
@@ -549,7 +567,7 @@ class CutskyHOD(BaseCutskyCatalog):
         catalog['RSDPosition'] = catalog.rsd_position(f=rsd_factor)
         return catalog
 
-    def get_reference_borders(self, zranges, region='NGC', release='Y1'):
+    def get_reference_borders(self, zranges, region='NGC', release='Y1', custom_xyz_file=None):
         """
         Get the minimum and maximum cartesian coordinates from a reference galaxy catalog
         to restrict the volume spanned by the replicated HOD boxes. This avoids wasting
@@ -563,6 +581,9 @@ class CutskyHOD(BaseCutskyCatalog):
             The DESI photometric region, e.g., 'NGC', by default 'NGC'.
         release : str, optional
             The DESI data release, e.g., 'Y1', by default 'Y1'.
+        custom_xyz_file : str
+            If not None, a custom file is read for the positions of the tracers that define
+            the survey volume bounds
         Returns
         -------
         tuple
@@ -572,7 +593,7 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         boxpad = self.boxpad
         assert boxpad > 0
-        pos_min, pos_max = minmax_xyz_desi(zranges, region=region, release=release, tracer=self.tracer) 
+        pos_min, pos_max = minmax_xyz_desi(zranges, region=region, release=release, tracer=self.tracer, custom_xyz_file=custom_xyz_file) 
         if boxpad > 1:
             return pos_min - boxpad, pos_max + boxpad
         else:
