@@ -538,6 +538,7 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         cutsky = {}
         if apply_rsd: cutsky = self.apply_rsd(box, zrsd)
+        else: cutsky = box
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         pos = 'RSDPosition' if apply_rsd else 'Position'
         cutsky['Distance'], cutsky['RA'], cutsky['DEC'] = mockfactory.cartesian_to_sky(box[pos])
