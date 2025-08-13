@@ -197,6 +197,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         sim_type : str, optional
             Type of simulation to use for the HOD sampling. Defaults to 'base' (2 Gpc/h).
             Other valid options include 'huge' (7.5 Gpc/h)
+            TODO: huge not yet supported with BoxHOD
         tracer : str, optional
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
         """
@@ -208,7 +209,6 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         self.sim_type = sim_type
         self.tracer = tracer
         self.zrange = zrange
-        # TODO: we can't use small. Can we use huge? TODO: huge not yet supported with BoxHOD
         self.boxsize = 7500 if sim_type == 'huge' else 2000
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
@@ -304,7 +304,6 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
                 box_positions, box_velocities = self._sample_hod(ball, hod_params, nthreads=nthreads,
                                                                  target_nbar=None, seed=seed)
             #recenter box
-            # TODO: why is this moved by 990 and not 1000?
             box_positions += 990
             #remove outbounds
             mask = (box_positions[0]>0)*(box_positions[1]>0)*(box_positions[2]>0)
@@ -411,6 +410,10 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             Random seed for reproducibility, by default None.
         cosmo_idx : int, optional
             Index of the AbacusSummit cosmology. Used for the redshift-distance relation.
+        sim_type : str, optional
+            Type of simulation to use for the HOD sampling. Defaults to 'base' (2 Gpc/h).
+            Other valid options include 'huge' (7.5 Gpc/h)
+            TODO: huge not yet supported with BoxHOD
             """
         from mockfactory import RandomCutskyCatalog
         from mockfactory.utils import radecbox_area
@@ -429,7 +432,6 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
         self.raw_nbar = self.calculate_raw_nbar()
-        # TODO: docstrings for below params
         self.sim_type = sim_type
         self.boxsize = 7500 if self.sim_type == 'huge' else 2000
         self.monte_carlo_sampling_count = 10000
