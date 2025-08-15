@@ -22,10 +22,20 @@ class BaseLightconeCatalog(ABC):
     """
     Base class for mock lightcone catalogs.
     """
-    
+
+    def __init__(self):
+        pass
+
+    """
     def apply_angular_mask(self):
         # TODO: make angular mask code
+        # This code will be similar to the cutsky class method apply_angular_mask, except the 
+        # lightcone octant will first be rotated to providee the maximal possible overlap with
+        # angular mask prior to downsampling. Prior to this implmentation, users can use the 
+        # fullsky version of the lightcone mock and the inherited apply_angular_mask from 
+        # the cutsky class
         pass
+    """
     
     def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, ):
         """
@@ -201,6 +211,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         tracer : str, optional
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
         """
+        BaseLightconeCatalog.__init__(self)
         self.logger = logging.getLogger('LightconeHOD')
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
@@ -358,9 +369,12 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         
         return pos.T, vel.T
 
+    """
     def apply_angular_mask(self):
         # TODO: determine args
+        # See BaseLightconeCatalog.apply_angular_mask for TODO details
         BaseLightconeCatalog.apply_angular_mask(self)
+    """
     
     def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, ):
         """
@@ -417,6 +431,7 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             """
         from mockfactory import RandomCutskyCatalog
         from mockfactory.utils import radecbox_area
+        BaseLightconeCatalog.__init__(self)
         self.logger = logging.getLogger('LightconeRandoms')
         self.rarange = (0., 360.) if full_sky else (0., 90.)
         self.decrange = (-90., 90.) if full_sky else (0., 90.)
