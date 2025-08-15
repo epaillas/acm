@@ -287,6 +287,7 @@ class CutskyHOD(BaseCutskyCatalog):
         tracer : str, optional
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
         """
+        BaseCutskyCatalog.__init__(self)
         self.logger = logging.getLogger('CutskyHOD')
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
@@ -693,6 +694,7 @@ class CutskyRandoms(BaseCutskyCatalog):
             """
         from mockfactory import RandomCutskyCatalog
         from mockfactory.utils import radecbox_area
+        BaseCutskyCatalog.__init__(self)
         self.logger = logging.getLogger('CutskyRandoms')
         self.rarange = rarange
         self.decrange = decrange
