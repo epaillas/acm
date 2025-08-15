@@ -91,7 +91,7 @@ def get_twopoint_clustering(save_fn=False):
 
 
 # redshift range (in the cutsky) that will be covered by each snapshot
-zrange = [0.41, 0.8]
+zrange = [0.4, 1.025]
 
 # fiducial cosmology for the redshift-distance relation and RSD
 cosmo = AbacusSummit(0)
@@ -100,15 +100,33 @@ cosmo = AbacusSummit(0)
 hod_params = get_hod_params()
 
 # load abacusHOD class
-abacus = LightconeHOD(varied_params=hod_params.keys(),
-                   zrange=zrange, cosmo_idx=0, phase_idx=0)
-
-# sample HOD parameters and build the cutsky mock
+lightcone = LightconeHOD(varied_params=hod_params.keys(),
+                   zrange=zrange, cosmo_idx=0, phase_idx=0,
+                   load_existing_hod=False)
+# sample HOD parameters and build the lightcone mock
 hod = {key: hod_params[key][30] for key in hod_params.keys()}
-data, randoms = abacus.run(hod, nthreads=128, make_randoms=True, alpha_rand=5,
-    apply_radial_mask=True)
-data = data['LRG']
-randoms = randoms['LRG']
+
+# Run HOD code
+lightcone.sample_hod(hod, nthreads=nthreads,)
+
+# apply angular and radial masks
+#lightcone.apply_angular_mask(region='NGC', release='Y1', npasses=None, program='dark')
+nz_filename='/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/LRG_NGC_nz.txt'
+lightcone.apply_radial_mask(nz_filename=nz_filename)
+
+# generate a random catalog with the same angular and radial masks
+lightcone_randoms = LightconeRandoms(
+    zrange=zrange,
+    nbar=2000,  # this is *surface area* density, in (deg^2)^-1
+    # csize=10_000_000,  # alternatively, pass the desired number of randoms
+)
+#lightcone_randoms.apply_angular_mask(region='NGC', release='Y1', npasses=None, program='dark')
+# we use `shape_only=True` to only match the n(z) shape, keeping the randoms amplitude
+lightcone_randoms.apply_radial_mask(nz_filename=nz_filename, shape_only=True)
+
+# catalog is a dict that contains sky coordinates, redshifts and number density
+data = lightcone.catalog
+randoms = lightcone_randoms.catalog
 
 # # get positions for clustering analysis
 data_positions = get_clustering_positions(data)
