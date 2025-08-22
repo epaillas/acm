@@ -317,9 +317,9 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             #recenter box
             box_positions += 990
             #remove outbounds
-            mask = (box_positions[0]>0)*(box_positions[1]>0)*(box_positions[2]>0)
-            box_positions = box_positions[:,mask]
-            box_velocities = box_velocities[:,mask]
+            mask = (box_positions[:,0]>0)*(box_positions[:,1]>0)*(box_positions[:,2]>0)
+            box_positions = box_positions[mask]
+            box_velocities = box_velocities[mask]
             if full_sky:
                 box_positions, box_velocities = self.make_full_sky(box_positions, box_velocities)
             
