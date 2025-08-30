@@ -458,10 +458,11 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
 
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][mask]
-        
+    """    
     def apply_angular_mask(self):
         # TODO: determine args
         BaseLightconeCatalog.apply_angular_mask(self)
+    """
     
     def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, ):
         """
