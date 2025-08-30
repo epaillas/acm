@@ -668,6 +668,18 @@ class CutskyHOD(BaseCutskyCatalog):
         return pos,vel
 
     def get_raw_nbar_at_z(self, redshift):
+        """
+        Obtains the correct raw_nbar value for a given redshift input
+
+        Parameters
+        ----------
+        redshift : np.ndarray
+            Array of input redshifts
+        Returns
+        -------
+        combined_raw_nbar : np.ndarray
+            The raw_nbar values for each redshift
+        """
 
         if len(self.raw_nbar_snapshots) == 1:
             return self.raw_nbar_snapshots[0]
@@ -749,4 +761,12 @@ class CutskyRandoms(BaseCutskyCatalog):
         return len(self.catalog['Z']) / volume
 
     def get_raw_nbar_at_z(self, *args):
+        """
+        Obtains the correct raw_nbar value for a randoms catalog
+
+        Returns
+        -------
+        self.raw_nbar : float
+            The raw_nbar values for the randoms
+        """
         return self.raw_nbar
