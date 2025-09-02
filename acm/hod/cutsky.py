@@ -92,7 +92,8 @@ class BaseCutskyCatalog(ABC):
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = (zbin_min + zbin_max) / 2
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
-        ratio = target_nz / self.raw_nbar
+        raw_nbar = self.get_raw_nbar_at_z(zbin_mid)
+        ratio = target_nz / raw_nbar
         if shape_only:
             max_ratio = np.max(ratio[~np.isinf(ratio)])
             ratio /= max_ratio
@@ -424,6 +425,8 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         self.catalog = self.init_cutsky()
 
+        self.raw_nbar_snapshots = []
+        
         # construct one redshift shell at a time from the snapshots
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
             self.logger.info(f'Processing snapshot at z = {zsnap} for redshift range {zranges}')
@@ -436,7 +439,7 @@ class CutskyHOD(BaseCutskyCatalog):
                 ball  = self.balls[i]
                 box_positions, box_velocities = self._sample_hod(ball, hod_params, nthreads=nthreads,
                                                                  target_nbar=target_nbar, seed=seed)
-            self.raw_nbar = len(box_positions) / (self.boxsize**3)
+            self.raw_nbar_snapshots.append( len(box_positions) / (self.boxsize**3) )
             # replicate the box along each axis to cover more volume
             pos_min, pos_max = self.get_reference_borders(zranges, region=region, release=release, custom_xyz_file=custom_xyz_file)
             shifts = self.get_box_shifts(pos_min, pos_max)
@@ -664,7 +667,38 @@ class CutskyHOD(BaseCutskyCatalog):
             vel = vel[chosen]
         return pos,vel
 
+    def get_raw_nbar_at_z(self, redshift):
+        """
+        Obtains the correct raw_nbar value for a given redshift input
 
+        Parameters
+        ----------
+        redshift : np.ndarray
+            Array of input redshifts
+        Returns
+        -------
+        combined_raw_nbar : np.ndarray
+            The raw_nbar values for each redshift
+        """
+
+        if len(self.raw_nbar_snapshots) == 1:
+            return self.raw_nbar_snapshots[0]
+
+        combined_raw_nbar = np.zeros_like(redshift)
+        
+        for raw_nbar, zrange in zip(self.raw_nbar_snapshots, self.zranges):
+
+            select_targets = np.ones_like(redshift, dtype = bool)
+
+            if zrange[0] != self.zranges[0][0]:
+                select_targets *= (redshift > zrange[0] ) 
+            if zrange[1] != self.zranges[-1][1]:
+                select_targets *= (redshift < zrange[1] ) 
+            
+            combined_raw_nbar[select_targets] = raw_nbar
+
+        return combined_raw_nbar
+        
 class CutskyRandoms(BaseCutskyCatalog):
     """
     Class to generate randoms in a cutsky region.
@@ -725,3 +759,14 @@ class CutskyRandoms(BaseCutskyCatalog):
         fsky = area / 41253.0  # sky fraction covered by the randoms
         volume = 4/3 * np.pi * (self.drange[1]**3 - self.drange[0]**3) * fsky  # in (Mpc/h)^3
         return len(self.catalog['Z']) / volume
+
+    def get_raw_nbar_at_z(self, *args):
+        """
+        Obtains the correct raw_nbar value for a randoms catalog
+
+        Returns
+        -------
+        self.raw_nbar : float
+            The raw_nbar values for the randoms
+        """
+        return self.raw_nbar
