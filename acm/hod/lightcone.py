@@ -87,10 +87,10 @@ class BaseLightconeCatalog(ABC):
         if shape_only:
             ratio /= np.max(ratio[~np.isinf(ratio)])
         select_mask = np.zeros_like(self.catalog['Z'], dtype=bool)
-        for i in range(len(zbin_mid) - 1):
-            if zbin_mid[i] < zmin_data or zbin_mid[i + 1] > zmax_data:
+        for i in range(len(zbin_mid)):
+            if zbin_max[i] < zmin_data or zbin_min[i] > zmax_data:
                 continue
-            z_mask = (self.catalog['Z'] >= zbin_mid[i]) & (self.catalog['Z'] < zbin_mid[i + 1])
+            z_mask = (self.catalog['Z'] >= zbin_min[i]) & (self.catalog['Z'] < zbin_max[i])
             n_galaxies = np.sum(z_mask)
             if n_galaxies > 0:
                 n_select = int(np.round(ratio[i] * n_galaxies))
