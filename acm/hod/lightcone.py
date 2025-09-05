@@ -9,10 +9,13 @@ import mockfactory
 from cosmoprimo.fiducial import AbacusSummit
 from .cutsky import CutskyHOD, CutskyRandoms
 
+from mockfactory import RandomCutskyCatalog
+from mockfactory.utils import radecbox_area
+
 from acm.utils.paths import get_Abacus_dirs
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='lightcone')
 
-
+from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
 import warnings
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
@@ -61,8 +64,6 @@ class BaseLightconeCatalog(ABC):
         
         self.logger.info('Applying radial mask.')
         #nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-        
-        from scipy.interpolate import InterpolatedUnivariateSpline
 
         zmin_data = self.catalog['Z'].min()
         zmax_data = self.catalog['Z'].max()
@@ -445,8 +446,6 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             Other valid options include 'huge' (7.5 Gpc/h)
             TODO: huge not yet supported with BoxHOD
             """
-        from mockfactory import RandomCutskyCatalog
-        from mockfactory.utils import radecbox_area
         BaseLightconeCatalog.__init__(self)
         self.logger = logging.getLogger('LightconeRandoms')
         self.rarange = (0., 360.) if full_sky else (0., 90.)
