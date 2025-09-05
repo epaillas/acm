@@ -9,10 +9,13 @@ import mockfactory
 from cosmoprimo.fiducial import AbacusSummit
 from .cutsky import CutskyHOD, CutskyRandoms
 
+from mockfactory import RandomCutskyCatalog
+from mockfactory.utils import radecbox_area
+
 from acm.utils.paths import get_Abacus_dirs
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='lightcone')
 
-
+from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
 import warnings
 warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
@@ -61,41 +64,55 @@ class BaseLightconeCatalog(ABC):
         
         self.logger.info('Applying radial mask.')
         #nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
-        
+
+        zmin_data = self.catalog['Z'].min()
+        zmax_data = self.catalog['Z'].max()
+
+        # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = (zbin_min + zbin_max) / 2
+
+        nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
+        
+        #impose lightcone redshift limits on zbins
+        select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
+        zbin_min = zbin_min[select_zbins]
+        zbin_max = zbin_max[select_zbins]
+        zbin_min[0] = zmin_data
+        zbin_max[-1] = zmax_data
+        zbin_mid = (zbin_min + zbin_max) / 2
+        target_nz = nz_spline(zbin_mid)
+
+        #calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
-        dedges = self.cosmo.comoving_radial_distance(zedges)
+        dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
+        dedges =  np.insert(dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0]))
         volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) / 8 
         
         # Handle shells exterior to the Abacus boxes
-        if np.any(dedges > self.boxsize):
-            
-            exterior_indices = np.where(dedges > self.boxsize)[0]
-            exterior_shells = (dedges[exterior_indices] + dedges[exterior_indices - 1]) / 2
+        if np.any(dbin_max > self.boxsize):
+    
+            exterior_indices = np.where(dbin_max > self.boxsize)[0]
+            exterior_shells = (dbin_max[exterior_indices] + dedges[exterior_indices]) / 2
 
             # fraction of each shell inside the simulation volume
             filling_fractions = self.shell_filling_fraction(exterior_shells)
-                    
+            
             # Adjust volumes using volume filling fractions
-            volume[exterior_indices-1] = volume[exterior_indices-1] * filling_fractions
-                
+            volume[exterior_indices] = volume[exterior_indices] * filling_fractions
+
+        # calculate downsampling ratio
         data_nz = np.histogram(self.catalog['Z'], bins=zedges)[0] / volume
-        zmin_data = self.catalog['Z'].min()
-        zmax_data = self.catalog['Z'].max()
         ratio = target_nz / data_nz
         if shape_only:
             ratio /= np.max(ratio[~np.isinf(ratio)])
-        select_mask = np.zeros_like(self.catalog['Z'], dtype=bool)
-        for i in range(len(zbin_mid) - 1):
-            if zbin_mid[i] < zmin_data or zbin_mid[i + 1] > zmax_data:
-                continue
-            z_mask = (self.catalog['Z'] >= zbin_mid[i]) & (self.catalog['Z'] < zbin_mid[i + 1])
-            n_galaxies = np.sum(z_mask)
-            if n_galaxies > 0:
-                n_select = int(np.round(ratio[i] * n_galaxies))
-                select_indices = np.random.choice(np.where(z_mask)[0], size=n_select, replace=False)
-                select_mask[select_indices] = True
+        ratio_spline = InterpolatedUnivariateSpline(zbin_mid, ratio, k=1, ext=3)
+
+        # use the spline to get the number density at the redshift of every galaxy
+        # then assign a random number to each and compare it to the ratio to determine
+        # if the galaxy should be kept or not
+        data_nz = nz_spline(self.catalog['Z'])
+        select_mask = np.random.uniform(size=len(self.catalog['Z'])) < ratio_spline(self.catalog['Z'])
         for key in self.catalog.keys():
             self.catalog[key] = self.catalog[key][select_mask]
 
@@ -429,8 +446,6 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             Other valid options include 'huge' (7.5 Gpc/h)
             TODO: huge not yet supported with BoxHOD
             """
-        from mockfactory import RandomCutskyCatalog
-        from mockfactory.utils import radecbox_area
         BaseLightconeCatalog.__init__(self)
         self.logger = logging.getLogger('LightconeRandoms')
         self.rarange = (0., 360.) if full_sky else (0., 90.)
