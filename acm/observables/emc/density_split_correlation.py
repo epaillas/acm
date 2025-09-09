@@ -1,36 +1,18 @@
+import xarray
+import numpy as np
+from pathlib import Path
 from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
+from acm.utils.xarray_data import dataset_to_dict
 
 class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge density-split correlation
     function multipoles.
     """
-    
-    stat_name = 'dsc_xi'
-    
-    _summary_coords_dict = {
-        'sample_features': {
-            'cosmo_idx': cosmo_list,    # List of cosmologies index in AbacusSummit
-            'hod_number': 100,          # Number of HODs sampled by cosmology
-        },
-        'param_number': 20,     # Number of parameters in x used to generate the simulations
-        'phase_number': 1786,   # Number of phases in the small box simulations after removing outliers phases for any statistic
-        'n_test': 100*6,        # List or number of test samples to compute the emulator error
-    }
-    
-    _data_features = {
-        'statistics': ['quantile_data_power', 'quantile_power'],
-        'quantiles': [0, 1, 3, 4],
-        'multipoles': [0, 2],
-    }
-    
-    @property
-    def summary_coords_dict(self) -> dict:
-        return {
-            **self._summary_coords_dict,
-            'data_features': self._data_features,
-        }
+    def __init__(self, **kwargs):
+        super().__init__(stat_name='dsc_conf', **kwargs)
+        self.n_test = 6*100 #Override default number of test samples 
     
     @property
     def checkpoint_fn(self) -> str:
@@ -45,6 +27,8 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
         rebin: int = 4, 
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
+        statistics: list = ['quantile_data_correlation', 'quantile_correlation'],
+        overwrite_s : np.ndarray = None,
     ):
         """
         Compress the covariance array from the raw measurement files.
@@ -60,22 +44,25 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
             List of multipoles to compute the statistics for. Default is [0, 2, 4].
         quantiles : list
             List of quantiles to compute the statistics for. Default is [0, 1, 3, 4].
-        
+        statistics : list
+            List of statistics to compute the statistics for. Used in the filenames.
+            Default is ['quantile_data_correlation', 'quantile_correlation'].
+        overwrite_s : np.ndarray
+            If not None, overwrite the final separation values with this array. 
+            This is primarily useful to ensure consistency between the covariance and the data dims.
+            Default is None.
+            
         Returns
         -------
-        np.ndarray
+        xarray.DataArray
             Covariance array. 
         """
-        import numpy as np
-        from pathlib import Path
-        
-        # Directories
         base_dir = self.paths['covariance_statistic_dir']
         
         y = []
         for phase in range(3000, 5000):
             multipoles_stat = []
-            for stat in ['quantile_data_correlation', 'quantile_correlation']: # NOTE: Hardcoded !
+            for stat in statistics:
                 data_dir = Path(base_dir) / f'{stat}/z0.5/yuan23_prior/' # NOTE: Hardcoded !
                 data_fn = data_dir / f'{stat}_ph{phase:03}_hod466.npy' # NOTE: Hardcoded !
                 if not data_fn.exists():
@@ -90,18 +77,31 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
             else: # If the loop is not broken
                 y.append(np.concatenate(multipoles_stat))
         y = np.array(y)
-        bin_values = s
+        s = overwrite_s if overwrite_s is not None else s
         
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
-        cout = {'bin_values': bin_values, 'cov_y': y}
+        cout = xarray.DataArray(
+            data = y.reshape(y.shape[0], len(statistics), len(quantiles), len(ells), -1),
+            coords = {
+                "phase_idx": list(range(y.shape[0])),
+                "statistics": statistics,
+                "quantiles": quantiles,
+                "multipoles": ells,
+                "s": s,
+            },
+            attrs = {
+                "sample": ["phase_idx"],
+                "features": ["statistics", "quantiles", "multipoles", "s"],
+            },
+            name = "covariance_y",
+        )
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
-            np.save(save_fn, cout)
+            np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed covariance file to {save_fn}')
-            
-        return y
+        return cout
     
     def compress_data(
         self, 
@@ -110,7 +110,8 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
         rebin: int = 4, 
         ells: list = [0, 2, 4],
         quantiles: list = [0, 1, 3, 4],
-        cosmos: list = None,
+        statistics: list = ['quantile_data_correlation', 'quantile_correlation'],
+        cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase_idx: int = 0,
         seed_idx: int = 0,
@@ -141,20 +142,10 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
             
         Returns
         -------
-        dict
-            Dictionary containing the compressed data with the following keys:
-            - 'bin_values' : Array of the bin values.
-            - 'x' : Array of the parameters used to generate the simulations.
-            - 'y' : Array of the statistics values.
-            - 'x_names' : List of the names of the parameters.
-            - 'cov_y' : Array of the covariance matrix of the statistics values
+        xarray.Dataset
+            Compressed dataset containing 'x' and 'y' DataArrays.
+            If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        from pathlib import Path
-        import numpy as np
-        if cosmos is None:
-            cosmos = self.summary_coords_dict['sample_features']['cosmo_idx']
-            
-        # Directories
         base_dir = self.paths['statistic_dir']
         
         y = []
@@ -162,7 +153,7 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
             data_dir = base_dir + f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx:01}/'
             for hod_idx in range(n_hod):
                 multipoles_stat = []
-                for stat in ['quantile_data_correlation', 'quantile_correlation']:
+                for stat in statistics:
                     data_fn = Path(data_dir) / f'{stat}_hod{hod_idx:03}.npy' # NOTE: File name format hardcoded !
                     data = np.load(data_fn, allow_pickle=True)
                     multipoles_quantiles = []
@@ -173,20 +164,39 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableEMC):
                     multipoles_stat.append(np.concatenate(multipoles_quantiles))
                 y.append(np.concatenate(multipoles_stat))
         y = np.array(y)
-        bin_values = s
-        x, x_names = self.compress_x(cosmos=cosmos, n_hod=n_hod)
+        y = xarray.DataArray(
+            data = y.reshape(len(cosmos), n_hod, 2, len(quantiles), len(ells), -1),
+            coords = {
+                'cosmo_idx': cosmos,
+                'hod_idx': list(range(n_hod)),
+                'statistics': statistics,
+                'quantiles': quantiles,
+                'multipoles': ells,
+                's': s,
+            },
+            attrs = {
+                "sample": ["cosmo_idx", "hod_idx"],
+                "features": ["statistics", "quantiles", "multipoles", "s"],
+            },
+            name = 'y',
+        )
+        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
-        cout = {'bin_values': bin_values, 'x': x, 'x_names': x_names, 'y': y}
+        cout = xarray.Dataset(
+            data_vars = {
+                'x': x,
+                'y': y,
+            },
+        )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells, quantiles=quantiles)
-            cout['cov_y'] = cov_y
+            cov_y = self.compress_covariance(rebin=rebin, ells=ells, quantiles=quantiles, overwrite_s=s)
+            cout = xarray.merge([cout, cov_y])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
-            np.save(save_fn, cout)
+            np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed data to {save_fn}')
-        
         return cout

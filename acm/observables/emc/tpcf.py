@@ -1,30 +1,20 @@
+import xarray
+import numpy as np
+from pathlib import Path
+from pycorr import TwoPointCorrelationFunction
 from .base import BaseObservableEMC
+from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
+from acm.utils.xarray_data import dataset_to_dict
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    
-    stat_name = 'tpcf'
-    
-    _data_features = {
-        'multipoles': [0, 2, 4],
-    }
-    
-    @property
-    def summary_coords_dict(self) -> dict:
-        return {
-            **self._summary_coords_dict,
-            'data_features': self._data_features,
-        }
-    
-    @property
-    def paths(self) -> dict:
-        paths = super().paths
-        paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
-        return paths
+    def __init__(self, **kwargs):
+        super().__init__(stat_name='tpcf', **kwargs)
+        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
+        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
     def checkpoint_fn(self) -> str:
@@ -33,7 +23,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         """
         return '/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
     
-    def compress_covariance(self, save_to: str = None, rebin: int = 4, ells: list = [0, 2, 4]):
+    def compress_covariance(self, save_to: str = None, rebin: int = 4, ells: list = [0, 2, 4], overwrite_s: np.ndarray = None) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
         
@@ -46,16 +36,16 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Rebinning factor for the statistics. Default is 4.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2, 4].
-        
+        overwrite_s : np.ndarray
+            If not None, overwrite the final separation values with this array. 
+            This is primarily useful to ensure consistency between the covariance and the data dims.
+            Default is None.
+            
         Returns
         -------
-        np.ndarray
+        xarray.DataArray
             Covariance array. 
         """
-        from pycorr import TwoPointCorrelationFunction
-        from pathlib import Path
-        import numpy as np
-        
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
         # base_dir = Path(f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/') # Old FIXME : remove it later
@@ -67,18 +57,29 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             s, multipoles = data(ells=ells, return_sep=True) 
             y.append(np.concatenate(multipoles))
         y = np.array(y)
-        bin_values = s
+        s = overwrite_s if overwrite_s is not None else s
         
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
-        cout = {'bin_values': bin_values, 'cov_y': y}
+        cout = xarray.DataArray(
+            data = y.reshape(y.shape[0], len(ells), -1),
+            coords = {
+                "phase_idx": list(range(y.shape[0])),
+                "multipoles": ells,
+                "s": s,
+            },
+            attrs = {
+                "sample": ["phase_idx"],
+                "features": ["multipoles", "s"],
+            },
+            name = "covariance_y",
+        )
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
-            np.save(save_fn, cout)
+            np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed covariance file to {save_fn}')
-            
-        return y
+        return cout
     
     def compress_data(
         self, 
@@ -86,7 +87,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         save_to: str = None,
         rebin: int = 4, 
         ells: list = [0, 2, 4],
-        cosmos: list = None,
+        cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase_idx: int = 0,
         seed_idx: int = 0,
@@ -117,21 +118,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             
         Returns
         -------
-        dict
-            Dictionary containing the compressed data with the following keys:
-            - 'bin_values' : Array of the bin values.
-            - 'x' : Array of the parameters used to generate the simulations.
-            - 'y' : Array of the statistics values.
-            - 'x_names' : List of the names of the parameters.
-            - 'cov_y' : Array of the covariance matrix of the statistics values
+        xarray.Dataset
+            Compressed dataset containing 'x' and 'y' DataArrays. 
+            If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        from pycorr import TwoPointCorrelationFunction
-        from pathlib import Path
-        import numpy as np
-        if cosmos is None:
-            cosmos = self.summary_coords_dict['sample_features']['cosmo_idx']
-        
-        # Directories
         base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
         # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
         
@@ -144,22 +134,39 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 s, multipoles = data(ells=ells, return_sep=True) 
                 y.append(np.concatenate(multipoles))
         y = np.array(y)
-        bin_values = s
-        x, x_names = self.compress_x(cosmos=cosmos, n_hod=n_hod)
+        y = xarray.DataArray(
+            data = y.reshape(len(cosmos), n_hod, len(ells), -1),
+            coords = {
+                'cosmo_idx': cosmos,
+                'hod_idx': list(range(n_hod)),
+                'multipoles': ells,
+                's': s,
+            },
+            attrs = {
+                'sample': ['cosmo_idx', 'hod_idx'],
+                'features': ['multipoles', 's'],
+            },
+            name = 'y',
+        )
+        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
-        cout = {'bin_values': bin_values, 'x': x, 'x_names': x_names, 'y': y}
+        cout = xarray.Dataset(
+            data_vars = {
+                'x': x,
+                'y': y,
+            },
+        )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells)
-            cout['cov_y'] = cov_y
+            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s)
+            cout = xarray.merge([cout, cov_y])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
-            np.save(save_fn, cout)
+            np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed data to {save_fn}')
-        
         return cout
     
     def compute_phase_correction(self, rebin: int = 4, ells: list = [0, 2, 4]):
@@ -186,10 +193,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
         
         multipoles_mean = []
-        for phase in range(25):
-            data_dir = f'{base_dir}/c000_ph{phase:03}/seed0'
+        for phase in range(25): # NOTE: Hardcoded !
+            data_dir = f'{base_dir}/c000_ph{phase:03}/seed0' # NOTE: Hardcoded !
             multipoles_hods = []
-            for hod in range(50):
+            for hod in range(50): # NOTE: Hardcoded !
                 data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
                 data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
                 s, multipoles = data(ells=ells, return_sep=True) 
@@ -198,9 +205,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             multipoles_mean.append(multipoles_hods)
         multipoles_mean = np.array(multipoles_mean).mean(axis=0)
 
-        data_dir = f'{base_dir}/c000_ph000/seed0'
+        data_dir = f'{base_dir}/c000_ph000/seed0'  # NOTE: Hardcoded !
         multipoles_ph0 = []
-        for hod in range(50):
+        for hod in range(50): # NOTE: Hardcoded !
             data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
             data = TwoPointCorrelationFunction.load(data_fn)[::4]
             s, multipoles = data(ells=ells, return_sep=True) 
