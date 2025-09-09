@@ -242,6 +242,7 @@ class Observable():
     def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
         Apply the indices selection on a given DataArray.
+        Should be called after filters are applied and before flattening.
         Does nothing if select_indices is None.
 
         Parameters
