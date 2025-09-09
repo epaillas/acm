@@ -1,28 +1,24 @@
-from acm.observables.observable import Observable
-from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils import get_data_dirs
+import xarray
 import numpy as np
+import pandas as pd
+from pathlib import Path
+from acm.observables import Observable
+from acm.utils import get_data_dirs
+from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
+from acm.utils.xarray_data import dataset_to_dict
+
 
 class BaseObservableBGS(Observable):
     """
     Base class for the application of the ACM pipeline to the BGS dataset.
     """
-    # NOTE: Define the stat name in the child class !
-    # NOTE : Paths and _summary_coords_dict are mutable, so any modification in the child class will affect the parent class unless redefined.
-    
-    paths = get_data_dirs('bgs')
-    
-    _summary_coords_dict = {
-        'sample_features': {
-            'cosmo_idx': cosmo_list,# List of cosmologies index in AbacusSummit
-            'hod_number': 100,      # Number of HODs sampled by cosmology
-        },
-        'param_number': 17,     # Number of parameters in x used to generate the simulations
-        'phase_number': 1639,   # Number of phases in the small box simulations after removing outliers phases for any statistic
-        'n_test': 6*100,        # List or number of test samples to compute the emulator error
-    }
-    
-    def get_emulator_covariance_y(self, n_test: int|list = None):
+    def __init__(self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs):
+        paths = kwargs.pop('paths', get_data_dirs('bgs'))
+        paths['checkpoint_name'] = 'last.ckpt' # FIXME: Remove this on next model training
+        self.n_test = kwargs.pop('n_test', 6*100) # Default number of test samples for BGS
+        super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
+
+    def get_emulator_covariance_y(self, n_test: int|list = None) -> np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
@@ -34,11 +30,9 @@ class BaseObservableBGS(Observable):
         Returns
         -------
         np.ndarray
-            Array of the emulator covariance array.
+            Array of the emulator covariance array, with shape (n_test, n_features).
         """
-        if n_test is None:
-            n_test = self.summary_coords_dict['n_test']
-            
+        n_test = n_test if n_test else self.n_test
         observable = self.__class__() # Unfiltered values !!
         x = observable.x
         y = observable.y
@@ -53,11 +47,38 @@ class BaseObservableBGS(Observable):
         
         prediction = observable.get_model_prediction(test_x) # Unfiltered prediction !
         
+        if isinstance(test_y, xarray.DataArray):
+            test_y = test_y.values
+        if isinstance(prediction, xarray.DataArray):
+            prediction = prediction.values
+            
         diff = test_y - prediction
-        return diff
-        
+
+        y = y.unstack()
+        shape = (len(idx_test),) + y.shape[len(y.attrs['sample']):]
+        emulator_covariance_y = xarray.DataArray(
+            diff.reshape(shape),
+            coords = {
+                'n_test': idx_test,
+                **{k: y.coords[k] for k in y.dims if k in y.attrs['features']}
+            },
+            attrs = {
+                'sample': ['n_test'],
+                'features': y.attrs['features'],
+            },
+            name = 'emulator_covariance_y',
+        )
+        emulator_covariance_y = self.apply_filters(emulator_covariance_y)
+        if 'emulator_covariance_y' in self.select_indices_on:
+            emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y)
+        if self.squeeze_output:
+            emulator_covariance_y = emulator_covariance_y.squeeze()
+        if self.numpy_output:
+            emulator_covariance_y = emulator_covariance_y.values
+        return emulator_covariance_y
     
-    def get_emulator_error(self, n_test: int|list = None) -> dict:
+    def get_emulator_error(self, n_test: int|list = None) -> np.ndarray:
         """
         Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
         
@@ -69,28 +90,53 @@ class BaseObservableBGS(Observable):
         Returns
         -------
         np.ndarray
-            Array of the emulator error.
+           Emulator error, with shape (n_features, ).
         """
-        if n_test is None:
-            n_test = self.summary_coords_dict['n_test']
-        emulator_cov_y = self.get_emulator_covariance_y(n_test)
-        emulator_error = np.median(np.abs(emulator_cov_y), axis=0)
+        n_test = n_test if n_test else self.n_test
+        observable = self.__class__() # Unfiltered values !!
+        emulator_covariance_y = observable.get_emulator_covariance_y(n_test)
+        emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
+
+        y = observable.y.unstack()
+        shape = y.shape[len(y.attrs['sample']):]
+        emulator_error = xarray.DataArray(
+            emulator_error.reshape(shape),
+            coords = {
+                **{k: y.coords[k] for k in y.dims if k in y.attrs['features']}
+            },
+            attrs = {
+                'sample': [],
+                'features': y.attrs['features'],
+            },
+            name = 'emulator_error',
+        )
+        emulator_error = self.apply_filters(emulator_error)
+        if 'emulator_error' in self.select_indices_on:
+            emulator_error = self.apply_indices_selection(emulator_error)
+        emulator_error = self.flatten_output(emulator_error)
+        if self.squeeze_output:
+            emulator_error = emulator_error.squeeze()
+        if self.numpy_output:
+            emulator_error = emulator_error.values
         return emulator_error
     
-    #%% Compressed files creation
-    def compress_x(self):
+    def compress_x(self, cosmos=cosmo_list, n_hod=100):
         """
-        From the statistics files for the simulations, compress the x data.
-        """
-        import pandas as pd
-        from pathlib import Path
+        Compress the x values from the parameters files.
         
-        # Directories
+        Parameters
+        ----------
+        cosmos : list, optional
+            List of cosmologies to get from the files. The default is None, which means all cosmologies.
+        n_hod : int, optional
+            Number of HODs to get from the files. The default is 100.
+        
+        Returns
+        -------
+        xarray.DataArray
+            Compressed x values.
+        """
         param_dir = self.paths['param_dir']
-        
-        # y & bin_values
-        cosmos = self.summary_coords_dict['sample_features']['cosmo_idx']
-        n_hod = self.summary_coords_dict['sample_features']['hod_number']
         
         x = []
         for cosmo_idx in cosmos:
@@ -100,9 +146,20 @@ class BaseObservableBGS(Observable):
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
             x.append(x_i.values[:n_hod, :])
         x = np.concatenate(x)
-        # assuming all x_names are the same
-        
-        return x, x_names
+        x = xarray.DataArray(
+            x.reshape(len(cosmos), n_hod, -1),
+            coords = {
+                'cosmo_idx': cosmos,
+                'hod_idx': list(range(n_hod)),
+                'parameters': x_names,
+            },
+            attrs = {
+                'sample': ['cosmo_idx', 'hod_idx'],
+                'features': ['parameters'],
+            },
+            name = 'x',
+        )
+        return x
 
     def compress_emulator_error(self, n_test: int|list, save_to: str = None):
         """
@@ -118,27 +175,24 @@ class BaseObservableBGS(Observable):
         
         Returns
         -------
-        dict
-            Dictionary containing the emulator error with the following keys:
-            - 'bin_values' : Array of the bin values.
-            - 'emulator_error' : Array of the emulator error.
-            - 'emulator_cov_y' : Array of the emulator covariance matrix.
+        xarray.Dataset
+            Compressed dataset containing 'emulator_error' and 'emulator_covariance_y' DataArrays.
         """
-        from pathlib import Path
+        n_test = n_test if n_test else self.n_test
+        observable = self.__class__() # Unfiltered values !!
         
-        emulator_cov_y = self.get_emulator_covariance_y(n_test)
-        emulator_error = self.get_emulator_error(n_test)
-        bin_values = self.unfiltered_bin_values
+        emulator_cov_y = observable.get_emulator_covariance_y(n_test).unstack().squeeze()
+        emulator_error = observable.get_emulator_error(n_test).unstack().squeeze()
         
-        emulator_error_dict = {
-            'bin_values': bin_values,
-            'emulator_error': emulator_error,
-            'emulator_cov_y': emulator_cov_y,
-        }
+        emulator_error_dataset = xarray.Dataset(
+            data_vars = {
+                'emulator_covariance_y': emulator_cov_y,
+                'emulator_error': emulator_error,
+            }
+        )
 
         if save_to:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
-            np.save(save_fn, emulator_error_dict)
-        
-        return emulator_error_dict
+            np.save(save_fn, dataset_to_dict(emulator_error_dataset))
+        return emulator_error_dataset
