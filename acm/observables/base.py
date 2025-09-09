@@ -1,348 +1,476 @@
-from abc import ABC, abstractmethod
+import torch
+import xarray
 import numpy as np
-from pathlib import Path
-from copy import deepcopy
-import warnings
-from sunbird.data.data_utils import convert_to_summary
+from pathlib import Path 
+from sunbird.emulators import FCN
+from sunbird.data.data_utils import transform_filters_to_slices
+from acm.utils.xarray_data import dataset_from_dict
 import logging
 
-# FIXME : bugs if bin_values is a dict
+class Observable():
+    """
+    Class to load a compressed Observable file or model and apply filters to their outputs.
+    """
 
-class BaseClass(ABC):
-    """
-    Base class for the statistics results handling in the ACM pipeline.
-    """
-    #%% Special methods
-    def __init__(self, select_filters: dict = None, slice_filters: dict = None, select_indices: list = None):
+    def __init__(
+        self,
+        stat_name: str,
+        paths: dict = None,
+        select_filters: dict = None,
+        slice_filters: dict = None,
+        select_indices: list = None,
+        select_indices_on: list = ['y', 'covariance_y', 'emulator_error', 'emulator_covariance_y'],
+        flat_output_dims: int = None,
+        squeeze_output: bool = False,
+        numpy_output: bool = False,
+    ):
         """
         Parameters
         ----------
+        stat_name: str
+            Name of the statistic to load. Also the name of the file containing the data.
+        paths: dict, optional
+            Paths to the compressed Observable files or models.
+            If None, the internal dataset will be None. Defaults to None.
         select_filters : dict, optional
             Filters to select values in coordinates. Defaults to None.
         slice_filters : dict, optional
             Filters to slice values in coordinates. Defaults to None.
         select_indices : list, optional
             Indices to select in the flattened data vector. Cannot be used with `select_filters` or `slice_filters`. Defaults to None.
+        select_indices_on : list, optional
+            List of data variables to apply the indices selection on. Defaults to ['y', 'covariance_y', 'emulator_error', 'emulator_covariance_y'].
+        flat_output_dims : int, optional
+            If 2, the output will be flattened on two dimensions (sample and features).
+            If 1, the output will be flattened on a single dimension (dims) - Not recommended.
+            If None, the output will not be flattened. Defaults to None.
+        squeeze_output : bool, optional
+            If True, the output will be squeezed to remove single-dimensional entries. Defaults to False.
+        numpy_output : bool, optional
+            If True, the output will be converted to a numpy array. Defaults to False.
         
+        Paths
+        -----
+        The data is expected to be in paths[key]/stat_name.npy, in which an xarray DataSet is stored.
+        The possible keys are:
+            - 'data_dir': directory containing the data (x, y)
+            - 'covariance_dir': directory containing the covariance of the data (covariance_y)
+            - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
+            - 'model_dir': directory containing the trained model (model.pth)
+            - 'checkpoint_name': name of the checkpoint file (default: 'model.pth')
+
         Example
         -------
         ::
         
-            slice_filters = {'bin_values': (0, 0.5),} 
+            slice_filters = {'sep': (0, 0.5),} 
             select_filters = {'multipoles': [0, 2],}
-        
-        
-        will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
+
+
+        will return the summary statistics for `0 < sep < 0.5` and multipoles 0 and 2
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         
-        if bool((select_filters or slice_filters) and select_indices):
-            self.logger.warning("Using select_indices with other filters, this will override filtering on the coordinates and flatten the y data arrays")
+        self.stat_name = stat_name
+        self.paths = paths if paths else {} # Ensure dict behavior
+        self.flat_output_dims = flat_output_dims
+        self.numpy_output = numpy_output
+        self.squeeze_output = squeeze_output
+
+        # Try to read the paths with data inside
+        datasets = []
+        for key in ['data_dir', 'covariance_dir', 'error_dir']:
+            if key not in self.paths:
+                continue
+            path = Path(self.paths[key]) / f"{self.stat_name}.npy"
         
+            if path.exists():
+                datasets.append(dataset_from_dict(np.load(path, allow_pickle=True).item()))
+                self.logger.info(f"Loaded {key} from {path}")
+        
+        if len(datasets) == 0:
+            self.logger.warning("No datasets found within provided paths.")
+            self._dataset = None
+        else:
+            self._dataset = xarray.merge(datasets)
+            self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.variables.keys())))
+        
+        # Load the model
+        try:
+            self.model = self.load_model() 
+        except Exception as e: # handle the case where the model checkpoint is not found
+            self.logger.warning(f"{e}, model will be undefined. If you are training a new model, this is expected.")
+        
+        # Set the filters
         self.select_filters = select_filters
         self.slice_filters = slice_filters
-        
-        if select_indices:
-            assert type(select_indices) == list, "select_indices should be a list of indices"
-            self.select_filters = {} if select_filters is None else select_filters # Otherwise update throws an error
-            self.select_filters.update({'flat_bin_idx': select_indices})
         self.select_indices = select_indices
+        self.select_indices_on = select_indices_on if select_indices_on else [] # Ensure list behavior
         
-        # Checkup
-        assert self.stat_name is not None, f"stat_name should be defined in the subclass {self.__class__.__name__}"
-        assert self.paths is not None, f"paths should be defined in the subclass {self.__class__.__name__}"
-        assert self.summary_coords_dict is not None, f"summary_coords_dict should be defined in the subclass {self.__class__.__name__}"
-        
+        if self.select_indices and (self.select_filters or self.slice_filters):
+            self.logger.warning("Indice selection and filters used at the same time. Check what you filter, you might not get the result you expect!")
+
     def __str__(self):
         """
         Returns a string representation of the object (statistic names and slice filters).
         """
+        # TODO : improve this and __repr__ later ?
         return self.get_save_handle()
-    
-    #%% Class attributes
-    
-    stat_name = None
-    paths = None
-    summary_coords_dict = None
-    
-    #%% Static and class methods
-    @staticmethod
-    def get_bin_values(data: dict):
-        """
-        Returns the bin values from the data.
-        
-        Parameters
-        ----------
-        data : dict
-            Dictionary with the data.
-            If the dictionary contains a key 'bin_values', it will be used as the bin values.
-            If not, the first unknown key will be used as the bin values.
-            
-        Returns
-        -------
-        array|dict
-            Bin values from the data.
-            
-        Raises
-        ------
-        ValueError
-            If more than one unknown key is found in the data.
-        Warning
-            If the bin values are assumed from an unknown key.
-        """
-        
-        bin_values = data.get('bin_values', None)
-        
-        keys = list(data.keys())
-        unknown_keys = [k for k in keys if k not in ['x', 'y', 'x_names', 'cov_y', 'bin_values']]
-        if bin_values is None:
-            if len(unknown_keys) > 1:
-                raise ValueError(f"More than one unknown key in the data: {unknown_keys}")
-            elif len(unknown_keys) == 1:
-                warnings.warn(f"Assuming {unknown_keys[0]} is the bin values") # Can't use logger here...
-                bin_values = data[unknown_keys[0]]
-            
-        # bin_values consistency check if it is a dict (all keys should have the same length)
-        if isinstance(bin_values, dict):
-            length_dict = {key: len(value) for key, value in bin_values.items()}
-            if len(set(length_dict.values())) > 1: # Get the unique lengths
-                raise ValueError(f"Bin values have different lengths: {length_dict}")
-                
-        return bin_values
-    
-    @classmethod
-    def read_file(
-        self, 
-        statistic: str, 
-        data_dir: str,
-        load_key: str,
-        ignore_key_check: bool = False,
-    ) -> np.ndarray:
-        """
-        Reads the data file and returns the data.
-        Expects a .npy file containing a dictionary with keys 'bin_values', 'x', 'y', 'x_names', and 'cov_y'.
-        
-        Parameters
-        ----------
-        statistic : str
-            Statistic name (filename) to read.
-        data_dir : str
-            Directory containing the data. Expects to find a file named `{statistic}.npy` in this directory.
-        load_key : str
-            Which key to return from the file. Can be 'x', 'y', 'x_names', 'bin_values', or 'cov_y', unless ignore_key_check is True.
-            Defaults to 'x'.
-        ignore_key_check : bool, optional
-            Allows to load a custom key from the data file (Not recommended). Defaults to False.
-            
-        Returns
-        -------
-        np.ndarray
-            Key from the statistic file. 
-            
-        Raises
-        ------
-        AssertionError
-            If the load_key is not one of ['x', 'y', 'x_names', 'bin_values', 'cov_y'] and
-            ignore_key_check is False.
-        """
-        if not ignore_key_check:
-            assert load_key in ['x', 'y', 'x_names', 'bin_values', 'cov_y'], "load_key should be one of ['x', 'y', 'x_names', 'bin_values', 'cov_y']"
-        
-        data_fn = f"{data_dir}/{statistic}.npy"
-        data = np.load(data_fn, allow_pickle=True).item()
-        
-        if load_key == 'bin_values':
-            values = self.get_bin_values(data) # Handle custom keys if they exist (not recommended)
-        else:
-            values = data[load_key]       
-        
-        return values
-        
-    @staticmethod
-    def summary_coords(
-        coord_type: str,
-        summary_coords_dict: dict,
-        bin_values = None,
-        flattened: bool = False,
-    ):
-        """
-        Finds the summary coordinates for the given statistic and coordinate type.
-        Returns a dictionary containing the summary coordinates, in a format that can be used to reshape the data. (see `filter` method)	
-        
-        Parameters
-        ----------
-        coord_type : str
-            Type of coordinates for which to find the coordinates.
-            can be set to : 
-            - `'y'` will return the summary coordinates for the LHC data (sample features, statistics and bin_values).
-            - `'x'` will return the summary coordinates for the LHC data (sample features, param_idx).
-            - `'cov_y'` will return the summary coordinates for the small box data (phase_idx, statistics and bin_values). 
-            - `'emulator_error'` will return the summary coordinates for the emulator error data (statistics and bin_values).
-            - `'statistic'` will return the summary coordinates for the statistic (statistics and bin_values).
-        summary_coords_dict : dict
-            Dictionary containing the summary coordinates for the statistic.
-            It should also contain the sample features from the data, and the number of parameters and phases.
-        bin_values : array_like|dict, optional
-            Values of the bins on which the summary statistics are computed. 
-            If set to None, the bin_values are not included in the summary coordinates. Defaults to None.
-        flattened : bool, optional
-            If True, the data is flattened on the statistics coordinates during the filtering. Defaults to False.
-            
-        Returns
-        -------
-        dict
-            Dictionary containing the summary coordinates for the statistic.
-            The keys are the names of the coordinates, and the values are the values of the coordinates.
-            
-        Raises
-        ------
-        ValueError
-            If the bin_values are empty and flattened is True.
-        ValueError
-            If the coord_type is not one of ['x', 'y', 'cov_y', 'emulator_error', 'statistic'].
 
-        Note
-        ----
-        In the sample features, the `hod_number` can be provided to indicate the number of HOD parameters instead of providing `hod_idx`.
-        The `hod_number` is then removed from the sample features and the `hod_idx` is added to the sample features.
+    def __getattr__(self, name):
         """
-        
-        summary_coords_dict = deepcopy(summary_coords_dict) # Avoid modifying the original dictionary
-        
-        sample_dict = summary_coords_dict.get('sample_features', {}) # Sample features
-        hod_number = sample_dict.pop('hod_number', None) # Number of HOD parameters
-        if hod_number is not None:
-            sample_dict['hod_idx'] = list(range(hod_number))
-        
-        param_number = summary_coords_dict.get('param_number', 0) # Number of parameters in x_names (unfiltered)
-        param_dict = {
-            'param_idx': list(range(param_number)),
-        }
-        
-        phase_number = summary_coords_dict.get('phase_number', 0) # Number of phases in cov_y (unfiltered)
-        phase_dict = {
-            'phase_idx': list(range(phase_number)),
-        }
-        
-        bin_dict = {}
-        if isinstance(bin_values, np.ndarray):
-            bin_dict = {'bin_values': bin_values}
-        elif isinstance(bin_values, dict):
-            bin_dict = bin_values
+        Returns the attribute of the class xarray _dataset, 
+        with the filter applied. Also reshapes the output by stacking coordinates 
+        (on one or two dims) if flat_output_dims is set.
+        """
+        # First, apply the filters
+        dataset = self._dataset
+
+        dataset = self.apply_filters(dataset)
+
+        data = getattr(dataset, name)
+
+        # Apply reshaping if name is a data_var
+        if name in self._dataset.data_vars:
+                
+            if name in self.select_indices_on:
+                data = self.apply_indices_selection(data)
             
-        coord_stat_dict = summary_coords_dict.get('data_features', {}) # Summary coordinates for the statistic
-        unflattened_stat_dict = {
-            **coord_stat_dict,
-            **bin_dict,
-        }
+            data = self.flatten_output(data)
         
-        dimensions = list(coord_stat_dict.keys())
-        n_dim = np.prod([len(coord_stat_dict[d]) for d in dimensions], dtype=int)
-        bin_length = len(list(bin_dict.values())[0]) if bin_dict else 0 # Detect empty bin_dict
-        if bin_length == 0 and flattened:
-            raise ValueError("bin_values is empty, cannot flatten the data")
-        flattened_stat_dict = {
-            'flat_bin_idx': list(range(n_dim*bin_length)), # Indexes of the flattened y array
-        }
-        
-        stat_dict = flattened_stat_dict if flattened else unflattened_stat_dict
-        
-        # Handle each coord_type output
-        if coord_type == 'x':
-            cout = {**sample_dict, **param_dict}
-        elif coord_type == 'y':
-            cout = {**sample_dict, **stat_dict}
-        elif coord_type == 'cov_y':
-            cout = {**phase_dict, **stat_dict}
-        elif coord_type == 'emulator_error' or coord_type == 'statistic':
-            cout = {**stat_dict}
-        elif coord_type == 'samples':
-            cout = {**sample_dict}
-        elif coord_type == 'bin_values':
-            cout = {**bin_dict}
-        else:
-            raise ValueError(f'Unknown coord_type: {coord_type}')
-        
-        return cout
-    
+            if self.squeeze_output:
+                data = data.squeeze()
+                
+            if self.numpy_output:
+                data = data.values
+            
+        return data
+
     @staticmethod
-    def filter(
-        y,
-        coords: dict, # Order of the keys is VERY important here !!
-        select_filters: dict = None,
-        slice_filters: dict = None,
-        sample_keys: list|dict = None,
-        n_sim: int = None,
-    ) -> np.ndarray:
+    def stack_on_attribute(attribute: str|dict, dataarray: xarray.DataArray, **kwargs):
         """
-        Filters the data based on the filters provided.
+        Stacks a DataArray on the dimensions given.
+
+        Parameters
+        ----------
+        attribute: str | Mapping
+            The dimension(s) to stack on. 
+            If a string, will be read from the DataArray attributes.
+            Will be used as the dim to stack on (see xarray.DataArray.stack)
+        dataarray : xarray.DataArray
+            The DataArray to stack the dimensions on.
+        **kwargs
+            Additional keyword arguments to pass to the stack method.
+
+        Returns
+        -------
+        xarray.DataArray
+            The stacked DataArray
+        """
+        if isinstance(attribute, str):
+            if not attribute in dataarray.attrs or attribute in dataarray.dims:
+                return dataarray
+            attribute_list = [i for i in dataarray.attrs[attribute] if i in dataarray.dims]
+            dim = {attribute: attribute_list}
+        else: 
+            dim = attribute
+
+        dim_name = list(dim.keys())[0]
+        
+        if len(dim[dim_name]) != 0:
+            da = dataarray.stack(**dim, **kwargs)
+        else:
+            da = dataarray.expand_dims(dim_name)
+
+        return da
+    
+    def apply_filters(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+        """
+        Apply the class filters on a given DataArray or Dataset.
+
+        Parameters
+        ----------
+        dataarray : xarray.DataArray
+            The DataArray to apply the filters on.
+
+        Returns
+        -------
+        xarray.DataArray
+            The filtered DataArray.
+        """
+        dimensions = dataarray.dims
+        
+        select_filters = {k: v for k, v in self.select_filters.items() if k in dimensions} if self.select_filters else None
+        slice_filters = {k: v for k, v in self.slice_filters.items() if k in dimensions} if self.slice_filters else None
+
+        if select_filters:
+            dataarray = dataarray.sel(**select_filters)
+        if slice_filters:
+            slice_filters = transform_filters_to_slices(slice_filters)
+            dataarray = dataarray.sel(**slice_filters)
+        return dataarray
+
+    def flatten_output(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+        """
+        Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
+        containing the list of dimensions to stack on.
+        
+        If flat_output_dims is 2, stacks on both 'sample' and 'features' attributes.
+        If flat_output_dims is 1, stacks all dimensions into a single dimension 'dims'.
+        Otherwise, returns the DataArray as is.
+
+        Parameters
+        ----------
+        dataarray : xarray.DataArray
+            The DataArray to flatten.
+
+        Returns
+        -------
+        xarray.DataArray
+            The flattened DataArray.
+        """
+        dataarray = dataarray.unstack()
+        if self.flat_output_dims == 2:
+            dataarray = self.stack_on_attribute('sample', dataarray)
+            dataarray = self.stack_on_attribute('features', dataarray)
+            dataarray = dataarray.transpose('sample', 'features')
+        elif self.flat_output_dims == 1:
+            dataarray = dataarray.stack(dims=[...])
+        
+        return dataarray
+
+    def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+        """
+        Apply the indices selection on a given DataArray.
+        Does nothing if select_indices is None.
+
+        Parameters
+        ----------
+        dataarray : xarray.DataArray
+            The DataArray to apply the indices selection on.
+
+        Returns
+        -------
+        xarray.DataArray
+            The DataArray with the selected indices.
+        """
+        if self.select_indices is None:
+            return dataarray
+        
+        dataarray = self.stack_on_attribute('features', dataarray)
+        # Warn if filters are applied to features dimensions
+        if self.select_filters:
+            features_filters = [k for k in dataarray.attrs['features'] if k in self.select_filters.keys()]
+            if any(features_filters):
+                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
+        if self.slice_filters:
+            features_filters = [k for k in dataarray.attrs['features'] if k in self.slice_filters.keys()]
+            if any(features_filters):
+                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
+
+        return dataarray.isel(features=self.select_indices)
+
+    def get_coordinate_list(self, name: str):
+        """
+        Returns the list of values of a coordinate of the dataset
+
+        Parameters
+        ----------
+        name : str
+            The name of the coordinate to retrieve.
+
+        Returns
+        -------
+        list
+            The list of values of the specified coordinate.
+        """
+        coordinate_list = self.coords[name].values.tolist()
+        
+        if not isinstance(coordinate_list, list):
+            coordinate_list = [coordinate_list]
+        return coordinate_list
+
+    @property
+    def x_names(self):
+        """
+        Returns the list of the parameters coordinate of the x dataset.
+
+        Returns
+        -------
+        list
+            The list of the parameters of the x dataset.
+        """
+        return self.get_coordinate_list('parameters')
+
+    @property
+    def emulator_error(self):
+        """
+        Returns the emulator error of the statistic, with filters applied.
+        Reads the emulator error from the error_dir if it is provided, otherwise uses the get_emulator_error method if implemented.
+        """
+        if hasattr(self._dataset, 'emulator_error'):
+            data = self._dataset.emulator_error
+            data = self.apply_filters(data)
+            if 'emulator_error' in self.select_indices_on:
+                data = self.apply_indices_selection(data)
+            data = self.flatten_output(data)
+            if self.squeeze_output:
+                data = data.squeeze()
+            if self.numpy_output:
+                data = data.values
+            return data
+        elif hasattr(self, 'get_emulator_error'):
+            return self.get_emulator_error()
+        else:
+            raise NotImplementedError("No emulator error found. Please provide an error_dir or implement the get_emulator_error method.")
+    
+    @property
+    def emulator_covariance_y(self):
+        """
+        Returns the covariance of the emulator error of the statistic, with filters applied.
+        Reads the emulator covariance from the error_dir if it is provided, otherwise uses the get_emulator_covariance_y method if implemented.
+        """
+        if hasattr(self._dataset, 'emulator_covariance_y'):
+            data = self._dataset.emulator_covariance_y
+            data = self.apply_filters(data)
+            if 'emulator_covariance_y' in self.select_indices_on:
+                data = self.apply_indices_selection(data)
+            data = self.flatten_output(data)
+            if self.squeeze_output:
+                data = data.squeeze()
+            if self.numpy_output:
+                data = data.values
+            return data
+        elif hasattr(self, 'get_emulator_covariance_y'):
+            return self.get_emulator_covariance_y()
+        else:
+            raise NotImplementedError("No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method.")
+
+    @property
+    def checkpoint_fn(self):
+        """
+        Path to the checkpoint file of the model, constructed from the paths and the statistic name.
+        """
+        return self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name'] # FIXME : Update this format later
+   
+    def load_model(self, checkpoint_fn: str = None) -> FCN:
+        """
+        Trained theory model.
+        """
+        if checkpoint_fn is None:
+            checkpoint_fn = self.checkpoint_fn
+        
+        # Load the model
+        model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
+        model.eval().to('cpu')
+        if self.stat_name.startswith('minkowski'):
+            from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
+            model.transform_output = WeiLiuOutputTransForm()
+            model.transform_input = WeiLiuInputTransform()
+        return model
+    
+    def get_model_prediction(self, x, model=None, coords=None, attrs=None):
+        """
+        Get the prediction from the model.
         
         Parameters
         ----------
-        y : array_like
-            Data to filter.
-        coords : dict
-            Dictionary containing the summary coordinates for the data. Obtained from `summary_coords`.
-        select_filters : dict, optional
-            Filters to select values in coordinates. Defaults to None.
-        slice_filters : dict, optional
-            Filters to slice values in coordinates. Defaults to None.
-        sample_keys : list|dict, optional
-            Keys to select after filtering to reshape the first dimension of the output.
-            A dict can be provided, in which case the keys are used to select the coordinates in the data.
-            Defaults to None.
-        n_sim : int, optional
-            Number of simulations to reshape the first dimension of the output.
-            Overriden by the sample_keys if provided. Defaults to None.
-            
+        x : array_like
+            Input features.
+        model : FCN
+            Trained theory model. If None, the model attribute of the class is used. Defaults to None.
+        coords : dict, optional
+            Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
+        attrs : dict, optional
+            Attributes for the output DataArray. If None, the attributes of _dataset.y are used. Defaults to None.
+        
         Returns
         -------
-        np.ndarray
-            Filtered data, reshaped in the shape (n_sim, n_statistics), where n_statistics is the concatenated length of the statistics.
-            This format is the expected format for the emulator.
-            
-        Example
-        -------
-        ::
-        
-            slice_filters = {'bin_values': (0, 0.5),} 
-            select_filters = {'multipoles': [0, 2],}
-        
-        
-        will return the summary statistics for `0 < bin_values < 0.5` and multipoles 0 and 2
+        array_like
+            Model prediction.
         """
-        if y is None:
-            return None # Nothing to filter, avoid crashes here (handle them later)
+        if model is None:
+            model = self.model
+        x = np.asarray(x) # Ensure x is an array to make torch.Tensor faster
+        with torch.no_grad():
+            pred = model.get_prediction(torch.Tensor(x))
+            pred = pred.numpy()
         
-        # Convert the data to a summary object
-        dimensions = list(coords.keys())
-        y = y.reshape([len(coords[d]) for d in dimensions])
-        y = convert_to_summary(
-            data = y,
-            dimensions = dimensions, 
-            coords = coords, 
-            select_filters = select_filters,
-            slice_filters = slice_filters
-        ) # Filter the data
+        if coords is None:
+            coords = {
+                **{k: self._dataset.y.coords[k] for k in self._dataset.y.dims if k in self._dataset.y.attrs['features']}
+            }
+        if attrs is None:
+            attrs = {
+                'sample': ['n_pred'],
+                'features': self._dataset.y.attrs['features'],
+            }
+
+        n_pred = pred.shape[0] if len(pred.shape) > 1 else 1 # Edge case if only one prediction
+        coords = {**{'n_pred': np.arange(n_pred)}, **coords} # Add extra coordinate for the number of predictions
+        pred = pred.reshape([len(c) for c in coords.values()]) # reshape to the right shape
+        pred = xarray.DataArray(
+            pred, 
+            coords = coords,
+            attrs = attrs,
+        )
         
-        # Figure out the number of samples after filtering (first dimension of the data)
-        n_sim = 1 # assume 1 by default
-        if sample_keys is not None:
-            sample_keys = list(sample_keys) # just in case it is a dict
-            if any(key in y.sizes for key in sample_keys): # Check that the sample keys are in the sizes of the xarray
-                n_sim = np.prod([y.sizes[key] for key in sample_keys if key in y.sizes]) # Get the number of samples
-        elif n_sim is not None and n_sim > 1: # > 1 because 1 is the default value
-            n_sim = n_sim # NOTE : this is just in case we ever need to filter by hand (which should not happen ideally)
+        pred = self.apply_filters(pred)
+        pred = self.apply_indices_selection(pred)
+        pred = self.flatten_output(pred)
         
-        # Reshape the data to the expected format 
-        if n_sim >1 :
-            y = y.values.reshape(n_sim, -1) # Concatenate the data on the last axis 
-        else: # Edge case where there is only one simulation
-            y = y.values.reshape(-1)
-            
-        return y 
+        if self.squeeze_output:
+            pred = pred.squeeze()
+        if self.numpy_output:
+            pred = pred.values
+        return pred
+    
+    def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1):
+        """
+        Covariance matrix for the statistic. 
+        The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
+        """   
+        cov_y = self.covariance_y
         
-    #%% Methods
+        # Ensure 2D shape of the covariance array
+        if isinstance(cov_y, xarray.DataArray):
+            cov_y = cov_y.unstack()
+            cov_y = self.stack_on_attribute('sample', cov_y)
+            cov_y = self.stack_on_attribute('features', cov_y)
+            cov_y = cov_y.transpose('sample', 'features')
+        elif len(cov_y.shape) > 2:
+            self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
+            cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
+        elif len(cov_y.shape) < 2:
+            self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
+        
+        prefactor = prefactor / volume_factor
+        
+        cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        return cov
+    
+    def get_emulator_covariance_matrix(self, prefactor: float = 1):
+        """
+        Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
+        """
+        cov_y = self.emulator_covariance_y
+        prefactor = prefactor
+        
+        # Ensure 2D shape of the covariance array
+        if isinstance(cov_y, xarray.DataArray):
+            cov_y = cov_y.unstack()
+            cov_y = self.stack_on_attribute('sample', cov_y)
+            cov_y = self.stack_on_attribute('features', cov_y)
+            cov_y = cov_y.transpose('sample', 'features')
+        elif len(cov_y.shape) > 2:
+            self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
+            cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
+        elif len(cov_y.shape) < 2:
+            self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
+        
+        cov = prefactor * np.cov(cov_y, rowvar=False)
+        return cov
+   
     def get_save_handle(self, save_dir: str|Path = None):
         """
         Creates a handle that includes the statistics and filters used.
@@ -379,6 +507,4 @@ class BaseClass(ABC):
         
         if isinstance(save_dir, str):
             return cout.as_posix() # Return as string if save_dir is a string
-        return Path(save_dir) / f'{statistic_handle}'
-
-   
+        return cout
