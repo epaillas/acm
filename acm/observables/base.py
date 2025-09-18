@@ -93,7 +93,7 @@ class Observable():
             self._dataset = None
         else:
             self._dataset = xarray.merge(datasets)
-            self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.variables.keys())))
+            self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
         
         # Load the model
         try:
