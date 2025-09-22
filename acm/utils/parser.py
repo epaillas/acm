@@ -98,7 +98,7 @@ def split_observables(argv: list):
 
 def parse_observables_arg(args: argparse.Namespace):
     """
-    Parses the observables argument into a list of dictionaries.
+    Parses the observables argument into a list of dictionaries. To call after parsing the main arguments.
 
     Parameters
     ----------
@@ -185,7 +185,6 @@ def args_to_observables(args: list[argparse.Namespace], module: str = None, mapp
     list
         An list of instantiated observable classes that can be passed to `acm.observables.CombinedObservable`.
     """
-    #TODO: Make project optional and default to acm.observable with stat_name and paths in kwargs
     module = importlib.import_module(module) if module else importlib.import_module('acm.observables')
     mapping = mapping if mapping else {}
     pop_args = pop_args if pop_args else []

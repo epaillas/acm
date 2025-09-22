@@ -20,7 +20,7 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
         overwrite_s : np.ndarray = None,
-    ):
+    ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
         
@@ -101,7 +101,7 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
         quantiles: list = [0, 1, 3, 4],
         cosmos: list = cosmo_list,
         n_hod: int = 100,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from the densitysplit raw measurement files.
         

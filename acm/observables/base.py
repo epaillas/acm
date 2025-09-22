@@ -147,7 +147,7 @@ class Observable():
         return data
 
     @staticmethod
-    def stack_on_attribute(attribute: str|dict, dataarray: xarray.DataArray, **kwargs):
+    def stack_on_attribute(attribute: str|dict, dataarray: xarray.DataArray, **kwargs) -> xarray.DataArray:
         """
         Stacks a DataArray on the dimensions given.
 
@@ -271,7 +271,7 @@ class Observable():
 
         return dataarray.isel(features=self.select_indices)
 
-    def get_coordinate_list(self, name: str):
+    def get_coordinate_list(self, name: str) -> list:
         """
         Returns the list of values of a coordinate of the dataset
 
@@ -292,7 +292,7 @@ class Observable():
         return coordinate_list
 
     @property
-    def x_names(self):
+    def x_names(self) -> list:
         """
         Returns the list of the parameters coordinate of the x dataset.
 
@@ -348,7 +348,7 @@ class Observable():
             raise NotImplementedError("No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method.")
 
     @property
-    def checkpoint_fn(self):
+    def checkpoint_fn(self) -> str:
         """
         Path to the checkpoint file of the model, constructed from the paths and the statistic name.
         """
@@ -426,7 +426,7 @@ class Observable():
             pred = pred.values
         return pred
     
-    def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1):
+    def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1) -> np.ndarray:
         """
         Covariance matrix for the statistic. 
         The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
@@ -450,7 +450,7 @@ class Observable():
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         return cov
     
-    def get_emulator_covariance_matrix(self, prefactor: float = 1):
+    def get_emulator_covariance_matrix(self, prefactor: float = 1) -> np.ndarray:
         """
         Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
         """
@@ -472,7 +472,7 @@ class Observable():
         cov = prefactor * np.cov(cov_y, rowvar=False)
         return cov
    
-    def get_save_handle(self, save_dir: str|Path = None):
+    def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
         Creates a handle that includes the statistics and filters used.
         This can be used to save anything related to this observable.
