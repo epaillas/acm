@@ -15,7 +15,13 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         super().__init__(stat_name='tpcf', **kwargs)
         
     #%% Compressed files creation
-    def compress_covariance(self, save_to: str = None, rebin: int = 1, ells: list = [0, 2], overwrite_s: np.ndarray = None) -> xarray.DataArray:
+    def compress_covariance(
+        self, 
+        save_to: str = None, 
+        rebin: int = 1, 
+        ells: list = [0, 2], 
+        overwrite_s: np.ndarray = None
+    ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
         
@@ -84,7 +90,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
         n_hod: int = 100,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
         

@@ -18,7 +18,7 @@ class BaseObservableBGS(Observable):
         self.n_test = kwargs.pop('n_test', 6*100) # Default number of test samples for BGS
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
 
-    def get_emulator_covariance_y(self, n_test: int|list = None) -> np.ndarray:
+    def get_emulator_covariance_y(self, n_test: int|list = None) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
@@ -78,7 +78,7 @@ class BaseObservableBGS(Observable):
             emulator_covariance_y = emulator_covariance_y.values
         return emulator_covariance_y
     
-    def get_emulator_error(self, n_test: int|list = None) -> np.ndarray:
+    def get_emulator_error(self, n_test: int|list = None) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
         
@@ -120,7 +120,7 @@ class BaseObservableBGS(Observable):
             emulator_error = emulator_error.values
         return emulator_error
     
-    def compress_x(self, cosmos=cosmo_list, n_hod=100):
+    def compress_x(self, cosmos=cosmo_list, n_hod=100) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
         
@@ -161,7 +161,7 @@ class BaseObservableBGS(Observable):
         )
         return x
 
-    def compress_emulator_error(self, n_test: int|list, save_to: str = None):
+    def compress_emulator_error(self, n_test: int|list, save_to: str = None) -> xarray.Dataset:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
         

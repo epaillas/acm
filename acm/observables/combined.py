@@ -141,14 +141,14 @@ class CombinedObservable():
         
 
     @property
-    def stat_name(self):
+    def stat_name(self) -> list:
         """
         Name of the statistic.
         """
         return [obs.stat_name for obs in self.observables]
 
     @property
-    def x(self):
+    def x(self) -> np.ndarray:
         """
         Input features (samples).
 
@@ -158,7 +158,7 @@ class CombinedObservable():
         return [obs.x for obs in self.observables][0]
 
     @property
-    def x_names(self):
+    def x_names(self) -> list:
         """
         Names of the input features.
 
@@ -195,7 +195,8 @@ class CombinedObservable():
     def get_covariance_matrix(
         self,
         volume_factor: float = 64, 
-        prefactor: float = 1):
+        prefactor: float = 1,
+    ) -> np.ndarray:
         """
         Covariance matrix for the statistic. 
         The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
@@ -206,7 +207,7 @@ class CombinedObservable():
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         return cov
 
-    def get_emulator_covariance_matrix(self, prefactor: float = 1):
+    def get_emulator_covariance_matrix(self, prefactor: float = 1) -> np.ndarray:
         """
         Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
         """
@@ -216,7 +217,7 @@ class CombinedObservable():
         cov = prefactor * np.cov(cov_y, rowvar=False)
         return cov
     
-    def get_save_handle(self, save_dir: str|Path = None):
+    def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
         Creates a handle that combines the handles of the observables,
         separated by a '+'. They contain the statistic name and the filters used.
