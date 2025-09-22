@@ -24,6 +24,7 @@ dependencies = [ # Base requirements
     "numpy",
     "scipy",
     "pandas", 
+    "xarray", 
     "pyyaml",
     "matplotlib",
     "getdist",
@@ -53,6 +54,16 @@ docs = [
     "sphinx-book-theme >= 0.3",
     "myst_nb >= 0.17.1",
 ]
+testing = [
+    "pytest",
+    "pytest-cov",
+    "pytest-docstyle",
+    "pytest-emoji",
+    "flake8",
+    "black",
+    "isort",
+    "mypy",
+]
 # Estimators
 knn = [
     "numba",
@@ -76,16 +87,6 @@ sunbird = [
     "joblib",
     "emcee",
     "pocomc",
-]
-testing = [
-    "pytest",
-    "pytest-cov",
-    "pytest-docstyle",
-    "pytest-emoji",
-    "flake8",
-    "black",
-    "isort",
-    "mypy",
 ]
 
 
