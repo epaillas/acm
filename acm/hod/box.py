@@ -171,7 +171,6 @@ class BoxHOD:
         seed = None, 
         save_fn: str = None, 
         add_rsd: bool = False,
-
         )-> dict:
         """
         Run the HOD model with the given parameters.
@@ -226,6 +225,8 @@ class BoxHOD:
             )
         hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads, reseed=seed)
         hod_dict = self.format_catalog(hod_dict, tracer, add_rsd)
+        if save_fn is not None:
+            self.save_catalog(hod_dict, save_fn)
         return hod_dict
 
     def format_catalog(

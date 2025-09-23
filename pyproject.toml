@@ -67,15 +67,7 @@ minkowski = [
 ]
 # Model & inference
 sunbird = [ 
-    'sunbird @ git+https://github.com/florpi/sunbird',
-    # Just in case some dependencies are not installed 
-    # (TODO : remove when sunbird also handles its dependencies)
-    "xarray", 
-    "pytorch",
-    "optuna",
-    "joblib",
-    "emcee",
-    "pocomc",
+    'sunbird[inferences] @ git+https://github.com/florpi/sunbird',
 ]
 
 
@@ -85,3 +77,9 @@ Repository = "https://github.com/epaillas/acm.git"
 
 [tool.setuptools.packages.find]
 namespaces = false
+
+[tool.setuptools.package-data]
+acm = [
+    "*.yml",
+    "*.yaml",
+]
