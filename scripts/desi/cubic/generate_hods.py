@@ -54,6 +54,7 @@ for cosmo_idx in cosmos:
     
                 save_fn = Path(save_dir) / f'hod{hod_idx:03}.fits'
                 # sample HODs and save to disk
-                N += abacus.run(hod, nthreads=64, tracer_density_mean=np.array(tracer_density_mean), 
-                                add_rsd=True, add_ap=True, seed=seed, save_fn=save_fn)[1]
+                abacus.run(hod, nthreads=64, tracer_density_mean=tracer_density_mean, 
+                           add_rsd=True, add_ap=True, seed=seed, save_fn=save_fn)
+                N += abacus.in_density
                 

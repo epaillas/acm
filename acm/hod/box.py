@@ -105,8 +105,8 @@ class BoxHOD:
             self.cosmo = AbacusSummit(self.cosmo_idx)
         self.az = 1 / (1 + self.redshift)
         self.hubble = 100 * self.cosmo.efunc(self.redshift)
-        self.a_par = 100 * self.cosmo_fid.efunc(self.redshift) / self.hubble
-        self.a_perp = self.cosmo.angular_diameter_distance(self.redshift) / self.cosmo_fid.angular_diameter_distance(self.redshift)
+        self.q_par = 100 * self.cosmo_fid.efunc(self.redshift) / self.hubble
+        self.q_perp = self.cosmo.angular_diameter_distance(self.redshift) / self.cosmo_fid.angular_diameter_distance(self.redshift)
         self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
 
     def abacus_simdirs(self, DM_DICT: dict):
@@ -188,7 +188,7 @@ class BoxHOD:
         tracer : str, optional
             Tracer type. Default is 'LRG'.
         tracer_density_mean : list, optional
-            List containing (min_nbar, max_nbar) for downsampling catalogue to desired density (nbar > max_nbar) or cutting from sample (nbar < min_nbar). Default is None (no thresholds applied).
+            List containing (min_nbar, max_nbar) for downsampling catalogue to desired density (nbar > max_nbar) or cutting from sample (nbar < min_nbar). If only one value provided, this is taken as the maximum threshold (no minimum threshold applied). Default is None (no thresholds applied).
         seed : int, optional
             Random seed. Default is None.
         save_fn : str, optional
@@ -196,15 +196,12 @@ class BoxHOD:
         add_rsd : bool, optional
             Whether to add redshift-space distortions to the catalog or not. Default is False.
         add_ap: bool, optional
-            Whether to add Alcock-Paczynski distortions to the catalog or not. Default is False.
+            Whether to add Alcock-Paczynski distortions to the number density or not. Default is False.
 
         Returns
         -------
         dict
-            Dictionary containing the HOD catalog. None is returned 
-        int
-            Value 0 or 1 returned based on whether catalogue is within target density theshold.
-
+            Dictionary containing the HOD catalog.
         Raises
         ------
         ValueError
@@ -224,35 +221,41 @@ class BoxHOD:
             else:
                 self.ball.tracers[tracer][key] = hod_params[key]
         self.ball.tracers[tracer]['ic'] = 1
-        # NOTE: compute_ngal not working for HODs with high sigma values
+        self.in_density = True  # Flag if mock is within density threshold
+        # # NOTE: compute_ngal not working for HODs with high sigma values
         # ngal_dict = self.ball.compute_ngal(Nthread=nthreads)[0]
-        # n_tracers = ngal_dict[tracer]
+        # n_gal = ngal_dict[tracer]
         # if tracer_density_mean is not None:
-            # n_target = tracer_density_mean * self.boxsize ** 3
-            # if add_ap: n_target *= self.a_par * self.a_perp**2
-            # if (n_target[0] / n_tracers) > 1: 
-                # return None, 0
+            # n_target = np.array(tracer_density_mean) * self.boxsize ** 3
+            # if add_ap: n_target /= self.q_par * self.q_perp**2
+            # if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
+                # self.logger.info('Catalogue below minimum density threshold')
+                # self.in_density = False  Flag that mock is below density threshold
+                # return hod_dict
             # else:
                 # self.ball.tracers[tracer]['ic'] = min(
-                    # 1, n_target[1] / n_tracers
+                    # 1, n_target[1] / n_gal
                 # )
         hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed)
         # workaround for compute_ngal issue
-        n_tracers = len(hod_dict[tracer]['x'])
+        n_gal = len(hod_dict[tracer]['x'])
         if tracer_density_mean is not None:
-            n_target = tracer_density_mean * self.boxsize ** 3
-            if add_ap: n_target *= self.a_par * self.a_perp**2
-            if (n_target[0] / n_tracers) > 1: 
-                return hod_dict, 0
-            elif (n_target[1] / n_tracers) < 1:
-                subsample = np.random.choice(range(n_tracers), size=int(n_target[1]), replace=False)
+            n_target = np.array(tracer_density_mean) * self.boxsize ** 3
+            if add_ap: n_target /= self.q_par * self.q_perp**2
+            if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
+                self.logger.info('Catalogue below minimum density threshold')
+                self.in_density = False  # Flag that mock is below density threshold
+                return hod_dict
+            elif (n_target.max() / n_gal) < 1:
+                subsample = np.random.choice(range(n_gal), size=int(n_target.max()), replace=False)
             else:
                 subsample = None
 
-        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap)
+        # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
+        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap=False)
         if save_fn is not None:
-            self.save_catalog(hod_dict, save_fn)
-        return hod_dict, 1
+            self.save_catalog(save_fn, hod_dict, tracer)
+        return hod_dict
 
     def postprocess_catalog(
         self, 
@@ -298,19 +301,27 @@ class BoxHOD:
 
         return hod_dict
 
-    def save_catalog(self, hod_dict: dict, save_fn: str):
+    def save_catalog(
+        self, 
+        save_fn: str,
+        hod_dict: dict, 
+        tracer: str = 'LRG', 
+        ):
         """
         Save the HOD catalog to a FITS file.
 
         Parameters
         ----------
-        hod_dict : dict
-            Dictionary containing the HOD catalog.
         save_fn : str
             Filename to save the catalog.
+        hod_dict : dict
+            Dictionary containing the HOD catalog.
+        tracer : str, optional
+            Tracer type. Default is 'LRG'.
         """
-        table = Table(hod_dict['LRG'])
-        header = fits.Header({'gal_type': 'LRG', **self.ball.tracers['LRG']})
+        table = Table(hod_dict[tracer])
+        header = fits.Header({'gal_type': tracer, 'q_par': self.q_par, 
+                              'q_perp': self.q_perp, **self.ball.tracers[tracer]})
         myfits = fits.BinTableHDU(data=table, header=header)
         myfits.writeto(save_fn, overwrite=True)
         self.logger.info(f'Saving {save_fn}.')
@@ -374,6 +385,8 @@ class BoxHOD:
         dict
             Dictionary containing the HOD catalog with redshift-space distortions.
         """
+        self.logger.debug('Distorting galaxy positions with RSD effect')
+
         data = hod_dict[tracer]
         offset = self.boxsize / 2
 
@@ -400,6 +413,7 @@ class BoxHOD:
         self,
         hod_dict: dict,
         tracer: str = 'LRG',
+        los: str = 'z',
         )-> dict:
         """
         Add Alcock-Paczynski distortions to the catalog.
@@ -410,20 +424,25 @@ class BoxHOD:
             Dictionary containing the HOD catalog.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
-
+        los: str, optional
+            Line-of-sight for AP distortion. Default is 'z'.
         Returns
         -------
         dict
             Dictionary containing the HOD catalog with redshift-space distortions.
         """
+        self.logger.debug('Distorting galaxy positions with AP effect')
 
-        # take AP parameters in as argument to prevent recalculation
-        hod_dict[tracer]['X'] *= self.a_par
-        hod_dict[tracer]['Y'] *= self.a_perp
-        hod_dict[tracer]['Y'] *= self.a_perp
+        ap_x = self.q_par if los == 'x' else self.q_perp
+        ap_y = self.q_par if los == 'y' else self.q_perp 
+        ap_z = self.q_par if los == 'z' else self.q_perp 
 
-        hod_dict[tracer]['X_RSD'] *= self.a_par
-        hod_dict[tracer]['Y_RSD'] *= self.a_perp
-        hod_dict[tracer]['Y_RSD'] *= self.a_perp
+        hod_dict[tracer]['X'] /= ap_x
+        hod_dict[tracer]['Y'] /= ap_y
+        hod_dict[tracer]['Z'] /= ap_z
+
+        hod_dict[tracer]['X_RSD'] /= ap_x
+        hod_dict[tracer]['Y_RSD'] /= ap_y
+        hod_dict[tracer]['Z_RSD'] /= ap_z
 
         return hod_dict
