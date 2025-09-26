@@ -207,7 +207,7 @@ class BoxHOD:
         Returns
         -------
         dict
-            Dictionary containing the HOD catalog. Galaxy positions ('X','Y','Z') are provided along with optional RSD distorted positions ('X_RSD', 'Y_RSD' and 'Z_RSD'). AP distortions can optionally be applied directly to these items if a line-of-sight is chosen, however if los is None then positions will be provided with a distortion along every axis ('X_PAR', 'X_PERP', 'Y_PAR', 'Y_PERP', 'Z_PAR', 'Z_PERP'). 
+            Dictionary containing the HOD catalog. Galaxy positions ('X','Y','Z') are provided along with optional RSD distorted positions ('X_RSD', 'Y_RSD' and 'Z_RSD'). If `add_ap` is True, AP distotions are applied to the real-space and redshift-space positions along chosen `los` and stored as ('X_PAR', 'X_PERP', 'Y_PAR', 'Y_PERP', 'Z_PAR', 'Z_PERP'). If `los` is not None, only the relevant components will be stored.
 
         Raises
         ------
@@ -448,18 +448,16 @@ class BoxHOD:
         Returns
         -------
         dict
-            Dictionary containing the HOD catalog with redshift-space distortions.
+            Dictionary containing the HOD catalog with AP distortions. Position axis will be replaced by `X_PAR` or `X_PERP` (similar for Y and Z axes) depending on `los` chosen. If `los` is None, `X_PAR` and `X_PERP` components will be stored for all axes. Also applies `q_par` distortions on the RSD axis.
         """
         self.logger.debug('Distorting galaxy positions with AP effect')
 
-        for axis in ('X', 'Y', 'Z'):
-            if los is None:
-                pos = hod_dict[tracer].pop(axis)
-                hod_dict[tracer][f'{axis}_PAR'] = pos / self.q_par
-                hod_dict[tracer][f'{axis}_PERP'] = pos / self.q_perp
-            else:
-                ap = self.q_par if (axis == los.upper()) else self.q_perp
-                hod_dict[tracer][axis] /= ap
-            if f'{axis}_RSD' in hod_dict[tracer]: hod_dict[tracer][f'{axis}_RSD'] /= self.q_par
+        for ax in ('X', 'Y', 'Z'):
+            pos = hod_dict[tracer].pop(ax)
+            if los is None or (ax == los.upper()):
+                hod_dict[tracer][f'{ax}_PAR'] = pos / self.q_par
+            if los is None or (ax != los.upper()):
+                hod_dict[tracer][f'{ax}_PERP'] = pos / self.q_perp
+            if f'{ax}_RSD' in hod_dict[tracer]: hod_dict[tracer][f'{ax}_RSD'] /= self.q_par
 
         return hod_dict
