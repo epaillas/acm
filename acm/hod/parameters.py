@@ -7,19 +7,25 @@ class HODLatinHypercube:
     """
     Sample HOD parameters from a prior and distribute them on
     a Latin hypercube.
-
-    Parameters
-    ----------
-    ranges : dict
-        Dictionary with the prior ranges for each parameter.
-    seed : int
-        Seed for the random number generator.
     """
-    def __init__(self, ranges, seed=42):
+    def __init__(self, ranges, seed: int = 42, order: list[str] = None):
+        """
+        Parameters
+        ----------
+        ranges : dict
+            Dictionary with the prior ranges for each parameter.
+        seed : int
+            Seed for the random number generator.
+        order : list, optional
+            List of keys to enforce ordering on when saving to file. If None, the order in
+            which the keys were provided in ranges is used. Any keys not in self.params
+            will be ignored. Keys not in order will be dropped. Defaults to None.
+        """
         self.ranges = ranges
         self.sampler = qmc.LatinHypercube(d=len(ranges), seed=seed)
         self.pmins = np.array([ranges[key][0] for key in ranges])
         self.pmaxs = np.array([ranges[key][1] for key in ranges])
+        self.order = order
 
     def sample(self, n: int, save_fn: str = None):
         """
@@ -71,10 +77,7 @@ class HODLatinHypercube:
         self.params = split_params
         self.is_split = True
         if save_fn:
-            if len(cosmos) != len(save_fn):
-                raise ValueError('Number of filenames must match number of cosmologies.')
-            for cosmo, save_fn in zip(cosmos, save_fn):
-                self.save_params(save_fn, split_params[f'c{cosmo:03}'])
+            self.save_params(save_fn)
         return self.params
 
     def add_cosmo_params(self, cosmo_params: dict, save_fn: list = None):
@@ -99,41 +102,37 @@ class HODLatinHypercube:
             cosmo.update(hod)
             self.params[key] = cosmo
         if save_fn:
-            if len(self.params) != len(save_fn):
-                raise ValueError('Number of filenames must match number of cosmologies.')
-            for key, save_fn in zip(self.params, save_fn):
-                self.save_params(save_fn, self.params[key])
+            self.save_params(save_fn)
         return self.params
     
-    def enforce_ordering(self, param: list):
-        """
-        Enforce ordering of the keys in param, given as a list of keys.
-        Not recommended, as any transformation of the resulting dictionary
-        may not preserve the ordering. This is just a safeguard.
 
-        Parameters
-        ----------
-        param : list
-            list of keys to enforce ordering on.
-        """
-        if self.is_split:
-            for key, hod in self.params.items():
-                self.params[key] = {k: hod[k] for k in param if k in hod}
-        else:
-            self.params = {k: self.params[k] for k in param if k in self.params}
-        return self.params
-
-    def save_params(self, save_fn: str):
+    def save_params(self, save_fn: str|list[str], order: list[str] = None):
         """
         Save the sampled parameters to disk.
 
         Parameters
         ----------
         save_fn : str
-            File to save the parameters to.
+            File to save the parameters to or list of files if params are split by cosmology.
+        order : list, optional
+            List of keys to enforce ordering on. If None, the order in self.params is used.
+            Any keys not in self.params will be ignored. Keys not in order will be dropped.
+            Defaults to None.
         """
-        df = pandas.DataFrame(self.params)
-        df.to_csv(save_fn, index=False, float_format='%.5f')
+        if order is None:
+            order = getattr(self, order, None)
+        
+        if self.is_split:
+            if len(self.params) != len(save_fn):
+                raise ValueError('Number of filenames must match number of cosmologies.')
+            for key, save_fn in zip(self.params, save_fn):
+                df = pandas.DataFrame(self.params[key])
+                df = df[[k for k in order if k in df.columns]] if order else df
+                df.to_csv(save_fn, index=False, float_format='%.5f') 
+        else:
+            df = pandas.DataFrame(self.params)
+            df = df[[k for k in order if k in df.columns]] if order else df
+            df.to_csv(save_fn, index=False, float_format='%.5f')
 
 
 if __name__ == '__main__':
@@ -142,6 +141,9 @@ if __name__ == '__main__':
 
     lhc = HODLatinHypercube(ranges)
     params = lhc.sample(50_000)  # number of HOD variations
-
-    params = lhc.split_by_cosmo(cosmos=[0, 1])
-    lhc.save_params('./')
+    params = lhc.split_by_cosmo(cosmos=[0, 1]) # split by cosmology
+    
+    lhc.save_params(
+        save_fn = ['hod_params_c{cosmo:03}.csv'.format(cosmo=cosmo) for cosmo in [0, 1]], 
+        order=['logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
+    )
