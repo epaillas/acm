@@ -40,6 +40,7 @@ class HODLatinHypercube:
         # scale to the prior range and turn into dict
         params = self.pmins + params * (self.pmaxs - self.pmins)
         self.params = {key: list(params[:, i]) for i, key in enumerate(self.ranges)}
+        self.is_split = False # Flag to indicate if params have been split by cosmology
         if save_fn:
             self.save_params(save_fn)
         return self.params
@@ -68,6 +69,7 @@ class HODLatinHypercube:
             split = [np.array_split(self.params[key], len(cosmos))[i] for key in self.params]
             split_params[f'c{cosmo:03}'] = {key: list(split[i]) for i, key in enumerate(self.params)}
         self.params = split_params
+        self.is_split = True
         if save_fn:
             if len(cosmos) != len(save_fn):
                 raise ValueError('Number of filenames must match number of cosmologies.')
@@ -101,6 +103,24 @@ class HODLatinHypercube:
                 raise ValueError('Number of filenames must match number of cosmologies.')
             for key, save_fn in zip(self.params, save_fn):
                 self.save_params(save_fn, self.params[key])
+        return self.params
+    
+    def enforce_ordering(self, param: list):
+        """
+        Enforce ordering of the keys in param, given as a list of keys.
+        Not recommended, as any transformation of the resulting dictionary
+        may not preserve the ordering. This is just a safeguard.
+
+        Parameters
+        ----------
+        param : list
+            list of keys to enforce ordering on.
+        """
+        if self.is_split:
+            for key, hod in self.params.items():
+                self.params[key] = {k: hod[k] for k in param if k in hod}
+        else:
+            self.params = {k: self.params[k] for k in param if k in self.params}
         return self.params
 
     def save_params(self, save_fn: str):
