@@ -171,10 +171,12 @@ class BoxHOD:
         nthreads: int = 1, 
         tracer: str = 'LRG', 
         tracer_density_mean: list = None,
+        process_underdense: bool = True,
         seed = None, 
         save_fn: str = None, 
         add_rsd: bool = False,
         add_ap: bool = False,
+        los: str = None,
         )-> dict:
         """
         Run the HOD model with the given parameters.
@@ -189,6 +191,8 @@ class BoxHOD:
             Tracer type. Default is 'LRG'.
         tracer_density_mean : list, optional
             List containing (min_nbar, max_nbar) for downsampling catalogue to desired density (nbar > max_nbar) or cutting from sample (nbar < min_nbar). If only one value provided, this is taken as the maximum threshold (no minimum threshold applied). Default is None (no thresholds applied).
+        process_underdense: bool, optional
+            If set to False, does not process (and save) catalogs that are not in tracer_density_mean limits (only used if tracer_density_mean is provided). Defaults to True.
         seed : int, optional
             Random seed. Default is None.
         save_fn : str, optional
@@ -197,11 +201,14 @@ class BoxHOD:
             Whether to add redshift-space distortions to the catalog or not. Default is False.
         add_ap: bool, optional
             Whether to add Alcock-Paczynski distortions to the number density or not. Default is False.
+        los: str, optional
+            Line-of-sight for RSD and AP distortions. If None, distortions along every axis are saved to catalogue.
 
         Returns
         -------
         dict
-            Dictionary containing the HOD catalog.
+            Dictionary containing the HOD catalog. Galaxy positions ('X','Y','Z') are provided along with optional RSD distorted positions ('X_RSD', 'Y_RSD' and 'Z_RSD'). AP distortions can optionally be applied directly to these items if a line-of-sight is chosen, however if los is None then positions will be provided with a distortion along every axis ('X_PAR', 'X_PERP', 'Y_PAR', 'Y_PERP', 'Z_PAR', 'Z_PERP'). 
+
         Raises
         ------
         ValueError
@@ -245,14 +252,19 @@ class BoxHOD:
             if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
                 self.logger.info('Catalogue below minimum density threshold')
                 self.in_density = False  # Flag that mock is below density threshold
-                return hod_dict
+                if not process_underdense:
+                    return hod_dict  # Unprocessed catalog, should not be used
+                else:
+                    subsample = None  # Continues processing with underdense catalog
             elif (n_target.max() / n_gal) < 1:
+                self.logger.info('Downsampling mock')
                 subsample = np.random.choice(range(n_gal), size=int(n_target.max()), replace=False)
             else:
+                self.logger.info('Mock within density thresholds')
                 subsample = None
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
-        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap=False)
+        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap, los=los)
         if save_fn is not None:
             self.save_catalog(save_fn, hod_dict, tracer)
         return hod_dict
@@ -264,6 +276,7 @@ class BoxHOD:
         subsample: list = None,
         add_rsd: bool = False,
         add_ap: bool = False,
+        los: str = None,
         ):
         """
         Add distortion effects and format the HOD catalog.
@@ -280,6 +293,13 @@ class BoxHOD:
             Whether to add redshift-space distortions to the catalog or not. Default is False.
         add_ap : bool, optional
             Whether to add Alcock-Paczynski distortions to the catalog or not. Default is False.
+        los: str, optional
+            Line-of-sight for RSD and AP distortions. If None, distortions along every axis are saved to catalogue.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the HOD catalog.
         """
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
@@ -295,9 +315,14 @@ class BoxHOD:
 
         # add distortions to catalogue
         if add_rsd:
-            hod_dict = self._add_rsd(hod_dict, tracer)
+            hod_dict = self._add_rsd(hod_dict, tracer, los=los)
         if add_ap:
-            hod_dict = self._add_ap(hod_dict, tracer)
+            hod_dict = self._add_ap(hod_dict, tracer, los=los)
+
+        # remove velocities from catalogue
+        hod_dict[tracer].pop('VX', None)
+        hod_dict[tracer].pop('VY', None)
+        hod_dict[tracer].pop('VZ', None)
 
         return hod_dict
 
@@ -369,6 +394,7 @@ class BoxHOD:
         self, 
         hod_dict: dict, 
         tracer: str = 'LRG',
+        los: str = None,
         )-> dict:
         """
         Add redshift-space distortions to the catalog.
@@ -379,6 +405,8 @@ class BoxHOD:
             Dictionary containing the HOD catalog.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
+        los: str, optional
+            Line-of-sight for RSD distortion. If None, distortions along every axis are saved to catalogue.
         
         Returns
         -------
@@ -390,22 +418,12 @@ class BoxHOD:
         data = hod_dict[tracer]
         offset = self.boxsize / 2
 
-        x = data['X'] + offset
-        y = data['Y'] + offset
-        z = data['Z'] + offset
-
-        # remove velocities from catalogue
-        vx = hod_dict[tracer].pop('VX')
-        vy = hod_dict[tracer].pop('VY')
-        vz = hod_dict[tracer].pop('VZ')
-
-        x_rsd = (x + vx / (self.hubble * self.az)) % self.boxsize
-        y_rsd = (y + vy / (self.hubble * self.az)) % self.boxsize
-        z_rsd = (z + vz / (self.hubble * self.az)) % self.boxsize
-
-        hod_dict[tracer]['X_RSD'] = x_rsd - offset
-        hod_dict[tracer]['Y_RSD'] = y_rsd - offset
-        hod_dict[tracer]['Z_RSD'] = z_rsd - offset
+        axes = ('X', 'Y', 'Z') if los is None else los.upper()
+        for ax in axes:
+            pos = data[ax] + offset
+            vel = hod_dict[tracer].pop(f'V{ax}')
+            pos_rsd = (pos + vel / (self.hubble * self.az)) % self.boxsize
+            hod_dict[tracer][f'{ax}_RSD'] = pos_rsd - offset
 
         return hod_dict
 
@@ -413,7 +431,7 @@ class BoxHOD:
         self,
         hod_dict: dict,
         tracer: str = 'LRG',
-        los: str = 'z',
+        los: str = None,
         )-> dict:
         """
         Add Alcock-Paczynski distortions to the catalog.
@@ -425,7 +443,8 @@ class BoxHOD:
         tracer : str, optional
             Tracer type. Default is 'LRG'.
         los: str, optional
-            Line-of-sight for AP distortion. Default is 'z'.
+            Line-of-sight for AP distortion. If None, distortions along every axis are saved to catalogue.
+
         Returns
         -------
         dict
@@ -433,16 +452,14 @@ class BoxHOD:
         """
         self.logger.debug('Distorting galaxy positions with AP effect')
 
-        ap_x = self.q_par if los == 'x' else self.q_perp
-        ap_y = self.q_par if los == 'y' else self.q_perp 
-        ap_z = self.q_par if los == 'z' else self.q_perp 
-
-        hod_dict[tracer]['X'] /= ap_x
-        hod_dict[tracer]['Y'] /= ap_y
-        hod_dict[tracer]['Z'] /= ap_z
-
-        hod_dict[tracer]['X_RSD'] /= ap_x
-        hod_dict[tracer]['Y_RSD'] /= ap_y
-        hod_dict[tracer]['Z_RSD'] /= ap_z
+        for axis in ('X', 'Y', 'Z'):
+            if los is None:
+                pos = hod_dict[tracer].pop(axis)
+                hod_dict[tracer][f'{axis}_PAR'] = pos / self.q_par
+                hod_dict[tracer][f'{axis}_PERP'] = pos / self.q_perp
+            else:
+                ap = self.q_par if (axis == los.upper()) else self.q_perp
+                hod_dict[tracer][axis] /= ap
+            if f'{axis}_RSD' in hod_dict[tracer]: hod_dict[tracer][f'{axis}_RSD'] /= self.q_par
 
         return hod_dict

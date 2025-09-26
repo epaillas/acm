@@ -17,12 +17,15 @@ parser.add_argument('--nbar_min', type=float, default=4.985e-4,
                     help='Minimum number density cut to apply (defaults to 6-sigma)')
 parser.add_argument('--nbar_max', type=float, default=5e-4, 
                     help='Maximum number density threshold for downsampling')
+parser.add_argument('--process_underdense', required=False, default=False, action='store_true',
+                    help='Whether to process catalgoues that are below the minimum density threshold')
 parser.add_argument('--chunk', nargs='+', type=int, required=False, default=None, 
                     help='Divide cosmologies for simultaneous batch jobs')
 args = parser.parse_args()
 
 redshift = args.redshift
 tracer_density_mean = (args.nbar_min, args.nbar_max)  # lower and upper thresholds (lower is 6-sigma)
+process_underdense = args.process_underdense
 
 N_hod = args.N_hod
 phases = list(range(1))
@@ -54,7 +57,7 @@ for cosmo_idx in cosmos:
     
                 save_fn = Path(save_dir) / f'hod{hod_idx:03}.fits'
                 # sample HODs and save to disk
-                abacus.run(hod, nthreads=64, tracer_density_mean=tracer_density_mean, 
+                abacus.run(hod, nthreads=64, tracer_density_mean=tracer_density_mean, process_underdense=process_underdense,
                            add_rsd=True, add_ap=True, seed=seed, save_fn=save_fn)
                 N += abacus.in_density
                 
