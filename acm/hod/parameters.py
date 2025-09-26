@@ -17,9 +17,7 @@ class HODLatinHypercube:
         seed : int
             Seed for the random number generator.
         order : list, optional
-            List of keys to enforce ordering on when saving to file. If None, the order in
-            which the keys were provided in ranges is used. Any keys not in self.params
-            will be ignored. Keys not in order will be dropped. Defaults to None.
+            See save_params method for details.
         """
         self.ranges = ranges
         self.sampler = qmc.LatinHypercube(d=len(ranges), seed=seed)
@@ -112,15 +110,16 @@ class HODLatinHypercube:
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str|list[str]
             File to save the parameters to or list of files if params are split by cosmology.
-        order : list, optional
-            List of keys to enforce ordering on. If None, the order in self.params is used.
+        order : list[str], optional
+            List of keys to enforce ordering on. 
+            If None, tries to access self.order; otherwise the default order of self.params is used.
             Any keys not in self.params will be ignored. Keys not in order will be dropped.
             Defaults to None.
         """
         if order is None:
-            order = getattr(self, order, None)
+            order = getattr(self, 'order', None) # on-the-fly attribute access
         
         if self.is_split:
             if len(self.params) != len(save_fn):
