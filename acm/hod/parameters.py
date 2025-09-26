@@ -1,7 +1,7 @@
-from scipy.stats import qmc
+import pandas
 import numpy as np
-from pathlib import Path
-
+from scipy.stats import qmc
+from acm.utils.default import cosmo_list
 
 class HODLatinHypercube:
     """
@@ -21,7 +21,7 @@ class HODLatinHypercube:
         self.pmins = np.array([ranges[key][0] for key in ranges])
         self.pmaxs = np.array([ranges[key][1] for key in ranges])
 
-    def sample(self, n, save_fn=None):
+    def sample(self, n: int, save_fn: str = None):
         """
         Sample HOD parameters from the prior.
 
@@ -44,7 +44,7 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def split_by_cosmo(self, cosmos=None, save_fn=None):
+    def split_by_cosmo(self, cosmos: list = None, save_fn: list = None):
         """
         Split the sampled parameters by cosmology.
 
@@ -62,7 +62,7 @@ class HODLatinHypercube:
             Dictionary with the split parameters.
         """
         if cosmos is None:
-            cosmos = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
+            cosmos = cosmo_list
         split_params = {}
         for i, cosmo in enumerate(cosmos):
             split = [np.array_split(self.params[key], len(cosmos))[i] for key in self.params]
@@ -75,18 +75,46 @@ class HODLatinHypercube:
                 self.save_params(save_fn, split_params[f'c{cosmo:03}'])
         return self.params
 
-    def save_params(self, filename, save_fn=None):
+    def add_cosmo_params(self, cosmo_params: dict, save_fn: list = None):
+        """
+        Add cosmology parameters to HOD parameters for each key in self.params.
+
+        Parameters
+        ----------
+        cosmo_params : dict
+            Dictionary with parameters for each cosmology. Must have the same keys as self.params.
+        save_fn : list, optional
+            List of filenames to save the updated parameters to. If None, the parameters will not be saved. Defaults to None.
+        
+        Returns
+        -------
+        params : dict
+            Dictionary with the updated parameters.
+        """
+        for key, hod in self.params.items():
+            n_hod = len(hod[next(iter(hod))])  # number of HOD samples for this cosmology
+            cosmo = {k: [v] * n_hod for k, v in cosmo_params[key].items()} # Repeat each cosmology parameter n_hod times
+            cosmo.update(hod)
+            self.params[key] = cosmo
+        if save_fn:
+            if len(self.params) != len(save_fn):
+                raise ValueError('Number of filenames must match number of cosmologies.')
+            for key, save_fn in zip(self.params, save_fn):
+                self.save_params(save_fn, self.params[key])
+        return self.params
+
+    def save_params(self, save_fn: str):
         """
         Save the sampled parameters to disk.
 
         Parameters
         ----------
-        filename : str
-            Directory to save the parameters to.
+        save_fn : str
+            File to save the parameters to.
         """
-        import pandas
         df = pandas.DataFrame(self.params)
-        df.to_csv(filename, index=False, float_format='%.5f')
+        df.to_csv(save_fn, index=False, float_format='%.5f')
+
 
 if __name__ == '__main__':
     from sunbird.inference.priors import Yuan23
