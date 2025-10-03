@@ -174,6 +174,20 @@ class BaseDataObservable(BaseClass):
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         return cov
 
+    def get_correlation_matrix(
+        self,
+        volume_factor: float = 64, 
+        prefactor: float = 1):
+        """
+        Correlation matrix for the statistic. 
+        The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
+        """   
+        cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+        stddev = np.sqrt(np.diag(cov))
+        corr = cov / np.outer(stddev, stddev)
+        corr[cov == 0] = 0
+        return corr
+
     #%% Compressed files creation
     # Not mandatory to implement, but can be useful to create the LHC data from the statistics files.
     def compress_covariance(self):

@@ -228,13 +228,19 @@ class CombinedObservable():
         """
         return np.concatenate([obs.emulator_covariance_y for obs in self.observables], axis=-1)
     
-    def get_emulator_covariance_matrix(self, prefactor: float = 1):
+    def get_emulator_covariance_matrix(self, prefactor: float = 1, block_diag: bool = False):
         """
         Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
         """
-        cov_y = self.emulator_covariance_y
         prefactor = prefactor
-        
+
+        if block_diag:
+            from scipy.linalg import block_diag
+            cov_blocks = [prefactor * np.cov(obs.emulator_covariance_y, rowvar=False) for obs in self.observables]
+            cov = block_diag(*cov_blocks)
+            return cov
+
+        cov_y = self.emulator_covariance_y
         cov = prefactor * np.cov(cov_y, rowvar=False)
         return cov
     
