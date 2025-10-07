@@ -153,7 +153,7 @@ class BaseEnvironmentEstimator(BaseEstimator):
             np.random.seed(seed)
             if nquery is None:
                 nquery = 5 * self._size_data
-            return np.random.rand(nquery, 3) * boxsize
+            return np.random.rand(nquery, 3) * boxsize - boxsize/2 + boxcenter
 
 
 class BaseCatalogMeshEstimator(BaseEstimator):
