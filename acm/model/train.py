@@ -29,7 +29,7 @@ def TrainFCN(
     loss: str = 'mae',
     # Training
     max_epochs: int = 5000,
-    logger_dir: str = None,
+    log_dir: str = None,
     seed: int = None,
     # Data transforms
     transform = None, 
@@ -71,7 +71,7 @@ def TrainFCN(
         Loss function to use. Defaults to 'mae'.
     max_epochs : int, optional
         Maximum number of epochs to train the model. Defaults to 5000.
-    logger_dir : str, optional
+    log_dir : str, optional
         Directory to save the pytorch lightning logs.
         If set to None, the logs are saved in the current directory. Defaults to None.
     transform : callable, optional
@@ -157,7 +157,7 @@ def TrainFCN(
         data=data, model=model,
         model_dir=model_dir,
         max_epochs=max_epochs,
-        logger_dir=logger_dir,
+        log_dir=log_dir,
         devices=1,
     )
     
