@@ -1,3 +1,4 @@
+import os
 import fitsio
 from pathlib import Path
 import numpy as np
@@ -17,10 +18,10 @@ def get_cli_args():
     parser.add_argument("--n_phase", type=int, default=1)
     parser.add_argument("--start_seed", type=int, default=0)
     parser.add_argument("--n_seed", type=int, default=1)
+    parser.add_argument('--todo_stats', nargs='+', default=['spectrum'])
 
     args = parser.parse_args()
     return args
-
 
 def get_hod_fns(cosmo=0, phase=0, redshift=0.8):
     """
@@ -52,7 +53,6 @@ def get_hod_positions(filename, los='z'):
 def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
     """Compute the power spectrum of a set of positions using jaxpower."""
     from jaxpower import (MeshAttrs, ParticleField, FKPField, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum, compute_fkp2_shotnoise)
-    print(f'Processing cosmo {cosmo_idx}, phase {phase_idx}, seed {seed_idx}, hod {hod_idx}')
     t0 = time.time()
     mattrs = MeshAttrs(**attrs)
     data = ParticleField(positions, attrs=mattrs, exchange=True, backend='jax')
@@ -71,6 +71,22 @@ def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
         print(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
+def compute_tpcf(output_fn, positions, los='z', **attrs):
+    """Compute the two-point correlation function using the ACM package."""
+    from pycorr import TwoPointCorrelationFunction
+
+    sedges = np.arange(0, 151, 1)
+    muedges = np.linspace(-1, 1, 241)
+    edges = (sedges, muedges)
+
+    xi = TwoPointCorrelationFunction(
+        'smu', edges=edges, data_positions1=positions,
+        engine='corrfunc', boxsize=boxsize, nthreads=4, gpu=True,
+        compute_sepsavg=False, position_type='pos', los=los,
+    )
+
+    xi.save(output_fn)
+
 def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
     """Compute density-split statistics using the ACM package."""
     from acm.estimators.galaxy_clustering.density_split import DensitySplit
@@ -81,7 +97,7 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     ds.set_density_contrast(smoothing_radius=smoothing_radius, save_wisdom=True)
     ds.set_quantiles(nquantiles=5, query_method='randoms')
 
-    sedges = np.arange(0, 201, 1)
+    sedges = np.arange(0, 151, 1)
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
 
@@ -91,11 +107,29 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     np.save(output_fn['xiqg'], ccf)
     np.save(output_fn['xiqq'], acf)
 
+def compute_wst(output_fn, positions, init=None, **attrs):
+    """Compute the wavelet scattering transform using the ACM package."""
+    from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    wst = init if init is not None else WaveletScatteringTransform(**attrs)
+
+    wst.assign_data(positions=positions, wrap=True, clear_previous=True)
+    wst.set_density_contrast()
+    smatavg = wst.run()
+
+    print(f'Saving WST coefficients to {output_fn}')
+    np.save(output_fn, smatavg.cpu())
+    return wst
+
 
 
 if __name__ == '__main__':
 
-    is_distributed = False
+    args = get_cli_args()
+
+    is_distributed = any(td in ['spectrum'] for td in args.todo_stats)
     if is_distributed:
         os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
         import jax
@@ -107,43 +141,58 @@ if __name__ == '__main__':
 
     setup_logging()
 
-    args = get_cli_args()
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
     cosmos = list(range(args.start_cosmo, args.start_cosmo + args.n_cosmo))
     seeds = list(range(args.start_seed, args.start_seed + args.n_seed))
-    start_hod, n_hod = 0, 5
 
     redshift = 0.5
-    todo_stats = ['density_split']
+    init = None
 
     for cosmo_idx in cosmos:
         for phase_idx in phases:
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
 
-                for hod_fn in hod_fns[start_hod:start_hod+n_hod]:
+                for hod_fn in hod_fns[args.start_hod : args.start_hod +args.n_hod]:
                     hod_idx = hod_fn.split('.fits')[0].split('hod')[-1]
 
                     hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
 
-                    box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
 
-                    if 'spectrum' in todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/desi/gqc-y3-growth/mock_challenge/jaxpower/spectrum/training_set/'
-                        save_dir += f'yuan23/z{redshift:.1f}/ngal_8.5e-4/ap/c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                    if 'spectrum' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/spectrum/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'mesh2_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
                         with create_sharding_mesh() as sharding_mesh:
                             compute_spectrum(output_fn, hod_positions, **box_args)
 
-                    if 'density_split' in todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/density_split'
+                    if 'tpcf' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/tpcf/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0)
+                        compute_tpcf(output_fn, hod_positions, **box_args)
+
+                    if 'density_split' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/density_split/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = {
                             'xiqg': Path(save_dir) / f'dsc_xiqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
                             'xiqq': Path(save_dir) / f'dsc_xiqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         }
-                        box_args['nmesh'] = box_args.pop('meshsize')
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0, nmesh=512)
                         compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
+
+                    if 'wst' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/density_split/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0, nmesh=200)
+                        init = compute_wst(output_fn, hod_positions, init=init, **box_args)
 

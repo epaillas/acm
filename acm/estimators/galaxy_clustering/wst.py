@@ -1,4 +1,5 @@
-from kymatio.jax import HarmonicScattering3D
+import torch
+from kymatio.torch import HarmonicScattering3D
 import numpy as np
 import logging
 import time
@@ -9,14 +10,22 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
-    def __init__(self, J_3d=4, L_3d=4, integral_powers=[0.8], sigma=0.8, **kwargs):
+    def __init__(self, J_3d=4, L_3d=4, integral_powers=[1.0], sigma=0.8, **kwargs):
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
         self.logger.info('Initializing WaveletScatteringTransform.')
         super().__init__(**kwargs)
 
         self.S = HarmonicScattering3D(J=J_3d, shape=self.data_mesh.shape, L=L_3d, sigma_0=sigma,
-                                 integral_powers=integral_powers, max_order=2)
+                                 integral_powers=integral_powers, max_order=2, backend='torch')
+
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+            self.logger.info(f'Using GPU: {torch.cuda.get_device_name(0)}')
+        else:
+            self.device = 'cpu'
+            self.logger.info('Using CPU')
+        self.S.to(self.device)
 
     def run(self):
         """
@@ -31,12 +40,14 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
         query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
         self.delta_query = self.delta_mesh.read_cic(query_positions).reshape(
             (self.delta_mesh.nmesh[0], self.delta_mesh.nmesh[1], self.delta_mesh.nmesh[2]))
+        if self.device == 'cuda':
+            self.delta_query = torch.tensor(self.delta_query, dtype=torch.float32).to(self.device)
         smat_orders_12 = self.S(self.delta_query)
-        smat = np.absolute(smat_orders_12[:, :, 0])
-        s0 = np.sum(np.absolute(self.delta_mesh)**0.80)
+        smat = torch.absolute(smat_orders_12[:, :, 0])
+        s0 = torch.sum(torch.absolute(self.delta_query)**0.80)
         smatavg = smat.flatten()
-        self.smatavg = np.hstack((s0, smatavg))
-        self.logger.info(f"WST coefficients elapsed in {time.time() - t0:.2f} seconds.")
+        self.smatavg = torch.hstack((s0, smatavg))
+        self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} seconds.")
         return self.smatavg
 
     def plot_coefficients(self, save_fn=None):
