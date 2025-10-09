@@ -97,7 +97,7 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     ds.set_density_contrast(smoothing_radius=smoothing_radius, save_wisdom=True)
     ds.set_quantiles(nquantiles=5, query_method='randoms')
 
-    sedges = np.arange(0, 151, 1)
+    sedges = np.arange(0, 201, 1)
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
 
@@ -152,6 +152,9 @@ if __name__ == '__main__':
         for phase_idx in phases:
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
+                if len(hod_fns) == 0:
+                    print(f'No HOD files found for c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}. Skipping.')
+                    continue
 
                 for hod_fn in hod_fns[args.start_hod : args.start_hod +args.n_hod]:
                     hod_idx = hod_fn.split('.fits')[0].split('hod')[-1]
