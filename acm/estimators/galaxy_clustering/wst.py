@@ -26,6 +26,7 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
             self.device = 'cpu'
             self.logger.info('Using CPU')
         self.S.to(self.device)
+        self.integral_powers = integral_powers
 
     def run(self):
         """
@@ -44,7 +45,7 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
             self.delta_query = torch.tensor(self.delta_query, dtype=torch.float32).to(self.device)
         smat_orders_12 = self.S(self.delta_query)
         smat = torch.absolute(smat_orders_12[:, :, 0])
-        s0 = torch.sum(torch.absolute(self.delta_query)**0.80)
+        s0 = torch.sum(torch.absolute(self.delta_query)**self.integral_powers[0])
         smatavg = smat.flatten()
         self.smatavg = torch.hstack((s0, smatavg))
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} seconds.")
