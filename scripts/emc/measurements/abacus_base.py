@@ -93,7 +93,6 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
 
     ds = DensitySplit(data=positions, **attrs)
 
-    # ds.assign_data(positions=hod_positions, wrap=True, clear_previous=True)
     ds.set_density_contrast(smoothing_radius=smoothing_radius)
     ds.set_quantiles(nquantiles=5, query_method='randoms')
 
@@ -102,10 +101,10 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     edges = (sedges, muedges)
 
     ccf = ds.quantile_data_correlation(hod_positions, edges=edges, los=los, nthreads=4, gpu=True)
-    # acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
+    acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
 
     np.save(output_fn['xiqg'], ccf)
-    # np.save(output_fn['xiqq'], acf)
+    np.save(output_fn['xiqq'], acf)
 
 def compute_wst(output_fn, positions, init=None, **attrs):
     """Compute the wavelet scattering transform using the ACM package."""
@@ -113,14 +112,13 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    wst = init if init is not None else WaveletScatteringTransform(**attrs)
+    wst = init if init is not None else WaveletScatteringTransform(data=positions, **attrs)
 
-    wst.assign_data(positions=positions, wrap=True, clear_previous=True)
     wst.set_density_contrast()
     smatavg = wst.run()
 
     print(f'Saving WST coefficients to {output_fn}')
-    np.save(output_fn, smatavg.cpu())
+    np.save(output_fn, smatavg)
     return wst
 
 
@@ -160,7 +158,7 @@ if __name__ == '__main__':
 
 
                     if 'spectrum' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/spectrum/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/debug/abacus/raw_measurements/spectrum/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -170,7 +168,7 @@ if __name__ == '__main__':
                             compute_spectrum(output_fn, hod_positions, **box_args)
 
                     if 'tpcf' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/tpcf/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/debug/abacus/raw_measurements/tpcf/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
@@ -193,5 +191,5 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                        box_args = dict(boxsize=boxsize, boxcenter=0.0, nmesh=200)
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=50)
                         init = compute_wst(output_fn, hod_positions, init=init, **box_args)
