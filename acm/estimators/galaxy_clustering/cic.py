@@ -2,10 +2,10 @@ import numpy as np
 import logging
 import time
 from pandas import qcut
-from .base import BaseEnvironmentEstimator, BaseCatalogMeshEstimator
+from .base import BaseDensityMeshEstimator
 
 
-class CountsInCells(BaseEnvironmentEstimator):
+class CountsInCells(BaseDensityMeshEstimator):
     """
     Class to compute counts in cells.
     """

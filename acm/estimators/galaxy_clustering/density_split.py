@@ -2,10 +2,10 @@ import numpy as np
 import logging
 import time
 from pandas import qcut
-from .base import BaseEnvironmentEstimator, BaseCatalogMeshEstimator
+from .base import BaseDensityMeshEstimator, BasePypowerMeshEstimator
 
 
-class DensitySplit(BaseEnvironmentEstimator):
+class DensitySplit(BaseDensityMeshEstimator):
     """
     Class to compute density-split clustering, as in http://arxiv.org/abs/2309.16541.
     """
@@ -318,7 +318,7 @@ class DensitySplit(BaseEnvironmentEstimator):
         return fig
 
 
-class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
+class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
     """
     Alternative class to compute density splits based on pypower's CatalogMesh class.
     """
