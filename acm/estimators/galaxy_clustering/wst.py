@@ -2,10 +2,10 @@ from kymatio.jax import HarmonicScattering3D
 import numpy as np
 import logging
 import time
-from .base import BaseEnvironmentEstimator
+from .base import BaseDensityMeshEstimator
 
 
-class WaveletScatteringTransform(BaseEnvironmentEstimator):
+class WaveletScatteringTransform(BaseDensityMeshEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
@@ -15,8 +15,14 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
         self.logger.info('Initializing WaveletScatteringTransform.')
         super().__init__(**kwargs)
 
-        self.S = HarmonicScattering3D(J=J_3d, shape=self.data_mesh.shape, L=L_3d, sigma_0=sigma,
-                                 integral_powers=integral_powers, max_order=2)
+        self.S = HarmonicScattering3D(
+            J=J_3d,
+            shape=self.data_mesh.meshsize,
+            L=L_3d,
+            sigma_0=sigma,
+            integral_powers=integral_powers,
+            max_order=2
+        )
 
     def run(self):
         """
@@ -29,14 +35,13 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
         """
         t0 = time.time()
         query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
-        self.delta_query = self.delta_mesh.read_cic(query_positions).reshape(
-            (self.delta_mesh.nmesh[0], self.delta_mesh.nmesh[1], self.delta_mesh.nmesh[2]))
+        self.delta_query = self.delta_mesh.read(query_positions).reshape(self.data_mesh.meshsize)
         smat_orders_12 = self.S(self.delta_query)
         smat = np.absolute(smat_orders_12[:, :, 0])
         s0 = np.sum(np.absolute(self.delta_mesh)**0.80)
         smatavg = smat.flatten()
         self.smatavg = np.hstack((s0, smatavg))
-        self.logger.info(f"WST coefficients elapsed in {time.time() - t0:.2f} seconds.")
+        self.logger.info(f"WST coefficients calculated in {time.time() - t0:.2f} s.")
         return self.smatavg
 
     def plot_coefficients(self, save_fn=None):
