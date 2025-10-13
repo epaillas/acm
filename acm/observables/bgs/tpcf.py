@@ -17,6 +17,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     #%% Compressed files creation
     def compress_covariance(
         self, 
+        cosmo_idx: int = 0,
+        hod_idx: int = 96,
+        seed: int = 0,
         save_to: str = None, 
         rebin: int = 1, 
         ells: list = [0, 2], 
@@ -27,6 +30,12 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         
         Parameters
         ----------
+        cosmo_idx : int
+            Index of the cosmology to use. Default is 0.
+        hod_idx : int
+            Index of the HOD to use. Default is 96.
+        seed : int
+            Seed index to use. Default is 0.
         save_to : str
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
@@ -44,17 +53,22 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         xarray.DataArray
             Covariance array. 
         """
-        base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
+        base_dir = Path(self.paths['measurements_dir']) / 'small' 
+        
+        # NOTE : this is kept there just in case, but should not be used anymore, if next run works fine, will be removed
         outliers_path = base_dir / 'outliers_idx.npy' # NOTE: Hardcoded !
-        outliers_phases = np.load(outliers_path)
+        if outliers_path.exists():
+            outliers_phases = np.load(outliers_path)
+            self.logger.warning(f'Excluding outlier phases: {outliers_phases}')
+        else:
+            outliers_phases = []
         
         y = []
         for phase in range(3000, 5000):
-            data_fn = Path(base_dir) / f'tpcf_c000_ph{phase:04}_hod096.npy' # NOTE: Hardcoded !
+            data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / self.stat_name / f'hod{hod_idx:03d}.npy' # NOTE: Hardcoded !
             if not data_fn.exists() or phase in outliers_phases:
                 continue # Skip missing files or outliers
-            # data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-            data = np.load(data_fn, allow_pickle=True).item()[::rebin] # FIXME: remove this on next computation of measurements 
+            data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
             s, multipoles = data(ells=ells, return_sep=True)
             y.append(np.concatenate(multipoles))
         y = np.array(y)
@@ -84,18 +98,24 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     
     def compress_data(
         self, 
+        phase: int = 0,
+        seed: int = 0,
         add_covariance: bool = False,
         save_to: str = None,
         rebin: int = 1, 
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
-        n_hod: int = 100,
+        **kwargs,
     ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
         
         Parameters
         ----------
+        phase : int, optional
+            Phase index to read the data from. Default is 0.
+        seed : int, optional
+            Seed index to read the data from. Default is 0.
         add_covariance : bool
             If True, add the covariance to the compressed data. Default is False.
         save_to : str
@@ -108,8 +128,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         cosmos : list
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is cosmo_list.
-        n_hod : int
-            Number of HOD parameters to use. Default is 100.
+        **kwargs
+            Extra arguments to pass to `compress_covariance` (`cosmo_idx` or `hod_idx`), or to `compress_x` (`statistic`) if needed.
+            See their documentation for details and default values.
             
         Returns
         -------
@@ -117,22 +138,27 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir']) / 'base' / self.stat_name
+        base_dir = Path(self.paths['measurements_dir']) / 'base'
+        
+        statistic = kwargs.pop('statistic', 'density') # To avoid conflict with the arguments of compress_covariance
+        x = self.compress_x(cosmos=cosmos, phase=phase, seed=seed, statistic=statistic)
+        n_hod = len(x.hod_idx)
         
         y = []
         for cosmo_idx in cosmos:
-            for hod in range(n_hod):
-                data_fn = Path(base_dir) / f'{self.stat_name}_c{cosmo_idx:03d}_hod{hod:03}.npy' # NOTE: Hardcoded !
-                # data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-                data = np.load(data_fn, allow_pickle=True).item()[::rebin] # FIXME: remove this on next computation of measurements 
+            hod_idx = self.get_raw_hod_idx(cosmo_idx, phase=phase, seed=seed, statistic=statistic) # Get the HODs available for this cosmology
+            for hod in hod_idx:
+                data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / self.stat_name / f'hod{hod:03d}.npy' # NOTE: Hardcoded !
+                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
                 s, multipoles = data(ells=ells, return_sep=True)
                 y.append(np.concatenate(multipoles))
         y = np.array(y)
         y = xarray.DataArray(
+            # NOTE: Should crash if n_hod is not consistent with the hod number from the statistics, this is intended
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
             coords = {
                 'cosmo_idx': cosmos,
-                'hod_idx': list(range(n_hod)),
+                'hod_idx': list(range(n_hod)), # re-index HODs to be continuous
                 'multipoles': ells,
                 's': s,
             },
@@ -153,7 +179,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s)
+            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s, seed=seed, **kwargs)
             cout = xarray.merge([cout, cov_y])
         
         if save_to is not None:
