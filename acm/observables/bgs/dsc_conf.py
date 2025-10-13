@@ -59,7 +59,7 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
         """
         base_dir = Path(self.paths['measurements_dir']) / 'small' 
         
-        # NOTE : this is kept there just in case, but should not be used anymore, if next run works fine, will be removed
+        # NOTE : this is kept there just in case, but should not be used anymore, if next run works fine, will be removed (TODO)
         outliers_path = base_dir / 'outliers_idx.npy' # NOTE: Hardcoded !
         if outliers_path.exists():
             outliers_phases = np.load(outliers_path)
@@ -68,7 +68,8 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
             outliers_phases = []
         
         y = []
-        for phase in range(3000, 5000): # TODO: change this later ?
+        phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(base_dir.glob(f'c{cosmo_idx:03d}_ph*'))]
+        for phase in phases:
             multipoles_stat = []
             for stat in statistics:
                 data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / stat / f'hod{hod_idx:03d}.npy' # NOTE: Hardcoded !
