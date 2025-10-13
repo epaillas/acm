@@ -170,7 +170,7 @@ class BoxHOD:
         hod_params: dict, 
         nthreads: int = 1, 
         tracer: str = 'LRG', 
-        tracer_density_mean: list = None,
+        tracer_density: list = None,
         process_underdense: bool = True,
         seed = None, 
         save_fn: str = None, 
@@ -189,10 +189,10 @@ class BoxHOD:
             Number of threads to use. Default is 1.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
-        tracer_density_mean : list, optional
+        tracer_density : list, optional
             List containing (min_nbar, max_nbar) for downsampling catalogue to desired density (nbar > max_nbar) or cutting from sample (nbar < min_nbar). If only one value provided, this is taken as the maximum threshold (no minimum threshold applied). Default is None (no thresholds applied).
         process_underdense: bool, optional
-            If set to False, does not process (and save) catalogs that are not in tracer_density_mean limits (only used if tracer_density_mean is provided). Defaults to True.
+            If set to False, does not process (and save) catalogs that are not in tracer_density limits (only used if tracer_density is provided). Defaults to True.
         seed : int, optional
             Random seed. Default is None.
         save_fn : str, optional
@@ -232,8 +232,8 @@ class BoxHOD:
         # # NOTE: compute_ngal not working for HODs with high sigma values
         # ngal_dict = self.ball.compute_ngal(Nthread=nthreads)[0]
         # n_gal = ngal_dict[tracer]
-        # if tracer_density_mean is not None:
-            # n_target = np.array(tracer_density_mean) * self.boxsize ** 3
+        # if tracer_density is not None:
+            # n_target = np.array(tracer_density) * self.boxsize ** 3
             # if add_ap: n_target /= self.q_par * self.q_perp**2
             # if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
                 # self.logger.info('Catalogue below minimum density threshold')
@@ -246,22 +246,20 @@ class BoxHOD:
         hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed)
         # workaround for compute_ngal issue
         n_gal = len(hod_dict[tracer]['x'])
-        if tracer_density_mean is not None:
-            n_target = np.array(tracer_density_mean) * self.boxsize ** 3
+        subsample = None
+        if tracer_density is not None:
+            n_target = np.array(tracer_density) * self.boxsize ** 3
             if add_ap: n_target /= self.q_par * self.q_perp**2
             if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
                 self.logger.info('Catalogue below minimum density threshold')
                 self.in_density = False  # Flag that mock is below density threshold
                 if not process_underdense:
                     return hod_dict  # Unprocessed catalog, should not be used
-                else:
-                    subsample = None  # Continues processing with underdense catalog
             elif (n_target.max() / n_gal) < 1:
                 self.logger.info('Downsampling mock')
                 subsample = np.random.choice(range(n_gal), size=int(n_target.max()), replace=False)
             else:
                 self.logger.info('Mock within density thresholds')
-                subsample = None
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
         hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap, los=los)
