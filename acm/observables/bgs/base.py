@@ -137,6 +137,7 @@ class BaseObservableBGS(Observable):
             Compressed x values.
         """
         param_dir = self.paths['param_dir']
+        measurements_dir = self.paths['measurements_dir']
         
         x = []
         for cosmo_idx in cosmos:
@@ -144,7 +145,13 @@ class BaseObservableBGS(Observable):
             x_i = pd.read_csv(data_fn)
             x_names = list(x_i.columns)
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
-            x.append(x_i.values[:n_hod, :])
+
+            # Get the hod indexes to slice from the parameters file
+            density_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph000' / 'seed0' / 'density'
+            hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(density_dir.glob('hod*.npy'))]
+            assert len(hod_idx) == n_hod, f'Number of HODs in {density_dir} is {len(hod_idx)}, expected {n_hod}'
+            
+            x.append(x_i.values[hod_idx, :])
         x = np.concatenate(x)
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),
