@@ -120,44 +120,84 @@ class BaseObservableBGS(Observable):
             emulator_error = emulator_error.values
         return emulator_error
     
-    def compress_x(self, cosmos=cosmo_list, n_hod=100) -> xarray.DataArray:
+    def get_raw_hod_idx(self, cosmo_idx: int, phase: int = 0, seed: int = 0, statistic: str = 'density') -> np.ndarray:
+        """
+        Get the HOD indexes from the statistic files for a given phase and seed.
+        
+        Parameters
+        ----------
+        cosmo_idx : int
+            Cosmology index to read the HOD indexes from.
+        phase : int, optional
+            Phase index to read the HOD indexes from. Defaults to 0.
+        seed : int, optional
+            Seed index to read the HOD indexes from. Defaults to 0.
+        statistic : str, optional
+            Statistic to read the HOD indexes from. Defaults to 'density'.
+
+        Returns
+        -------
+        np.ndarray
+            Array of HOD indexes.
+            
+        Notes
+        -----
+        The HOD indexes are read from the statistic files for each cosmology. It assumes an architecture like:
+        `measurements_dir/base/c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{statistic}/hod{hod:03}.npy`
+        """
+        measurements_dir = self.paths['measurements_dir']
+        stat_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / statistic
+        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(stat_dir.glob('hod*.npy'))]
+        return np.array(hod_idx)
+    
+    def compress_x(
+        self, 
+        cosmos: list = cosmo_list, 
+        **kwargs
+    ) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
         
         Parameters
         ----------
         cosmos : list, optional
-            List of cosmologies to get from the files. The default is None, which means all cosmologies.
-        n_hod : int, optional
-            Number of HODs to get from the files. The default is 100.
+            List of cosmologies to get from the files. Defaults to cosmo_list.
+        **kwargs : dict
+            Additional arguments to pass to `get_raw_hod_idx`.
         
         Returns
         -------
         xarray.DataArray
             Compressed x values.
+            
+        Notes
+        -----
+        The parameters are read from the `param_dir/AbacusSummit_c{cosmo_idx:03}.csv` files.
         """
         param_dir = self.paths['param_dir']
-        measurements_dir = self.paths['measurements_dir']
         
         x = []
+        n_hod = None # To be determined from the files
         for cosmo_idx in cosmos:
             data_fn = Path(param_dir) / f'AbacusSummit_c{cosmo_idx:03}.csv'
             x_i = pd.read_csv(data_fn)
             x_names = list(x_i.columns)
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
 
-            # Get the hod indexes to slice from the parameters file
-            density_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph000' / 'seed0' / 'density'
-            hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(density_dir.glob('hod*.npy'))]
-            assert len(hod_idx) == n_hod, f'Number of HODs in {density_dir} is {len(hod_idx)}, expected {n_hod}'
-            
+            # Get the hod indexes to slice from the existing densities
+            hod_idx = self.get_raw_hod_idx(cosmo_idx, **kwargs)
+            if n_hod is None:
+                n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
+                self.logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
+            assert len(hod_idx) == n_hod, f'Number of HODs for c{cosmo_idx:03d} is {len(hod_idx)}, expected {n_hod}' # Assume same number of HODs for all cosmologies
+
             x.append(x_i.values[hod_idx, :])
         x = np.concatenate(x)
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),
             coords = {
                 'cosmo_idx': cosmos,
-                'hod_idx': list(range(n_hod)),
+                'hod_idx': list(range(n_hod)), # re-index HODs to be continuous
                 'parameters': x_names,
             },
             attrs = {
