@@ -246,6 +246,7 @@ class BoxHOD:
         hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed)
         # workaround for compute_ngal issue
         n_gal = len(hod_dict[tracer]['x'])
+        subsample = None
         if tracer_density_mean is not None:
             n_target = np.array(tracer_density_mean) * self.boxsize ** 3
             if add_ap: n_target /= self.q_par * self.q_perp**2
@@ -254,14 +255,11 @@ class BoxHOD:
                 self.in_density = False  # Flag that mock is below density threshold
                 if not process_underdense:
                     return hod_dict  # Unprocessed catalog, should not be used
-                else:
-                    subsample = None  # Continues processing with underdense catalog
             elif (n_target.max() / n_gal) < 1:
                 self.logger.info('Downsampling mock')
                 subsample = np.random.choice(range(n_gal), size=int(n_target.max()), replace=False)
             else:
                 self.logger.info('Mock within density thresholds')
-                subsample = None
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
         hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap, los=los)
