@@ -72,12 +72,12 @@ def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
 def compute_recon_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
     from jaxpower import (MeshAttrs, ParticleField, FKPField, BinMesh2SpectrumPoles,
                           get_mesh_attrs, compute_mesh2_spectrum, compute_fkp2_normalization,
-                          compute_fkp2_shotnoise, generate_uniform_particles)
+                          compute_box2_normalization, compute_fkp2_shotnoise, generate_uniform_particles)
     from jaxrecon.zeldovich import IterativeFFTReconstruction
     t0 = time.time()
     mattrs = MeshAttrs(**attrs)
     data = ParticleField(positions, attrs=mattrs, exchange=True, backend='jax')
-    recon = IterativeFFTReconstruction(data, growth_rate=0.76, bias=2.1, los=los, smoothing_radius=15)
+    recon = IterativeFFTReconstruction(data, growth_rate=0.76, bias=2.0, los=los, smoothing_radius=10)
     positions_rec = recon.read_shifted_positions(data.positions)
     randoms = generate_uniform_particles(mattrs, 20 * len(positions), seed=42)
     randoms_positions_rec = recon.read_shifted_positions(randoms.positions)
@@ -85,20 +85,21 @@ def compute_recon_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attr
 
     t0 = time.time()
     data = ParticleField(positions_rec, attrs=mattrs, exchange=True, backend='jax')
-    shifted = ParticleField(randoms_positions_rec, attrs=mattrs, exchange=True, backend='jax')
-    fkp = FKPField(data, shifted, attrs=mattrs)
     bin = BinMesh2SpectrumPoles(mattrs, edges={'step': 0.001}, ells=ells)
-    norm, num_shotnoise = compute_fkp2_normalization(fkp, bin=bin), compute_fkp2_shotnoise(fkp, bin=bin)
-    mesh = fkp.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
+    norm = compute_box2_normalization(data, bin=bin)
     wsum_data1 = data.sum()
-    del fkp, data, shifted
+    data = FKPField(data, ParticleField(randoms_positions_rec, attrs=mattrs, exchange=True, backend='jax'))
+    num_shotnoise = compute_fkp2_shotnoise(data, bin=bin)
+    mesh = data.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
+    mesh = mesh - mesh.mean()
+    del data
     jitted_compute_mesh2_spectrum = jax.jit(compute_mesh2_spectrum, static_argnames=['los'], donate_argnums=[0])
     spectrum = jitted_compute_mesh2_spectrum(mesh, bin=bin, los=los).clone(norm=norm, num_shotnoise=num_shotnoise)
     mattrs = {name: mattrs[name] for name in ['boxsize', 'boxcenter', 'meshsize']}
     spectrum = spectrum.clone(attrs=dict(los=los, wsum_data1=wsum_data1, **mattrs))
-    jax.block_until_ready(spectrum)
     if jax.process_index() == 0:
         print(f'Reconstructed power spectrum done in {time.time() - t0:.2f}')
+        print(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
 def compute_tpcf(output_fn, positions, los='z', **attrs):
@@ -213,7 +214,7 @@ if __name__ == '__main__':
                     hod_idx = hod_fn.split('.fits')[0].split('hod')[-1]
 
                     if 'spectrum' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/spectrum/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/spectrum/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -224,7 +225,7 @@ if __name__ == '__main__':
                             compute_spectrum(output_fn, hod_positions, **box_args)
 
                     if 'recon_spectrum' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/recon_spectrum/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/recon_spectrum/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'mesh2_recon_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
@@ -234,7 +235,7 @@ if __name__ == '__main__':
                             compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
                     if 'tpcf' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/tpcf/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/tpcf/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
@@ -243,7 +244,7 @@ if __name__ == '__main__':
                         compute_tpcf(output_fn, hod_positions, **box_args)
 
                     if 'recon_tpcf' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/recon_tpcf/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/recon_tpcf/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'recon_tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
@@ -252,7 +253,7 @@ if __name__ == '__main__':
                         compute_recon_tpcf(output_fn, hod_positions, **box_args)
 
                     if 'density_split' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/density_split/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/density_split/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = {
@@ -264,7 +265,7 @@ if __name__ == '__main__':
                         compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/density_split/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/density_split/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
