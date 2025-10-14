@@ -66,7 +66,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         y = []
         phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(base_dir.glob(f'c{cosmo_idx:03d}_ph*'))]
         for phase in phases:
-            data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / self.stat_name / f'hod{hod_idx:03d}.npy' # NOTE: Hardcoded !
+            data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}' / f'{self.stat_name}.npy' # NOTE: Hardcoded !
             if not data_fn.exists() or phase in outliers_phases:
                 continue # Skip missing files or outliers
             data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
@@ -141,15 +141,14 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         """
         base_dir = Path(self.paths['measurements_dir']) / 'base'
         
-        statistic = kwargs.pop('statistic', 'density') # To avoid conflict with the arguments of compress_covariance
-        x = self.compress_x(cosmos=cosmos, phase=phase, seed=seed, statistic=statistic)
+        x = self.compress_x(cosmos=cosmos, phase=phase, seed=seed)
         n_hod = len(x.hod_idx)
         
         y = []
         for cosmo_idx in cosmos:
-            hod_idx = self.get_raw_hod_idx(cosmo_idx, phase=phase, seed=seed, statistic=statistic) # Get the HODs available for this cosmology
+            hod_idx = self.get_raw_hod_idx(cosmo_idx, phase=phase, seed=seed) # Get the HODs available for this cosmology
             for hod in hod_idx:
-                data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / self.stat_name / f'hod{hod:03d}.npy' # NOTE: Hardcoded !
+                data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod:03d}' / f'{self.stat_name}.npy' # NOTE: Hardcoded !
                 data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
                 s, multipoles = data(ells=ells, return_sep=True)
                 y.append(np.concatenate(multipoles))
@@ -169,7 +168,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
 

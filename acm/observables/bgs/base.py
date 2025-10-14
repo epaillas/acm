@@ -120,7 +120,7 @@ class BaseObservableBGS(Observable):
             emulator_error = emulator_error.values
         return emulator_error
     
-    def get_raw_hod_idx(self, cosmo_idx: int, phase: int = 0, seed: int = 0, statistic: str = 'density') -> np.ndarray:
+    def get_raw_hod_idx(self, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
         """
         Get the HOD indexes from the statistic files for a given phase and seed.
         
@@ -146,8 +146,8 @@ class BaseObservableBGS(Observable):
         `measurements_dir/base/c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{statistic}/hod{hod:03}.npy`
         """
         measurements_dir = self.paths['measurements_dir']
-        stat_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / statistic
-        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(stat_dir.glob('hod*.npy'))]
+        stat_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
+        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(stat_dir.glob('hod*')) if any(fn.iterdir())] # Only keep non-empty directories numbers
         return np.array(hod_idx)
     
     def compress_x(

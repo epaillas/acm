@@ -72,7 +72,7 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
         for phase in phases:
             multipoles_stat = []
             for stat in statistics:
-                data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / stat / f'hod{hod_idx:03d}.npy' # NOTE: Hardcoded !
+                data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}' / f'{stat}.npy' # NOTE: Hardcoded !
                 if not data_fn.exists() or phase in outliers_phases:
                     break # Skip missing files or outliers
                 data = np.load(data_fn, allow_pickle=True)
@@ -161,17 +161,16 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
         """  
         base_dir = Path(self.paths['measurements_dir']) / 'base' # NOTE: Hardcoded !
 
-        statistic = kwargs.pop('statistic', 'density') # To avoid conflict with the arguments of compress_covariance
-        x = self.compress_x(cosmos=cosmos, phase=phase, seed=seed, statistic=statistic)
+        x = self.compress_x(cosmos=cosmos, phase=phase, seed=seed)
         n_hod = len(x.hod_idx)
 
         y = []
         for cosmo_idx in cosmos:
-            hod_idx = self.get_raw_hod_idx(cosmo_idx, phase=phase, seed=seed, statistic=statistic) # Get the HODs available for this cosmology
+            hod_idx = self.get_raw_hod_idx(cosmo_idx, phase=phase, seed=seed) # Get the HODs available for this cosmology
             for hod in hod_idx:
                 multipoles_stat = []
                 for stat in statistics:
-                    data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / stat / f'hod{hod:03}.npy' # NOTE: Hardcoded !
+                    data_fn = Path(base_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod:03d}' / f'{stat}.npy' # NOTE: Hardcoded !
                     data = np.load(data_fn, allow_pickle=True)
                     multipoles_quantiles = []
                     for q in quantiles:
