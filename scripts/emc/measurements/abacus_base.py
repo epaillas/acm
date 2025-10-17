@@ -23,6 +23,10 @@ def get_cli_args():
     args = parser.parse_args()
     return args
 
+def get_box_args(boxsize, cellsize):
+    meshsize = (boxsize / cellsize).astype(int)
+    return dict(boxsize=boxsize, boxcenter=0.0, meshsize=meshsize)
+
 def get_hod_fns(cosmo=0, phase=0, redshift=0.8):
     """
     Get the list of HOD file names for a given cosmology,
@@ -281,7 +285,8 @@ if __name__ == '__main__':
                         if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
                             print(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
                             continue
-                        box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512)
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        box_args = get_box_args(boxsize, cellsize=3.9)
                         compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
 
                     if 'minkowski' in args.todo_stats:
@@ -289,20 +294,16 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'minkowski_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                        cellsize = 3.9
-                        meshsize = (boxsize / cellsize).astype(int)
-                        box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=meshsize)
-                        compute_minkowski(output_fn, hod_positions, **box_args)
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        box_args = dict(boxsize=boxsize, boxcenter=0.0, nmesh=512)
-                        compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
+                        box_args = get_box_args(boxsize, cellsize=3.9)
+                        compute_minkowski(output_fn, hod_positions, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/density_split/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        box_args = dict(boxsize=boxsize, boxcenter=0.0, nmesh=200)
+                        box_args = get_box_args(boxsize, cellsize=10)
                         init = compute_wst(output_fn, hod_positions, init=init, **box_args)
 
