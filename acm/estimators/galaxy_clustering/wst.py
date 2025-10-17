@@ -45,14 +45,14 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         """
         t0 = time.time()
         query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
-        self.delta_query = self.delta_mesh.read(query_positions).reshape(self.data_mesh.meshsize)
-        # if self.device == 'cuda':
+        self.delta_query = self.delta_mesh.read(query_positions).reshape(self.meshsize)
         self.delta_query = torch.tensor(np.copy(self.delta_query), dtype=torch.float32).to(self.device)
         smat_orders_12 = self.S(self.delta_query)
         smat = torch.absolute(smat_orders_12[:, :, 0])
         s0 = torch.sum(torch.absolute(self.delta_query)**self.integral_powers[0])
         smatavg = smat.flatten()
         self.smatavg = torch.hstack((s0, smatavg)).cpu()
+        self.smatavg /= np.prod(self.meshsize)
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
         return self.smatavg
 
