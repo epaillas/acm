@@ -79,6 +79,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
+    @staticmethod
     def _get_threshold_randoms(randoms, threshold_randoms: float=0.01):
 
         if isinstance(threshold_randoms, tuple):
