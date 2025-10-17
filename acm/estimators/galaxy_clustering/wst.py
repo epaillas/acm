@@ -34,7 +34,9 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         self.S.to(self.device)
         self.integral_powers = integral_powers
 
-    def run(self):
+        self.query_positions = self.get_query_positions(self.data_mesh, method='lattice')
+
+    def run(self, delta_query=None):
         """
         Run the wavelet scattering transform.
 
@@ -44,8 +46,10 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
             Wavelet scattering transform coefficients.
         """
         t0 = time.time()
-        query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
-        self.delta_query = self.delta_mesh.read(query_positions).reshape(self.meshsize)
+        if delta_query is not None:
+            self.delta_query = delta_query.reshape(self.meshsize)
+        else:
+            self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.meshsize)
         self.delta_query = torch.tensor(np.copy(self.delta_query), dtype=torch.float32).to(self.device)
         smat_orders_12 = self.S(self.delta_query)
         smat = torch.absolute(smat_orders_12[:, :, 0])
