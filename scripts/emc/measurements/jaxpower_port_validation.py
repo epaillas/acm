@@ -23,13 +23,13 @@ def get_cli_args():
     args = parser.parse_args()
     return args
 
-def get_hod_fns(cosmo=0, phase=0, redshift=0.8):
+def get_hod_fns(cosmo=0, phase=0, seed=0, redshift=0.8):
     """
     Get the list of HOD file names for a given cosmology,
-    phase, and redshift.
+    phase, seed, and redshift.
     """
     base_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/'
-    hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed_idx}/'
+    hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed}/'
     hod_fns = glob.glob(str(Path(hod_dir) / f'hod*.fits'))
     return hod_fns
 
