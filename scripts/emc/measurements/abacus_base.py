@@ -151,7 +151,7 @@ if __name__ == '__main__':
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
 
-                for hod_fn in hod_fns[args.start_hod : args.start_hod +args.n_hod]:
+                for hod_fn in hod_fns[args.start_hod : args.start_hod + args.n_hod]:
                     hod_idx = hod_fn.split('.fits')[0].split('hod')[-1]
 
                     hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
