@@ -114,7 +114,6 @@ class MinkowskiFunctionals(BaseDensityMeshEstimator):
     def __init__(
         self,
         thres_mask: float,
-        thresholds : np.ndarray,
         batch_slices: int = 32,
         **kwargs
         ):
@@ -126,20 +125,21 @@ class MinkowskiFunctionals(BaseDensityMeshEstimator):
         self.logger.info('Initializing MinkowskiFunctionals (Jax-Based).')
 
         self.thres_mask = thres_mask
-        self.thresholds = thresholds
         self.batch_slices = batch_slices
+        
         super().__init__(**kwargs)
 
-    def run(self):
-        query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
+        self.query_positions = self.get_query_positions(self.data_mesh, method='lattice')
+
+    def run(self, thresholds):
         t0 = time.time()
-        self.delta_query = self.delta_mesh.read(query_positions).reshape(self.data_mesh.meshsize)
+        self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.data_mesh.meshsize)
 
         # ensure float32 input for memory (we still compute sums in float64 where needed)
         delta = self.delta_query.astype(np.float32)
         dims_x, dims_y, dims_z = delta.shape
-        len_thres = len(self.thresholds) 
-        thresholds_j = jnp.array(self.thresholds)
+        len_thres = len(thresholds) 
+        thresholds_j = jnp.array(thresholds)
         delta_padded = np.concatenate((delta, delta[0:1, :, :]), axis=0)
 
         # Accumulators
