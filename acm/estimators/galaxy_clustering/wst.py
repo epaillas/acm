@@ -10,7 +10,7 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
-    def __init__(self, J_3d=4, L_3d=4, integral_powers=[0.8], sigma=0.8, **kwargs):
+    def __init__(self, J_3d=4, L_3d=4, integral_powers=[1.0], sigma=0.8, **kwargs):
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
         self.logger.info('Initializing WaveletScatteringTransform.')

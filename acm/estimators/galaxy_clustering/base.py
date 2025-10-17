@@ -124,25 +124,13 @@ class BaseDensityMeshEstimator(BaseEstimator):
             xx, yy, zz = jnp.meshgrid(x, y, z)
             coords = jnp.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
             self.logger.info(f'Generated lattice query points in {time.time() - t0:.2f} s.')
-            return coords
-            # xedges = np.arange(boxcenter[0] - boxsize[0]/2, boxcenter[0] + boxsize[0]/2 + cellsize[0], cellsize[0])
-            # yedges = np.arange(boxcenter[1] - boxsize[1]/2, boxcenter[1] + boxsize[1]/2 + cellsize[1], cellsize[1])
-            # zedges = np.arange(boxcenter[2] - boxsize[2]/2, boxcenter[2] + boxsize[2]/2 + cellsize[2], cellsize[2])
-            # xcentres = 1/2 * (xedges[:-1] + xedges[1:])
-            # ycentres = 1/2 * (yedges[:-1] + yedges[1:])
-            # zcentres = 1/2 * (zedges[:-1] + zedges[1:])
-            # lattice_x, lattice_y, lattice_z = np.meshgrid(xcentres, ycentres, zcentres)
-            # lattice_x = lattice_x.flatten()
-            # lattice_y = lattice_y.flatten()
-            # lattice_z = lattice_z.flatten()
-            # self.logger.info(f'Generated lattice query points in {time.time() - t0:.2f} s.')
-            # return np.vstack((lattice_x, lattice_y, lattice_z)).T
         elif method == 'randoms':
             np.random.seed(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
+            coords = np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
             self.logger.info(f'Generated random query points in {time.time() - t0:.2f} s.')
-            return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
+        return coords
 
     def kernel_gaussian(self, mattrs: MeshAttrs, smoothing_radius=10.):
         return jnp.exp(- 0.5 * sum((kk * smoothing_radius)**2 for kk in mattrs.kcoords(sparse=True)))
