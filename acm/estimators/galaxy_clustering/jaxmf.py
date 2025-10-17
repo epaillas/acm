@@ -1,5 +1,9 @@
 import time
+import logging
 import numpy as np
+
+from .base import BaseDensityMeshEstimator
+
 import jax
 import jax.numpy as jnp
 from typing import Tuple
@@ -101,26 +105,41 @@ def minkowski_slice_jax(delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thre
     return MFs, vol_slice
 
 
-class MFsJax:
+class MinkowskiFunctionals(BaseDensityMeshEstimator):
     """
     Computes 3D Minkowski functionals using the JAX implementation of the slice routine.
-    Usage is similar to your original MFs class.
+    Usage is similar to the original MinkowskiFunctionals class.
     """
 
-    def __init__(self, delta: np.ndarray, CellSize: float, thres_mask: float,
-                 thresholds:np.ndarray,batch_slices: int = 32):
+    def __init__(
+        self,
+        thres_mask: float,
+        thresholds : np.ndarray,
+        batch_slices: int = 32,
+        **kwargs
+        ):
         """
-        delta: numpy array shape (X,Y,Z) float32/float64
         batch_slices: how many slices to process per python loop iteration. Small batches
                       reduce peak memory and keep JAX compilation efficient.
         """
-        start = time.time()
+        self.logger = logging.getLogger('MinkowskiFunctionals')
+        self.logger.info('Initializing MinkowskiFunctionals (Jax-Based).')
+
+        self.thres_mask = thres_mask
+        self.thresholds = thresholds
+        self.batch_slices = batch_slices
+        super().__init__(**kwargs)
+
+    def run(self):
+        query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
+        t0 = time.time()
+        self.delta_query = self.delta_mesh.read(query_positions).reshape(self.data_mesh.meshsize)
 
         # ensure float32 input for memory (we still compute sums in float64 where needed)
-        delta = delta.astype(np.float32)
+        delta = self.delta_query.astype(np.float32)
         dims_x, dims_y, dims_z = delta.shape
-        len_thres = len(thresholds) 
-        thresholds_j = jnp.array(thresholds)
+        len_thres = len(self.thresholds) 
+        thresholds_j = jnp.array(self.thresholds)
         delta_padded = np.concatenate((delta, delta[0:1, :, :]), axis=0)
 
         # Accumulators
@@ -131,7 +150,7 @@ class MFsJax:
         i = 0
         while i < dims_x:
             # prepare batch of at most batch_slices slices -> for each slice we need 2 consecutive planes
-            batch_end = min(i + batch_slices, dims_x)
+            batch_end = min(i + self.batch_slices, dims_x)
             # we will process slices i..batch_end-1
             # build stack of delta_slices for each slice: shape (batch_size, 2, Y, Z)
             # Using numpy then convert to jnp to avoid building huge Python lists
@@ -145,7 +164,7 @@ class MFsJax:
 
             # vectorize the slice function over the batch dimension using vmap
             # minkowski_slice_jax takes (2,Y,Z), thresholds, mask -> returns (T,4), vol_slice
-            vmapped = jax.vmap(lambda ds: minkowski_slice_jax(ds, thresholds_j, thres_mask), in_axes=0, out_axes=0)
+            vmapped = jax.vmap(lambda ds: minkowski_slice_jax(ds, thresholds_j, self.thres_mask), in_axes=0, out_axes=0)
             # outputs: MFs_batch shape (B,T,4), vols_batch shape (B,)
             MFs_batch, vols_batch = vmapped(delta_pairs_j)
             # sum across batch axis
@@ -156,7 +175,7 @@ class MFsJax:
 
         # Normalize MFs same as original:
         l = float(vol)
-        a = float(CellSize)
+        a = float(self.data_mesh.cellsize[0])
         # if vol is zero avoid division by zero
         if l == 0:
             norm = jnp.array([0.0, 0.0, 0.0, 0.0], dtype=jnp.float64)
@@ -167,28 +186,5 @@ class MFsJax:
             MFs3D = MFs3D * factors[None, :]
             self.MFs3D = np.array(MFs3D)  # convert back to numpy for easy printing/consumption
 
-        print('Computed Minkowski functionals with JAX.')
-        print('Slices processed:', dims_x, '  Volume (valid pixels):', vol)
-        print('Time taken = %.2f seconds' % (time.time() - start))
-
-
-####################### Example ################################
-# data = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/c000_ph000/seed0/hod001.fits'
-# hdul = fits.open(data)
-# data =hdul[1].data
-# pos = np.vstack([data['X_PERP'],data['Y_PERP'],data['Z_RSD']]).T
-#
-# delta = get_delta(pos.astype(np.float32)+1000)
-# thresholds = np.linspace(-0.7, 1.5, 221)
-# thres_mask = -5.0
-# CellSize = 2000/512
-# batchsize=32
-#
-# MFs_jax = MFsJax(delta.astype(np.float64), CellSize, thres_mask, thresholds, batchsize)
-# import matplotlib.pyplot as plt
-# plt.plot(thresholds,MFs_jax.MFs3D[:,3],color='red',linestyle='dotted')
-#
-####################### Example output ################################
-#Computed Minkowski functionals with JAX.
-#Slices processed: 512   Volume (valid pixels): 134217728
-#Time taken = 1.12 seconds
+        self.logger.info(f'Processed {dims_x} slices in {time.time() - t0:.2f} s. Volume (valid pixels): {vol}')
+        return self.MFs3D
