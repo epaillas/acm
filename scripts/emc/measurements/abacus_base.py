@@ -31,7 +31,7 @@ def get_hod_fns(cosmo=0, phase=0, redshift=0.8):
     base_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/'
     hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed_idx}/'
     hod_fns = glob.glob(str(Path(hod_dir) / f'hod*.fits'))
-    return hod_fns
+    return sorted(hod_fns)
 
 def get_hod_positions(filename, los='z'):
     """Get redshift-space positions from a HOD file."""
@@ -81,7 +81,7 @@ def compute_tpcf(output_fn, positions, los='z', **attrs):
 
     xi = TwoPointCorrelationFunction(
         'smu', edges=edges, data_positions1=positions,
-        engine='corrfunc', boxsize=boxsize, nthreads=4, gpu=True,
+        engine='corrfunc', boxsize=attrs['boxsize'], nthreads=4, gpu=True,
         compute_sepsavg=False, position_type='pos', los=los,
     )
 
@@ -100,7 +100,7 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
 
-    ccf = ds.quantile_data_correlation(hod_positions, edges=edges, los=los, nthreads=4, gpu=True)
+    ccf = ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True)
     acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
 
     np.save(output_fn['xiqg'], ccf)
@@ -120,6 +120,32 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     print(f'Saving WST coefficients to {output_fn}')
     np.save(output_fn, smatavg)
     return wst
+
+def compute_minkowski(output_fn, positions, **attrs):
+    from acm.estimators.galaxy_clustering.jaxmf import MinkowskiFunctionals
+
+    thresholds_fn = '/pscratch/sd/e/epaillas/emc/Thresholds_for_MFs_with_Rg5_7_10_15.npy'
+    thresholds_all = np.load(thresholds_fn, allow_pickle=True).item()
+    smoothing_radii = [5, 7, 10, 15]
+    
+    mf = MinkowskiFunctionals(data=positions, thres_mask=-5, **attrs)
+
+    mfs3d = {}
+    for smoothing_radius in smoothing_radii:
+        thresholds = thresholds_all[f"Thresholds_Rg{smoothing_radius}"]
+        mf.set_density_contrast(smoothing_radius=smoothing_radius)
+        mf3d = mf.run(thresholds=thresholds)
+        mfs3d[f'Rg{smoothing_radius}'] = mf3d
+        mfs3d[f'thresholds_Rg{smoothing_radius}'] = thresholds
+
+    print(f'Saving {output_fn}')
+    np.save(output_fn, mfs3d)
+
+        # import matplotlib.pyplot as plt
+        # plt.plot(thresholds, mf3d[:,3], color='red', linestyle='dotted')
+        # plt.savefig(f'minkowski_example_Rg{smoothing_radius}.png', dpi=300)
+        # plt.close()
+
 
 
 
@@ -183,6 +209,9 @@ if __name__ == '__main__':
                             'xiqg': Path(save_dir) / f'dsc_xiqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
                             'xiqq': Path(save_dir) / f'dsc_xiqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         }
+                        if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
+                            print(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
+                            continue
                         box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512)
                         compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
 
@@ -193,3 +222,13 @@ if __name__ == '__main__':
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=50)
                         init = compute_wst(output_fn, hod_positions, init=init, **box_args)
+
+                    if 'minkowski' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/minkowski/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'minkowski_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        cellsize = 3.9
+                        meshsize = (boxsize / cellsize).astype(int)
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=meshsize)
+                        compute_minkowski(output_fn, hod_positions, **box_args)
