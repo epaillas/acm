@@ -2,10 +2,10 @@ import numpy as np
 import logging
 import time
 from pandas import qcut
-from .base import BaseEnvironmentEstimator, BaseCatalogMeshEstimator
+from .base import BaseDensityMeshEstimator, BasePypowerMeshEstimator
 
 
-class DensitySplit(BaseEnvironmentEstimator):
+class DensitySplit(BaseDensityMeshEstimator):
     """
     Class to compute density-split clustering, as in http://arxiv.org/abs/2309.16541.
     """
@@ -45,10 +45,10 @@ class DensitySplit(BaseEnvironmentEstimator):
                 raise ValueError('Query points must be provided when working with a non-uniform geometry.')
             else:
                 query_positions = self.get_query_positions(self.delta_mesh, method=query_method,
-                                                           nquery=nquery_factor*self._size_data)
+                                                           nquery=nquery_factor*self.size_data)
         self.query_method = query_method
         self.query_positions = query_positions
-        self.delta_query = self.delta_mesh.read_cic(query_positions)
+        self.delta_query = self.delta_mesh.read(query_positions)
         self.quantiles_idx = qcut(self.delta_query, nquantiles, labels=False)
         quantiles = []
         for i in range(nquantiles):
@@ -318,7 +318,7 @@ class DensitySplit(BaseEnvironmentEstimator):
         return fig
 
 
-class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
+class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
     """
     Alternative class to compute density splits based on pypower's CatalogMesh class.
     """
@@ -356,7 +356,8 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
                                                            nquery=nquery_factor*self._size_data)
         self.query_method = query_method
         self.query_positions = query_positions
-        self.delta_query = self.delta_mesh.readout(query_positions, resampler='cic')
+        offset = self.mesh.boxcenter - self.mesh.boxsize/2.
+        self.delta_query = self.delta_mesh.readout(query_positions - offset, resampler='cic')
         self.quantiles_idx = qcut(self.delta_query, nquantiles, labels=False)
         quantiles = []
         for i in range(nquantiles):
