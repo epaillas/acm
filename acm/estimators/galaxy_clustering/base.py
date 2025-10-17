@@ -25,9 +25,12 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.size_data = len(data)
         if 'randoms' in kwargs:
             self.randoms_mesh = ParticleField(randoms, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
-        self.logger.info(f'Box size: {self.data_mesh.boxsize}')
-        self.logger.info(f'Box center: {self.data_mesh.boxcenter}')
-        self.logger.info(f'Box meshsize: {self.data_mesh.meshsize}')
+        self.boxsize = self.data_mesh.boxsize
+        self.boxcenter = self.data_mesh.boxcenter
+        self.meshsize = self.data_mesh.meshsize
+        self.logger.info(f'Box size: {self.boxsize}')
+        self.logger.info(f'Box center: {self.boxcenter}')
+        self.logger.info(f'Box meshsize: {self.meshsize}')
 
     @property
     def has_randoms(self):
@@ -58,6 +61,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
 
         kernel = 1.
         if smoothing_radius is not None:
+            self.logger.info(f'Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.')
             kernel = self.kernel_gaussian(self.mattrs, smoothing_radius=smoothing_radius)
             mesh_data = (_2c(mesh_data) * kernel).c2r()
             if mesh_randoms is not None:
@@ -115,22 +119,27 @@ class BaseDensityMeshEstimator(BaseEstimator):
         boxsize = mesh.boxsize
         cellsize = mesh.cellsize
         if method == 'lattice':
-            xedges = np.arange(boxcenter[0] - boxsize[0]/2, boxcenter[0] + boxsize[0]/2 + cellsize[0], cellsize[0])
-            yedges = np.arange(boxcenter[1] - boxsize[1]/2, boxcenter[1] + boxsize[1]/2 + cellsize[1], cellsize[1])
-            zedges = np.arange(boxcenter[2] - boxsize[2]/2, boxcenter[2] + boxsize[2]/2 + cellsize[2], cellsize[2])
-            xcentres = 1/2 * (xedges[:-1] + xedges[1:])
-            ycentres = 1/2 * (yedges[:-1] + yedges[1:])
-            zcentres = 1/2 * (zedges[:-1] + zedges[1:])
-            lattice_x, lattice_y, lattice_z = np.meshgrid(xcentres, ycentres, zcentres)
-            lattice_x = lattice_x.flatten()
-            lattice_y = lattice_y.flatten()
-            lattice_z = lattice_z.flatten()
+            x, y, z = mesh.attrs.rcoords()
+            xx, yy, zz = jnp.meshgrid(x, y, z)
+            coords = jnp.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
             self.logger.info(f'Generated lattice query points in {time.time() - t0:.2f} s.')
-            return np.vstack((lattice_x, lattice_y, lattice_z)).T
+            return coords
+            # xedges = np.arange(boxcenter[0] - boxsize[0]/2, boxcenter[0] + boxsize[0]/2 + cellsize[0], cellsize[0])
+            # yedges = np.arange(boxcenter[1] - boxsize[1]/2, boxcenter[1] + boxsize[1]/2 + cellsize[1], cellsize[1])
+            # zedges = np.arange(boxcenter[2] - boxsize[2]/2, boxcenter[2] + boxsize[2]/2 + cellsize[2], cellsize[2])
+            # xcentres = 1/2 * (xedges[:-1] + xedges[1:])
+            # ycentres = 1/2 * (yedges[:-1] + yedges[1:])
+            # zcentres = 1/2 * (zedges[:-1] + zedges[1:])
+            # lattice_x, lattice_y, lattice_z = np.meshgrid(xcentres, ycentres, zcentres)
+            # lattice_x = lattice_x.flatten()
+            # lattice_y = lattice_y.flatten()
+            # lattice_z = lattice_z.flatten()
+            # self.logger.info(f'Generated lattice query points in {time.time() - t0:.2f} s.')
+            # return np.vstack((lattice_x, lattice_y, lattice_z)).T
         elif method == 'randoms':
             np.random.seed(seed)
             if nquery is None:
-                nquery = 5 * self._size_data
+                nquery = 5 * self.size_data
             self.logger.info(f'Generated random query points in {time.time() - t0:.2f} s.')
             return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
 
@@ -195,7 +204,7 @@ class BasePypowerMeshEstimator(BaseEstimator):
             delta_mesh = data_mesh/np.mean(data_mesh) - 1
             shift = 0
         self.data_mesh = data_mesh
-        self._size_data = int(sum_data)
+        self.size_data = int(sum_data)
         self.delta_mesh = delta_mesh
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
         return self.delta_mesh
@@ -241,7 +250,7 @@ class BasePypowerMeshEstimator(BaseEstimator):
             self.logger.info('Generating random query points within the box.')
             np.random.seed(seed)
             if nquery is None:
-                nquery = 5 * self._size_data
+                nquery = 5 * self.size_data
             return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
 
     class TopHat(object):
@@ -315,9 +324,9 @@ class BasePyreconMeshEstimator(BaseEstimator):
         if clear_previous:
             self.data_mesh.value = None
         if self.data_mesh.value is None:
-            self._size_data = 0
+            self.size_data = 0
         self.data_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
-        self._size_data += len(positions)
+        self.size_data += len(positions)
 
     def assign_randoms(self, positions, weights=None):
         """
@@ -423,5 +432,5 @@ class BasePyreconMeshEstimator(BaseEstimator):
             self.logger.info('Generating random query points within the box.')
             np.random.seed(seed)
             if nquery is None:
-                nquery = 5 * self._size_data
+                nquery = 5 * self.size_data
             return np.random.rand(nquery, 3) * boxsize - boxsize/2 + boxcenter
