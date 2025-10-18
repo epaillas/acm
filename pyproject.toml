@@ -99,3 +99,4 @@ acm = [
 filterwarnings = [
     "ignore::DeprecationWarning::",  # ignore deprecations from all modules
     "default::DeprecationWarning:mymodule.*:",  # except from mymodule
+]
