@@ -177,13 +177,13 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     np.save(output_fn, smatavg.cpu())
     return wst
 
-def compute_spherical_voids(output_fn, positions, radii=np.arange(26, 62, 4), cellsize=4, **attrs):
+def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62,2), cellsize=5, **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
 
     sv = SphericalVoids(data_positions=positions, cellsize=cellsize)
     sv.run_voidfinding(radii, threads=32, **attrs)
-    n_v = np.vstack([radii, sv.void_count / 2000])  # comoving number density of voids
+    n_v = np.vstack([radii, sv.void_count / np.prod(boxsize)])  # comoving number density of voids
 
     print(f'Saving spherical VSF to {output_fn}')
     np.save(output_fn, n_v)
@@ -289,5 +289,5 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'sv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        compute_spherical_voids(output_fn, hod_positions)
+                        compute_spherical_voids(output_fn, hod_positions, boxsize)
 
