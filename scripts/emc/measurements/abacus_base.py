@@ -183,7 +183,9 @@ def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62
 
     sv = SphericalVoids(data_positions=positions, cellsize=cellsize)
     sv.run_voidfinding(radii, threads=32, **attrs)
-    n_v = np.vstack([radii, sv.void_count / np.prod(boxsize)])  # comoving number density of voids
+
+    n_v = np.vstack([sorted(radii, reverse=True),
+                    sv.void_count / np.prod(boxsize)])  # comoving number density of voids
 
     print(f'Saving spherical VSF to {output_fn}')
     np.save(output_fn, n_v)
