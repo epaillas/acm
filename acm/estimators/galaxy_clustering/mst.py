@@ -3,10 +3,10 @@
 import numpy as np
 import logging
 import time
-from .base import BaseEnvironmentEstimator, BaseCatalogMeshEstimator
+from .base import BaseDensityMeshEstimator
 
 
-class MinimumSpanningTree(BaseEnvironmentEstimator):
+class MinimumSpanningTree(BaseDensityMeshEstimator):
     """
     Class to compute the minimum spanning tree statistics, following https://arxiv.org/abs/1907.00989
     but using a new set of powerful percolation statistics (default).

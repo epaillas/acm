@@ -3,10 +3,10 @@ from kymatio.torch import HarmonicScattering3D
 import numpy as np
 import logging
 import time
-from .base import BaseEnvironmentEstimator
+from .base import BaseDensityMeshEstimator
 
 
-class WaveletScatteringTransform(BaseEnvironmentEstimator):
+class WaveletScatteringTransform(BaseDensityMeshEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
@@ -16,8 +16,14 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
         self.logger.info('Initializing WaveletScatteringTransform.')
         super().__init__(**kwargs)
 
-        self.S = HarmonicScattering3D(J=J_3d, shape=self.data_mesh.shape, L=L_3d, sigma_0=sigma,
-                                 integral_powers=integral_powers, max_order=2, backend='torch')
+        self.S = HarmonicScattering3D(
+            J=J_3d,
+            shape=self.data_mesh.meshsize,
+            L=L_3d,
+            sigma_0=sigma,
+            integral_powers=integral_powers,
+            max_order=2
+        )
 
         if torch.cuda.is_available():
             self.device = 'cuda'
@@ -28,7 +34,9 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
         self.S.to(self.device)
         self.integral_powers = integral_powers
 
-    def run(self):
+        self.query_positions = self.get_query_positions(self.data_mesh, method='lattice')
+
+    def run(self, delta_query=None):
         """
         Run the wavelet scattering transform.
 
@@ -38,17 +46,18 @@ class WaveletScatteringTransform(BaseEnvironmentEstimator):
             Wavelet scattering transform coefficients.
         """
         t0 = time.time()
-        query_positions = self.get_query_positions(self.delta_mesh, method='lattice')
-        self.delta_query = self.delta_mesh.read_cic(query_positions).reshape(
-            (self.delta_mesh.nmesh[0], self.delta_mesh.nmesh[1], self.delta_mesh.nmesh[2]))
-        if self.device == 'cuda':
-            self.delta_query = torch.tensor(self.delta_query, dtype=torch.float32).to(self.device)
+        if delta_query is not None:
+            self.delta_query = delta_query.reshape(self.meshsize)
+        else:
+            self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.meshsize)
+        self.delta_query = torch.tensor(np.copy(self.delta_query), dtype=torch.float32).to(self.device)
         smat_orders_12 = self.S(self.delta_query)
         smat = torch.absolute(smat_orders_12[:, :, 0])
         s0 = torch.sum(torch.absolute(self.delta_query)**self.integral_powers[0])
         smatavg = smat.flatten()
-        self.smatavg = torch.hstack((s0, smatavg))
-        self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} seconds.")
+        self.smatavg = torch.hstack((s0, smatavg)).cpu()
+        self.smatavg /= np.prod(self.meshsize)
+        self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
         return self.smatavg
 
     def plot_coefficients(self, save_fn=None):
