@@ -17,14 +17,14 @@ class BaseDensityMeshEstimator(BaseEstimator):
     """
     Base estimator class for environment-based estimators.
     """
-    def __init__(self, data, **kwargs):
+    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None,  **kwargs):
         super().__init__()
         self.mattrs = MeshAttrs(**kwargs)
-        self.data_mesh = ParticleField(data, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
+        self.data_mesh = ParticleField(data, data_weights, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
         self.randoms_mesh = None
-        self.size_data = len(data)
-        if 'randoms' in kwargs:
-            self.randoms_mesh = ParticleField(kwargs['randoms'], attrs=self.mattrs, exchange=True, backend='jax', out='complex')
+        self.size_data = len(data_positions)
+        if randoms_positions:
+            self.randoms_mesh = ParticleField(randoms_positions, randoms_weights, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
         self.boxsize = self.data_mesh.boxsize
         self.boxcenter = self.data_mesh.boxcenter
         self.meshsize = self.data_mesh.meshsize
