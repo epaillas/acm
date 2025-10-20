@@ -370,7 +370,7 @@ class Observable():
             model.transform_input = WeiLiuInputTransform()
         return model
     
-    def get_model_prediction(self, x, model=None, coords=None, attrs=None):
+    def get_model_prediction(self, x, model=None, coords=None, attrs=None, nofilters: bool = False) -> xarray.DataArray:
         """
         Get the prediction from the model.
         
@@ -384,6 +384,8 @@ class Observable():
             Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
         attrs : dict, optional
             Attributes for the output DataArray. If None, the attributes of _dataset.y are used. Defaults to None.
+        nofilters : bool, optional
+            If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
         
         Returns
         -------
@@ -415,6 +417,9 @@ class Observable():
             coords = coords,
             attrs = attrs,
         )
+        
+        if nofilters:
+            return pred
         
         pred = self.apply_filters(pred)
         pred = self.apply_indices_selection(pred)
