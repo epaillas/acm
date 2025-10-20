@@ -18,10 +18,10 @@ class BaseObservableEMC(Observable):
             self.phase_correction = self.compute_phase_correction()
             
         paths = kwargs.pop('paths', get_data_dirs('emc'))
-        self.n_test = kwargs.pop('n_test', 6*350) # Default number of test samples for EMC
+        self.n_test = kwargs.pop('n_test', 6*500) # Default number of test samples for EMC
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
-    
-    def get_emulator_covariance_y(self, n_test: int|list = None) -> np.ndarray:
+
+    def get_emulator_covariance_y(self, n_test: int|list = None, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
@@ -29,18 +29,25 @@ class BaseObservableEMC(Observable):
         ----------
         n_test : int|list, optional
             Number of test samples or list of indices of the test samples. The default is None.
-        
+        nofilters : bool, optional
+            If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
+            
         Returns
         -------
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         n_test = n_test if n_test else self.n_test
-        observable = self.__class__(
-            # phase_correction = hasattr(self, 'phase_correction'), # TODO : check if this needs to be passed here ?
-        ) # Unfiltered values !!
-        x = observable.x
-        y = observable.y
+        
+        # Get unfiltered values
+        x = self._dataset.x 
+        y = self._dataset.y
+        
+        # Flatten on 2D for indexing
+        x = self.stack_on_attribute('sample', x)
+        x = self.stack_on_attribute('features', x)
+        y = self.stack_on_attribute('sample', y)
+        y = self.stack_on_attribute('features', y)
         
         if isinstance(n_test, int):
             idx_test = list(range(n_test))
@@ -50,15 +57,19 @@ class BaseObservableEMC(Observable):
         test_x = x[idx_test]
         test_y = y[idx_test]
         
-        prediction = observable.get_model_prediction(test_x) # Unfiltered prediction !
+        prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
+        
+        # Flatten on 2D for indexing
+        prediction = self.stack_on_attribute('sample', prediction)
+        prediction = self.stack_on_attribute('features', prediction)
         
         if isinstance(test_y, xarray.DataArray):
             test_y = test_y.values
         if isinstance(prediction, xarray.DataArray):
             prediction = prediction.values
             
-        diff = test_y - prediction
-        
+        diff = test_y - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
+
         y = y.unstack()
         shape = (len(idx_test),) + y.shape[len(y.attrs['sample']):]
         emulator_covariance_y = xarray.DataArray(
@@ -73,6 +84,10 @@ class BaseObservableEMC(Observable):
             },
             name = 'emulator_covariance_y',
         )
+        
+        if nofilters:
+            return emulator_covariance_y
+        
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
@@ -82,8 +97,8 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             emulator_covariance_y = emulator_covariance_y.values
         return emulator_covariance_y
-        
-    def get_emulator_error(self, n_test: int|list = None) -> dict:
+
+    def get_emulator_error(self, n_test: int|list = None) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
         
@@ -98,11 +113,16 @@ class BaseObservableEMC(Observable):
            Emulator error, with shape (n_features, ).
         """
         n_test = n_test if n_test else self.n_test
-        observable = self.__class__() # Unfiltered values !!
-        emulator_covariance_y = observable.get_emulator_covariance_y(n_test)
+        
+        emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
+        
+        # Flatten on 2D for indexing
+        emulator_covariance_y = self.stack_on_attribute('sample', emulator_covariance_y)
+        emulator_covariance_y = self.stack_on_attribute('features', emulator_covariance_y)
+        
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
-        y = observable.y.unstack()
+        y = self._dataset.y.unstack()
         shape = y.shape[len(y.attrs['sample']):]
         emulator_error = xarray.DataArray(
             emulator_error.reshape(shape),
@@ -124,9 +144,9 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             emulator_error = emulator_error.values
         return emulator_error
-    
+        
     # NOTE: Override Observable prediction to add the phase correction if needed !
-    def get_model_prediction(self, x, model=None, coords=None, attrs=None):
+    def get_model_prediction(self, x, model=None, coords=None, attrs=None, nofilters: bool = False):
         """
         Get the prediction from the model.
         
@@ -140,6 +160,8 @@ class BaseObservableEMC(Observable):
             Coordinates for the output DataArray. If None, the coordinates of the _dataset y are used. Defaults to None.
         attrs : dict, optional
             Attributes for the output DataArray. If None, the attributes of the _dataset y are used. Defaults to None.
+        nofilters : bool, optional
+            If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
         
         Returns
         -------
@@ -149,16 +171,17 @@ class BaseObservableEMC(Observable):
         if model is None:
             model = self.model
         x = np.asarray(x) # Ensure x is an array to make torch.Tensor faster
+        
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x))
             pred = pred.numpy()
-            
+
         if hasattr(self, 'phase_correction'):
             pred = self.apply_phase_correction(pred)
-    
+        
         if coords is None:
             coords = {
-                **{k: v for k, v in self._dataset.y.coords if k in self._dataset.y.attrs['features']}
+                **{k: self._dataset.y.coords[k] for k in self._dataset.y.dims if k in self._dataset.y.attrs['features']}
             }
         if attrs is None:
             attrs = {
@@ -174,6 +197,9 @@ class BaseObservableEMC(Observable):
             coords = coords,
             attrs = attrs,
         )
+
+        if nofilters:
+            return pred
         
         pred = self.apply_filters(pred)
         pred = self.apply_indices_selection(pred)
@@ -185,32 +211,46 @@ class BaseObservableEMC(Observable):
             pred = pred.values
         return pred
     
-    def compress_x(self, cosmos: list = cosmo_list, n_hod: int = 100) -> tuple:
+    def compress_x(self, hods: dict, cosmos: list = cosmo_list) -> tuple:
         """
         Compress the x values from the parameters files.
         
         Parameters
         ----------
+        hods : dict
+            Dictionary of hods for each cosmology.
         cosmos : list, optional
             List of cosmologies to get from the files. The default is None, which means all cosmologies.
-        n_hod : int, optional
-            Number of HODs to get from the files. The default is 100.
         
         Returns
         -------
         xarray.DataArray
             Compressed x values.
         """
+        from acm.utils.abacus import load_abacus_cosmologies
         data_dir = self.paths['param_dir']
+
+        filename = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
+        cosmo_params = load_abacus_cosmologies(filename, cosmos, ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld'], mapping={'alpha_s': 'nrun'})
         
+        n_hod = len(hods[cosmo_list[0]])  # assumes same number of hods for each cosmology
         x = []
+        x_hods = np.load('/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy', allow_pickle=True).item()
         for cosmo_idx in cosmos:
-            data_fn = data_dir + f'AbacusSummit_c{cosmo_idx:03}.csv' # NOTE: File name format hardcoded !
-            x_i = pd.read_csv(data_fn)
-            x_names = list(x_i.columns)
-            x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
-            x.append(x_i.values[:n_hod, :])
+            x_hod = x_hods[f'c{cosmo_idx:03}']
+            x_hod_names = list(x_hod.keys())  # Store the HOD parameter names only once
+            x_hod = np.array([x_hod[param] for param in x_hod.keys()]).T
+            x_hod = x_hod[hods[cosmo_idx]]
+            x_cosmo = [cosmo_params[f'c{cosmo_idx:03}'][param] for param in cosmo_params[f'c{cosmo_idx:03}'].keys()]
+            x_cosmo = np.repeat(np.array(x_cosmo).reshape(1, -1), n_hod, axis=0)
+            x.append(np.concatenate([x_cosmo, x_hod], axis=1))
+            x_cosmo_names = [name for name in cosmo_params[f'c{cosmo_idx:03}'].keys()]
         x = np.concatenate(x)
+        x_names = x_cosmo_names + x_hod_names
+        order = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'nrun', 'N_ur', 'w0_fld', 'wa_fld', 'logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
+        idx_sorted = [np.where(np.array(x_names) == name)[0][0] for name in order]
+        x = x[:, idx_sorted]
+        x_names = [x_names[i] for i in idx_sorted]
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),
             coords = {
