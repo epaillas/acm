@@ -39,9 +39,11 @@ nersc = [
 ]
 cosmodesi = [
     # Estimators (base)
+    'jax',
     'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
     'pypower @ git+https://github.com/cosmodesi/pypower', 
     'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
+    'jaxpower @ git+https://github.com/adematti/jax-power.git',
 
     # HOD
     'astropy',
@@ -99,3 +101,4 @@ acm = [
 filterwarnings = [
     "ignore::DeprecationWarning::",  # ignore deprecations from all modules
     "default::DeprecationWarning:mymodule.*:",  # except from mymodule
+]
