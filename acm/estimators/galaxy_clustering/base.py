@@ -17,14 +17,14 @@ class BaseDensityMeshEstimator(BaseEstimator):
     """
     Base estimator class for environment-based estimators.
     """
-    def __init__(self, data, **kwargs):
+    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None,  **kwargs):
         super().__init__()
         self.mattrs = MeshAttrs(**kwargs)
-        self.data_mesh = ParticleField(data, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
+        self.data_mesh = ParticleField(data, data_weights, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
         self.randoms_mesh = None
-        self.size_data = len(data)
-        if 'randoms' in kwargs:
-            self.randoms_mesh = ParticleField(randoms, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
+        self.size_data = len(data_positions)
+        if randoms_positions:
+            self.randoms_mesh = ParticleField(randoms_positions, randoms_weights, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
         self.boxsize = self.data_mesh.boxsize
         self.boxcenter = self.data_mesh.boxcenter
         self.meshsize = self.data_mesh.meshsize
@@ -36,7 +36,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
     def has_randoms(self):
         return self.randoms_mesh is not None
 
-    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float=15., threshold_randoms: float=0.01):
+    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float=15., randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
         def _2r(mesh):
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
@@ -54,7 +54,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
         del data
         if self.has_randoms:
             mesh_randoms = randoms.paint(**kw, out='complex')
-            threshold_randoms = _get_threshold_randoms(randoms, threshold_randoms=threshold_randoms)
+            threshold_randoms = self._get_threshold_randoms(randoms, threshold_value=randoms_threshold_value, threshold_method=randoms_threshold_method)
             del randoms
         else:
             threshold_randoms, mesh_randoms = None, None
@@ -79,14 +79,8 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
-    @staticmethod
-    def _get_threshold_randoms(randoms, threshold_randoms: float=0.01):
-
-        if isinstance(threshold_randoms, tuple):
-            threshold_method, threshold_value = threshold_randoms
-        else:
-            threshold_method, threshold_value = 'noise', threshold_randoms
-        assert threshold_method in ['noise', 'mean']
+    def _get_threshold_randoms(self, randoms, threshold_value: float = 0.01, threshold_method: str = 'noise'):
+        assert threshold_method in ['noise', 'mean'], "threshold_method must be one of ['noise', 'mean']"
 
         if threshold_method == 'noise':
             threshold_randoms = threshold_value * jnp.sum(randoms.weights**2) / randoms.sum()
