@@ -24,7 +24,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.randoms_mesh = None
         self.size_data = len(data)
         if 'randoms' in kwargs:
-            self.randoms_mesh = ParticleField(randoms, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
+            self.randoms_mesh = ParticleField(kwargs['randoms'], attrs=self.mattrs, exchange=True, backend='jax', out='complex')
         self.boxsize = self.data_mesh.boxsize
         self.boxcenter = self.data_mesh.boxcenter
         self.meshsize = self.data_mesh.meshsize
@@ -54,7 +54,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
         del data
         if self.has_randoms:
             mesh_randoms = randoms.paint(**kw, out='complex')
-            threshold_randoms = _get_threshold_randoms(randoms, threshold_randoms=threshold_randoms)
+            threshold_randoms = self._get_threshold_randoms(randoms, threshold_randoms=threshold_randoms)
             del randoms
         else:
             threshold_randoms, mesh_randoms = None, None
