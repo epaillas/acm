@@ -80,7 +80,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
         return self.delta_mesh
 
     def _get_threshold_randoms(self, randoms, threshold_value: float = 0.01, threshold_method: str = 'noise'):
-        assert threshold_method in ['noise', 'mean']
+        assert threshold_method in ['noise', 'mean'], "threshold_method must be one of ['noise', 'mean']"
 
         if threshold_method == 'noise':
             threshold_randoms = threshold_value * jnp.sum(randoms.weights**2) / randoms.sum()
