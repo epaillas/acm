@@ -1,9 +1,9 @@
-from .base import BaseEnvironmentEstimator
+from .base import BaseDensityMeshEstimator
 from PolyBin3D import PolyBin3D, PSpec, BSpec
 import logging
 import time
 
-class PolyBinEstimator(BaseEnvironmentEstimator):
+class PolyBinEstimator(BaseDensityMeshEstimator):
     """
     PolyBin class that inherits from the PolyBin3D code developed by Oliver Philcox & Thomas Flöss
     (https://github.com/oliverphilcox/PolyBin3D). 

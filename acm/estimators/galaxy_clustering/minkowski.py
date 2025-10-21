@@ -2,11 +2,11 @@ import numpy as np
 import logging
 import time
 from pyrecon import RealMesh
-from .base import BaseEnvironmentEstimator
+from .base import BasePyreconMeshEstimator
 from .src import minkowski as Mk
 
 
-class MinkowskiFunctionals(BaseEnvironmentEstimator):
+class MinkowskiFunctionals(BasePyreconMeshEstimator):
     """
     Class to compute the Minkowski functionals.
     """

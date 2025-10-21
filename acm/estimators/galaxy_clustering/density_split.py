@@ -2,12 +2,13 @@ import numpy as np
 import logging
 import time
 from pandas import qcut
-from .base import BaseEnvironmentEstimator, BaseCatalogMeshEstimator
+from .base import BaseDensityMeshEstimator, BasePypowerMeshEstimator
 
 
-class DensitySplit(BaseEnvironmentEstimator):
+class DensitySplit(BaseDensityMeshEstimator):
     """
     Class to compute density-split clustering, as in http://arxiv.org/abs/2309.16541.
+    Expects all positions passed in cartesian coordinates of shape (N, 3).
     """
     def __init__(self, **kwargs):
         self.logger = logging.getLogger('DensitySplit')
@@ -45,10 +46,10 @@ class DensitySplit(BaseEnvironmentEstimator):
                 raise ValueError('Query points must be provided when working with a non-uniform geometry.')
             else:
                 query_positions = self.get_query_positions(self.delta_mesh, method=query_method,
-                                                           nquery=nquery_factor*self._size_data)
+                                                           nquery=nquery_factor*self.size_data)
         self.query_method = query_method
         self.query_positions = query_positions
-        self.delta_query = self.delta_mesh.read_cic(query_positions)
+        self.delta_query = self.delta_mesh.read(query_positions)
         self.quantiles_idx = qcut(self.delta_query, nquantiles, labels=False)
         quantiles = []
         for i in range(nquantiles):
@@ -84,8 +85,10 @@ class DensitySplit(BaseEnvironmentEstimator):
             kwargs['randoms_positions2'] = kwargs['randoms_positions']
             kwargs.pop('randoms_positions')
             if 'data_weights' in kwargs:
+                kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
                 kwargs['data_weights2'] = kwargs.pop('data_weights')
             if 'randoms_weights' in kwargs:
+                kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
                 kwargs['randoms_weights2'] = kwargs.pop('randoms_weights')
         else:
             if 'boxsize' not in kwargs:
@@ -125,8 +128,9 @@ class DensitySplit(BaseEnvironmentEstimator):
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
-            kwargs['randoms_positions1'] = kwargs['randoms_positions']
-            kwargs.pop('randoms_positions')
+            kwargs['randoms_positions1'] = kwargs.pop('randoms_positions')
+            kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
+            kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.delta_mesh.boxsize
@@ -167,8 +171,10 @@ class DensitySplit(BaseEnvironmentEstimator):
             kwargs['randoms_positions2'] = kwargs['randoms_positions']
             kwargs.pop('randoms_positions')
             if 'data_weights' in kwargs:
+                kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
                 kwargs['data_weights2'] = kwargs.pop('data_weights')
             if 'randoms_weights' in kwargs:
+                kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
                 kwargs['randoms_weights2'] = kwargs.pop('randoms_weights')
         else:
             if 'boxsize' not in kwargs:
@@ -209,8 +215,9 @@ class DensitySplit(BaseEnvironmentEstimator):
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
-            kwargs['randoms_positions1'] = kwargs['randoms_positions']
-            kwargs.pop('randoms_positions')
+            kwargs['randoms_positions1'] = kwargs.pop('randoms_positions')
+            kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
+            kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.delta_mesh.boxsize
@@ -318,7 +325,7 @@ class DensitySplit(BaseEnvironmentEstimator):
         return fig
 
 
-class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
+class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
     """
     Alternative class to compute density splits based on pypower's CatalogMesh class.
     """
@@ -356,7 +363,8 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
                                                            nquery=nquery_factor*self._size_data)
         self.query_method = query_method
         self.query_positions = query_positions
-        self.delta_query = self.delta_mesh.readout(query_positions, resampler='cic')
+        offset = self.mesh.boxcenter - self.mesh.boxsize/2.
+        self.delta_query = self.delta_mesh.readout(query_positions - offset, resampler='cic')
         self.quantiles_idx = qcut(self.delta_query, nquantiles, labels=False)
         quantiles = []
         for i in range(nquantiles):
@@ -392,8 +400,10 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
             kwargs['randoms_positions2'] = kwargs['randoms_positions']
             kwargs.pop('randoms_positions')
             if 'data_weights' in kwargs:
+                kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
                 kwargs['data_weights2'] = kwargs.pop('data_weights')
             if 'randoms_weights' in kwargs:
+                kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
                 kwargs['randoms_weights2'] = kwargs.pop('randoms_weights')
         else:
             if 'boxsize' not in kwargs:
@@ -433,8 +443,9 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
-            kwargs['randoms_positions1'] = kwargs['randoms_positions']
-            kwargs.pop('randoms_positions')
+            kwargs['randoms_positions1'] = kwargs.pop('randoms_positions')
+            kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
+            kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.mesh.boxsize
@@ -475,8 +486,10 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
             kwargs['randoms_positions2'] = kwargs['randoms_positions']
             kwargs.pop('randoms_positions')
             if 'data_weights' in kwargs:
+                kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
                 kwargs['data_weights2'] = kwargs.pop('data_weights')
             if 'randoms_weights' in kwargs:
+                kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
                 kwargs['randoms_weights2'] = kwargs.pop('randoms_weights')
         else:
             if 'boxsize' not in kwargs:
@@ -517,8 +530,9 @@ class CatalogMeshDensitySplit(BaseCatalogMeshEstimator):
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
-            kwargs['randoms_positions1'] = kwargs['randoms_positions']
-            kwargs.pop('randoms_positions')
+            kwargs['randoms_positions1'] = kwargs.pop('randoms_positions')
+            kwargs['data_weights1'] = np.ones(len(self.quantiles[0])) # setting uniform weights for quantiles
+            kwargs['randoms_weights1'] = np.ones(len(kwargs['randoms_positions1'])) # Assuming 'pos' type data
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.mesh.boxsize
