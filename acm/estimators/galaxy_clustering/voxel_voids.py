@@ -6,10 +6,10 @@ import subprocess
 import uuid
 from pathlib import Path
 from .src import fastmodules
-from .base import BaseEnvironmentEstimator
+from .base import BaseDensityMeshEstimator
 
 
-class VoxelVoids(BaseEnvironmentEstimator):
+class VoxelVoids(BaseDensityMeshEstimator):
     """
     Class to calculate voxel voids, as in https://github.com/seshnadathur/Revolver
     """

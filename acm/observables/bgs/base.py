@@ -18,7 +18,7 @@ class BaseObservableBGS(Observable):
         self.n_test = kwargs.pop('n_test', 6*100) # Default number of test samples for BGS
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
 
-    def get_emulator_covariance_y(self, n_test: int|list = None) -> xarray.DataArray|np.ndarray:
+    def get_emulator_covariance_y(self, n_test: int|list = None, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
@@ -26,16 +26,25 @@ class BaseObservableBGS(Observable):
         ----------
         n_test : int|list, optional
             Number of test samples or list of indices of the test samples. The default is None.
-        
+        nofilters : bool, optional
+            If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
+            
         Returns
         -------
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         n_test = n_test if n_test else self.n_test
-        observable = self.__class__() # Unfiltered values !!
-        x = observable.x
-        y = observable.y
+        
+        # Get unfiltered values
+        x = self._dataset.x 
+        y = self._dataset.y
+        
+        # Flatten on 2D for indexing
+        x = self.stack_on_attribute('sample', x)
+        x = self.stack_on_attribute('features', x)
+        y = self.stack_on_attribute('sample', y)
+        y = self.stack_on_attribute('features', y)
         
         if isinstance(n_test, int):
             idx_test = list(range(n_test))
@@ -45,14 +54,18 @@ class BaseObservableBGS(Observable):
         test_x = x[idx_test]
         test_y = y[idx_test]
         
-        prediction = observable.get_model_prediction(test_x) # Unfiltered prediction !
+        prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
+        
+        # Flatten on 2D for indexing
+        prediction = self.stack_on_attribute('sample', prediction)
+        prediction = self.stack_on_attribute('features', prediction)
         
         if isinstance(test_y, xarray.DataArray):
             test_y = test_y.values
         if isinstance(prediction, xarray.DataArray):
             prediction = prediction.values
             
-        diff = test_y - prediction
+        diff = test_y - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
 
         y = y.unstack()
         shape = (len(idx_test),) + y.shape[len(y.attrs['sample']):]
@@ -68,6 +81,10 @@ class BaseObservableBGS(Observable):
             },
             name = 'emulator_covariance_y',
         )
+        
+        if nofilters:
+            return emulator_covariance_y
+        
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
@@ -93,11 +110,16 @@ class BaseObservableBGS(Observable):
            Emulator error, with shape (n_features, ).
         """
         n_test = n_test if n_test else self.n_test
-        observable = self.__class__() # Unfiltered values !!
-        emulator_covariance_y = observable.get_emulator_covariance_y(n_test)
+        
+        emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
+        
+        # Flatten on 2D for indexing
+        emulator_covariance_y = self.stack_on_attribute('sample', emulator_covariance_y)
+        emulator_covariance_y = self.stack_on_attribute('features', emulator_covariance_y)
+        
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
-        y = observable.y.unstack()
+        y = self._dataset.y.unstack()
         shape = y.shape[len(y.attrs['sample']):]
         emulator_error = xarray.DataArray(
             emulator_error.reshape(shape),
