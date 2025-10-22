@@ -43,7 +43,7 @@ class DensitySplit(BaseDensityMeshEstimator):
         t0 = time.time()
         if query_positions is None:
             if self.has_randoms:
-                raise ValueError('Query points must be provided when working with a non-uniform geometry.')
+                raise ValueError('query_positions must be provided when working with a non-uniform geometry.')
             else:
                 query_positions = self.get_query_positions(self.delta_mesh, method=query_method,
                                                            nquery=nquery_factor*self.size_data)
@@ -234,7 +234,7 @@ class DensitySplit(BaseDensityMeshEstimator):
             self._quantile_power.append(result)
         return self._quantile_power
 
-    def plot_quantiles(self):
+    def plot_quantiles(self, save_fn=None):
         import matplotlib.pyplot as plt
         import matplotlib
         plt.rc('text', usetex=True)
@@ -256,7 +256,7 @@ class DensitySplit(BaseDensityMeshEstimator):
         ax.set_xlim(-1.3, 3.0)
         ax.legend(handlelength=1.0)
         plt.tight_layout()
-        plt.show()
+        if save_fn: plt.savefig(save_fn, bbox_inches='tight', dpi=300)
         return fig
 
     def plot_quantile_data_correlation(self, ell=0, save_fn=None):
@@ -272,8 +272,7 @@ class DensitySplit(BaseDensityMeshEstimator):
         ax.set_ylabel(r'$s^2 \xi_\ell\, [h^{-2}{\rm Mpc^2}](s)$', fontsize=15)
         ax.legend(handlelength=1.0)
         plt.tight_layout()
-        if save_fn: plt.savefig(save_fn, bbox_inches='tight')
-        plt.show()
+        if save_fn: plt.savefig(save_fn, bbox_inches='tight', dpi=300)
         return fig
     
     def plot_quantile_correlation(self, ell=0, save_fn=None):
