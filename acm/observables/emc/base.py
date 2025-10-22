@@ -152,7 +152,7 @@ class BaseObservableEMC(Observable):
         
         Parameters
         ----------
-        x : array_like
+        x : array_like, dict
             Input features.
         model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
@@ -168,6 +168,14 @@ class BaseObservableEMC(Observable):
         xarray.DataArray | np.ndarray
             Model prediction.
         """
+        if isinstance(x, dict):
+            missing = set(self.x_names) - set(x.keys())
+            assert not missing, (
+                "Input x dictionary keys do not match the model input names. "
+                f"Missing keys: {missing}"
+            )
+            x = [x[name] for name in self.x_names]
+        
         if model is None:
             model = self.model
         x = np.asarray(x) # Ensure x is an array to make torch.Tensor faster
