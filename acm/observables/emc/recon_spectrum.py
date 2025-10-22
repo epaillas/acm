@@ -263,32 +263,63 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
 
-    def plot(self, model_params, ells=(0, 2, 4), save_fn: str = None):
+    def plot(self, model_params: dict, save_fn: str = None):
+        """
+        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters to use for the prediction.
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot figure.
+        """
         import matplotlib.pyplot as plt
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+        })
 
-        data = self.y
-        model = self.get_model_prediction(model_params)
-        k = self.k
+        ells = self._dataset.y.coords['multipoles'].values.tolist()
 
-        fig, ax = plt.subplots(1, len(ells), figsize=(4 * len(ells), 4))
+        height_ratios = [max(len(ells), 3)] + [1] * len(ells)
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
+            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        show_legend = True
 
         for i, ell in enumerate(ells):
-            ax[i].set_title(f'$\ell={ell}$')
-            ax[i].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]')
-            ax[i].set_ylabel(r'$k P_{{{}}}(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]'.format(ell))
+            lax[-1].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]', fontsize=15)
+            lax[0].set_ylabel(r'$k P_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
 
-            data_ell = data.sel(multipoles=ell)
-            model_ell = model.sel(multipoles=ell)
+            self.select_filters.update({'multipoles': ell})
+            k = self.k
+            data = self.y[0]
+            model = self.get_model_prediction(model_params)[0]
+            cov = self.get_covariance_matrix(volume_factor=64)
+            error = np.sqrt(np.diag(cov))
 
-            for cosmo_idx in data_ell.cosmo_idx.values:
-                for hod_idx in data_ell.hod_idx.values:
-                    y_data = data_ell.sel(cosmo_idx=cosmo_idx, hod_idx=hod_idx).values
-                    y_model = model_ell.sel(cosmo_idx=cosmo_idx, hod_idx=hod_idx).values
+            lax[0].errorbar(k, k * data, k * error, marker='o', ms=4, ls='', 
+                color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
+            lax[0].plot(k, k * model, ls='-', color=f'C{i}')
+            lax[i + 1].plot(k, (data - model) / error, ls='-', color=f'C{i}')
 
-                    ax[i].plot(k, k * y_data, marker='o', markersize=2, ls='', color='gray', alpha=0.3)
-                    ax[i].plot(k, k * y_model, ls='-', color='red', alpha=0.3)
+            for offset in [-2, 2]: lax[i + 1].axhline(offset, color='k', ls='--')
+            lax[i + 1].set_ylabel(rf'$\Delta P_{{{ell:d}}} / \sigma_{{ P_{{{ell:d}}} }}$', fontsize=15)
+            lax[i + 1].set_ylim(-4, 4)
 
-        plt.tight_layout()
+        for ax in lax:
+            ax.grid(True)
+            ax.tick_params(axis='both', labelsize=14)
+        if show_legend: lax[0].legend(fontsize=15)
+
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
