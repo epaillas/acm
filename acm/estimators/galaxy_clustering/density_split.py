@@ -453,14 +453,17 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.mesh.boxsize
         self._quantile_correlation = []
+        R1R2 = None
         for quantile in self.quantiles:
             result = TwoPointCorrelationFunction(
                 data_positions1 = quantile,
                 mode = 'smu',
                 position_type = 'pos',
+                R1R2 = R1R2,
                 **kwargs,
             )
             self._quantile_correlation.append(result)
+            R1R2 = result.R1R2
         return self._quantile_correlation
 
     def quantile_data_power(self, data_positions, **kwargs):
