@@ -19,11 +19,12 @@ class BaseDensityMeshEstimator(BaseEstimator):
     def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None,  **kwargs):
         super().__init__()
         self.mattrs = MeshAttrs(**kwargs)
-        self.data_mesh = ParticleField(data_positions, data_weights, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
+        self.data_mesh = ParticleField(data_positions, data_weights, attrs=self.mattrs, exchange=True, backend='jax')
         self.randoms_mesh = None
+        self.has_randoms = False if randoms_positions is None else True
         self.size_data = len(data_positions)
-        if randoms_positions is not None:
-            self.randoms_mesh = ParticleField(randoms_positions, randoms_weights, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
+        if self.has_randoms:
+            self.randoms_mesh = ParticleField(randoms_positions, randoms_weights, attrs=self.mattrs, exchange=True, backend='jax')
         self.boxsize = self.data_mesh.boxsize
         self.boxcenter = self.data_mesh.boxcenter
         self.meshsize = self.data_mesh.meshsize
@@ -31,9 +32,9 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.logger.info(f'Box center: {self.boxcenter}')
         self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    @property
-    def has_randoms(self):
-        return self.randoms_mesh is not None
+    # @property
+    # def has_randoms(self):
+    #     return self.randoms_mesh is not None
 
     def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float=15., randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
         def _2r(mesh):
@@ -47,34 +48,32 @@ class BaseDensityMeshEstimator(BaseEstimator):
             return mesh
 
         t0 = time.time()
-        data, randoms = self.data_mesh, None
         kw = dict(resampler=resampler, compensate=False, interlacing=0, halo_add=halo_add)
-        mesh_data = data.paint(**kw, out='complex')
-        del data
+        data_mesh = self.data_mesh.paint(**kw, out='complex')
+        del self.data_mesh
         if self.has_randoms:
-            mesh_randoms = randoms.paint(**kw, out='complex')
-            threshold_randoms = self._get_threshold_randoms(randoms, threshold_value=randoms_threshold_value, threshold_method=randoms_threshold_method)
-            del randoms
+            randoms_mesh = self.randoms_mesh.paint(**kw, out='complex')
+            threshold_randoms = self._get_threshold_randoms(self.randoms_mesh, threshold_value=randoms_threshold_value, threshold_method=randoms_threshold_method)
         else:
-            threshold_randoms, mesh_randoms = None, None
+            threshold_randoms, randoms_mesh = None, None
 
         kernel = 1.
         if smoothing_radius is not None:
             self.logger.info(f'Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.')
             kernel = self.kernel_gaussian(self.mattrs, smoothing_radius=smoothing_radius)
-            mesh_data = (_2c(mesh_data) * kernel).c2r()
-            if mesh_randoms is not None:
-                mesh_randoms = (_2c(mesh_randoms) * kernel).c2r()
-        mesh_data = _2r(mesh_data)
-        if mesh_randoms is not None:
-            mesh_randoms = _2r(mesh_randoms)
-            sum_data, sum_randoms = mesh_data.sum(), mesh_randoms.sum()
+            data_mesh = (_2c(data_mesh) * kernel).c2r()
+            if randoms_mesh is not None:
+                randoms_mesh = (_2c(randoms_mesh) * kernel).c2r()
+        data_mesh = _2r(data_mesh)
+        if randoms_mesh is not None:
+            randoms_mesh = _2r(randoms_mesh)
+            sum_data, sum_randoms = data_mesh.sum(), randoms_mesh.sum()
             alpha = sum_data * 1. / sum_randoms
-            self.delta_mesh = mesh_data - alpha * mesh_randoms
+            self.delta_mesh = data_mesh - alpha * randoms_mesh
             if threshold_randoms is not None:
-                self.delta_mesh = self.delta_mesh.clone(value=jnp.where(mesh_randoms.value > threshold_randoms, self.delta_mesh.value / (alpha * mesh_randoms.value), 0.))
+                self.delta_mesh = self.delta_mesh.clone(value=jnp.where(randoms_mesh.value > threshold_randoms, self.delta_mesh.value / (alpha * randoms_mesh.value), 0.))
         else:
-            self.delta_mesh = mesh_data / mesh_data.mean() - 1.
+            self.delta_mesh = data_mesh / data_mesh.mean() - 1.
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
