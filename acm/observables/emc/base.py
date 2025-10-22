@@ -173,7 +173,7 @@ class BaseObservableEMC(Observable):
         x = np.asarray(x) # Ensure x is an array to make torch.Tensor faster
         
         with torch.no_grad():
-            pred = model.get_prediction(torch.Tensor(x))
+            pred = model.get_prediction(torch.Tensor(x.copy()))
             pred = pred.numpy()
 
         if hasattr(self, 'phase_correction'):
