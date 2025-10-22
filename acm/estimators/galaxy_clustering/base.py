@@ -31,8 +31,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.has_randoms = False if randoms_positions is None else True
         self.size_data = len(data_positions)
         if self.has_randoms:
-            self.randoms_mesh = ParticleField(randoms_positions, randoms_weights, attrs=self.mattrs, exchange=True, backend='jax', out='complex')
-        
+            self.randoms_mesh = ParticleField(randoms_positions, randoms_weights, attrs=self.mattrs, exchange=True, backend='jax')
         self.boxsize = self.data_mesh.boxsize
         self.boxcenter = self.data_mesh.boxcenter
         self.meshsize = self.data_mesh.meshsize
