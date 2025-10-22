@@ -156,7 +156,6 @@ def compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10,
 
     data_positions, data_weights = get_data()
     randoms_positions, randoms_weights = get_randoms()
-    attrs = get_mesh_attrs(data_positions, randoms_positions, **attrs)
 
     ds = DensitySplit(data_positions=data_positions, randoms_positions=randoms_positions, **attrs)
 
@@ -174,15 +173,16 @@ def compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10,
         randoms_weights=randoms_weights,
         edges=edges, los=los, nthreads=4, gpu=True)
 
-    # acf = ds.quantile_correlation(
-    #     randoms_positions=randoms_positions,
-    #     edges=edges, los=los, nthreads=4, gpu=True)
+    acf = ds.quantile_correlation(
+        randoms_positions=randoms_positions,
+        edges=edges, los=los, nthreads=4, gpu=True)
 
     np.save(output_fn['xiqg'], ccf)
-    # np.save(output_fn['xiqq'], acf)
+    np.save(output_fn['xiqq'], acf)
     
     ds.plot_quantiles(save_fn='quantiles.png')
     ds.plot_quantile_data_correlation(save_fn='xi_qg.png')
+    ds.plot_quantile_correlation(save_fn='xi_qq.png')
 
 
 
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     tracer = 'LRG'
     region = 'NGC'
     zmin, zmax = 0.4, 0.6
-    nrandoms = 1  # number of random catalogs per phase
+    nrandoms = 3  # number of random catalogs per phase
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
 
     catalog_args = dict(tracer=tracer, region=region, zrange=(zmin, zmax), complete=False)
@@ -233,6 +233,6 @@ if __name__ == '__main__':
             if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
                 print(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
                 continue
-            cutsky_args = dict(cellsize=5.0, boxpad=1.2)
+            cutsky_args = dict(cellsize=5.0, boxpad=1.2, check=True)
             with create_sharding_mesh() as sharding_mesh:
                 compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args)

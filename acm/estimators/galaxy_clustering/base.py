@@ -1,4 +1,4 @@
-from jaxpower import MeshAttrs, ParticleField, FKPField, ComplexMeshField, RealMeshField
+from jaxpower import MeshAttrs, ParticleField, FKPField, ComplexMeshField, RealMeshField, get_mesh_attrs
 from jax import numpy as jnp
 import numpy as np
 import time
@@ -16,9 +16,16 @@ class BaseDensityMeshEstimator(BaseEstimator):
     """
     Base estimator class for environment-based estimators.
     """
-    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None,  **kwargs):
+    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
         super().__init__()
-        self.mattrs = MeshAttrs(**kwargs)
+        # Set mesh attributes directly if passed, otherwise infer from positions
+        if set(kwargs.keys()).issubset(set(MeshAttrs.__dataclass_fields__.keys())): 
+            self.mattrs = MeshAttrs(**kwargs) 
+        else:
+            self.logger.info('Inferring mesh attributes from data and randoms positions.')  
+            pos = [p for p in [data_positions, randoms_positions] if p is not None] # get_mesh_attrs raises an error if randoms_positions is None
+            self.mattrs = get_mesh_attrs(*pos, **kwargs)
+            
         self.data_mesh = ParticleField(data_positions, data_weights, attrs=self.mattrs, exchange=True, backend='jax')
         self.randoms_mesh = None
         self.has_randoms = False if randoms_positions is None else True
@@ -31,10 +38,6 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.logger.info(f'Box size: {self.boxsize}')
         self.logger.info(f'Box center: {self.boxcenter}')
         self.logger.info(f'Box meshsize: {self.meshsize}')
-
-    # @property
-    # def has_randoms(self):
-    #     return self.randoms_mesh is not None
 
     def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float=15., randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
         def _2r(mesh):
@@ -50,12 +53,15 @@ class BaseDensityMeshEstimator(BaseEstimator):
         t0 = time.time()
         kw = dict(resampler=resampler, compensate=False, interlacing=0, halo_add=halo_add)
         data_mesh = self.data_mesh.paint(**kw, out='complex')
-        del self.data_mesh
         if self.has_randoms:
             randoms_mesh = self.randoms_mesh.paint(**kw, out='complex')
             threshold_randoms = self._get_threshold_randoms(self.randoms_mesh, threshold_value=randoms_threshold_value, threshold_method=randoms_threshold_method)
         else:
             threshold_randoms, randoms_mesh = None, None
+        
+        # Free up memory space - Initial meshes are not needed once the painting is done
+        del self.data_mesh
+        del self.randoms_mesh
 
         kernel = 1.
         if smoothing_radius is not None:
