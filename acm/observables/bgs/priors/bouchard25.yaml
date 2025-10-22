@@ -1,50 +1,50 @@
 logM_cut: 
   prior:
     distribution: uniform
-    min: 10.
-    max: 13.
+    min: 11.
+    max: 13.7
   latex: \log M_{\rm cut}
 
 logM_1:
   prior:
     distribution: uniform
-    min: 10.
-    max: 16.
+    min: 13.6
+    max: 15.1
   latex: \log M_1
 
 sigma:
   prior:
     distribution: uniform
-    min: -2.99 #-3.
-    max: 0.96 #0.3
+    min: -2.99
+    max: 0.96
   latex: \log \sigma
 
 alpha:
   prior:
     distribution: uniform
-    min: 0.
-    max: 2.
+    min: 0.3
+    max: 1.48
   latex: \alpha
 
 kappa:
   prior:
     distribution: uniform
     min: 0.
-    max: 1.5
+    max: 0.99
   latex: \kappa
 
 alpha_c:
   prior:
     distribution: uniform
     min: 0.
-    max: 0.5
+    max: 0.61
   latex: \alpha_{\rm cen}
 
 alpha_s:
   prior:
     distribution: uniform
-    min: 0.7
-    max: 1.3
+    min: 0.58
+    max: 1.49
   latex: \alpha_{\rm sat}
 
 s:
@@ -53,7 +53,7 @@ s:
     min: -0.98
     max: 1.
   latex: s
-  
+
 A_cen:
   prior:
     distribution: uniform
@@ -71,13 +71,13 @@ A_sat:
 B_cen:
   prior:
     distribution: uniform
-    min: -0.5
-    max: 0.5
+    min: -0.67
+    max: 0.2
   latex: B_{\rm cen}
 
 B_sat:
   prior:
     distribution: uniform
-    min: -1.
-    max: 1.
+    min: -0.97
+    max: 0.99
   latex: B_{\rm sat}
