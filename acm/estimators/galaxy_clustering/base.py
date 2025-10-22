@@ -19,7 +19,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
     def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
         super().__init__()
         # Set mesh attributes directly if passed, otherwise infer from positions
-        if set(kwargs.keys()).issubset(set(MeshAttrs().keys())): 
+        if set(kwargs.keys()).issubset(set(MeshAttrs.__dataclass_fields__.keys())): 
             self.mattrs = MeshAttrs(**kwargs) 
         else:
             self.logger.info('Inferring mesh attributes from data and randoms positions.')  
