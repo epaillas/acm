@@ -59,10 +59,6 @@ class BaseDensityMeshEstimator(BaseEstimator):
             threshold_randoms = self._get_threshold_randoms(self.randoms_mesh, threshold_value=randoms_threshold_value, threshold_method=randoms_threshold_method)
         else:
             threshold_randoms, randoms_mesh = None, None
-        
-        # Free up memory space - Initial meshes are not needed once the painting is done
-        del self.data_mesh
-        del self.randoms_mesh
 
         kernel = 1.
         if smoothing_radius is not None:
