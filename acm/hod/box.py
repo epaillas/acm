@@ -173,7 +173,7 @@ class BoxHOD:
         tracer_density: list = None,
         process_underdense: bool = True,
         seed = None, 
-        save_fn: str = None, 
+        save_fn: str|Path = None, 
         add_rsd: bool = False,
         add_ap: bool = False,
         los: str = None,
@@ -195,8 +195,8 @@ class BoxHOD:
             If set to False, does not process (and save) catalogs that are not in tracer_density limits (only used if tracer_density is provided). Defaults to True.
         seed : int, optional
             Random seed. Default is None.
-        save_fn : str, optional
-            Filename to save the catalog. Default is None.
+        save_fn : str|Path, optional
+            Filename to save the catalog. Creates parent tree if it does not exist. Default is None.
         add_rsd : bool, optional
             Whether to add redshift-space distortions to the catalog or not. Default is False.
         add_ap: bool, optional
@@ -326,7 +326,7 @@ class BoxHOD:
 
     def save_catalog(
         self, 
-        save_fn: str,
+        save_fn: str|Path,
         hod_dict: dict, 
         tracer: str = 'LRG', 
         ):
@@ -335,13 +335,17 @@ class BoxHOD:
 
         Parameters
         ----------
-        save_fn : str
-            Filename to save the catalog.
+        save_fn : str|Path
+            Filename to save the catalog. If parent tree directories do not exist, they will be created.
         hod_dict : dict
             Dictionary containing the HOD catalog.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
         """
+        # Ensure parent directories exist
+        save_fn = Path(save_fn)
+        save_fn.parent.mkdir(parents=True, exist_ok=True)
+        
         table = Table(hod_dict[tracer])
         header = fits.Header({'gal_type': tracer, 'q_par': self.q_par, 
                               'q_perp': self.q_perp, **self.ball.tracers[tracer]})
