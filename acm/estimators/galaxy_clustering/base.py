@@ -32,9 +32,10 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.size_data = len(data_positions)
         if self.has_randoms:
             self.randoms_mesh = ParticleField(randoms_positions, randoms_weights, attrs=self.mattrs, exchange=True, backend='jax')
-        self.boxsize = self.data_mesh.boxsize
-        self.boxcenter = self.data_mesh.boxcenter
-        self.meshsize = self.data_mesh.meshsize
+        self.boxsize = self.mattrs.boxsize
+        self.boxcenter = self.mattrs.boxcenter
+        self.meshsize = self.mattrs.meshsize
+        self.cellsize = self.mattrs.cellsize
         self.logger.info(f'Box size: {self.boxsize}')
         self.logger.info(f'Box center: {self.boxcenter}')
         self.logger.info(f'Box meshsize: {self.meshsize}')
@@ -92,15 +93,13 @@ class BaseDensityMeshEstimator(BaseEstimator):
             threshold_randoms = threshold_value * randoms.sum() / randoms.size
         return threshold_randoms
 
-    def get_query_positions(self, mesh, method='randoms', nquery=None, seed=42):
+    def get_query_positions(self, method='randoms', nquery=None, seed=42):
         """
-        Get query positions to sample the density PDF, either using random points within a mesh,
-        or the positions at the center of each mesh cell.
+        Get query positions to sample the density PDF, either using random points within the
+        density mesh, or the positions at the center of each mesh cell.
 
         Parameters        
         ----------
-        mesh : RealMesh
-            Mesh.
         method : str, optional
             Method to generate query points. Options are 'lattice' or 'randoms'.
         nquery : int, optional
@@ -114,11 +113,11 @@ class BaseDensityMeshEstimator(BaseEstimator):
             Query positions.
         """
         t0 = time.time()
-        boxcenter = mesh.boxcenter
-        boxsize = mesh.boxsize
-        cellsize = mesh.cellsize
+        boxcenter = self.boxcenter
+        boxsize = self.boxsize
+        cellsize = self.cellsize
         if method == 'lattice':
-            x, y, z = mesh.attrs.rcoords()
+            x, y, z = self.mattrs.rcoords()
             xx, yy, zz = jnp.meshgrid(x, y, z)
             coords = jnp.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
             self.logger.info(f'Generated lattice query points in {time.time() - t0:.2f} s.')
@@ -128,7 +127,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
                 nquery = 5 * self.size_data
             coords = np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
             self.logger.info(f'Generated random query points in {time.time() - t0:.2f} s.')
-        return coords
+        return coords.astype(np.float32)
 
     def kernel_gaussian(self, mattrs: MeshAttrs, smoothing_radius=10.):
         return jnp.exp(- 0.5 * sum((kk * smoothing_radius)**2 for kk in mattrs.kcoords(sparse=True)))
