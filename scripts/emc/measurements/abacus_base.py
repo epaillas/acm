@@ -201,6 +201,18 @@ def compute_minkowski(output_fn, positions, **attrs):
     print(f'Saving {output_fn}')
     np.save(output_fn, mfs3d)
 
+def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62,2), cellsize=5, **attrs):
+    """Compute the spherical void size function using the ACM package."""
+    from VERSUS import SphericalVoids
+
+    sv = SphericalVoids(data_positions=positions, cellsize=cellsize)
+    sv.run_voidfinding(radii, threads=32, **attrs)
+
+    n_v = np.vstack([sorted(radii, reverse=True),
+                    sv.void_count / np.prod(boxsize)])  # comoving number density of voids
+
+    print(f'Saving spherical VSF to {output_fn}')
+    np.save(output_fn, n_v)
 
 
 if __name__ == '__main__':
@@ -314,4 +326,12 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=10)
                         init = compute_wst(output_fn, hod_positions, init=init, **box_args)
+
+                    if 'spherical_voids' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/spherical_voids/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'sv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        compute_spherical_voids(output_fn, hod_positions, boxsize)
 
