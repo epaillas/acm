@@ -1,5 +1,6 @@
 import torch
 import xarray
+import warnings
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -170,11 +171,17 @@ class BaseObservableEMC(Observable):
         """
         if isinstance(x, dict):
             missing = set(self.x_names) - set(x.keys())
+            extra = set(x.keys()) - set(self.x_names)
             if missing:
                 raise ValueError(
                     "Input x dictionary keys do not match the model input names. "
                     f"Missing keys: {missing}"
                 )
+            if extra:
+                warnings.warn(
+                    "Input x dictionary contains unexpected keys not used by the model. "
+                    f"Unexpected keys: {extra}"
+                ) 
             x = [x[name] for name in self.x_names]
         
         if model is None:
