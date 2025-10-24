@@ -376,7 +376,7 @@ class Observable():
         
         Parameters
         ----------
-        x : array_like
+        x : array_like, dict
             Input features.
         model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
