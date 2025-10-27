@@ -24,7 +24,7 @@ class BoxHOD:
     Note
     ----
     Only the 'LRG' tracers are currently supported.
-    Note that BGS is also supported, by using `tracer='LRG'` and BGS characteristics (mean density, redhsift, etc.)
+    Note that BGS is also supported, by using `tracer='LRG'` and BGS characteristics (mean density, redshift, etc.)
     """
     
     logger = logging.getLogger('AbacusHOD') # Set up logger for the class as a class attribute
