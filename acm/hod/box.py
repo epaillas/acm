@@ -397,7 +397,7 @@ class BoxHOD:
             boxsizes = [boxsize] * 3
         else:
             if len(boxsize) != 3: # Sanity check
-                raise ValueError('boxsize must be a float or a type-list of three floats.')
+                raise ValueError('boxsize must be a float or a list of three floats.')
             boxsizes = boxsize
 
         for i, ax in enumerate(('X', 'Y', 'Z')):
