@@ -77,7 +77,7 @@ def compute_tpcf(output_fn, positions, los='z', **attrs):
     """Compute the two-point correlation function using the ACM package."""
     from pycorr import TwoPointCorrelationFunction
 
-    sedges = np.arange(0, 151, 1)
+    sedges = np.arange(0, 201, 1)
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
 
@@ -86,6 +86,8 @@ def compute_tpcf(output_fn, positions, los='z', **attrs):
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=4, gpu=True,
         compute_sepsavg=False, position_type='pos', los=los,
     )
+
+    xi.save(output_fn)
 
 def compute_recon_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
     from jaxpower import (MeshAttrs, ParticleField, FKPField, BinMesh2SpectrumPoles,
@@ -171,7 +173,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    wst = init if init is not None else WaveletScatteringTransform(data=positions, **attrs)
+    wst = init if init is not None else WaveletScatteringTransform(data_positions=positions, **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
@@ -199,6 +201,18 @@ def compute_minkowski(output_fn, positions, **attrs):
     print(f'Saving {output_fn}')
     np.save(output_fn, mfs3d)
 
+def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62,2), cellsize=5, **attrs):
+    """Compute the spherical void size function using the ACM package."""
+    from VERSUS import SphericalVoids
+
+    sv = SphericalVoids(data_positions=positions, cellsize=cellsize)
+    sv.run_voidfinding(radii, threads=32, **attrs)
+
+    n_v = np.vstack([sorted(radii, reverse=True),
+                    sv.void_count / np.prod(boxsize)])  # comoving number density of voids
+
+    print(f'Saving spherical VSF to {output_fn}')
+    np.save(output_fn, n_v)
 
 
 if __name__ == '__main__':
@@ -222,9 +236,9 @@ if __name__ == '__main__':
     seeds = list(range(args.start_seed, args.start_seed + args.n_seed))
 
     redshift = 0.5
-    init = None
 
     for cosmo_idx in cosmos:
+        init = None
         for phase_idx in phases:
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
@@ -251,6 +265,9 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'mesh2_recon_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
+                        if output_fn.exists():
+                            print(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
                         with create_sharding_mesh() as sharding_mesh:
@@ -261,6 +278,9 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        if output_fn.exists():
+                            print(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
                         compute_tpcf(output_fn, hod_positions, **box_args)
@@ -306,4 +326,12 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=10)
                         init = compute_wst(output_fn, hod_positions, init=init, **box_args)
+
+                    if 'spherical_voids' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/spherical_voids/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'sv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        compute_spherical_voids(output_fn, hod_positions, boxsize)
 
