@@ -364,6 +364,37 @@ class BoxHOD:
                         raise ValueError('Invalid type for hod_params. Must be either dict or list.')
                     
         return hod_params
+    
+    @classmethod
+    def get_boxsize(cls, boxsize: float, los: str = None, q_par: float = None, q_perp: float = None) -> float|list:
+        """
+        Get the box size, taking into account Alcock-Paczynski distortions if specified.
+
+        Parameters
+        ----------
+        boxsize : float
+            Original box size.
+        los : str, optional
+            Line-of-sight for AP distortions. If None, no distortions are applied.
+        q_par : float, optional
+            Parallel AP distortion factor. Required if `los` is not None.
+        q_perp : float, optional
+            Perpendicular AP distortion factor. Required if `los` is not None.
+
+        Returns
+        -------
+        float or list
+            Box size after applying AP distortions, or original box size if no distortions are applied.
+        """
+        if not all(v is not None for v in [los, q_par, q_perp]):
+            return boxsize
+        boxsizes = []
+        for ax in ('X', 'Y', 'Z'):
+            if ax == los.upper():
+                boxsizes.append(boxsize / q_par)
+            else:
+                boxsizes.append(boxsize / q_perp)
+        return boxsizes
 
     @classmethod
     def get_positions(
