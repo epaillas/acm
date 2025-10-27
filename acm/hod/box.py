@@ -366,7 +366,7 @@ class BoxHOD:
         return hod_params
     
     @classmethod
-    def get_boxsize(cls, boxsize: float|list, los: str = None, q_par: float = None, q_perp: float = None) -> float|list:
+    def get_boxsize(cls, boxsize: float|list, add_ap: bool = False, los: str = None, q_par: float = None, q_perp: float = None) -> float|list:
         """
         Get the box size, taking into account Alcock-Paczynski distortions if specified.
 
@@ -374,6 +374,8 @@ class BoxHOD:
         ----------
         boxsize : float|list
             Original box size (as a float or a list of three floats for each axis).
+        add_ap : bool, optional
+            Whether to add Alcock-Paczynski distortions to the box size or not. Default is False.
         los : str, optional
             Line-of-sight for AP distortions. If None, no distortions are applied.
         q_par : float, optional
@@ -383,10 +385,10 @@ class BoxHOD:
 
         Returns
         -------
-        float or list
+        float or np.ndarray
             Box size after applying AP distortions, or original box size if no distortions are applied.
         """
-        if not all(v is not None for v in [los, q_par, q_perp]):
+        if not all(v is not None for v in [add_ap, los, q_par, q_perp]):
             return boxsize
         
         if isinstance(boxsize, (float, int)): 
@@ -401,7 +403,7 @@ class BoxHOD:
                 boxsizes[i] = boxsizes[i] / q_par
             else:
                 boxsizes[i] = boxsizes[i] / q_perp
-        return boxsizes
+        return np.array(boxsizes)
 
     @classmethod
     def get_positions(
