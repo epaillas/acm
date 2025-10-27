@@ -212,6 +212,10 @@ class BaseObservableBGS(Observable):
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
                 self.logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
             assert len(hod_idx) == n_hod, f'Number of HODs for c{cosmo_idx:03d} is {len(hod_idx)}, expected {n_hod}' # Assume same number of HODs for all cosmologies
+            
+            # TODO : 
+            # - Add a density cut option here to filter HODs based on density if measured (w/ logger event)
+            # - Replace assertion on hod number by a raised error only if the filtered number of HODs is lower than expected, otherwise just warn and select the expected number amongst the available ones
 
             x.append(x_i.values[hod_idx, :])
         x = np.concatenate(x)
