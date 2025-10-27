@@ -391,7 +391,7 @@ class BoxHOD:
         if not add_ap:
             return boxsize
         elif not all(v is not None for v in [los, q_par, q_perp]):
-            raise ValueError('los, q_par and q_perp must be provided to add AP distortions.')
+            raise ValueError('los, q_par and q_perp must be provided when add_ap is True.')
         
         if isinstance(boxsize, (float, int)): 
             boxsizes = [boxsize] * 3
