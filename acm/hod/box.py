@@ -229,22 +229,8 @@ class BoxHOD:
                 self.ball.tracers[tracer][key] = hod_params[key]
         self.ball.tracers[tracer]['ic'] = 1
         self.in_density = True  # Flag if mock is within density threshold
-        # # NOTE: compute_ngal not working for HODs with high sigma values
-        # ngal_dict = self.ball.compute_ngal(Nthread=nthreads)[0]
-        # n_gal = ngal_dict[tracer]
-        # if tracer_density is not None:
-            # n_target = np.array(tracer_density) * self.boxsize ** 3
-            # if add_ap: n_target /= self.q_par * self.q_perp**2
-            # if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
-                # self.logger.info('Catalogue below minimum density threshold')
-                # self.in_density = False  Flag that mock is below density threshold
-                # return hod_dict
-            # else:
-                # self.ball.tracers[tracer]['ic'] = min(
-                    # 1, n_target[1] / n_gal
-                # )
         hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed)
-        # workaround for compute_ngal issue
+        # workaround for compute_ngal issue with high sigma values
         n_gal = len(hod_dict[tracer]['x'])
         subsample = None
         if tracer_density is not None:
