@@ -450,7 +450,7 @@ class BoxHOD:
         np.ndarray
             Array of galaxy positions with shape (N_gal, 3).
         """
-        tracer_dict = hod_dict.get(tracer, hod_dict)
+        tracer_dict = hod_dict[tracer] if tracer is not None else hod_dict
         
         # Apply RSD before AP distortions
         if add_rsd:
