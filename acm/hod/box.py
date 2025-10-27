@@ -366,14 +366,14 @@ class BoxHOD:
         return hod_params
     
     @classmethod
-    def get_boxsize(cls, boxsize: float, los: str = None, q_par: float = None, q_perp: float = None) -> float|list:
+    def get_boxsize(cls, boxsize: float|list, los: str = None, q_par: float = None, q_perp: float = None) -> float|list:
         """
         Get the box size, taking into account Alcock-Paczynski distortions if specified.
 
         Parameters
         ----------
-        boxsize : float
-            Original box size.
+        boxsize : float|list
+            Original box size (as a float or a list of three floats for each axis).
         los : str, optional
             Line-of-sight for AP distortions. If None, no distortions are applied.
         q_par : float, optional
@@ -388,12 +388,19 @@ class BoxHOD:
         """
         if not all(v is not None for v in [los, q_par, q_perp]):
             return boxsize
-        boxsizes = []
-        for ax in ('X', 'Y', 'Z'):
+        
+        if isinstance(boxsize, (float, int)): 
+            boxsizes = [boxsize] * 3
+        else:
+            if len(boxsize) != 3: # Sanity check
+                raise ValueError('boxsize must be a float or a type-list of three floats.')
+            boxsizes = boxsize
+
+        for i, ax in enumerate(('X', 'Y', 'Z')):
             if ax == los.upper():
-                boxsizes.append(boxsize / q_par)
+                boxsizes[i] = boxsizes[i] / q_par
             else:
-                boxsizes.append(boxsize / q_perp)
+                boxsizes[i] = boxsizes[i] / q_perp
         return boxsizes
 
     @classmethod
