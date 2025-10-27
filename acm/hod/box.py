@@ -467,6 +467,7 @@ class BoxHOD:
                 raise ValueError('q_par, q_perp and los must be provided to add AP distortions.')
 
         positions = np.column_stack([tracer_dict[key] for key in ['X', 'Y', 'Z']])
+        cls.logger.debug(f'Obtained positions array of shape {positions.shape}.')
         return positions
 
     @staticmethod
