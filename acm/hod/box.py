@@ -424,7 +424,7 @@ class BoxHOD:
 
         Parameters
         ----------
-        tracer_dict : dict
+        hod_dict : dict
             Dictionary containing the tracer positions.
         tracer : str, optional
             Tracer type to read from `hod_dict`. If None, uses the top-level keys of `hod_dict`. Default is None.
