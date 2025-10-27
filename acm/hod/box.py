@@ -388,8 +388,10 @@ class BoxHOD:
         float or np.ndarray
             Box size after applying AP distortions, or original box size if no distortions are applied.
         """
-        if not all(v is not None for v in [add_ap, los, q_par, q_perp]):
+        if not add_ap:
             return boxsize
+        elif not all(v is not None for v in [los, q_par, q_perp]):
+            raise ValueError('los, q_par and q_perp must be provided to add AP distortions.')
         
         if isinstance(boxsize, (float, int)): 
             boxsizes = [boxsize] * 3
