@@ -452,6 +452,7 @@ class BoxHOD:
         np.ndarray
             Array of galaxy positions with shape (N_gal, 3).
         """
+        hod_dict = hod_dict.copy()  # Avoid modifying the original dictionary
         tracer_dict = hod_dict[tracer] if tracer is not None else hod_dict
         
         # Apply RSD before AP distortions
@@ -499,6 +500,7 @@ class BoxHOD:
         -------
         dict
             Dictionary containing the HOD catalog with redshift-space distortions to the specified axis.
+            Will overwrite the input `tracer_dict` in place, use a copy if needed !
         """
         ax = los.upper()
         offset = boxsize / 2 
@@ -533,6 +535,8 @@ class BoxHOD:
         -------
         dict
             Dictionary containing the HOD catalog with Alcock-Paczynski distortions applied to the specified axis.
+            Will overwrite the input `tracer_dict` in place, use a copy if needed !
+
         """
         for ax in ('X', 'Y', 'Z'):
             pos = tracer_dict[ax]
