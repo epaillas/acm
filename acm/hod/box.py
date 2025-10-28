@@ -177,6 +177,7 @@ class BoxHOD:
         add_rsd: bool = False,
         add_ap: bool = False,
         los: str = None,
+        **kwargs
         )-> dict:
         """
         Run the HOD model with the given parameters.
@@ -203,6 +204,8 @@ class BoxHOD:
             Whether to add Alcock-Paczynski distortions to the number density or not. Default is False.
         los: str, optional
             Line-of-sight for RSD and AP distortions. If None, distortions along every axis are saved to catalogue.
+        **kwargs
+            Additional keyword arguments passed to postprocess_catalog.
 
         Returns
         -------
@@ -262,7 +265,7 @@ class BoxHOD:
                 self.logger.info('Mock within density thresholds')
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
-        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap, los=los)
+        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample, add_rsd, add_ap, los=los, **kwargs)
         if save_fn is not None:
             self.save_catalog(save_fn, hod_dict, tracer)
         return hod_dict
@@ -275,6 +278,8 @@ class BoxHOD:
         add_rsd: bool = False,
         add_ap: bool = False,
         los: str = None,
+        remove_positions: bool = True,
+        remove_velocities: bool = True,
         ):
         """
         Add distortion effects and format the HOD catalog.
@@ -293,6 +298,14 @@ class BoxHOD:
             Whether to add Alcock-Paczynski distortions to the catalog or not. Default is False.
         los: str, optional
             Line-of-sight for RSD and AP distortions. If None, distortions along every axis are saved to catalogue.
+        remove_positions: bool, optional
+            Whether to remove real-space positions from the catalog after adding distortions. 
+            Only removes them if distortions were added.
+            Default is True.
+        remove_velocities: bool, optional
+            Whether to remove velocities from the catalog after adding distortions. 
+            Only removes them if distortions were added.
+            Default is True.
 
         Returns
         -------
@@ -317,10 +330,14 @@ class BoxHOD:
         if add_ap:
             hod_dict = self._add_ap(hod_dict, tracer, los=los)
 
-        # remove velocities from catalogue
-        hod_dict[tracer].pop('VX', None)
-        hod_dict[tracer].pop('VY', None)
-        hod_dict[tracer].pop('VZ', None)
+        if remove_positions and (add_rsd or add_ap): # Only remove if distortions were added
+            hod_dict[tracer].pop('X', None)
+            hod_dict[tracer].pop('Y', None)
+            hod_dict[tracer].pop('Z', None)
+        if remove_velocities and (add_rsd or add_ap): # Only remove if distortions were added
+            hod_dict[tracer].pop('VX', None)
+            hod_dict[tracer].pop('VY', None)
+            hod_dict[tracer].pop('VZ', None)
 
         return hod_dict
 
@@ -423,7 +440,7 @@ class BoxHOD:
         axes = ('X', 'Y', 'Z') if los is None else los.upper()
         for ax in axes:
             pos = data[ax] + offset
-            vel = hod_dict[tracer].pop(f'V{ax}')
+            vel = hod_dict[tracer][f'V{ax}']
             pos_rsd = (pos + vel / (self.hubble * self.az)) % self.boxsize
             hod_dict[tracer][f'{ax}_RSD'] = pos_rsd - offset
 
@@ -455,7 +472,7 @@ class BoxHOD:
         self.logger.debug('Distorting galaxy positions with AP effect')
 
         for ax in ('X', 'Y', 'Z'):
-            pos = hod_dict[tracer].pop(ax)
+            pos = hod_dict[tracer][ax]
             if los is None or (ax == los.upper()):
                 hod_dict[tracer][f'{ax}_PAR'] = pos / self.q_par
             if los is None or (ax != los.upper()):
