@@ -5,6 +5,8 @@ from pathlib import Path
 from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.plotting import set_plot_style
+
 
 class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
@@ -261,7 +263,8 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
 
-    def plot(self, model_params: dict, save_fn: str = None):
+    @set_plot_style
+    def plot_observable(self, model_params: dict, save_fn: str = None, show: bool = False):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -278,11 +281,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             The generated plot figure.
         """
         import matplotlib.pyplot as plt
-        plt.rcParams.update({
-            "text.usetex": True,
-            "font.family": "serif",
-            "font.serif": ["Computer Modern Roman"],
-        })
 
         ells = self._dataset.y.coords['multipoles'].values.tolist()
 
@@ -303,7 +301,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             model = self.get_model_prediction(model_params)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
-            print(np.shape(k), np.shape(data), np.shape(model), np.shape(error))
 
             lax[0].errorbar(k, k * data, k * error, marker='o', ms=4, ls='', 
                 color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
@@ -322,4 +319,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
-        return fig
+        if show:
+            plt.show()
+        plt.close()

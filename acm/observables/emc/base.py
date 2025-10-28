@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import torch
 import xarray
 import numpy as np
@@ -7,6 +8,7 @@ from acm.observables import Observable
 from acm.utils import get_data_dirs
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.plotting import set_plot_style
 
 class BaseObservableEMC(Observable):
     """
@@ -38,6 +40,8 @@ class BaseObservableEMC(Observable):
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         n_test = n_test if n_test else self.n_test
+
+        self.logger.info(f'Computing emulator covariance array for {n_test} test samples.')
         
         # Get unfiltered values
         x = self._dataset.x 
@@ -170,25 +174,18 @@ class BaseObservableEMC(Observable):
         """
         if isinstance(x, dict):
             missing = set(self.x_names) - set(x.keys())
-            extra = set(x.keys()) - set(self.x_names)
-            if missing:
-                raise ValueError(
-                    "Input x dictionary keys do not match the model input names. "
-                    f"Missing keys: {missing}"
-                )
-            if extra:
-                logger.warning(
-                    "Input x dictionary contains unexpected keys not used by the model. "
-                    f"Unexpected keys: {extra}"
-                )
+            assert not missing, (
+                "Input x dictionary keys do not match the model input names. "
+                f"Missing keys: {missing}"
+            )
             x = [x[name] for name in self.x_names]
             x = np.asarray(x).T  # Need to transpose to (n_samples, n_features)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
-        
+
         if model is None:
             model = self.model
-        
+
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x.copy()))
             pred = pred.numpy()
@@ -315,3 +312,57 @@ class BaseObservableEMC(Observable):
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
             np.save(save_fn, dataset_to_dict(emulator_error_dataset))
         return emulator_error_dataset
+
+    @abstractmethod
+    @set_plot_style
+    def plot_observable(self, save_fn: str, show: bool = False):
+        """
+        Plot the observable.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Path of the file where to save the plot.
+        show : bool, optional
+            If True, show the plot. Default is False.
+        """
+        raise NotImplementedError("Subclasses must implement plot_observable method.")
+
+    @set_plot_style
+    def plot_emulator_residuals(self, save_fn: str, show: bool = False):
+        """
+        Plot the emulator residuals.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Path of the file where to save the plot.
+        show : bool, optional
+            If True, show the plot. Default is False.
+        """
+        import matplotlib.pyplot as plt
+
+        residuals = self.emulator_covariance_y
+        data_cov = self.get_covariance_matrix(volume_factor=64)
+        data_err = np.sqrt(np.diag(data_cov))
+
+        fig, ax = plt.subplots(2, 1, figsize=(4, 4), sharex=True)
+
+        for res in residuals:
+            ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
+
+        ax[1].plot(np.median(np.abs(residuals), axis=0) / data_err, lw=1.0, label='MAE', color='C0')
+        ax[1].plot(np.std(residuals, axis=0) / data_err, lw=1.0, label='STD', ls='--', color='C1')
+
+        ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
+
+        ax[1].set_xlabel('bin index', fontsize=13)
+        ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
+        ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)
+        ax[1].legend(fontsize=8)
+        plt.tight_layout()
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+        if show:
+            plt.show()
+        plt.close()
