@@ -7,14 +7,13 @@ from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
 
-
-class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
+class GalaxyBispectrumMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='recon_spectrum', n_test=6*500, **kwargs)
+        super().__init__(stat_name='bispectrum', n_test=6*9, **kwargs)
         self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
         self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
@@ -23,15 +22,15 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/recon_spectrum/last-v4.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v1.ckpt'
     
     def compress_covariance(
         self,
         save_to: str = None,
-        kmin: float = 0.0126,
-        kmax: float = 0.7, 
-        rebin: int = 13,
-        ells: list = [0, 2, 4],
+        kmin: float = 0.016,
+        kmax: float = 0.285, 
+        rebin: int = 3,
+        ells: list = [0, 2],
         overwrite_k: np.ndarray = None
     ) -> xarray.DataArray:
         """
@@ -50,10 +49,6 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Rebinning factor for the statistics. Default is 4.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2, 4].
-        overwrite_k : np.ndarray
-            If not None, overwrite the final separation values with this array. 
-            This is primarily useful to ensure consistency between the covariance and the data dims.
-            Default is None.
             
         Returns
         -------
@@ -63,18 +58,18 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         from jaxpower import read
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
-        data_fns = list(base_dir.glob('mesh2_recon_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
+        data_fns = list(base_dir.glob('mesh3_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
         
         y = []
         for data_fn in data_fns:
-            self.logger.info(f'Compressing covariance file {data_fn}')
             data = read(data_fn)
             data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
-            poles = [data.get(ell) for ell in (0, 2, 4)]
+            poles = [data.get(ell) for ell in ells]
             k = poles[0].coords('k')
-            y.append(np.concatenate(poles))
+            weights = k.prod(axis=1)
+            y.append(np.concatenate([weights * pole for pole in poles]))
         y = np.array(y)
-        k = overwrite_k if overwrite_k is not None else k
+        bin_idx = np.arange(len(k))
         
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
@@ -83,11 +78,11 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             coords = {
                 "phase_idx": list(range(y.shape[0])),
                 "multipoles": ells,
-                "k": k,
+                "bin_idx": bin_idx,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "k"],
+                "features": ["multipoles", "bin_idx"],
             },
             name = "covariance_y",
         )
@@ -102,10 +97,10 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         self, 
         add_covariance: bool = False,
         save_to: str = None,
-        kmin: float = 0.0126,
-        kmax: float = 0.7, 
-        rebin: int = 13,
-        ells: list = [0, 2, 4],
+        kmin: float = 0.016,
+        kmax: float = 0.285, 
+        rebin: int = 3,
+        ells: list = [0, 2],
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase_idx: int = 0,
@@ -124,7 +119,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         kmin : float
             Minimum k value to consider. Default is 0.01.
         kmax : float
-            Maximum k value to consider. Default is 0.7.
+            Maximum k value to consider. Default is 0.27.
         rebin : int
             Rebinning factor for the statistics. Default is 4.
         ells : list
@@ -153,29 +148,31 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_recon_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh3_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             for filename in filenames:
                 data = read(filename)
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
-                poles = [data.get(ell) for ell in (0, 2, 4)]
+                poles = [data.get(ell) for ell in (0, 2)]
                 k = poles[0].coords('k')
-                y.append(np.concatenate(poles))
+                weights = k.prod(axis=1)
+                y.append(np.concatenate([weights * pole for pole in poles]))
                 hod_idx = int(str(filename).split('hod')[1].split('.')[0])
                 hods[cosmo_idx].append(hod_idx)
             self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
+        bin_idx = np.arange(len(k))
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
                 'multipoles': ells,
-                'k': k,
+                'bin_idx': bin_idx,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 'k'],
+                'features': ['multipoles', 'bin_idx'],
             },
             name = 'y',
         )
@@ -277,6 +274,11 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Filename to save the plot. If None, the plot is not saved.
         show : bool
             If True, display the plot. Default is False.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot figure.
         """
         import matplotlib.pyplot as plt
 
@@ -291,28 +293,69 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
         for i, ell in enumerate(ells):
             lax[-1].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]', fontsize=15)
-            lax[0].set_ylabel(r'$k P_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
+            lax[0].set_ylabel(r'$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
-            k = self.k
+            bin_idx = self.bin_idx
             data = self.y[0]
             model = self.get_model_prediction(model_params)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 
-            lax[0].errorbar(k, k * data, k * error, marker='o', ms=4, ls='', 
+            lax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', 
                 color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
-            lax[0].plot(k, k * model, ls='-', color=f'C{i}')
-            lax[i + 1].plot(k, (data - model) / error, ls='-', color=f'C{i}')
+            lax[0].plot(bin_idx, model, ls='-', color=f'C{i}')
+            lax[i + 1].plot(bin_idx, (data - model) / error, ls='-', color=f'C{i}')
 
             for offset in [-2, 2]: lax[i + 1].axhline(offset, color='k', ls='--')
-            lax[i + 1].set_ylabel(rf'$\Delta P_{{{ell:d}}} / \sigma_{{ P_{{{ell:d}}} }}$', fontsize=15)
+            lax[i + 1].set_ylabel(rf'$\Delta B_{{{ell:d}}} / \sigma_{{ B_{{{ell:d}}} }}$', fontsize=15)
             lax[i + 1].set_ylim(-4, 4)
-
         for ax in lax:
             ax.grid(True)
             ax.tick_params(axis='both', labelsize=14)
         if show_legend: lax[0].legend(fontsize=15)
+
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        if show:
+            plt.show()
+
+    @set_plot_style
+    def plot_emulator_residuals(self, save_fn: str = None, show: bool = False):
+        """
+        Plot the emulator residuals normalized by the data error.
+        Parameters
+        ----------
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+        show : bool
+            If True, display the plot. Default is False.
+        """
+        import matplotlib.pyplot as plt
+
+        ells = self._dataset.y.coords['multipoles'].values.tolist()
+
+        fig, ax = plt.subplots(3, 1, figsize=(4, 3), sharex=True)
+
+        for i, ell in enumerate(ells):
+            self.select_filters.update({'multipoles': ell})
+            bin_idx = self.bin_idx
+            residuals = self.emulator_covariance_y
+            data_cov = np.cov(self.covariance_y.T) / 64
+            data_err = np.sqrt(np.diag(data_cov))
+            
+            for res in residuals:
+                ax[i].plot(bin_idx, res/data_err, alpha=0.1, lw=0.5, color=f'C{i}')
+
+            ax[2].plot(bin_idx, np.mean(np.abs(residuals), axis=0) / data_err,
+                       lw=1.0, color=f'C{i}', label=rf'$\ell={ell}$')
+            ax[i].set_ylabel(rf'$\Delta B_{{{ell}}}/\sigma_{{\mathrm{{data}}}}$')
+            ax[i].text(0.98, 0.75, rf'$\ell={ell}$', transform=ax[i].transAxes,
+                horizontalalignment='right', fontsize=10)
+
+        ax[2].set_ylabel(r'$\left< \Delta B_{\ell}/\sigma_{\mathrm{data}} \right>$')
+        ax[2].set_xlabel(r'$\textrm{bin index}$')
         plt.tight_layout()
 
         if save_fn is not None:
@@ -320,4 +363,5 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             self.logger.info(f'Saving plot to {save_fn}')
         if show:
             plt.show()
-        plt.close() 
+        plt.close()
+        

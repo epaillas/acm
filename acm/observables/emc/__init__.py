@@ -1,5 +1,7 @@
 from .tpcf import GalaxyCorrelationFunctionMultipoles
+from .projected_tpcf import ProjectedGalaxyCorrelationFunction
 from .spectrum import GalaxyPowerSpectrumMultipoles
+from .bispectrum import GalaxyBispectrumMultipoles
 from .recon_spectrum import ReconstructedGalaxyPowerSpectrumMultipoles
 from .density_split_correlation import DensitySplitCorrelationFunctionMultipoles
 from .minkowski import MinkowskiFunctionals
