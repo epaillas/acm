@@ -364,10 +364,6 @@ class Observable():
         # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
-        if self.stat_name.startswith('minkowski'):
-            from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
-            model.transform_output = WeiLiuOutputTransForm()
-            model.transform_input = WeiLiuInputTransform()
         return model
     
     def get_model_prediction(self, x, model=None, coords=None, attrs=None, nofilters: bool = False) -> xarray.DataArray:
