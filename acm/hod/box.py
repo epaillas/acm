@@ -506,7 +506,6 @@ class BoxHOD:
         vel = tracer_dict[f'V{ax}']
         pos_rsd = (pos + vel / (hubble * az)) % boxsize
         tracer_dict[ax] = pos_rsd - offset # Overwrite real-space positions with RSD positions
-
         return tracer_dict
 
     @staticmethod
@@ -541,5 +540,4 @@ class BoxHOD:
                 tracer_dict[ax] = pos / q_par
             else: 
                 tracer_dict[ax] = pos / q_perp
-
         return tracer_dict
