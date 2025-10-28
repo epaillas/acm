@@ -10,7 +10,7 @@ target_density: 8.5e-3
 target_density_sigma: 8.5e-6
 process_underdense: false
 add_rsd: true
-add_ap: false
+add_ap: true
 measurements: ['density', 'tpcf', 'density_split']
 gpu: false
 nthreads: 64
