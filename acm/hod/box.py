@@ -390,7 +390,7 @@ class BoxHOD:
         """
         if not add_ap:
             return boxsize
-        elif not all(v is not None for v in [los, q_par, q_perp]):
+        elif any(v is None for v in [los, q_par, q_perp]):
             raise ValueError('los, q_par and q_perp must be provided when add_ap is True.')
         
         if isinstance(boxsize, (float, int)): 
@@ -456,13 +456,13 @@ class BoxHOD:
         
         # Apply RSD before AP distortions
         if add_rsd:
-            if not all(v is not None for v in [hubble, az, boxsize, los]):  # Check we have everything we need to add RSD
+            if any(v is None for v in [hubble, az, boxsize, los]):  # Check we have everything we need to add RSD
                 raise ValueError('hubble, az, boxsize and los must be provided to add RSD distortions.')
             cls.logger.debug('Applying RSD distortions to positions.')
             tracer_dict = cls._add_rsd(tracer_dict, hubble=hubble, az=az, boxsize=boxsize, los=los)
 
         if add_ap:
-            if not all(v is not None for v in [q_par, q_perp, los]):  # Check we have everything we need to add AP
+            if any(v is None for v in [q_par, q_perp, los]):  # Check we have everything we need to add AP
                 raise ValueError('q_par, q_perp and los must be provided to add AP distortions.')
             cls.logger.debug('Applying AP distortions to positions.')
             tracer_dict = cls._add_ap(tracer_dict, q_par=q_par, q_perp=q_perp, los=los)
