@@ -242,7 +242,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
 
-    def plot(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot multi-scale Minkowski functionals predictions against data.
 
@@ -255,8 +255,8 @@ class MinkowskiFunctionals(BaseObservableEMC):
 
         Returns
         -------
-        matplotlib.figure.Figure
-            The generated plot figure.
+        fig, lax : matplotlib.figure.Figure, np.ndarray
+            Figure and axes array of the plot.
         """
         plt.rcParams.update({
             "text.usetex": True,
@@ -297,6 +297,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
-        return fig
+        return fig, lax
 
 

@@ -260,7 +260,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         return (1 + prediction) * (1 + self.phase_correction) - 1
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str = None, show: bool = False):
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -273,8 +273,8 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
         Returns
         -------
-        matplotlib.figure.Figure
-            The generated plot figure.
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
 
         ells = self._dataset.y.coords['multipoles'].values.tolist()
@@ -314,6 +314,4 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
-        if show:
-            plt.show()
-        plt.close()
+        return fig, lax
