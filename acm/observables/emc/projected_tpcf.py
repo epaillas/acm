@@ -3,6 +3,8 @@ import numpy as np
 import glob
 from pathlib import Path
 from .base import BaseObservableEMC
+import matplotlib.pyplot as plt
+from pycorr import TwoPointCorrelationFunction
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
@@ -42,7 +44,6 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
-        from pycorr import TwoPointCorrelationFunction
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
         data_fns = list(base_dir.glob('tpcf_rppi_ph*.npy')) # NOTE: File name format hardcoded !
@@ -110,7 +111,6 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        from pycorr import TwoPointCorrelationFunction
         base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
         
         y = []
@@ -178,10 +178,6 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         np.ndarray
             Correction factor for the fixed phase predictions.
         """
-        from pathlib import Path
-        import numpy as np
-        from pycorr import TwoPointCorrelationFunction
-        
         base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
         # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
         
@@ -240,7 +236,6 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         show : bool
             If True, display the plot. Default is False.
         """
-        import matplotlib.pyplot as plt
 
         height_ratios = [3, 1]
         figsize = (6, 1.5 * sum(height_ratios))

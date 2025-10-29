@@ -4,8 +4,10 @@ import xarray
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import matplotlib.pyplot as plt
 from acm.observables import Observable
 from acm.utils import get_data_dirs
+from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
@@ -241,7 +243,6 @@ class BaseObservableEMC(Observable):
         xarray.DataArray
             Compressed x values.
         """
-        from acm.utils.abacus import load_abacus_cosmologies
         data_dir = self.paths['param_dir']
 
         filename = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
@@ -340,7 +341,6 @@ class BaseObservableEMC(Observable):
         show : bool, optional
             If True, show the plot. Default is False.
         """
-        import matplotlib.pyplot as plt
 
         residuals = self.emulator_covariance_y
         data_cov = self.get_covariance_matrix(volume_factor=64)
