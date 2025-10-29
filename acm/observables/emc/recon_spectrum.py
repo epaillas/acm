@@ -161,7 +161,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
                 poles = [data.get(ell) for ell in (0, 2, 4)]
                 k = poles[0].coords('k')
                 y.append(np.concatenate(poles))
-                hod_idx = int(str(filename).split('hod')[1].split('.')[0])
+                hod_idx = int(filename.stem.split('hod')[-1])
                 hods[cosmo_idx].append(hod_idx)
             self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
@@ -291,7 +291,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
         for i, ell in enumerate(ells):
             lax[-1].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]', fontsize=15)
-            lax[0].set_ylabel(r'$k P_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
+            lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
             k = self.k

@@ -13,7 +13,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='bispectrum', n_test=6*9, **kwargs)
+        super().__init__(stat_name='bispectrum', n_test=6*30, **kwargs)
         self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
         self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
@@ -22,7 +22,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v1.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v2.ckpt'
     
     def compress_covariance(
         self,
@@ -66,7 +66,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
             poles = [data.get(ell) for ell in ells]
             k = poles[0].coords('k')
-            weights = k.prod(axis=1)
+            weights = k.prod(axis=1) / 1e5
             y.append(np.concatenate([weights * pole for pole in poles]))
         y = np.array(y)
         bin_idx = np.arange(len(k))
@@ -155,9 +155,9 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
                 poles = [data.get(ell) for ell in (0, 2)]
                 k = poles[0].coords('k')
-                weights = k.prod(axis=1)
+                weights = k.prod(axis=1) / 1e5
                 y.append(np.concatenate([weights * pole for pole in poles]))
-                hod_idx = int(str(filename).split('hod')[1].split('.')[0])
+                hod_idx = int(filename.stem.split('hod')[-1])
                 hods[cosmo_idx].append(hod_idx)
             self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
@@ -348,7 +348,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             for res in residuals:
                 ax[i].plot(bin_idx, res/data_err, alpha=0.1, lw=0.5, color=f'C{i}')
 
-            ax[2].plot(bin_idx, np.mean(np.abs(residuals), axis=0) / data_err,
+            ax[2].plot(bin_idx, np.median(np.abs(residuals), axis=0) / data_err,
                        lw=1.0, color=f'C{i}', label=rf'$\ell={ell}$')
             ax[i].set_ylabel(rf'$\Delta B_{{{ell}}}/\sigma_{{\mathrm{{data}}}}$')
             ax[i].text(0.98, 0.75, rf'$\ell={ell}$', transform=ax[i].transAxes,
