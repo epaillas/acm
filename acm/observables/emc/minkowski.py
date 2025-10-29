@@ -3,6 +3,7 @@ import numpy as np
 import glob
 from pathlib import Path
 from .base import BaseObservableEMC
+import matplotlib.pyplot as plt
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 
@@ -197,10 +198,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
         np.ndarray
             Correction factor for the fixed phase predictions.
         """
-        from pathlib import Path
-        import numpy as np
-        from pycorr import TwoPointCorrelationFunction
-        
         base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
         # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
         
@@ -261,7 +258,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
         matplotlib.figure.Figure
             The generated plot figure.
         """
-        import matplotlib.pyplot as plt
         plt.rcParams.update({
             "text.usetex": True,
             "font.family": "serif",
