@@ -124,7 +124,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
                 data = TwoPointCorrelationFunction.load(filename)
                 r_p, w_p = data(pimax=None, return_sep=True)
                 y.append(w_p)
-                hod_idx = int(str(filename).split('hod')[1].split('.')[0])
+                hod_idx = int(filename.stem.split('hod')[-1])
                 hods[cosmo_idx].append(hod_idx)
             self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
