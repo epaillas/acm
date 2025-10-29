@@ -3,6 +3,8 @@ import numpy as np
 import glob
 from pathlib import Path
 from .base import BaseObservableEMC
+import matplotlib.pyplot as plt
+from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
@@ -60,7 +62,6 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
-        from jaxpower import read
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
         data_fns = list(base_dir.glob('mesh2_recon_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
@@ -145,7 +146,6 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        from jaxpower import read
         base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
         
         y = []
@@ -216,10 +216,6 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         np.ndarray
             Correction factor for the fixed phase predictions.
         """
-        from pathlib import Path
-        import numpy as np
-        from pycorr import TwoPointCorrelationFunction
-        
         base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
         # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
         
@@ -265,7 +261,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         return (1 + prediction) * (1 + self.phase_correction) - 1
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str = None, show: bool = False):
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -277,8 +273,12 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Filename to save the plot. If None, the plot is not saved.
         show : bool
             If True, display the plot. Default is False.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
-        import matplotlib.pyplot as plt
 
         ells = self._dataset.y.coords['multipoles'].values.tolist()
 
@@ -318,6 +318,4 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
-        if show:
-            plt.show()
-        plt.close() 
+        return fig, lax

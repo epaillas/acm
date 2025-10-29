@@ -314,32 +314,73 @@ class BaseObservableEMC(Observable):
             np.save(save_fn, dataset_to_dict(emulator_error_dataset))
         return emulator_error_dataset
 
-    @abstractmethod
     @set_plot_style
-    def plot_observable(self, save_fn: str, show: bool = False):
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
-        Plot the observable.
-        
+        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
+
         Parameters
         ----------
+        model_params : dict
+            Dictionary of model parameters to use for the prediction.
         save_fn : str
-            Path of the file where to save the plot.
-        show : bool, optional
-            If True, show the plot. Default is False.
+            Filename to save the plot. If None, the plot is not saved.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
-        raise NotImplementedError("Subclasses must implement plot_observable method.")
+
+        height_ratios = [3, 1]
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
+            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        show_legend = False
+
+        lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
+        lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
+
+        data = self.y[0]
+        bin_idx = np.arange(len(data))
+        model = self.get_model_prediction(model_params)[0]
+        cov = self.get_covariance_matrix(volume_factor=64)
+        error = np.sqrt(np.diag(cov))
+
+        lax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', 
+            color=f'C0', elinewidth=1.0, capsize=None)
+        lax[0].plot(bin_idx, model, ls='-', color=f'C0')
+        lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
+
+        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
+        lax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+        lax[1].set_ylim(-4, 4)
+
+        for ax in lax:
+            ax.grid(True)
+            ax.tick_params(axis='both', labelsize=14)
+        if show_legend: lax[0].legend(fontsize=15)
+
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, lax
 
     @set_plot_style
-    def plot_emulator_residuals(self, save_fn: str, show: bool = False):
+    def plot_emulator_residuals(self, save_fn: str = None):
         """
         Plot the emulator residuals.
         
         Parameters
         ----------
         save_fn : str
-            Path of the file where to save the plot.
-        show : bool, optional
-            If True, show the plot. Default is False.
+            Filename to save the plot. If None, the plot is not saved.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
 
         residuals = self.emulator_covariance_y
@@ -363,6 +404,5 @@ class BaseObservableEMC(Observable):
         plt.tight_layout()
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
-        if show:
-            plt.show()
-        plt.close()
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax

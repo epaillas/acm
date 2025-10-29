@@ -223,7 +223,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         return (1 + prediction) * (1 + self.phase_correction) - 1
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str = None, show: bool = False):
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -233,8 +233,11 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
             Dictionary of model parameters to use for the prediction.
         save_fn : str
             Filename to save the plot. If None, the plot is not saved.
-        show : bool
-            If True, display the plot. Default is False.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
 
         height_ratios = [3, 1]
@@ -270,5 +273,4 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
-        if show:
-            plt.show()
+        return fig, lax
