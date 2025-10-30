@@ -1,5 +1,6 @@
 import acm.observables.emc as emc
 from acm import setup_logging
+import argparse
 
 
 def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
@@ -35,15 +36,13 @@ def plot_emulator_residuals(observable_name):
 
 if __name__ == "__main__":
 
-    setup_logging()
+    parser = argparse.ArgumentParser(description='Compress EMC measurement files.')
+    parser.add_argument('--stats', nargs='+', default=['GalaxyPowerSpectrumMultipoles'],
+                        help='List of statistics to compress.')
+    args = parser.parse_args()
+    todo_stats = args.stats
 
-    todo_stats = [
-        'ProjectedGalaxyCorrelationFunction',
-        'GalaxyPowerSpectrumMultipoles',
-        'GalaxyBispectrumMultipoles',
-        'ReconstructedGalaxyPowerSpectrumMultipoles',
-        'MinkowskiFunctionals',
-    ]
+    setup_logging()
 
     for stat in todo_stats:
         plot_model(stat)
