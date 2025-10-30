@@ -5,14 +5,13 @@ from sunbird.data import ArrayDataModule
 from sunbird.data.data_utils import convert_to_summary
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
 import torch
-import acm.observables.emc as emc
+from acm.observables import Observable
+import argparse
 
 torch.set_float32_matmul_precision('high')
 
 def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, 
     model_dir=None):
-    final_model = False
-    apply_transform = True
     select_filters = {}
     slice_filters = {}
 
@@ -33,15 +32,18 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     # covariance_matrix = observable.get_covariance_matrix(divide_factor=64)
     # print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
-    if apply_transform:
-        # transform = ArcsinhTransform()
-        transform = LogTransform()
+    if args.apply_transform:
+        if args.transform == 'log':
+            transform = LogTransform()
+        elif args.transform == 'arcsinh':
+            transform = ArcsinhTransform()
+        else:
+            raise ValueError(f'Unknown transform: {args.transform}')
         lhc_y = transform.transform(lhc_y)
     else:
         transform = None
         
     ntot = len(lhc_y)
-
     idx_train = list(range(nhod * 6, ntot))
 
     print(f'Using {len(idx_train)} samples for training')
@@ -101,15 +103,18 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     return val_loss
 
 if __name__ == '__main__':
-    from acm.observables import Observable
+
+    parser = argparse.ArgumentParser(description='Train FCN for EMC observables.')
+    parser.add_argument('--apply_transform', action='store_true', help='Apply log transform to outputs.')
+    parser.add_argument('--transform', type=str, default='log', help='Transform to apply to outputs.')
+    parser.add_argument('--stat', type=str, default='bispectrum', help='Statistic to train on.')
+    args = parser.parse_args()
 
     paths = {
-    'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/', # Loads x, y can also contain covariance_y
-    # 'model_dir': None, # Path of the model
-    # 'checkpoint_name': None, # Name of the checkpoint to load in model_dir
-}
+        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/', # Loads x, y can also contain covariance_y
+    }
 
-    observable = Observable(stat_name='projected_tpcf', paths=paths, numpy_output=True)
+    observable = Observable(stat_name=args.stat, paths=paths, numpy_output=True)
 
     model_dir = f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{observable}/'
     TrainFCN(
