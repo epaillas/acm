@@ -361,6 +361,25 @@ class Observable():
         if checkpoint_fn is None:
             checkpoint_fn = self.checkpoint_fn
         
+        # Register safe globals for transform classes to allow loading checkpoints
+        # with PyTorch 2.6+ (which changed weights_only default to True)
+        try:
+            # Import all potential transform classes that might be in saved models
+            from sunbird.data.transforms_array import LogTransform, WeiLiuInputTransform, WeiLiuOutputTransForm
+            from sunbird.data.transforms import Log
+            
+            # Add them as safe globals for unpickling
+            torch.serialization.add_safe_globals([
+                LogTransform,
+                WeiLiuInputTransform, 
+                WeiLiuOutputTransForm,
+                Log,
+            ])
+        except (ImportError, AttributeError) as e:
+            # If sunbird doesn't have these classes or torch doesn't have add_safe_globals,
+            # log a warning but continue (older versions may not need this)
+            self.logger.warning(f"Could not register safe globals for transforms: {e}")
+        
         # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
