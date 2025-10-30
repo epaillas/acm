@@ -1,19 +1,19 @@
 import xarray
 import numpy as np
+import glob
 from pathlib import Path
-from pycorr import TwoPointCorrelationFunction
 from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 
-class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
+class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='tpcf', **kwargs)
-        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
+        super().__init__(stat_name='spectrum', **kwargs)
+        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
         self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
@@ -21,9 +21,17 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return '/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
+        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/spectrum/last-v1.ckpt'
     
-    def compress_covariance(self, save_to: str = None, rebin: int = 4, ells: list = [0, 2, 4], overwrite_s: np.ndarray = None) -> xarray.DataArray:
+    def compress_covariance(
+        self,
+        save_to: str = None,
+        kmin: float = 0.0126,
+        kmax: float = 0.7, 
+        rebin: int = 13,
+        ells: list = [0, 2, 4],
+        overwrite_k: np.ndarray = None
+    ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
         
@@ -32,11 +40,15 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         save_to : str
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
+        kmin : float
+            Minimum k value to consider. Default is 0.01.
+        kmax : float
+            Maximum k value to consider. Default is 0.7.
         rebin : int
             Rebinning factor for the statistics. Default is 4.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2, 4].
-        overwrite_s : np.ndarray
+        overwrite_k : np.ndarray
             If not None, overwrite the final separation values with this array. 
             This is primarily useful to ensure consistency between the covariance and the data dims.
             Default is None.
@@ -46,18 +58,20 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
+        from jaxpower import read
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
-        # base_dir = Path(f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/') # Old FIXME : remove it later
-        data_fns = list(base_dir.glob('tpcf_ph*_hod466.npy')) # NOTE: File name format hardcoded !
+        data_fns = list(base_dir.glob('mesh2_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
         
         y = []
         for data_fn in data_fns:
-            data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-            s, multipoles = data(ells=ells, return_sep=True) 
-            y.append(np.concatenate(multipoles))
+            data = read(data_fn)
+            data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
+            poles = [data.get(ell) for ell in (0, 2, 4)]
+            k = poles[0].coords('k')
+            y.append(np.concatenate(poles))
         y = np.array(y)
-        s = overwrite_s if overwrite_s is not None else s
+        k = overwrite_k if overwrite_k is not None else k
         
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
@@ -66,11 +80,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             coords = {
                 "phase_idx": list(range(y.shape[0])),
                 "multipoles": ells,
-                "s": s,
+                "k": k,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "s"],
+                "features": ["multipoles", "k"],
             },
             name = "covariance_y",
         )
@@ -80,15 +94,17 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
-    
+
     def compress_data(
         self, 
         add_covariance: bool = False,
         save_to: str = None,
-        rebin: int = 4, 
+        kmin: float = 0.0126,
+        kmax: float = 0.7, 
+        rebin: int = 13,
         ells: list = [0, 2, 4],
         cosmos: list = cosmo_list,
-        n_hod: int = 100,
+        n_hod: int = 500,
         phase_idx: int = 0,
         seed_idx: int = 0,
     ) -> dict:
@@ -102,6 +118,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         save_to : str
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
+        kmin : float
+            Minimum k value to consider. Default is 0.01.
+        kmax : float
+            Maximum k value to consider. Default is 0.7.
         rebin : int
             Rebinning factor for the statistics. Default is 4.
         ells : list
@@ -122,17 +142,25 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
-        # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
+        from jaxpower import read
+        base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
         
         y = []
+        hods = {}
         for cosmo_idx in cosmos:
-            data_dir = base_dir + f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx:01}/'
-            for hod_idx in range(n_hod):
-                data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy" # NOTE: File name format hardcoded !
-                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-                s, multipoles = data(ells=ells, return_sep=True) 
-                y.append(np.concatenate(multipoles))
+            hods[cosmo_idx] = []
+            self.logger.info(f'Compressing c{cosmo_idx:03}')
+            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
+            filenames = sorted(base_dir.glob(handle))[:n_hod]
+            for filename in filenames:
+                data = read(filename)
+                data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
+                poles = [data.get(ell) for ell in (0, 2, 4)]
+                k = poles[0].coords('k')
+                y.append(np.concatenate(poles))
+                hod_idx = int(str(filename).split('hod')[1].split('.')[0])
+                hods[cosmo_idx].append(hod_idx)
+            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
@@ -140,15 +168,15 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
                 'multipoles': ells,
-                's': s,
+                'k': k,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 's'],
+                'features': ['multipoles', 'k'],
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
+        x = self.compress_x(hods=hods, cosmos=cosmos)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
@@ -159,7 +187,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s)
+            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_k=k)
             cout = xarray.merge([cout, cov_y])
         
         if save_to is not None:
@@ -232,3 +260,66 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Corrected predictions.
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
+
+    def plot(self, model_params: dict, save_fn: str = None):
+        """
+        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters to use for the prediction.
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated plot figure.
+        """
+        import matplotlib.pyplot as plt
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+        })
+
+        ells = self._dataset.y.coords['multipoles'].values.tolist()
+
+        height_ratios = [max(len(ells), 3)] + [1] * len(ells)
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
+            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        show_legend = True
+
+        for i, ell in enumerate(ells):
+            lax[-1].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]', fontsize=15)
+            lax[0].set_ylabel(r'$k P_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
+
+            self.select_filters.update({'multipoles': ell})
+            k = self.k
+            data = self.y[0]
+            model = self.get_model_prediction(model_params)[0]
+            cov = self.get_covariance_matrix(volume_factor=64)
+            error = np.sqrt(np.diag(cov))
+            print(np.shape(k), np.shape(data), np.shape(model), np.shape(error))
+
+            lax[0].errorbar(k, k * data, k * error, marker='o', ms=4, ls='', 
+                color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
+            lax[0].plot(k, k * model, ls='-', color=f'C{i}')
+            lax[i + 1].plot(k, (data - model) / error, ls='-', color=f'C{i}')
+
+            for offset in [-2, 2]: lax[i + 1].axhline(offset, color='k', ls='--')
+            lax[i + 1].set_ylabel(rf'$\Delta P_{{{ell:d}}} / \sigma_{{ P_{{{ell:d}}} }}$', fontsize=15)
+            lax[i + 1].set_ylim(-4, 4)
+
+        for ax in lax:
+            ax.grid(True)
+            ax.tick_params(axis='both', labelsize=14)
+        if show_legend: lax[0].legend(fontsize=15)
+
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig

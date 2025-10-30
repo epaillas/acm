@@ -1,6 +1,8 @@
 import numpy as np
 from pathlib import Path
-from .observable import Observable
+from .base import Observable
+import logging
+
 
 class CombinedModel():
     """
@@ -46,10 +48,15 @@ class CombinedObservable():
         observables : list[Observable]
             List of observables to be combined, initialized with their respective filters.
         """
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.observables = observables
         self.slice_filters = [obs.slice_filters for obs in self.observables]
         self.select_filters = [obs.select_filters for obs in self.observables]
         
+        is_reshaped = [obs.flat_output_dims == 2 for obs in self.observables]
+        if not all(is_reshaped):
+            self.logger.warning("Not all observables have flat_output_dims=2. Some outputs might not be properly reshaped, which might cause concatenation issues.")
+
     def __str__(self):
         """
         Returns a string representation of the object (statistic names and slice filters).
@@ -116,17 +123,32 @@ class CombinedObservable():
         else:
             raise TypeError(f"Cannot add {type(other)} to CombinedObservable.")
         
+    
+    def __getattr__(self, name):
+        """
+        Allows to access the observables by their statistic name as an attribute,
+        or the concatenated output of their attributes.
+        """
+        if name in self.stat_name:
+            idx = self.stat_name.index(name)
+            return self.observables[idx]
+        else:
+            try:
+                return np.concatenate([getattr(obs, name) for obs in self.observables], axis=-1)
+            except AttributeError:
+                raise AttributeError(f"'CombinedObservable' object has no attribute '{name}'")
+            
         
 
     @property
-    def stat_name(self):
+    def stat_name(self) -> list:
         """
         Name of the statistic.
         """
         return [obs.stat_name for obs in self.observables]
 
     @property
-    def x(self):
+    def x(self) -> np.ndarray:
         """
         Input features (samples).
 
@@ -136,7 +158,7 @@ class CombinedObservable():
         return [obs.x for obs in self.observables][0]
 
     @property
-    def x_names(self):
+    def x_names(self) -> list:
         """
         Names of the input features.
 
@@ -144,50 +166,6 @@ class CombinedObservable():
         return the first from the list.
         """
         return [obs.x_names for obs in self.observables][0]
-
-    @property
-    def y(self):
-        """
-        Output features (y coordinate of the data), concatenated along the last axis for all observables.
-        """
-        return np.concatenate([obs.y for obs in self.observables], axis=-1)
-    
-    @property
-    def unfiltered_bin_values(self):
-        """
-        Unfiltered bin values for the statistics. (e.g. separation bins for the correlation function), 
-        concatenated along the last axis for all observables.
-        """
-        return np.concatenate([obs.unfiltered_bin_values for obs in self.observables], axis=-1)
-    
-    @property
-    def bin_values(self):
-        """
-        Bin values for the statistics. (e.g. separation bins for the correlation function), 
-        concatenated along the last axis for all observables.
-        """
-        return np.concatenate([obs.bin_values for obs in self.observables], axis=-1)
-
-    @property
-    def covariance_y(self):
-        """
-        Features from small AbacusSummit box for covariance estimation.
-        """
-        return np.concatenate([obs.covariance_y for obs in self.observables], axis=-1)
-
-    def get_covariance_matrix(
-        self,
-        volume_factor: float = 64, 
-        prefactor: float = 1):
-        """
-        Covariance matrix for the statistic. 
-        The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
-        """   
-        cov_y = self.covariance_y
-        prefactor = prefactor / volume_factor
-        
-        cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
-        return cov
     
     @property
     def model(self):
@@ -214,21 +192,22 @@ class CombinedObservable():
         """
         return np.concatenate([obs.get_model_prediction(x) for obs in self.observables], axis=-1)
 
-    @property
-    def emulator_error(self):
+    def get_covariance_matrix(
+        self,
+        volume_factor: float = 64, 
+        prefactor: float = 1,
+    ) -> np.ndarray:
         """
-        Emulator error of the combination of observables.
-        """
-        return np.concatenate([obs.emulator_error for obs in self.observables], axis=-1)
-    
-    @property
-    def emulator_covariance_y(self):
-        """
-        Emulator covariance of the combination of observables.
-        """
-        return np.concatenate([obs.emulator_covariance_y for obs in self.observables], axis=-1)
-    
-    def get_emulator_covariance_matrix(self, prefactor: float = 1):
+        Covariance matrix for the statistic. 
+        The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
+        """   
+        cov_y = self.covariance_y
+        prefactor = prefactor / volume_factor
+        
+        cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        return cov
+
+    def get_emulator_covariance_matrix(self, prefactor: float = 1) -> np.ndarray:
         """
         Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
         """
@@ -238,7 +217,7 @@ class CombinedObservable():
         cov = prefactor * np.cov(cov_y, rowvar=False)
         return cov
     
-    def get_save_handle(self, save_dir: str|Path = None):
+    def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
         Creates a handle that combines the handles of the observables,
         separated by a '+'. They contain the statistic name and the filters used.
