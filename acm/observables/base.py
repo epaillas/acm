@@ -361,11 +361,39 @@ class Observable():
         if checkpoint_fn is None:
             checkpoint_fn = self.checkpoint_fn
         
+        # Register safe globals for transform classes to allow loading checkpoints
+        # with PyTorch 2.6+ (which changed weights_only default to True)
+        safe_classes = []
+        transforms_array_imported = False
+        
+        # Try to import transform classes from sunbird.data.transforms_array
+        try:
+            from sunbird.data.transforms_array import (
+                LogTransform,
+                ArcsinhTransform,
+            )
+            safe_classes.extend([LogTransform, ArcsinhTransform])
+            transforms_array_imported = True
+        except ImportError:
+            pass
+        
+        # Register the classes as safe globals if torch.serialization.add_safe_globals exists
+        if safe_classes:
+            try:
+                torch.serialization.add_safe_globals(safe_classes)
+            except AttributeError:
+                # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
+                self.logger.debug("torch.serialization.add_safe_globals not available, skipping safe globals registration")
+        
         # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
+        
+        # Set transforms for minkowski models
         if self.stat_name.startswith('minkowski'):
-            from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
+            if not transforms_array_imported:
+                # Import if not already done (e.g., if initial import failed)
+                from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
             model.transform_output = WeiLiuOutputTransForm()
             model.transform_input = WeiLiuInputTransform()
         return model
