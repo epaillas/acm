@@ -369,19 +369,11 @@ class Observable():
         # Try to import transform classes from sunbird.data.transforms_array
         try:
             from sunbird.data.transforms_array import (
-                LogTransform, 
-                WeiLiuInputTransform, 
-                WeiLiuOutputTransForm  # Note: This is the correct spelling from sunbird
+                LogTransform,
+                ArcsinhTransform,
             )
-            safe_classes.extend([LogTransform, WeiLiuInputTransform, WeiLiuOutputTransForm])
+            safe_classes.extend([LogTransform, ArcsinhTransform])
             transforms_array_imported = True
-        except ImportError:
-            pass
-        
-        # Try to import transform classes from sunbird.data.transforms
-        try:
-            from sunbird.data.transforms import Log
-            safe_classes.append(Log)
         except ImportError:
             pass
         
