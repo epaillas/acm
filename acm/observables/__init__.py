@@ -1,5 +1,2 @@
-from .observable import Observable
-from .data import BaseDataObservable
-from .model import BaseModelObservable
-
+from .base import Observable
 from .combined import CombinedObservable

@@ -5,35 +5,28 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import to_hex
 
 from sunbird.inference import BaseSampler
-from acm.observables import BaseObservable, CombinedObservable
+from acm.observables import Observable, CombinedObservable
 from acm.utils.tools import correlation_from_covariance
 
 import logging
 
-class ControlPlots(BaseSampler):
+class ObservablePlots():
     """
-    A class to generale control plots for inference chains from sunbird.BaseSampler.
+    A class to generate control plots for observables from acm.Observable.
     """
     def __init__(self):
-        self.logger = logging.getLogger('ControlPlots')
-        
-        # Chains
-        self.chains = []
-        self.samplers = [] # Not used yet
-        self.index_chain_dict = {}
-        
+        self.logger = logging.getLogger('ObservablePlots')
         # Observables
         self.observables = []
         self.index_observable_dict = {}
     
-    #%% Model control plots
-    def load_observable(self, observable: BaseObservable, label:str = None):
+    def load_observable(self, observable: Observable, label:str = None):
         """
         Load an observable into the control plots.
         
         Parameters
         ----------
-        observable : BaseObservable
+        observable : Observable
             The observable to be loaded.
         label : str, optional
             A label to identify the observable. If not provided, the observable's
@@ -42,7 +35,7 @@ class ControlPlots(BaseSampler):
             
         Returns
         -------
-        BaseObservable
+        Observable
             The loaded observable.
             
         Raises
@@ -338,7 +331,20 @@ class ControlPlots(BaseSampler):
         cb.ax.xaxis.set_ticks_position('top')
         
         return fig, ax
+
+
+class SamplePlots(BaseSampler):
+    """
+    A class to generate control plots for inference chains from sunbird.BaseSampler.
+    """
+    def __init__(self):
+        self.logger = logging.getLogger('ControlPlots')
         
+        # Chains
+        self.chains = []
+        self.samplers = [] # Not used yet
+        self.index_chain_dict = {}
+    
     #%% Inference control plots
     def load_chain(self, chain_fn: str, label: str = None, ignore_checks: bool = False):
         """

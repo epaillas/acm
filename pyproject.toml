@@ -24,6 +24,7 @@ dependencies = [ # Base requirements
     "numpy",
     "scipy",
     "pandas", 
+    "xarray", 
     "pyyaml",
     "matplotlib",
     "getdist",
@@ -38,9 +39,11 @@ nersc = [
 ]
 cosmodesi = [
     # Estimators (base)
+    'jax',
     'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
     'pypower @ git+https://github.com/cosmodesi/pypower', 
     'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
+    'jaxpower @ git+https://github.com/adematti/jax-power.git',
 
     # HOD
     'astropy',
@@ -52,6 +55,16 @@ docs = [
     "sphinx >= 4.2",
     "sphinx-book-theme >= 0.3",
     "myst_nb >= 0.17.1",
+]
+testing = [
+    "pytest",
+    "pytest-cov",
+    "pytest-docstyle",
+    "pytest-emoji",
+    "flake8",
+    "black",
+    "isort",
+    "mypy",
 ]
 # Estimators
 knn = [
@@ -67,15 +80,7 @@ minkowski = [
 ]
 # Model & inference
 sunbird = [ 
-    'sunbird @ git+https://github.com/florpi/sunbird',
-    # Just in case some dependencies are not installed 
-    # (TODO : remove when sunbird also handles its dependencies)
-    "xarray", 
-    "pytorch",
-    "optuna",
-    "joblib",
-    "emcee",
-    "pocomc",
+    'sunbird[inferences] @ git+https://github.com/florpi/sunbird',
 ]
 
 
@@ -85,3 +90,15 @@ Repository = "https://github.com/epaillas/acm.git"
 
 [tool.setuptools.packages.find]
 namespaces = false
+
+[tool.setuptools.package-data]
+acm = [
+    "*.yml",
+    "*.yaml",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning::",  # ignore deprecations from all modules
+    "default::DeprecationWarning:mymodule.*:",  # except from mymodule
+]

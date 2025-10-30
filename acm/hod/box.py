@@ -3,7 +3,7 @@ from pathlib import Path
 import yaml
 import numpy as np
 from abacusnbody.hod import abacus_hod
-from cosmoprimo.fiducial import AbacusSummit
+from cosmoprimo.fiducial import DESI, AbacusSummit
 import mockfactory
 from astropy.io import fits
 from astropy.table import Table
@@ -24,8 +24,11 @@ class BoxHOD:
     Note
     ----
     Only the 'LRG' tracers are currently supported.
-    Note that BGS is also supported, by using `tracer='LRG'` and BGS characteristics (mean density, redhsift, etc.)
+    Note that BGS is also supported, by using `tracer='LRG'` and BGS characteristics (mean density, redshift, etc.)
     """
+    
+    logger = logging.getLogger('AbacusHOD') # Set up logger for the class as a class attribute
+    
     def __init__(
         self,
         varied_params, 
@@ -98,12 +101,15 @@ class BoxHOD:
         HOD_params = config['HOD_params']
         self.ball = abacus_hod.AbacusHOD(sim_params, HOD_params)
         self.ball.params['Lbox'] = self.boxsize
+        self.cosmo_fid = DESI()
         if self.cosmo_idx in [300, 301, 302, 303]:
             self.cosmo = AbacusSummit(0)
         else:
             self.cosmo = AbacusSummit(self.cosmo_idx)
         self.az = 1 / (1 + self.redshift)
         self.hubble = 100 * self.cosmo.efunc(self.redshift)
+        self.q_par = 100 * self.cosmo_fid.efunc(self.redshift) / self.hubble
+        self.q_perp = self.cosmo.angular_diameter_distance(self.redshift) / self.cosmo_fid.angular_diameter_distance(self.redshift)
         self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
 
     def abacus_simdirs(self, DM_DICT: dict):
@@ -167,11 +173,11 @@ class BoxHOD:
         hod_params: dict, 
         nthreads: int = 1, 
         tracer: str = 'LRG', 
-        tracer_density_mean: float = None,
+        tracer_density: list = None,
+        process_underdense: bool = True,
         seed = None, 
-        save_fn: str = None, 
-        add_rsd: bool = False,
-
+        save_fn: str|Path = None, 
+        add_ap: bool = False,
         )-> dict:
         """
         Run the HOD model with the given parameters.
@@ -184,20 +190,24 @@ class BoxHOD:
             Number of threads to use. Default is 1.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
-        tracer_density_mean : float, optional
-            To force the mean density of the tracers. Will downsample the catalog to the desired density if needed.
-            Default is None.
+        tracer_density : list, optional
+            List containing (min_nbar, max_nbar) for downsampling catalogue to desired density (nbar > max_nbar) or cutting from sample (nbar < min_nbar). If only one value provided, this is taken as the maximum threshold (no minimum threshold applied). Default is None (no thresholds applied).
+        process_underdense: bool, optional
+            If set to False, does not process (and save) catalogs that are not in tracer_density limits (only used if tracer_density is provided). Defaults to True.
         seed : int, optional
             Random seed. Default is None.
-        save_fn : str, optional
-            Filename to save the catalog. Default is None.
-        add_rsd : bool, optional
-            Wether to add redshift-space distortions to the catalog or not. Default is False.
+        save_fn : str|Path, optional
+            Filename to save the catalog. Creates parent tree if it does not exist. Default is None.
+        add_ap: bool, optional
+            Whether to take Alcock-Paczynski distortions into account when computing the number density. 
+            To use if you plan to apply AP distortions to the catalog later on. 
+            Default is False.
 
         Returns
         -------
         dict
-            Dictionary containing the HOD catalog.
+            Dictionary containing the HOD catalog. Galaxy positions ('X','Y','Z') and velocities ('VX','VY','VZ') are in real-space.
+            To get positions with RSD and/or AP distortions, use the `get_positions` class method.
 
         Raises
         ------
@@ -206,6 +216,7 @@ class BoxHOD:
         ValueError
             If the HOD parameters do not match the varied parameters.
         """
+        self.add_ap = add_ap # flag to indicate if AP distortions were applied to number density
         if seed == 0: seed = None
         if tracer not in ['LRG']:
             raise ValueError('Only LRGs are currently supported.')
@@ -218,59 +229,100 @@ class BoxHOD:
             else:
                 self.ball.tracers[tracer][key] = hod_params[key]
         self.ball.tracers[tracer]['ic'] = 1
-        ngal_dict = self.ball.compute_ngal(Nthread=nthreads)[0]
-        n_tracers= ngal_dict[tracer]
-        if tracer_density_mean is not None:
-            self.ball.tracers[tracer]['ic'] = min(
-                1, tracer_density_mean * self.boxsize ** 3 / n_tracers
-            )
-        hod_dict = self.ball.run_hod(self.ball.tracers, self.ball.want_rsd, Nthread=nthreads, reseed=seed)
-        hod_dict = self.format_catalog(hod_dict, tracer, add_rsd)
+        self.in_density = True  # Flag if mock is within density threshold
+        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed)
+        # workaround for compute_ngal issue with high sigma values
+        n_gal = len(hod_dict[tracer]['x'])
+        subsample = None
+        if tracer_density is not None:
+            n_target = np.array(tracer_density) * self.boxsize ** 3
+            if self.add_ap: n_target /= self.q_par * self.q_perp**2
+            if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
+                self.logger.info('Catalogue below minimum density threshold')
+                self.in_density = False  # Flag that mock is below density threshold
+                if not process_underdense:
+                    return hod_dict  # Unprocessed catalog, should not be used
+            elif (n_target.max() / n_gal) < 1:
+                self.logger.info('Downsampling mock')
+                subsample = np.random.choice(range(n_gal), size=int(n_target.max()), replace=False)
+            else:
+                self.logger.info('Mock within density thresholds')
+
+        # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
+        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample)
+        if save_fn is not None:
+            self.save_catalog(save_fn, hod_dict, tracer)
         return hod_dict
 
-    def format_catalog(
+    def postprocess_catalog(
         self, 
         hod_dict: dict, 
         tracer: str = 'LRG', 
-        add_rsd: bool = False):
+        subsample: list = None,
+        ):
         """
-        Format the HOD catalog and save it to a FITS file if requested.
+        Add distortion effects and format the HOD catalog.
 
         Parameters
         ----------
         hod_dict : dict
             Dictionary containing the HOD catalog.
-        save_fn : str, optional
-            Filename to save the catalog. Default is False.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
-        add_rsd : bool, optional
-            Wether to add redshift-space distortions to the catalog or not. Default is False.
+        subsample: list, optional
+            List of indices used to subsample the catalogue.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the HOD catalog.
         """
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
         is_central = np.zeros(len(hod_dict[tracer]['x']))
         is_central[:Ncent] += 1
         hod_dict[tracer]['is_cent'] = is_central
-        # hod_dict[tracer]['nden'] = len(hod_dict[tracer]['x']) / self.boxsize**3
-        hod_dict[tracer] = {k.upper():v  for k, v in hod_dict[tracer].items()}
-        if add_rsd:
-            hod_dict = self._add_rsd(hod_dict, tracer)
+
+        # workaround for compute_ngal issue
+        if subsample is None:
+            hod_dict[tracer] = {k.upper():v  for k, v in hod_dict[tracer].items()}
+        else:
+            hod_dict[tracer] = {k.upper():v[subsample]  for k, v in hod_dict[tracer].items()}
+
         return hod_dict
 
-    def save_catalog(self, hod_dict: dict, save_fn: str):
+    def save_catalog(
+        self, 
+        save_fn: str|Path,
+        hod_dict: dict, 
+        tracer: str = 'LRG', 
+        ):
         """
         Save the HOD catalog to a FITS file.
 
         Parameters
         ----------
+        save_fn : str|Path
+            Filename to save the catalog. If parent tree directories do not exist, they will be created.
         hod_dict : dict
             Dictionary containing the HOD catalog.
-        save_fn : str
-            Filename to save the catalog.
+        tracer : str, optional
+            Tracer type. Default is 'LRG'.
         """
-        table = Table(hod_dict['LRG'])
-        header = fits.Header({'gal_type': 'LRG', **self.ball.tracers['LRG']})
+        # Ensure parent directories exist
+        save_fn = Path(save_fn)
+        save_fn.parent.mkdir(parents=True, exist_ok=True)
+        
+        table = Table(hod_dict[tracer])
+        header = fits.Header({
+            'gal_type': tracer, 
+            'hubble': self.hubble, 
+            'az': self.az,
+            'boxsize': self.boxsize,
+            'q_par': self.q_par, 
+            'q_perp': self.q_perp, 
+            **self.ball.tracers[tracer],
+        })
         myfits = fits.BinTableHDU(data=table, header=header)
         myfits.writeto(save_fn, overwrite=True)
         self.logger.info(f'Saving {save_fn}.')
@@ -313,38 +365,184 @@ class BoxHOD:
                         raise ValueError('Invalid type for hod_params. Must be either dict or list.')
                     
         return hod_params
+    
+    @classmethod
+    def get_boxsize(cls, boxsize: float|list, add_ap: bool = False, los: str = None, q_par: float = None, q_perp: float = None) -> float|list:
+        """
+        Get the box size, taking into account Alcock-Paczynski distortions if specified.
 
-    def _add_rsd(
-        self, 
+        Parameters
+        ----------
+        boxsize : float|list
+            Original box size (as a float or a list of three floats for each axis).
+        add_ap : bool, optional
+            Whether to add Alcock-Paczynski distortions to the box size or not. Default is False.
+        los : str, optional
+            Line-of-sight for AP distortions. If None, no distortions are applied.
+        q_par : float, optional
+            Parallel AP distortion factor. Required if `los` is not None.
+        q_perp : float, optional
+            Perpendicular AP distortion factor. Required if `los` is not None.
+
+        Returns
+        -------
+        float or np.ndarray
+            Box size after applying AP distortions, or original box size if no distortions are applied.
+        """
+        if not add_ap:
+            return boxsize
+        elif any(v is None for v in [los, q_par, q_perp]):
+            raise ValueError('los, q_par and q_perp must be provided when add_ap is True.')
+        
+        if isinstance(boxsize, (float, int)): 
+            boxsizes = [boxsize] * 3
+        else:
+            if len(boxsize) != 3: # Sanity check
+                raise ValueError('boxsize must be a float or a list of three floats.')
+            boxsizes = boxsize
+
+        for i, ax in enumerate(('X', 'Y', 'Z')):
+            if ax == los.upper():
+                boxsizes[i] = boxsizes[i] / q_par
+            else:
+                boxsizes[i] = boxsizes[i] / q_perp
+        return np.array(boxsizes)
+
+    @classmethod
+    def get_positions(
+        cls,
         hod_dict: dict, 
-        tracer: str = 'LRG',
-        )-> dict:
+        tracer: str = None,
+        los: str = None,
+        add_rsd: bool = False,
+        hubble: float = None,
+        az: float = None,
+        boxsize: float = None, 
+        add_ap: bool = False, 
+        q_par: float = None, 
+        q_perp: float = None,
+    ) -> np.ndarray:
+        """
+        Get the galaxy positions from the HOD catalog.
+
+        Parameters
+        ----------
+        hod_dict : dict
+            Dictionary containing the tracer positions.
+        tracer : str, optional
+            Tracer type to read from `hod_dict`. If None, uses the top-level keys of `hod_dict`. Default is None.
+        los: str, optional
+            Line-of-sight for RSD and AP distortions. If None, no distortions are applied.
+        add_rsd : bool, optional
+            Whether to add redshift-space distortions to the catalog or not. Default is False.
+        hubble : float, optional
+            Hubble parameter at the redshift of the catalog. Required if `add_rsd` is True.
+        az : float, optional
+            Scale factor at the redshift of the catalog. Required if `add_rsd` is True.
+        boxsize : float, optional
+            Box size of the simulation. Required if `add_rsd` is True.
+        add_ap: bool, optional
+            Whether to add Alcock-Paczynski distortions to the number density or not. Default is False.
+        q_par : float, optional
+            Parallel AP distortion factor. Required if `add_ap` is True.
+        q_perp : float, optional
+            Perpendicular AP distortion factor. Required if `add_ap` is True.
+
+        Returns
+        -------
+        np.ndarray
+            Array of galaxy positions with shape (N_gal, 3).
+        """
+        hod_dict = hod_dict.copy()  # Avoid modifying the original dictionary
+        tracer_dict = hod_dict[tracer] if tracer is not None else hod_dict
+        
+        # Apply RSD before AP distortions
+        if add_rsd:
+            if any(v is None for v in [hubble, az, boxsize, los]):  # Check we have everything we need to add RSD
+                raise ValueError('hubble, az, boxsize and los must be provided to add RSD distortions.')
+            cls.logger.debug('Applying RSD distortions to positions.')
+            tracer_dict = cls._add_rsd(tracer_dict, hubble=hubble, az=az, boxsize=boxsize, los=los)
+
+        if add_ap:
+            if any(v is None for v in [q_par, q_perp, los]):  # Check we have everything we need to add AP
+                raise ValueError('q_par, q_perp and los must be provided to add AP distortions.')
+            cls.logger.debug('Applying AP distortions to positions.')
+            tracer_dict = cls._add_ap(tracer_dict, q_par=q_par, q_perp=q_perp, los=los)
+            
+        positions = np.column_stack([tracer_dict[key] for key in ['X', 'Y', 'Z']])
+        cls.logger.debug(f'Obtained positions array of shape {positions.shape}.')
+        return positions
+
+    @staticmethod
+    def _add_rsd( 
+        tracer_dict: dict, 
+        hubble: float,
+        az: float,
+        boxsize: float,
+        los: str,
+    )-> dict:
         """
         Add redshift-space distortions to the catalog.
         
         Parameters
         ----------
-        hod_dict : dict
-            Dictionary containing the HOD catalog.
-        tracer : str, optional
-            Tracer type. Default is 'LRG'.
+        tracer_dict : dict
+            Dictionary containing the tracer positions in `X`, `Y`, `Z`.
+        hubble : float
+            Hubble parameter at the redshift of the catalog.
+        az : float
+            Scale factor at the redshift of the catalog.
+        boxsize : float
+            Box size of the simulation.
+        los: str
+            Line-of-sight for RSD distortion.
         
         Returns
         -------
         dict
-            Dictionary containing the HOD catalog with redshift-space distortions.
+            Dictionary containing the HOD catalog with redshift-space distortions to the specified axis.
+            Will overwrite the input `tracer_dict` in place, use a copy if needed !
         """
-        data = hod_dict[tracer]
-        x = data['X'] + self.boxsize / 2
-        y = data['Y'] + self.boxsize / 2
-        z = data['Z'] + self.boxsize / 2
-        vx = data['VX']
-        vy = data['VY']
-        vz = data['VZ']
-        x_rsd = (x + vx / (self.hubble * self.az)) % self.boxsize
-        y_rsd = (y + vy / (self.hubble * self.az)) % self.boxsize
-        z_rsd = (z + vz / (self.hubble * self.az)) % self.boxsize
-        hod_dict[tracer]['X_RSD'] = x_rsd
-        hod_dict[tracer]['Y_RSD'] = y_rsd
-        hod_dict[tracer]['Z_RSD'] = z_rsd
-        return hod_dict
+        ax = los.upper()
+        offset = boxsize / 2 
+        pos = tracer_dict[ax] + offset
+        vel = tracer_dict[f'V{ax}']
+        pos_rsd = (pos + vel / (hubble * az)) % boxsize
+        tracer_dict[ax] = pos_rsd - offset # Overwrite real-space positions with RSD positions
+        return tracer_dict
+
+    @staticmethod
+    def _add_ap(
+        tracer_dict: dict,
+        q_par: float,
+        q_perp: float,
+        los: str,
+        )-> dict:
+        """
+        Add Alcock-Paczynski distortions to the catalog.
+
+        Parameters
+        ----------
+        tracer_dict : dict
+            Dictionary containing the tracer positions in `X`, `Y`, `Z`.
+        q_par : float
+            Parallel AP distortion factor.
+        q_perp : float
+            Perpendicular AP distortion factor.
+        los: str
+            Line-of-sight for AP distortion. 
+
+        Returns
+        -------
+        dict
+            Dictionary containing the HOD catalog with Alcock-Paczynski distortions applied to the specified axis.
+            Will overwrite the input `tracer_dict` in place, use a copy if needed !
+
+        """
+        for ax in ('X', 'Y', 'Z'):
+            pos = tracer_dict[ax]
+            if ax == los.upper():
+                tracer_dict[ax] = pos / q_par
+            else: 
+                tracer_dict[ax] = pos / q_perp
+        return tracer_dict
