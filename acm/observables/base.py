@@ -362,6 +362,7 @@ class Observable():
             checkpoint_fn = self.checkpoint_fn
         
         # Load the model
+        self.logger.info(f"Loading model from {checkpoint_fn}")
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
         return model
