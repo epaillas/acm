@@ -364,17 +364,17 @@ class Observable():
         # Register safe globals for transform classes to allow loading checkpoints
         # with PyTorch 2.6+ (which changed weights_only default to True)
         safe_classes = []
-        WeiLiuInputTransform = None
-        WeiLiuOutputTransForm = None
+        transforms_array_imported = False
         
         # Try to import transform classes from sunbird.data.transforms_array
         try:
             from sunbird.data.transforms_array import (
                 LogTransform, 
                 WeiLiuInputTransform, 
-                WeiLiuOutputTransForm
+                WeiLiuOutputTransForm  # Note: This is the correct spelling from sunbird
             )
             safe_classes.extend([LogTransform, WeiLiuInputTransform, WeiLiuOutputTransForm])
+            transforms_array_imported = True
         except ImportError:
             pass
         
@@ -397,15 +397,11 @@ class Observable():
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
         
-        # Set transforms for minkowski models (reuse imported classes if available)
+        # Set transforms for minkowski models
         if self.stat_name.startswith('minkowski'):
-            if WeiLiuInputTransform is None or WeiLiuOutputTransForm is None:
-                # Import again if not already imported (shouldn't happen but be safe)
-                try:
-                    from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
-                except ImportError as e:
-                    self.logger.error(f"Failed to import WeiLiu transforms for minkowski model: {e}")
-                    raise
+            if not transforms_array_imported:
+                # Import if not already done (e.g., if initial import failed)
+                from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
             model.transform_output = WeiLiuOutputTransForm()
             model.transform_input = WeiLiuInputTransform()
         return model
