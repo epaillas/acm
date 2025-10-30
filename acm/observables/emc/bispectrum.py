@@ -25,7 +25,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v2.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last.ckpt'
     
     def compress_covariance(
         self,
@@ -69,7 +69,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             poles = [data.get(ell) for ell in ells]
             k = poles[0].coords('k')
             weights = k.prod(axis=1) / 1e5
-            y.append(np.concatenate([weights * pole for pole in poles]))
+            y.append(np.concatenate([weights * pole.value().real for pole in poles]))
         y = np.array(y)
         bin_idx = np.arange(len(k))
         
@@ -157,7 +157,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 poles = [data.get(ell) for ell in (0, 2)]
                 k = poles[0].coords('k')
                 weights = k.prod(axis=1) / 1e5
-                y.append(np.concatenate([weights * pole for pole in poles]))
+                y.append(np.concatenate([weights * pole.value().real for pole in poles]))
                 hod_idx = int(filename.stem.split('hod')[-1])
                 hods[cosmo_idx].append(hod_idx)
             self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
@@ -324,8 +324,8 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
 
         Returns
         -------
-        matplotlib.figure.Figure
-            The generated plot figure.
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
 
         ells = self._dataset.y.coords['multipoles'].values.tolist()
