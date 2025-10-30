@@ -23,7 +23,7 @@ HOD_params:
         LRG: True 
         ELG: False
         QSO: False
-    want_rsd: True                 # want RSD? 
+    want_rsd: False                 # want RSD? 
     write_to_disk: False
 
     LRG_params:
