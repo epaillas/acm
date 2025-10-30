@@ -225,7 +225,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
     @set_plot_style
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
-        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
+        Plot the projected galaxy correlation function data, model, and residuals.
 
         Parameters
         ----------
