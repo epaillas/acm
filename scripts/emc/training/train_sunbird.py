@@ -2,7 +2,6 @@ import numpy as np
 from pathlib import Path
 from sunbird.emulators import FCN, train
 from sunbird.data import ArrayDataModule
-from sunbird.data.data_utils import convert_to_summary
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
 import torch
 from acm.observables import Observable
