@@ -1,19 +1,37 @@
-from  abc import ABC
+from abc import ABC
+import logging
+import warnings
 
 import numpy as np
+import fitsio
+import healpy as hp
+from scipy.interpolate import InterpolatedUnivariateSpline
+from astropy.table import Table
+from astropy.io import fits
 
 # cosmodesi/acm
 import mockfactory
 from mockfactory.desi import is_in_desi_footprint
+from mockfactory import RandomCutskyCatalog
+from mockfactory.utils import radecbox_area
 from cosmoprimo.fiducial import AbacusSummit
+from desitarget.targetmask import desi_mask, obsconditions
+
 from .box import BoxHOD
 from .footprint import *
-import fitsio
-import logging
-import warnings
-warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
-
 from acm.utils.paths import get_Abacus_dirs
+
+# Optional imports with better error handling
+try:
+    from regressis import DR9Footprint
+    from regressis.utils import build_healpix_map
+    HAS_REGRESSIS = True
+except ImportError:
+    DR9Footprint = None
+    build_healpix_map = None
+    HAS_REGRESSIS = False
+
+warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
 #TODO : add docstrings !
@@ -58,7 +76,6 @@ class BaseCutskyCatalog(ABC):
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][is_in_desi & is_in_photo]
         else:
-            import healpy as hp
             mask = fitsio.read(custom_mask_path)
             nside = hp.npix2nside(len(mask['IN_MASK']))
             phi = np.radians(self.catalog['RA'])
@@ -87,7 +104,6 @@ class BaseCutskyCatalog(ABC):
         None
             The cutsky catalog is modified in place.
         """
-        from scipy.interpolate import InterpolatedUnivariateSpline
         self.logger.info('Applying radial mask.')
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = (zbin_min + zbin_max) / 2
@@ -152,15 +168,10 @@ class BaseCutskyCatalog(ABC):
             Boolean mask indicating whether each RA/Dec coordinate is within the specified region.
         """
         region = region.upper()
-        assert region in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC']
+        if region not in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC']:
+            raise ValueError(f"Invalid region '{region}'. Must be one of: 'N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC'")
 
-        DR9Footprint = None
-        try:
-            from regressis import DR9Footprint
-        except ImportError:
-            self.logger.info('Regressis not found, falling back to RA/Dec cuts')
-
-        if DR9Footprint is None:
+        if not HAS_REGRESSIS:
             mask = np.ones_like(ra, dtype='?')
             if region == 'DES':
                 raise ValueError('Do not know DES cuts, install regressis')
@@ -179,7 +190,6 @@ class BaseCutskyCatalog(ABC):
                     mask &= ~mask_ra
             return np.nan * np.ones(ra.size), mask
         else:
-            from regressis.utils import build_healpix_map
             # Precompute the healpix number
             nside = 256
             _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)
@@ -208,8 +218,6 @@ class BaseCutskyCatalog(ABC):
         seed : int, optional
             Random seed for reproducibility. Defaults to 0.
         """
-        from desitarget.targetmask import desi_mask, obsconditions
-
         self.logger.info('Adding columns for fiber assignment.')
 
         priority = {'LRG': 3200, 'QSO': 3400, 'ELG': 3100, 'BGS': 2100}
@@ -234,8 +242,6 @@ class BaseCutskyCatalog(ABC):
         """
         self.logger.info(f'Saving cutsky catalog to {filename}')
         if filename.endswith('.fits'):
-            from astropy.table import Table
-            from astropy.io import fits
             table = Table(self.catalog)
             myfits = fits.BinTableHDU(data=table)
             myfits.writeto(filename, overwrite=True)
@@ -281,8 +287,10 @@ class CutskyHOD(BaseCutskyCatalog):
             Dictionary containing the DM fields for the HOD sampling.
             Defaults to LRG_Abacus_DM, which is defined in utils.paths.
         load_existing_hod : bool, optional
-            If True, load an existing HOD catalog instead of generating a new one
-            (useful for quick debugging). Defaults to False.
+            Flag to allow loading an existing HOD catalog in the `sample_hod` method.
+            When True, prevents the Dark Matter catalog from being loaded and allows
+            the use of pre-generated HOD catalogs (useful for quick debugging). 
+            Defaults to False.
         sim_type : str, optional
             Type of simulation to use for the HOD sampling. Defaults to 'base' (2 Gpc/h).
         tracer : str, optional
@@ -725,9 +733,7 @@ class CutskyRandoms(BaseCutskyCatalog):
             Random seed for reproducibility, by default None.
         cosmo_idx : int, optional
             Index of the AbacusSummit cosmology. Used for the redshift-distance relation.
-            """
-        from mockfactory import RandomCutskyCatalog
-        from mockfactory.utils import radecbox_area
+        """
         BaseCutskyCatalog.__init__(self)
         self.logger = logging.getLogger('CutskyRandoms')
         self.rarange = rarange
@@ -754,7 +760,6 @@ class CutskyRandoms(BaseCutskyCatalog):
         float
             The number density of the randoms.
         """
-        from mockfactory.utils import radecbox_area
         area = radecbox_area(self.rarange, self.decrange)  # in square degrees
         fsky = area / 41253.0  # sky fraction covered by the randoms
         volume = 4/3 * np.pi * (self.drange[1]**3 - self.drange[0]**3) * fsky  # in (Mpc/h)^3

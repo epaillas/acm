@@ -8,27 +8,53 @@ import numpy as np
 from pathlib import Path
 
 
-BASE_DIR = Path("/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1")
-
 class AbacusLensingMap(ABC):
     """
     Abstract base class for Abacus Lensing Maps.
+    
+    The expected directory structure is:
+    base_dir/
+        AbacusSummit_{sim_type}_c{cosmo_idx:03}_ph{phase_idx:03}/
+            kappa_{snap_idx:05d}.asdf
+            gamma_{snap_idx:05d}.asdf
+            mask_{snap_idx:05d}.asdf
     """
-    def __init__(self, snap_idx=47, cosmo_idx=0, phase_idx=0, sim_type='base'):
+    def __init__(
+        self,
+        snap_idx=47,
+        cosmo_idx=0,
+        phase_idx=0,
+        sim_type='base',
+        base_dir=None
+    ):
         """
         Initialize the AbacusLensingMap with snapshot index, cosmology index, phase index, and simulation type.
-        :param snap_idx: Snapshot index (maps to source redshift). Default is 47 (CMB lensing)
-        :param cosmo_idx: Cosmology index (default is 0)
-        :param phase_idx: Phase index (default is 0)
-        :param sim_type: Simulation type ('base' or 'huge')
+        
+        Parameters
+        ----------
+        snap_idx : int, optional
+            Snapshot index (maps to source redshift). Default is 47 (CMB lensing).
+        cosmo_idx : int, optional
+            Cosmology index. Default is 0.
+        phase_idx : int, optional
+            Phase index. Default is 0.
+        sim_type : str, optional
+            Simulation type ('base' or 'huge'). Default is 'base'.
+        base_dir : str or Path, optional
+            Base directory for AbacusLensing data. If None, defaults to
+            "/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1".
         """
         self.snap_idx = snap_idx
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
         if sim_type == 'huge':
-            assert phase_idx in [201, 202], "Phase index for 'huge' simulation must be 201 or 202."
+            if phase_idx not in [201, 202]:
+                raise ValueError("Phase index for 'huge' simulation must be 201 or 202.")
         self.sim_type = sim_type
         self.nside = 16384
+        if base_dir is None:
+            base_dir = Path("/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1")
+        self.base_dir = Path(base_dir)
         self.map = self.read_map()
 
     @abstractmethod
@@ -45,7 +71,7 @@ class AbacusLensingMap(ABC):
         and calculates the right ascension and declination of the unmasked pixels.
         """
         map_dir = f"AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}"
-        f = asdf.open(BASE_DIR / map_dir / f"mask_{self.snap_idx:05d}.asdf")
+        f = asdf.open(self.base_dir / map_dir / f"mask_{self.snap_idx:05d}.asdf")
         mask = f['data']['mask'] == 1
         npix = hp.nside2npix(self.nside)
         m = np.arange(npix)
@@ -76,16 +102,23 @@ class AbacusConvergenceMap(AbacusLensingMap):
     """
     Class for AbacusLensing convergence Maps.
     """
-    def __init__(self, snap_idx=47, cosmo_idx=0, phase_idx=0, sim_type='base'):
+    def __init__(
+        self,
+        snap_idx=47,
+        cosmo_idx=0,
+        phase_idx=0,
+        sim_type='base',
+        base_dir=None
+    ):
         self.map_type = 'kappa'
-        super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type)
+        super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
 
     def read_map(self):
         """
         Read the convergence map from the ASDF file.
         """
         map_dir = f"AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}"
-        f = asdf.open(BASE_DIR / map_dir / f"{self.map_type}_{self.snap_idx:05d}.asdf")
+        f = asdf.open(self.base_dir / map_dir / f"{self.map_type}_{self.snap_idx:05d}.asdf")
         self.header = f['header']
         self.data = f['data']
         self.kappa = hp.ma(f['data']['kappa'], badval=0)
@@ -105,16 +138,23 @@ class AbacusShearMap(AbacusLensingMap):
     """
     Class for AbacusLensing shear Maps.
     """
-    def __init__(self, snap_idx=47, cosmo_idx=0, phase_idx=0, sim_type='base'):
+    def __init__(
+        self,
+        snap_idx=47,
+        cosmo_idx=0,
+        phase_idx=0,
+        sim_type='base',
+        base_dir=None
+    ):
         self.map_type = 'gamma'
-        super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type)
+        super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
 
     def read_map(self):
         """
         Read the convergence map from the ASDF file.
         """
         map_dir = f"AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}"
-        f = asdf.open(BASE_DIR / map_dir / f"{self.map_type}_{self.snap_idx:05d}.asdf")
+        f = asdf.open(self.base_dir / map_dir / f"{self.map_type}_{self.snap_idx:05d}.asdf")
         self.header = f['header']
         self.data = f['data']
         self.gamma1 = hp.ma(f['data']['gamma1'], badval=0)
