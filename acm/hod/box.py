@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import List, Optional, Union
 import yaml
 import numpy as np
 from abacusnbody.hod import abacus_hod
@@ -31,20 +32,21 @@ class BoxHOD:
     
     def __init__(
         self,
-        varied_params, 
-        config_file: str = None, 
-        cosmo_idx: int = 0, 
+        varied_params: List[str],
+        config_file: Optional[str] = None,
+        cosmo_idx: int = 0,
         phase_idx: int = 0,
-        sim_type: str = 'base', 
+        sim_type: str = 'base',
         redshift: float = 0.5,
-        DM_DICT: dict = LRG_Abacus_DM):
+        DM_DICT: dict = LRG_Abacus_DM
+    ):
         """
         Initialize the BoxHOD class.
         
         Parameters
         ----------
-        varied_params : dict
-            Dictionary of parameters that vary.
+        varied_params : List[str]
+            List of parameters that vary.
         config_file : str, optional
             Path to the configuration file. If None, defaults to 'box.yaml' in `acm.hod`.
             See `setup()` for more details. Default is None.
@@ -78,7 +80,7 @@ class BoxHOD:
         self.setup(config, DM_DICT)
         self.check_params(varied_params)
 
-    def setup(self, config: dict, DM_DICT: dict): # Will override most of the config file !
+    def setup(self, config: dict, DM_DICT: dict) -> None:
         """
         Set up the simulation parameters and initialize the AbacusHOD object.
         This method overrides most of the configuration file settings with the provided
@@ -111,7 +113,7 @@ class BoxHOD:
         self.q_perp = self.cosmo.angular_diameter_distance(self.redshift) / self.cosmo_fid.angular_diameter_distance(self.redshift)
         self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
 
-    def abacus_simdirs(self, DM_DICT: dict):
+    def abacus_simdirs(self, DM_DICT: dict) -> tuple:
         """
         Get the simulation and subsample directories from the dark matter dictionary.
 
@@ -129,7 +131,7 @@ class BoxHOD:
         subsample_dir = DM_DICT[self.sim_type]['subsample_dir']
         return sim_dir, subsample_dir
 
-    def abacus_simname(self):
+    def abacus_simname(self) -> str:
         """
         Get the simulation name.
 
@@ -142,13 +144,13 @@ class BoxHOD:
             return f'Abacus_{self.sim_type}base_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
         return f'AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}'
 
-    def check_params(self, params):
+    def check_params(self, params: List[str]) -> None:
         """
         Check if the parameters are valid, i.e. if they are in the list of valid parameters.
 
         Parameters
         ----------
-        params : list
+        params : List[str]
             List of parameters to check.
 
         Raises
@@ -168,16 +170,16 @@ class BoxHOD:
         self.logger.info(f'Default parameters: {default}.')
 
     def run(
-        self, 
-        hod_params: dict, 
-        nthreads: int = 1, 
-        tracer: str = 'LRG', 
-        tracer_density: list = None,
+        self,
+        hod_params: dict,
+        nthreads: int = 1,
+        tracer: str = 'LRG',
+        tracer_density: Optional[List[float]] = None,
         process_underdense: bool = True,
-        seed = None, 
-        save_fn: str|Path = None, 
+        seed: Optional[int] = None,
+        save_fn: Optional[Union[str, Path]] = None,
         add_ap: bool = False,
-        )-> dict:
+    ) -> dict:
         """
         Run the HOD model with the given parameters.
 
@@ -189,13 +191,13 @@ class BoxHOD:
             Number of threads to use. Default is 1.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
-        tracer_density : list, optional
+        tracer_density : List[float], optional
             List containing (min_nbar, max_nbar) for downsampling catalogue to desired density (nbar > max_nbar) or cutting from sample (nbar < min_nbar). If only one value provided, this is taken as the maximum threshold (no minimum threshold applied). Default is None (no thresholds applied).
         process_underdense: bool, optional
             If set to False, does not process (and save) catalogs that are not in tracer_density limits (only used if tracer_density is provided). Defaults to True.
         seed : int, optional
             Random seed. Default is None.
-        save_fn : str|Path, optional
+        save_fn : Union[str, Path], optional
             Filename to save the catalog. Creates parent tree if it does not exist. Default is None.
         add_ap: bool, optional
             Whether to take Alcock-Paczynski distortions into account when computing the number density. 
@@ -254,11 +256,11 @@ class BoxHOD:
         return hod_dict
 
     def postprocess_catalog(
-        self, 
-        hod_dict: dict, 
-        tracer: str = 'LRG', 
-        subsample: list = None,
-        ):
+        self,
+        hod_dict: dict,
+        tracer: str = 'LRG',
+        subsample: Optional[List[int]] = None,
+    ) -> dict:
         """
         Add distortion effects and format the HOD catalog.
 
@@ -268,7 +270,7 @@ class BoxHOD:
             Dictionary containing the HOD catalog.
         tracer : str, optional
             Tracer type. Default is 'LRG'.
-        subsample: list, optional
+        subsample : List[int], optional
             List of indices used to subsample the catalogue.
 
         Returns
@@ -291,17 +293,17 @@ class BoxHOD:
         return hod_dict
 
     def save_catalog(
-        self, 
-        save_fn: str|Path,
-        hod_dict: dict, 
-        tracer: str = 'LRG', 
-        ):
+        self,
+        save_fn: Union[str, Path],
+        hod_dict: dict,
+        tracer: str = 'LRG',
+    ) -> None:
         """
         Save the HOD catalog to a FITS file.
 
         Parameters
         ----------
-        save_fn : str|Path
+        save_fn : Union[str, Path]
             Filename to save the catalog. If parent tree directories do not exist, they will be created.
         hod_dict : dict
             Dictionary containing the HOD catalog.
@@ -326,18 +328,18 @@ class BoxHOD:
         myfits.writeto(save_fn, overwrite=True)
         self.logger.info(f'Saving {save_fn}.')
 
-    def param_mapping(self, hod_params: dict | list):
+    def param_mapping(self, hod_params: Union[dict, List[str]]) -> Union[dict, List[str]]:
         """
         Map custom HOD parameters to Abacus HOD parameters. 
 
         Parameters
         ----------
-        hod_params : dict or list
+        hod_params : Union[dict, List[str]]
             Dictionary or list of HOD parameters.
 
         Returns
         -------
-        dict or list
+        Union[dict, List[str]]
             Dictionary or list of AbacusHOD parameters.
         
         Raises
@@ -366,13 +368,20 @@ class BoxHOD:
         return hod_params
     
     @classmethod
-    def get_boxsize(cls, boxsize: float|list, add_ap: bool = False, los: str = None, q_par: float = None, q_perp: float = None) -> float|list:
+    def get_boxsize(
+        cls,
+        boxsize: Union[float, List[float]],
+        add_ap: bool = False,
+        los: Optional[str] = None,
+        q_par: Optional[float] = None,
+        q_perp: Optional[float] = None
+    ) -> Union[float, np.ndarray]:
         """
         Get the box size, taking into account Alcock-Paczynski distortions if specified.
 
         Parameters
         ----------
-        boxsize : float|list
+        boxsize : Union[float, List[float]]
             Original box size (as a float or a list of three floats for each axis).
         add_ap : bool, optional
             Whether to add Alcock-Paczynski distortions to the box size or not. Default is False.
@@ -385,7 +394,7 @@ class BoxHOD:
 
         Returns
         -------
-        float or np.ndarray
+        Union[float, np.ndarray]
             Box size after applying AP distortions, or original box size if no distortions are applied.
         """
         if not add_ap:
@@ -410,16 +419,16 @@ class BoxHOD:
     @classmethod
     def get_positions(
         cls,
-        hod_dict: dict, 
-        tracer: str = None,
-        los: str = None,
+        hod_dict: dict,
+        tracer: Optional[str] = None,
+        los: Optional[str] = None,
         add_rsd: bool = False,
-        hubble: float = None,
-        az: float = None,
-        boxsize: float = None, 
-        add_ap: bool = False, 
-        q_par: float = None, 
-        q_perp: float = None,
+        hubble: Optional[float] = None,
+        az: Optional[float] = None,
+        boxsize: Optional[float] = None,
+        add_ap: bool = False,
+        q_par: Optional[float] = None,
+        q_perp: Optional[float] = None,
     ) -> np.ndarray:
         """
         Get the galaxy positions from the HOD catalog.

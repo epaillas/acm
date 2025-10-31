@@ -2,6 +2,7 @@
 # presented in https://arxiv.org/abs/2305.11935
 
 from abc import ABC, abstractmethod
+from typing import Optional, Union
 import asdf
 import healpy as hp
 import numpy as np
@@ -45,7 +46,7 @@ class AbacusLensingMap(ABC):
             Phase index. Default is 0.
         sim_type : str, optional
             Simulation type ('base' or 'huge'). Default is 'base'.
-        base_dir : str or Path, optional
+        base_dir : Union[str, Path], optional
             Base directory for AbacusLensing data. If None, defaults to
             "/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1".
         """
@@ -70,7 +71,7 @@ class AbacusLensingMap(ABC):
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def sample_mask(self):
+    def sample_mask(self) -> None:
         """
         Read the binary mask that tells us whether we are in a region of the sky with data
         and calculates the right ascension and declination of the unmasked pixels.
@@ -90,9 +91,14 @@ class AbacusLensingMap(ABC):
             self.gamma1 = self.gamma1[mask]
             self.gamma2 = self.gamma2[mask]
 
-    def plot_mollview(self, save_fn=None):
+    def plot_mollview(self, save_fn: Optional[str] = None) -> None:
         """
         Plot the (kappa/shear) convergence map using Mollweide projection.
+
+        Parameters
+        ----------
+        save_fn : str, optional
+            Path to save the plot. If None, the plot is not saved.
         """
         import matplotlib.pyplot as plt
         import healpy as hp
@@ -109,16 +115,16 @@ class AbacusConvergenceMap(AbacusLensingMap):
     """
     def __init__(
         self,
-        snap_idx=47,
-        cosmo_idx=0,
-        phase_idx=0,
-        sim_type='base',
-        base_dir=None
+        snap_idx: int = 47,
+        cosmo_idx: int = 0,
+        phase_idx: int = 0,
+        sim_type: str = 'base',
+        base_dir: Optional[Union[str, Path]] = None
     ):
         self.map_type = 'kappa'
         super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
 
-    def read_map(self):
+    def read_map(self) -> None:
         """
         Read the convergence map from the ASDF file.
         """
@@ -129,9 +135,9 @@ class AbacusConvergenceMap(AbacusLensingMap):
         self.kappa = hp.ma(f['data']['kappa'], badval=0)
         self.kappa.mask = self.kappa == 0
 
-    def to_treecorr(self):
+    def to_treecorr(self) -> None:
         """
-        Convert the map to a TreeCorr catalog.
+        Convert the map to a TreeCorr catalog and store in self.treecorr.
         """
         import treecorr
         self.treecorr = treecorr.Catalog(
@@ -145,18 +151,18 @@ class AbacusShearMap(AbacusLensingMap):
     """
     def __init__(
         self,
-        snap_idx=47,
-        cosmo_idx=0,
-        phase_idx=0,
-        sim_type='base',
-        base_dir=None
+        snap_idx: int = 47,
+        cosmo_idx: int = 0,
+        phase_idx: int = 0,
+        sim_type: str = 'base',
+        base_dir: Optional[Union[str, Path]] = None
     ):
         self.map_type = 'gamma'
         super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
 
-    def read_map(self):
+    def read_map(self) -> None:
         """
-        Read the convergence map from the ASDF file.
+        Read the shear map from the ASDF file.
         """
         map_dir = f"AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}"
         f = asdf.open(self.base_dir / map_dir / f"{self.map_type}_{self.snap_idx:05d}.asdf")
@@ -167,9 +173,9 @@ class AbacusShearMap(AbacusLensingMap):
         self.gamma1.mask = self.gamma1 == 0
         self.gamma2.mask = self.gamma2 == 0
 
-    def to_treecorr(self):
+    def to_treecorr(self) -> None:
         """
-        Convert the map to a TreeCorr catalog.
+        Convert the map to a TreeCorr catalog and store in self.treecorr.
         """
         import treecorr
         self.treecorr = treecorr.Catalog(
