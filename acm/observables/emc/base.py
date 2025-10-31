@@ -159,9 +159,9 @@ class BaseObservableEMC(Observable):
         model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
-            Coordinates for the output DataArray. If None, the coordinates of the _dataset y are used. Defaults to None.
+            Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
         attrs : dict, optional
-            Attributes for the output DataArray. If None, the attributes of the _dataset y are used. Defaults to None.
+            Attributes for the output DataArray. If None, the attributes of _dataset.y are used. Defaults to None.
         nofilters : bool, optional
             If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
         
