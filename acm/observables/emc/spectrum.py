@@ -161,7 +161,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
                 poles = [data.get(ell) for ell in (0, 2, 4)]
                 k = poles[0].coords('k')
                 y.append(np.concatenate(poles))
-            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
