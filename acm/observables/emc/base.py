@@ -321,7 +321,7 @@ class BaseObservableEMC(Observable):
         return emulator_error_dataset
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, sample_idx: int = 0, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -348,9 +348,10 @@ class BaseObservableEMC(Observable):
         lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
         lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
 
-        data = self.y[0]
+        data = self.flatten_output(self.y, flat_output_dims=2)[sample_idx] # Enforce 2D flattening and get a single sample
         bin_idx = np.arange(len(data))
-        model = self.get_model_prediction(model_params)[0]
+        model = self.get_model_prediction(model_params)
+        model = self.flatten_output(model, flat_output_dims=2)[0] # Enforce 2D flattening and get the first sample
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 
@@ -389,7 +390,7 @@ class BaseObservableEMC(Observable):
             Figure and axes of the plot.
         """
 
-        residuals = self.emulator_covariance_y
+        residuals = self.flatten_output(self.emulator_covariance_y, flat_output_dims=2) # Enforce 2D flattening
         data_cov = self.get_covariance_matrix(volume_factor=64)
         data_err = np.sqrt(np.diag(data_cov))
 
