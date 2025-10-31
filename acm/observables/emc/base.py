@@ -91,7 +91,7 @@ class BaseObservableEMC(Observable):
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
-        emulator_covariance_y = self.flatten_output(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
@@ -138,7 +138,7 @@ class BaseObservableEMC(Observable):
         emulator_error = self.apply_filters(emulator_error)
         if 'emulator_error' in self.select_indices_on:
             emulator_error = self.apply_indices_selection(emulator_error)
-        emulator_error = self.flatten_output(emulator_error)
+        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if self.squeeze_output:
             emulator_error = emulator_error.squeeze()
         if self.numpy_output:
@@ -146,20 +146,22 @@ class BaseObservableEMC(Observable):
         return emulator_error
         
     # NOTE: Override Observable prediction to add the phase correction if needed !
-    def get_model_prediction(self, x, model=None, coords=None, attrs=None, nofilters: bool = False):
+    def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False):
         """
         Get the prediction from the model.
         
         Parameters
         ----------
         x : array_like, dict
-            Input features.
+            Input features for the model. 
+            If an array, it should have shape (n_samples, n_params). 
+            If a dict, it should have keys matching the model input names and values as lists/1d-arrays of shape (n_samples,).
         model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
-            Coordinates for the output DataArray. If None, the coordinates of the _dataset y are used. Defaults to None.
+            Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
         attrs : dict, optional
-            Attributes for the output DataArray. If None, the attributes of the _dataset y are used. Defaults to None.
+            Attributes for the output DataArray. If None, the attributes of _dataset.y are used. Defaults to None.
         nofilters : bool, optional
             If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
         
@@ -177,12 +179,12 @@ class BaseObservableEMC(Observable):
                     f"Missing keys: {missing}"
                 )
             if extra:
-                logger.warning(
+                self.logger.warning(
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
             x = [x[name] for name in self.x_names]
-            x = np.asarray(x).T  # Need to transpose to (n_samples, n_features)
+            x = np.asarray(x).T  # Need to transpose to (n_samples, n_params)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
         
@@ -220,7 +222,7 @@ class BaseObservableEMC(Observable):
         
         pred = self.apply_filters(pred)
         pred = self.apply_indices_selection(pred)
-        pred = self.flatten_output(pred)
+        pred = self.flatten_output(pred, self.flat_output_dims)
         
         if self.squeeze_output:
             pred = pred.squeeze()
