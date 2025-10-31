@@ -149,6 +149,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             handle = f'c{cosmo_idx:03}_ph000/seed0/mesh3_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = read(filename)
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
@@ -156,7 +157,6 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 k = poles[0].coords('k')
                 weights = k.prod(axis=1) / 1e5
                 y.append(np.concatenate([weights * pole.value().real for pole in poles]))
-            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         bin_idx = np.arange(len(k))
         y = xarray.DataArray(
