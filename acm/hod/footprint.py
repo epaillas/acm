@@ -4,7 +4,7 @@ import mockfactory
 from cosmoprimo.fiducial import DESI
 
 
-def minmax_xyz_desi(zrange, region='NGC', release='Y1', tracer='LRG'):
+def minmax_xyz_desi(zrange, region='NGC', release='Y1', tracer='LRG', custom_xyz_file=None):
     """
     Get the minimum and maximum cartesian coordinates of
     the DESI survey volume for a given region and release.
@@ -17,14 +17,20 @@ def minmax_xyz_desi(zrange, region='NGC', release='Y1', tracer='LRG'):
         The DESI photometric region, e.g., 'N+SNGC'.
     release : str
         The DESI data release, e.g., 'y1'.
+    custom_xyz_file : str
+        If not None, a custom file is read for the positions of the tracers that define
+        the survey volume bounds
 
     Returns
     -------
     tuple
         A tuple containing the minimum and maximum coordinates
     """
-    data_fn  = f'/global/cfs/cdirs/desi/survey/catalogs/{release}/mocks/SecondGenMocks/AbacusSummit_v4_1/'
-    data_fn += f'altmtl0/mock0/LSScats/{tracer}_{region}_clustering.dat.fits'
+    if custom_xyz_file is not None:
+        data_fn = custom_xyz_file
+    else:
+        data_fn  = f'/global/cfs/cdirs/desi/survey/catalogs/{release}/mocks/SecondGenMocks/AbacusSummit_v4_1/'
+        data_fn += f'altmtl0/mock0/LSScats/{tracer}_{region}_clustering.dat.fits'
     data = fitsio.read(data_fn)
     zmin, zmax = zrange
     chosen = np.logical_and(data['Z'] < zmax, data['Z'] > zmin)

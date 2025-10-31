@@ -128,18 +128,18 @@ def get_randoms_fn(tracer='LRG', region='NGC', phase_idx=0, rand_idx=0, complete
 
 def compute_spectrum(output_fn, get_data, get_randoms, ells=(0, 2, 4), los='firstpoint', **attrs):
     import jax
-    from jaxpower import (ParticleField, FKPField, compute_fkp2_spectrum_normalization, compute_fkp2_spectrum_shotnoise, BinMesh2Spectrum, get_mesh_attrs, compute_mesh2_spectrum)
+    from jaxpower import (ParticleField, FKPField, compute_fkp2_normalization, compute_fkp2_shotnoise, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum)
     t0 = time.time()
     data, randoms = get_data(), get_randoms()
     attrs = get_mesh_attrs(data[0], randoms[0], check=True, **attrs)
     data = ParticleField(*data, attrs=attrs, exchange=True, backend='jax')
     randoms = ParticleField(*randoms, attrs=attrs, exchange=True, backend='jax')
     fkp = FKPField(data, randoms)
-    norm, num_shotnoise = compute_fkp2_spectrum_normalization(fkp), compute_fkp2_spectrum_shotnoise(fkp)
+    norm, num_shotnoise = compute_fkp2_normalization(fkp), compute_fkp2_shotnoise(fkp)
     mesh = fkp.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
     wsum_data1 = data.sum()
     del fkp, data, randoms
-    bin = BinMesh2Spectrum(mesh.attrs, edges={'step': 0.001}, ells=ells)
+    bin = BinMesh2SpectrumPoles(mesh.attrs, edges={'step': 0.001}, ells=ells)
     jitted_compute_mesh2_spectrum = jax.jit(compute_mesh2_spectrum, static_argnames=['los'], donate_argnums=[0])
     spectrum = jitted_compute_mesh2_spectrum(mesh, bin=bin, los=los).clone(norm=norm, num_shotnoise=num_shotnoise)
     spectrum.attrs.update(mesh=dict(mesh.attrs), los=los, wsum_data1=wsum_data1)
@@ -218,12 +218,12 @@ if __name__ == '__main__':
         if 'spectrum' in args.todo_stats:
             cutsky_args = dict(cellsize=10.0, boxsize=get_proposal_boxsize(catalog_args['tracer']), ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
-                output_dir = '/global/cfs/cdirs/desicollab/users/epaillas/y3-growth/'
+                output_dir = '/global/cfs/cdirs/desicollab/users/agolinki/y3-growth/'
                 output_fn = Path(output_dir) / f'spectrum_QSO_NGC_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.npy'
                 compute_spectrum(output_fn, get_data, get_randoms, **cutsky_args)
 
         if 'density_split' in args.todo_stats:
-            save_dir = '/pscratch/sd/e/epaillas/acm/dr2/'
+            save_dir = '/pscratch/sd/e/agolinki/acm/dr2/'
             save_dir += f'test/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = {
