@@ -105,7 +105,8 @@ ReadTheDocs automatically sets up GitHub webhooks when you import the project. T
 
 - **Build Failures**: Check the build logs in the ReadTheDocs admin panel
 - **Import Errors**: Ensure all mocked imports are listed in `docs/conf.py` under `autodoc_mock_imports`
-- **Missing Dependencies**: Verify that `.readthedocs.yaml` lists all necessary dependencies
+- **Missing Dependencies**: The documentation uses `docs/requirements.txt` to avoid building the full package (which requires C compilation). This file lists only the dependencies needed for documentation building.
+- **Package Build Errors**: If you see errors related to Cython or numpy during the build, ensure that ReadTheDocs is using the `docs/requirements.txt` approach rather than installing the full package with `.[docs]`
 
 ---
 

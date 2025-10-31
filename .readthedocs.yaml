@@ -8,10 +8,6 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
-  jobs:
-    pre_build:
-      # Install build dependencies including numpy < 2.0.0 for Cython compatibility
-      - pip install "numpy<2.0.0" cython setuptools wheel
 
 sphinx:
   configuration: docs/conf.py
@@ -20,7 +16,5 @@ sphinx:
 # Python dependencies required to build the documentation
 python:
   install:
-    - method: pip
-      path: .
-      extra_requirements:
-        - docs
+    # Install only the documentation dependencies without building the package
+    - requirements: docs/requirements.txt

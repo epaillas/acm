@@ -1,0 +1,17 @@
+# Documentation build requirements for ReadTheDocs
+# This file contains only the dependencies needed to build the documentation
+# without requiring the full acm package to be installed
+
+# Core documentation tools
+sphinx >= 4.2
+sphinx-book-theme >= 0.3
+myst_nb >= 0.17.1
+sphinx-design
+
+# Required for proper rendering
+numpy
+scipy
+pandas
+pyyaml
+matplotlib
+getdist
