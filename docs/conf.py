@@ -3,6 +3,13 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+# -- Path setup --------------------------------------------------------------
+# If extensions (or modules to document with autodoc) are in another directory,
+# add these directories to sys.path here.
+import os
+import sys
+sys.path.insert(0, os.path.abspath('..'))
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -45,6 +52,7 @@ exclude_patterns = ['_build']
 autodoc_mock_imports = [
     'sunbird',
     'torch',
+    'pytorch_lightning',
     'getdist',
     'kymatio',
     'pyrecon',
@@ -56,6 +64,7 @@ autodoc_mock_imports = [
     'acm.estimators.galaxy_clustering.src', # To avoid c-compiled modules
     'abacusnbody',
     'abacusutils',
+    'astropy',
     'cosmoprimo',
     'mockfactory',
     'pycorr',
@@ -72,6 +81,10 @@ napoleon_numpy_docstring = True
 autodoc_preserve_defaults = True # Keep the default values of the parameters instead of replacing them with their values
 autoclass_content = 'both' # Include both the class docstring and the __init__ docstring in the documentation
 autodoc_member_order = 'bysource' # Order the members by the order in the source code
+
+# Suppress warnings for modules that fail to import
+suppress_warnings = ['app.add_directive', 'app.add_role', 'app.add_generic_role',
+                     'app.add_node', 'autodoc', 'autodoc.import_object']
 
 nb_execution_mode = 'off' # Do not execute the notebooks when building the documentation
 

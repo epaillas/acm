@@ -107,6 +107,19 @@ ReadTheDocs automatically sets up GitHub webhooks when you import the project. T
 - **Import Errors**: Ensure all mocked imports are listed in `docs/conf.py` under `autodoc_mock_imports`
 - **Missing Dependencies**: The documentation uses `docs/requirements.txt` to avoid building the full package (which requires C compilation). This file lists only the dependencies needed for documentation building.
 - **Package Build Errors**: If you see errors related to Cython or numpy during the build, ensure that ReadTheDocs is using the `docs/requirements.txt` approach rather than installing the full package with `.[docs]`
+- **Empty API Documentation**: Due to the limitation of not installing the full package (to avoid Cython compilation), autodoc cannot import all modules to extract docstrings. As a result, API documentation pages show the structure but may lack detailed descriptions. See `docs/API_LIMITATIONS.md` for more information and alternatives.
+
+### Known Limitations
+
+#### API Documentation on ReadTheDocs
+
+The automatic API documentation (autodoc) has limitations on ReadTheDocs:
+- **Reason**: To avoid Cython compilation and heavy dependencies, the full `acm` package is not installed during documentation builds
+- **Impact**: API reference pages show module and class names but may not display complete docstrings
+- **Solutions**:
+  1. Build documentation locally with full package installation (recommended for contributors)
+  2. View docstrings directly in the source code on GitHub
+  3. See `docs/API_LIMITATIONS.md` for detailed information
 
 ---
 

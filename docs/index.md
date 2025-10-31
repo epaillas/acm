@@ -98,4 +98,5 @@ credits/citations
 :caption: API Reference
 
 source/api
+API_LIMITATIONS
 ```

@@ -8,10 +8,13 @@ sphinx-book-theme >= 0.3
 myst_nb >= 0.17.1
 sphinx-design
 
-# Required for proper rendering
-numpy
+# Required for autodoc to import the package
+# Note: numpy < 2.0.0 is required for compatibility with the codebase
+numpy < 2.0.0
 scipy
 pandas
+xarray
 pyyaml
 matplotlib
 getdist
+astropy
