@@ -141,7 +141,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
                     for j in range(4):
                         mf.append(data[Rg][threshold_index[f'Threshold_index_{Rg}'][j], j ] * (10 * i) ** j) 
                 y.append(np.concatenate(mf))
-            self.logger.info(f'Number of HODs for c{cosmo_idx:03}: {len(hods[cosmo_idx])}')
+            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         
         y = xarray.DataArray(
