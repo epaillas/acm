@@ -16,9 +16,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='bispectrum', n_test=6*30, **kwargs)
-        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
+        super().__init__(stat_name='bispectrum', n_test=6*50, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
@@ -151,6 +149,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             self.logger.info(f'Compressing c{cosmo_idx:03}')
             handle = f'c{cosmo_idx:03}_ph000/seed0/mesh3_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
+            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             for filename in filenames:
                 data = read(filename)
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
@@ -158,8 +157,6 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 k = poles[0].coords('k')
                 weights = k.prod(axis=1) / 1e5
                 y.append(np.concatenate([weights * pole.value().real for pole in poles]))
-                hod_idx = int(filename.stem.split('hod')[-1])
-                hods[cosmo_idx].append(hod_idx)
             self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         bin_idx = np.arange(len(k))
@@ -198,66 +195,6 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
     
-    def compute_phase_correction(self, rebin: int = 4, ells: list = [0, 2, 4]):
-        """
-        Correction factor to bring the fixed phase precictions (p000) to the ensemble average.
-        
-        Parameters
-        ----------
-        rebin : int
-            Rebinning factor for the statistics. Default is 4.
-        ells : list
-            List of multipoles to compute the correction for. Default is [0, 2, 4].
-        
-        Returns
-        -------
-        np.ndarray
-            Correction factor for the fixed phase predictions.
-        """
-        base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
-        # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
-        
-        multipoles_mean = []
-        for phase in range(25): # NOTE: Hardcoded !
-            data_dir = f'{base_dir}/c000_ph{phase:03}/seed0' # NOTE: Hardcoded !
-            multipoles_hods = []
-            for hod in range(50): # NOTE: Hardcoded !
-                data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
-                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-                s, multipoles = data(ells=ells, return_sep=True) 
-                multipoles_hods.append(multipoles)
-            multipoles_hods = np.array(multipoles_hods).mean(axis=0)
-            multipoles_mean.append(multipoles_hods)
-        multipoles_mean = np.array(multipoles_mean).mean(axis=0)
-
-        data_dir = f'{base_dir}/c000_ph000/seed0'  # NOTE: Hardcoded !
-        multipoles_ph0 = []
-        for hod in range(50): # NOTE: Hardcoded !
-            data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
-            data = TwoPointCorrelationFunction.load(data_fn)[::4]
-            s, multipoles = data(ells=ells, return_sep=True) 
-            multipoles_ph0.append(multipoles)
-        multipoles_ph0 = np.array(multipoles_ph0).mean(axis=0)
-        delta = ((multipoles_mean + 1) - (multipoles_ph0 + 1))/(multipoles_ph0 + 1)
-        return delta.reshape(-1)
-
-    def apply_phase_correction(self, prediction):
-        """
-        Apply the phase correction to the predictions.
-        We apply this to (1 + prediction) to avoid zero-crossings.
-
-        Parameters
-        ----------
-        prediction : np.ndarray
-            Array of predictions.
-
-        Returns
-        -------
-        np.ndarray
-            Corrected predictions.
-        """
-        return (1 + prediction) * (1 + self.phase_correction) - 1
-
     @set_plot_style
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
@@ -285,7 +222,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         show_legend = True
 
         for i, ell in enumerate(ells):
-            lax[-1].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]', fontsize=15)
+            lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
             lax[0].set_ylabel(r'$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
