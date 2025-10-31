@@ -21,15 +21,11 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     # coordinates = observable.coordinates
     print(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
 
-    # reshape the features to have the format (n_samples, n_features)
     ncosmo, nhod = [len(observable.get_coordinate_list(name)) for name in ['cosmo_idx', 'hod_idx']]
-    nsamples = ncosmo * nhod
-    lhc_x = lhc_x.reshape(nsamples, -1)
-    lhc_y = lhc_y.reshape(nsamples, -1)
-    print(f'Reshaped LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
+    print(f'Number of cosmologies: {ncosmo}, Number of HODs: {nhod}')
 
-    # covariance_matrix = observable.get_covariance_matrix(divide_factor=64)
-    # print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
+    # # covariance_matrix = observable.get_covariance_matrix(divide_factor=64)
+    # # print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
     if args.apply_transform:
         if args.transform == 'log':
@@ -113,7 +109,7 @@ if __name__ == '__main__':
         'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/', # Loads x, y can also contain covariance_y
     }
 
-    observable = Observable(stat_name=args.stat, paths=paths, numpy_output=True)
+    observable = Observable(stat_name=args.stat, paths=paths, numpy_output=True, flat_output_dims=2)
 
     model_dir = f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{observable}/'
     TrainFCN(
