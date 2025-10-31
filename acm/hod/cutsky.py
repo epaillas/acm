@@ -34,7 +34,9 @@ except ImportError:
 warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
-# Valid photometric regions
+# Valid DESI photometric regions
+# N = North, DN = Dark North, DS = Dark South, SNGC = South NGC, SSGC = South SGC
+# DES = Dark Energy Survey, NGC = North Galactic Cap, SGC = South Galactic Cap
 VALID_REGIONS = ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC']
 
 #TODO : add docstrings !
@@ -720,7 +722,8 @@ class CutskyHOD(BaseCutskyCatalog):
             of the base box size.
         """
         boxpad = self.boxpad
-        assert boxpad > 0
+        if boxpad <= 0:
+            raise ValueError(f"boxpad must be positive, got {boxpad}")
         pos_min, pos_max = minmax_xyz_desi(
             zranges,
             region=region,
