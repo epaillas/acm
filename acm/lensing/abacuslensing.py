@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 # Valid phase indices for 'huge' simulations
+# The 'huge' simulation type only supports phase indices 201 and 202
 HUGE_PHASE_INDICES = [201, 202]
 
 
