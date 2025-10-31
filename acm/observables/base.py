@@ -361,11 +361,39 @@ class Observable():
         if checkpoint_fn is None:
             checkpoint_fn = self.checkpoint_fn
         
+        # Register safe globals for transform classes to allow loading checkpoints
+        # with PyTorch 2.6+ (which changed weights_only default to True)
+        safe_classes = []
+        transforms_array_imported = False
+        
+        # Try to import transform classes from sunbird.data.transforms_array
+        try:
+            from sunbird.data.transforms_array import (
+                LogTransform,
+                ArcsinhTransform,
+            )
+            safe_classes.extend([LogTransform, ArcsinhTransform])
+            transforms_array_imported = True
+        except ImportError:
+            pass
+        
+        # Register the classes as safe globals if torch.serialization.add_safe_globals exists
+        if safe_classes:
+            try:
+                torch.serialization.add_safe_globals(safe_classes)
+            except AttributeError:
+                # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
+                self.logger.debug("torch.serialization.add_safe_globals not available, skipping safe globals registration")
+        
         # Load the model
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
+        
+        # Set transforms for minkowski models
         if self.stat_name.startswith('minkowski'):
-            from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
+            if not transforms_array_imported:
+                # Import if not already done (e.g., if initial import failed)
+                from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
             model.transform_output = WeiLiuOutputTransForm()
             model.transform_input = WeiLiuInputTransform()
         return model
@@ -376,7 +404,7 @@ class Observable():
         
         Parameters
         ----------
-        x : array_like
+        x : array_like, dict
             Input features.
         model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
@@ -392,9 +420,27 @@ class Observable():
         array_like
             Model prediction.
         """
+        if isinstance(x, dict):
+            missing = set(self.x_names) - set(x.keys())
+            extra = set(x.keys()) - set(self.x_names)
+            if missing:
+                raise ValueError(
+                    "Input x dictionary keys do not match the model input names. "
+                    f"Missing keys: {missing}"
+                )
+            if extra:
+                logger.warning(
+                    "Input x dictionary contains unexpected keys not used by the model. "
+                    f"Unexpected keys: {extra}"
+                )
+            x = [x[name] for name in self.x_names]
+            x = np.asarray(x).T  # Need to transpose to (n_samples, n_features)
+        else:
+            x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
+        
         if model is None:
             model = self.model
-        x = np.asarray(x) # Ensure x is an array to make torch.Tensor faster
+
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x))
             pred = pred.numpy()
