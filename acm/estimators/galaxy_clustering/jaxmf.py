@@ -129,11 +129,11 @@ class MinkowskiFunctionals(BaseDensityMeshEstimator):
         
         super().__init__(**kwargs)
 
-        self.query_positions = self.get_query_positions(self.data_mesh, method='lattice')
+        self.query_positions = self.get_query_positions(method='lattice')
 
     def run(self, thresholds):
         t0 = time.time()
-        self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.data_mesh.meshsize)
+        self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.meshsize)
 
         # ensure float32 input for memory (we still compute sums in float64 where needed)
         delta = self.delta_query.astype(np.float32)
@@ -175,7 +175,7 @@ class MinkowskiFunctionals(BaseDensityMeshEstimator):
 
         # Normalize MFs same as original:
         l = float(vol)
-        a = float(self.data_mesh.cellsize[0])
+        a = float(self.cellsize[0])
         # if vol is zero avoid division by zero
         if l == 0:
             norm = jnp.array([0.0, 0.0, 0.0, 0.0], dtype=jnp.float64)
