@@ -11,7 +11,6 @@ torch.set_float32_matmul_precision('high')
 
 def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, 
     model_dir=None):
-    slice_filters = {}
 
     # load the data
     lhc_x = observable.x
