@@ -8,6 +8,10 @@ import numpy as np
 from pathlib import Path
 
 
+# Valid phase indices for 'huge' simulations
+HUGE_PHASE_INDICES = [201, 202]
+
+
 class AbacusLensingMap(ABC):
     """
     Abstract base class for Abacus Lensing Maps.
@@ -48,8 +52,8 @@ class AbacusLensingMap(ABC):
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
         if sim_type == 'huge':
-            if phase_idx not in [201, 202]:
-                raise ValueError("Phase index for 'huge' simulation must be 201 or 202.")
+            if phase_idx not in HUGE_PHASE_INDICES:
+                raise ValueError(f"Phase index for 'huge' simulation must be one of {HUGE_PHASE_INDICES}.")
         self.sim_type = sim_type
         self.nside = 16384
         if base_dir is None:

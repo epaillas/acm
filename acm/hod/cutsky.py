@@ -34,6 +34,9 @@ except ImportError:
 warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
+# Valid photometric regions
+VALID_REGIONS = ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC']
+
 #TODO : add docstrings !
 
 
@@ -186,8 +189,8 @@ class BaseCutskyCatalog(ABC):
             Boolean mask indicating whether each RA/Dec coordinate is within the specified region.
         """
         region = region.upper()
-        if region not in ['N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC']:
-            raise ValueError(f"Invalid region '{region}'. Must be one of: 'N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC'")
+        if region not in VALID_REGIONS:
+            raise ValueError(f"Invalid region '{region}'. Must be one of: {', '.join(VALID_REGIONS)}")
 
         if not HAS_REGRESSIS:
             mask = np.ones_like(ra, dtype='?')
