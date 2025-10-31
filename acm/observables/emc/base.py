@@ -149,7 +149,7 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             emulator_error = emulator_error.values
         return emulator_error
-        
+
     # NOTE: Override Observable prediction to add the phase correction if needed !
     def get_model_prediction(self, x, model=None, coords=None, attrs=None, nofilters: bool = False):
         """
@@ -175,18 +175,25 @@ class BaseObservableEMC(Observable):
         """
         if isinstance(x, dict):
             missing = set(self.x_names) - set(x.keys())
-            assert not missing, (
-                "Input x dictionary keys do not match the model input names. "
-                f"Missing keys: {missing}"
-            )
+            extra = set(x.keys()) - set(self.x_names)
+            if missing:
+                raise ValueError(
+                    "Input x dictionary keys do not match the model input names. "
+                    f"Missing keys: {missing}"
+                )
+            if extra:
+                logger.warning(
+                    "Input x dictionary contains unexpected keys not used by the model. "
+                    f"Unexpected keys: {extra}"
+                )
             x = [x[name] for name in self.x_names]
             x = np.asarray(x).T  # Need to transpose to (n_samples, n_features)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
-
+        
         if model is None:
             model = self.model
-
+        
         with torch.no_grad():
             pred = model.get_prediction(torch.Tensor(x.copy()))
             pred = pred.numpy()
@@ -225,7 +232,7 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             pred = pred.values
         return pred
-    
+        
     def compress_x(self, hods: dict, cosmos: list = cosmo_list) -> tuple:
         """
         Compress the x values from the parameters files.
