@@ -1,7 +1,6 @@
 from abc import ABC
 import logging
 import warnings
-from typing import List, Optional
 
 import numpy as np
 import fitsio
@@ -56,9 +55,9 @@ class BaseCutskyCatalog(ABC):
         self,
         region: str = 'N+SNGC',
         release: str = 'Y1',
-        npasses: Optional[int] = None,
+        npasses: int | None = None,
         program: str = 'dark',
-        custom_mask_path: Optional[str] = None
+        custom_mask_path: str | None = None
     ) -> None:
         """
         Applies the angular mask to the cutsky catalog based on the specified region.
@@ -148,7 +147,7 @@ class BaseCutskyCatalog(ABC):
         if shape_only:
             self.catalog['NZ'] /= max_ratio
 
-    def compute_nz(self, zedges=None):
+    def compute_nz(self, zedges: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
         """
         Computes the comoving number density n(z) of the cutsky catalog.
 
@@ -170,7 +169,12 @@ class BaseCutskyCatalog(ABC):
         zbin_mid = (zedges[:-1] + zedges[1:]) / 2
         return zbin_mid, data_nz / np.diff(zedges)
 
-    def is_in_photometric_region(self, ra, dec, region):
+    def is_in_photometric_region(
+        self,
+        ra: np.ndarray,
+        dec: np.ndarray,
+        region: str
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Determine if the given RA/Dec coordinates are within the specified photometric region.
 
@@ -286,12 +290,12 @@ class CutskyHOD(BaseCutskyCatalog):
     """
     def __init__(
         self,
-        varied_params: List[str],
-        config_file: Optional[str] = None,
+        varied_params: list[str],
+        config_file: str | None = None,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
-        zranges: List[List[float]] = [[0.4, 0.6]],
-        snapshots: List[float] = [0.5],
+        zranges: list[list[float]] = [[0.4, 0.6]],
+        snapshots: list[float] = [0.5],
         DM_DICT: dict = LRG_Abacus_DM,
         load_existing_hod: bool = False,
         sim_type: str = 'base',
@@ -304,7 +308,7 @@ class CutskyHOD(BaseCutskyCatalog):
 
         Parameters
         ----------
-        varied_params : List[str]
+        varied_params : list[str]
             List of HOD parameters that will be varied.
         config_file : str, optional
             Path to the configuration file for HOD parameters. If None,
@@ -313,10 +317,10 @@ class CutskyHOD(BaseCutskyCatalog):
             Index of the cosmology to use for the AbacusSummit simulation.
         phase_idx : int, optional
             Index of the phase to use for the AbacusSummit simulation.
-        zranges : List[List[float]], optional
+        zranges : list[list[float]], optional
             List of redshift ranges for which to build the cutsky catalog.
             Each sublist should contain two elements: [zmin, zmax].
-        snapshots : List[float], optional
+        snapshots : list[float], optional
             List of snapshots (redshifts) to use for building each redshift range
             specified in `zranges`.
         DM_DICT : dict, optional
@@ -454,12 +458,12 @@ class CutskyHOD(BaseCutskyCatalog):
         hod_params: dict,
         nthreads: int = 1,
         seed: float = 0,
-        existing_hod_path: str = None,
+        existing_hod_path: str | None = None,
         region: str = 'NGC',
         release: str = 'Y1',
-        target_nz_filename: str = None,
-        custom_xyz_file=None
-    ):
+        target_nz_filename: str | None = None,
+        custom_xyz_file: str | None = None
+    ) -> dict:
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
         This does not yet apply the angular or radial masks, which should be done
@@ -554,14 +558,20 @@ class CutskyHOD(BaseCutskyCatalog):
             self.catalog[key] = np.array(self.catalog[key])
         return self.catalog
 
-    def get_box_shifts(self, pos_min, pos_max):
+    def get_box_shifts(
+        self,
+        pos_min: np.ndarray,
+        pos_max: np.ndarray
+    ) -> list:
         """
         Get the shifts that need to be applied to replicate the box along
         one or more axes of the simulation.
         Parameters
         ----------
-        pos_min, pos_max : np.ndarray
-            Both should be 1-d array, the minimum and maximum of position from the reference mock.
+        pos_min : np.ndarray
+            1-d array, the minimum position from the reference mock.
+        pos_max : np.ndarray
+            1-d array, the maximum position from the reference mock.
 
         Returns
         -------
@@ -580,13 +590,13 @@ class CutskyHOD(BaseCutskyCatalog):
 
     def get_box_replications(
         self,
-        position,
-        velocity,
-        pos_min,
-        pos_max,
-        target_nbar,
-        shifts: list = None
-    ):
+        position: np.ndarray,
+        velocity: np.ndarray,
+        pos_min: np.ndarray,
+        pos_max: np.ndarray,
+        target_nbar: float,
+        shifts: list | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Get the positions, velocities, and box centers of the replications of the simulations,
         obtained by applying the input shift values.
@@ -693,11 +703,11 @@ class CutskyHOD(BaseCutskyCatalog):
 
     def get_reference_borders(
         self,
-        zranges,
-        region='NGC',
-        release='Y1',
-        custom_xyz_file=None
-    ):
+        zranges: list,
+        region: str = 'NGC',
+        release: str = 'Y1',
+        custom_xyz_file: str | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Get the minimum and maximum cartesian coordinates from a reference galaxy catalog
         to restrict the volume spanned by the replicated HOD boxes. This avoids wasting
@@ -739,12 +749,12 @@ class CutskyHOD(BaseCutskyCatalog):
 
     def get_target_nbar(
         self,
-        nz_filename: str = None,
+        nz_filename: str | None = None,
         zmin: float = 0.,
         zmax: float = 6.,
-        nzpad=1.1,
+        nzpad: float = 1.1,
         region: str = 'NGC'
-    ):
+    ) -> float:
         """
         Get the maximum number density associated to a given tracer in a given redshift range
         from the observed n(z) file. This is to know what the number density of the created
@@ -776,7 +786,14 @@ class CutskyHOD(BaseCutskyCatalog):
         chosen = np.logical_and(zbin_min >= zmin, zbin_max <= zmax)
         return nzpad * np.max(n_z[chosen])
 
-    def get_pos_within_borders(self, pos, vel, pos_min, pos_max, target_nbar):
+    def get_pos_within_borders(
+        self,
+        pos: np.ndarray,
+        vel: np.ndarray,
+        pos_min: np.ndarray,
+        pos_max: np.ndarray,
+        target_nbar: float
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Force the positions and velocities to be within the specified borders.
 
@@ -808,7 +825,7 @@ class CutskyHOD(BaseCutskyCatalog):
             vel = vel[chosen]
         return pos,vel
 
-    def get_raw_nbar_at_z(self, redshift):
+    def get_raw_nbar_at_z(self, redshift: np.ndarray) -> np.ndarray | float:
         """
         Obtains the correct raw_nbar value for a given redshift input
 
@@ -850,9 +867,9 @@ class CutskyRandoms(BaseCutskyCatalog):
         rarange: tuple = (0., 360.),
         decrange: tuple = (-90., 90.),
         zrange: tuple = (0.4, 0.6),
-        csize: Optional[int] = None,
-        nbar: Optional[float] = None,
-        seed: Optional[int] = None,
+        csize: int | None = None,
+        nbar: float | None = None,
+        seed: int | None = None,
         cosmo_idx: int = 0
     ):
         """

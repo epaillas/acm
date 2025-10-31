@@ -2,11 +2,12 @@
 # presented in https://arxiv.org/abs/2305.11935
 
 from abc import ABC, abstractmethod
-from typing import Optional, Union
 import asdf
 import healpy as hp
+import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+import treecorr
 
 
 # Valid phase indices for 'huge' simulations
@@ -27,11 +28,11 @@ class AbacusLensingMap(ABC):
     """
     def __init__(
         self,
-        snap_idx=47,
-        cosmo_idx=0,
-        phase_idx=0,
-        sim_type='base',
-        base_dir=None
+        snap_idx: int = 47,
+        cosmo_idx: int = 0,
+        phase_idx: int = 0,
+        sim_type: str = 'base',
+        base_dir: str | Path | None = None
     ):
         """
         Initialize the AbacusLensingMap with snapshot index, cosmology index, phase index, and simulation type.
@@ -46,7 +47,7 @@ class AbacusLensingMap(ABC):
             Phase index. Default is 0.
         sim_type : str, optional
             Simulation type ('base' or 'huge'). Default is 'base'.
-        base_dir : Union[str, Path], optional
+        base_dir : str | Path, optional
             Base directory for AbacusLensing data. If None, defaults to
             "/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1".
         """
@@ -91,7 +92,7 @@ class AbacusLensingMap(ABC):
             self.gamma1 = self.gamma1[mask]
             self.gamma2 = self.gamma2[mask]
 
-    def plot_mollview(self, save_fn: Optional[str] = None) -> None:
+    def plot_mollview(self, save_fn: str | None = None) -> None:
         """
         Plot the (kappa/shear) convergence map using Mollweide projection.
 
@@ -100,8 +101,6 @@ class AbacusLensingMap(ABC):
         save_fn : str, optional
             Path to save the plot. If None, the plot is not saved.
         """
-        import matplotlib.pyplot as plt
-        import healpy as hp
         toplot = self.kappa if self.map_type == 'kappa' else self.gamma1
         hp.mollview(toplot, badcolor='w', cmap='coolwarm')
         if save_fn:
@@ -119,7 +118,7 @@ class AbacusConvergenceMap(AbacusLensingMap):
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         sim_type: str = 'base',
-        base_dir: Optional[Union[str, Path]] = None
+        base_dir: str | Path | None = None
     ):
         self.map_type = 'kappa'
         super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
@@ -139,7 +138,6 @@ class AbacusConvergenceMap(AbacusLensingMap):
         """
         Convert the map to a TreeCorr catalog and store in self.treecorr.
         """
-        import treecorr
         self.treecorr = treecorr.Catalog(
             ra=self.ra, dec=self.dec, k=self.kappa,
             ra_units='deg', dec_units='deg'
@@ -155,7 +153,7 @@ class AbacusShearMap(AbacusLensingMap):
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         sim_type: str = 'base',
-        base_dir: Optional[Union[str, Path]] = None
+        base_dir: str | Path | None = None
     ):
         self.map_type = 'gamma'
         super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
@@ -177,7 +175,6 @@ class AbacusShearMap(AbacusLensingMap):
         """
         Convert the map to a TreeCorr catalog and store in self.treecorr.
         """
-        import treecorr
         self.treecorr = treecorr.Catalog(
             ra=self.ra, dec=self.dec,
             g1=self.gamma1, g2=self.gamma2,
