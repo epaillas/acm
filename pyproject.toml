@@ -45,11 +45,17 @@ cosmodesi = [
     'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
     'jaxpower @ git+https://github.com/adematti/jax-power.git',
 
-    # HOD
+    # HOD and cutsky
     'astropy',
-    'abacusutils', #abacusnbody
+    'abacusutils',  # abacusnbody
     'cosmoprimo[class,camb,astropy,extras] @ git+https://github.com/cosmodesi/cosmoprimo',
     'mockfactory @ git+https://github.com/cosmodesi/mockfactory',
+    'fitsio',
+    'healpy',
+    'desitarget',
+    
+    # Lensing
+    'asdf',
 ]
 docs = [
     "sphinx >= 4.2",
