@@ -136,7 +136,7 @@ class Observable():
             if name in self.select_indices_on:
                 data = self.apply_indices_selection(data)
             
-            data = self.flatten_output(data)
+            data = self.flatten_output(data, self.flat_output_dims)
         
             if self.squeeze_output:
                 data = data.squeeze()
@@ -210,7 +210,8 @@ class Observable():
             dataarray = dataarray.sel(**slice_filters)
         return dataarray
 
-    def flatten_output(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+    @classmethod
+    def flatten_output(cls, dataarray: xarray.DataArray, flat_output_dims: int) -> xarray.DataArray:
         """
         Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
         containing the list of dimensions to stack on.
@@ -223,6 +224,8 @@ class Observable():
         ----------
         dataarray : xarray.DataArray
             The DataArray to flatten.
+        flat_output_dims : int
+            Number of dimensions to flatten the output on (1 or 2).
 
         Returns
         -------
@@ -230,11 +233,11 @@ class Observable():
             The flattened DataArray.
         """
         dataarray = dataarray.unstack()
-        if self.flat_output_dims == 2:
-            dataarray = self.stack_on_attribute('sample', dataarray)
-            dataarray = self.stack_on_attribute('features', dataarray)
+        if flat_output_dims == 2:
+            dataarray = cls.stack_on_attribute('sample', dataarray)
+            dataarray = cls.stack_on_attribute('features', dataarray)
             dataarray = dataarray.transpose('sample', 'features')
-        elif self.flat_output_dims == 1:
+        elif flat_output_dims == 1:
             dataarray = dataarray.stack(dims=[...])
         
         return dataarray
@@ -314,7 +317,7 @@ class Observable():
             data = self.apply_filters(data)
             if 'emulator_error' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -336,7 +339,7 @@ class Observable():
             data = self.apply_filters(data)
             if 'emulator_covariance_y' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -429,7 +432,7 @@ class Observable():
                     f"Missing keys: {missing}"
                 )
             if extra:
-                logger.warning(
+                self.logger.warning(
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
@@ -469,7 +472,7 @@ class Observable():
         
         pred = self.apply_filters(pred)
         pred = self.apply_indices_selection(pred)
-        pred = self.flatten_output(pred)
+        pred = self.flatten_output(pred, self.flat_output_dims)
         
         if self.squeeze_output:
             pred = pred.squeeze()
