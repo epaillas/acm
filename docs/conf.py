@@ -55,9 +55,16 @@ autodoc_mock_imports = [
     'pyfnntw',
     'acm.estimators.galaxy_clustering.src', # To avoid c-compiled modules
     'abacusnbody',
+    'abacusutils',
     'cosmoprimo',
     'mockfactory',
-]# 'pycorr', 'Corrfunc', ]
+    'pycorr',
+    'Corrfunc',
+    'mistreeplus',
+    'numba',
+    'jax',
+    'jaxlib',
+]
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
