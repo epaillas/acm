@@ -3,10 +3,13 @@ import xarray
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import matplotlib.pyplot as plt
 from acm.observables import Observable
 from acm.utils import get_data_dirs
+from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.plotting import set_plot_style
 
 class BaseObservableEMC(Observable):
     """
@@ -38,6 +41,8 @@ class BaseObservableEMC(Observable):
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         n_test = n_test if n_test else self.n_test
+
+        self.logger.info(f'Computing emulator covariance array for {n_test} test samples.')
         
         # Get unfiltered values
         x = self._dataset.x 
@@ -144,7 +149,7 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             emulator_error = emulator_error.values
         return emulator_error
-        
+
     # NOTE: Override Observable prediction to add the phase correction if needed !
     def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False):
         """
@@ -229,7 +234,7 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             pred = pred.values
         return pred
-    
+        
     def compress_x(self, hods: dict, cosmos: list = cosmo_list) -> tuple:
         """
         Compress the x values from the parameters files.
@@ -246,7 +251,6 @@ class BaseObservableEMC(Observable):
         xarray.DataArray
             Compressed x values.
         """
-        from acm.utils.abacus import load_abacus_cosmologies
         data_dir = self.paths['param_dir']
 
         filename = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
@@ -317,3 +321,97 @@ class BaseObservableEMC(Observable):
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
             np.save(save_fn, dataset_to_dict(emulator_error_dataset))
         return emulator_error_dataset
+
+    @set_plot_style
+    def plot_observable(self, model_params: dict, sample_idx: int = 0, save_fn: str = None):
+        """
+        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters to use for the prediction.
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+
+        height_ratios = [3, 1]
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
+            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        show_legend = False
+
+        lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
+        lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
+
+        data = self.flatten_output(self.y, flat_output_dims=2)[sample_idx] # Enforce 2D flattening and get a single sample
+        bin_idx = np.arange(len(data))
+        model = self.get_model_prediction(model_params)
+        model = self.flatten_output(model, flat_output_dims=2)[0] # Enforce 2D flattening and get the first sample
+        cov = self.get_covariance_matrix(volume_factor=64)
+        error = np.sqrt(np.diag(cov))
+
+        lax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', 
+            color=f'C0', elinewidth=1.0, capsize=None)
+        lax[0].plot(bin_idx, model, ls='-', color=f'C0')
+        lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
+
+        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
+        lax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+        lax[1].set_ylim(-4, 4)
+
+        for ax in lax:
+            ax.grid(True)
+            ax.tick_params(axis='both', labelsize=14)
+        if show_legend: lax[0].legend(fontsize=15)
+
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, lax
+
+    @set_plot_style
+    def plot_emulator_residuals(self, save_fn: str = None):
+        """
+        Plot the emulator residuals.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+
+        residuals = self.flatten_output(self.emulator_covariance_y, flat_output_dims=2) # Enforce 2D flattening
+        data_cov = self.get_covariance_matrix(volume_factor=64)
+        data_err = np.sqrt(np.diag(data_cov))
+
+        fig, ax = plt.subplots(2, 1, figsize=(4, 4), sharex=True)
+
+        for res in residuals:
+            ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
+
+        ax[1].plot(np.median(np.abs(residuals), axis=0) / data_err, lw=1.0, label='MAE', color='C0')
+        ax[1].plot(np.std(residuals, axis=0) / data_err, lw=1.0, label='STD', ls='--', color='C1')
+
+        ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
+
+        ax[1].set_xlabel('bin index', fontsize=13)
+        ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
+        ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)
+        ax[1].legend(fontsize=8)
+        plt.tight_layout()
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax

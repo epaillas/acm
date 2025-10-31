@@ -3,8 +3,12 @@ import numpy as np
 import glob
 from pathlib import Path
 from .base import BaseObservableEMC
+import matplotlib.pyplot as plt
+from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.plotting import set_plot_style
+
 
 class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
@@ -58,7 +62,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
-        from jaxpower import read
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
         data_fns = list(base_dir.glob('mesh2_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
@@ -142,7 +145,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        from jaxpower import read
         base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
         
         y = []
@@ -152,15 +154,14 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             self.logger.info(f'Compressing c{cosmo_idx:03}')
             handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
+            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             for filename in filenames:
                 data = read(filename)
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
                 poles = [data.get(ell) for ell in (0, 2, 4)]
                 k = poles[0].coords('k')
                 y.append(np.concatenate(poles))
-                hod_idx = int(str(filename).split('hod')[1].split('.')[0])
-                hods[cosmo_idx].append(hod_idx)
-            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
@@ -197,71 +198,8 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
     
-    def compute_phase_correction(self, rebin: int = 4, ells: list = [0, 2, 4]):
-        """
-        Correction factor to bring the fixed phase precictions (p000) to the ensemble average.
-        
-        Parameters
-        ----------
-        rebin : int
-            Rebinning factor for the statistics. Default is 4.
-        ells : list
-            List of multipoles to compute the correction for. Default is [0, 2, 4].
-        
-        Returns
-        -------
-        np.ndarray
-            Correction factor for the fixed phase predictions.
-        """
-        from pathlib import Path
-        import numpy as np
-        from pycorr import TwoPointCorrelationFunction
-        
-        base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
-        # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
-        
-        multipoles_mean = []
-        for phase in range(25): # NOTE: Hardcoded !
-            data_dir = f'{base_dir}/c000_ph{phase:03}/seed0' # NOTE: Hardcoded !
-            multipoles_hods = []
-            for hod in range(50): # NOTE: Hardcoded !
-                data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
-                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-                s, multipoles = data(ells=ells, return_sep=True) 
-                multipoles_hods.append(multipoles)
-            multipoles_hods = np.array(multipoles_hods).mean(axis=0)
-            multipoles_mean.append(multipoles_hods)
-        multipoles_mean = np.array(multipoles_mean).mean(axis=0)
-
-        data_dir = f'{base_dir}/c000_ph000/seed0'  # NOTE: Hardcoded !
-        multipoles_ph0 = []
-        for hod in range(50): # NOTE: Hardcoded !
-            data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
-            data = TwoPointCorrelationFunction.load(data_fn)[::4]
-            s, multipoles = data(ells=ells, return_sep=True) 
-            multipoles_ph0.append(multipoles)
-        multipoles_ph0 = np.array(multipoles_ph0).mean(axis=0)
-        delta = ((multipoles_mean + 1) - (multipoles_ph0 + 1))/(multipoles_ph0 + 1)
-        return delta.reshape(-1)
-
-    def apply_phase_correction(self, prediction):
-        """
-        Apply the phase correction to the predictions.
-        We apply this to (1 + prediction) to avoid zero-crossings.
-
-        Parameters
-        ----------
-        prediction : np.ndarray
-            Array of predictions.
-
-        Returns
-        -------
-        np.ndarray
-            Corrected predictions.
-        """
-        return (1 + prediction) * (1 + self.phase_correction) - 1
-
-    def plot(self, model_params: dict, save_fn: str = None):
+    @set_plot_style
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -274,15 +212,9 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
         Returns
         -------
-        matplotlib.figure.Figure
-            The generated plot figure.
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
-        import matplotlib.pyplot as plt
-        plt.rcParams.update({
-            "text.usetex": True,
-            "font.family": "serif",
-            "font.serif": ["Computer Modern Roman"],
-        })
 
         ells = self._dataset.y.coords['multipoles'].values.tolist()
 
@@ -292,10 +224,10 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
         fig.subplots_adjust(hspace=0.1)
         show_legend = True
-
+        print('im here')
         for i, ell in enumerate(ells):
-            lax[-1].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]', fontsize=15)
-            lax[0].set_ylabel(r'$k P_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
+            lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
+            lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
             k = self.k
@@ -303,7 +235,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             model = self.get_model_prediction(model_params)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
-            print(np.shape(k), np.shape(data), np.shape(model), np.shape(error))
 
             lax[0].errorbar(k, k * data, k * error, marker='o', ms=4, ls='', 
                 color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
@@ -322,4 +253,4 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
-        return fig
+        return fig, lax

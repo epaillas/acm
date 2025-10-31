@@ -3,6 +3,7 @@ import numpy as np
 import glob
 from pathlib import Path
 from .base import BaseObservableEMC
+import matplotlib.pyplot as plt
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 
@@ -14,24 +15,17 @@ class MinkowskiFunctionals(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='minkowski', **kwargs)
-        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
     def checkpoint_fn(self) -> str:
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/spectrum/last.ckpt'
+        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/minkowski/last.ckpt'
     
     def compress_covariance(
         self,
         save_to: str = None,
-        kmin: float = 0.01,
-        kmax: float = 0.7, 
-        rebin: int = 5,
-        ells: list = [0, 2, 4],
-        overwrite_k: np.ndarray = None
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -41,51 +35,44 @@ class MinkowskiFunctionals(BaseObservableEMC):
         save_to : str
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
-        kmin : float
-            Minimum k value to consider. Default is 0.01.
-        kmax : float
-            Maximum k value to consider. Default is 0.7.
-        rebin : int
-            Rebinning factor for the statistics. Default is 4.
-        ells : list
-            List of multipoles to compute the statistics for. Default is [0, 2, 4].
-        overwrite_k : np.ndarray
-            If not None, overwrite the final separation values with this array. 
-            This is primarily useful to ensure consistency between the covariance and the data dims.
-            Default is None.
             
         Returns
         -------
         xarray.DataArray
             Covariance array. 
         """
-        from jaxpower import read
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
-        data_fns = list(base_dir.glob('mesh2_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
-        
+        data_fns = list(base_dir.glob('minkowski_ph*.npy')) # NOTE: File name format hardcoded !
+
+        threshold_index = np.load(
+            '/pscratch/sd/e/epaillas/emc/Threshold_index_for_MFs_with_Rg5_7_10_15.npy',
+            allow_pickle=True
+        ).item()
+
         y = []
-        for data_fn in data_fns:
-            data = read(data_fn)
-            data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
-            poles = [data.get(ell) for ell in (0, 2, 4)]
-            k = poles[0].coords('k')
-            y.append(np.concatenate(poles))
+        for filename in data_fns:
+            self.logger.info(f'Compressing {filename}')
+            data = np.load(filename, allow_pickle=True).item()
+            mf = []
+            for i in [5, 7, 10, 15]:
+                Rg = f'Rg{i}'
+                for j in range(4):
+                    mf.append(data[Rg][threshold_index[f'Threshold_index_{Rg}'][j], j ] * (10 * i) ** j) 
+            y.append(np.concatenate(mf))
         y = np.array(y)
-        k = overwrite_k if overwrite_k is not None else k
-        
+
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.DataArray(
-            data = y.reshape(y.shape[0], len(ells), -1),
+            data = y.reshape(y.shape[0], -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
-                "k": k,
+                'bin_idx': list(range(y.shape[-1])),
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "k"],
+                "features": ["bin_idx"],
             },
             name = "covariance_y",
         )
@@ -100,10 +87,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
         self, 
         add_covariance: bool = False,
         save_to: str = None,
-        kmin: float = 0.01,
-        kmax: float = 0.7, 
-        rebin: int = 5,
-        ells: list = [0, 2, 4],
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase_idx: int = 0,
@@ -119,14 +102,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
         save_to : str
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        kmin : float
-            Minimum k value to consider. Default is 0.01.
-        kmax : float
-            Maximum k value to consider. Default is 0.7.
-        rebin : int
-            Rebinning factor for the statistics. Default is 4.
-        ells : list
-            List of multipoles to compute the statistics for. Default is [0, 2, 4].
         cosmos : list
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
@@ -143,7 +118,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        from jaxpower import read
         base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
         
         threshold_index = np.load(
@@ -158,6 +132,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
             self.logger.info(f'Compressing c{cosmo_idx:03}')
             handle = f'c{cosmo_idx:03}_ph000/seed0/minkowski_c{cosmo_idx:03}_hod???.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
+            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True).item()
                 mf = []
@@ -166,8 +141,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
                     for j in range(4):
                         mf.append(data[Rg][threshold_index[f'Threshold_index_{Rg}'][j], j ] * (10 * i) ** j) 
                 y.append(np.concatenate(mf))
-                hod_idx = int(str(filename).split('hod')[1].split('.')[0])
-                hods[cosmo_idx].append(hod_idx)
             self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         
@@ -195,7 +168,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_k=k)
+            cov_y = self.compress_covariance()
             cout = xarray.merge([cout, cov_y])
         
         if save_to is not None:
@@ -205,66 +178,61 @@ class MinkowskiFunctionals(BaseObservableEMC):
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
     
-    def compute_phase_correction(self, rebin: int = 4, ells: list = [0, 2, 4]):
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
-        Correction factor to bring the fixed phase precictions (p000) to the ensemble average.
-        
-        Parameters
-        ----------
-        rebin : int
-            Rebinning factor for the statistics. Default is 4.
-        ells : list
-            List of multipoles to compute the correction for. Default is [0, 2, 4].
-        
-        Returns
-        -------
-        np.ndarray
-            Correction factor for the fixed phase predictions.
-        """
-        from pathlib import Path
-        import numpy as np
-        from pycorr import TwoPointCorrelationFunction
-        
-        base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
-        # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
-        
-        multipoles_mean = []
-        for phase in range(25): # NOTE: Hardcoded !
-            data_dir = f'{base_dir}/c000_ph{phase:03}/seed0' # NOTE: Hardcoded !
-            multipoles_hods = []
-            for hod in range(50): # NOTE: Hardcoded !
-                data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
-                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-                s, multipoles = data(ells=ells, return_sep=True) 
-                multipoles_hods.append(multipoles)
-            multipoles_hods = np.array(multipoles_hods).mean(axis=0)
-            multipoles_mean.append(multipoles_hods)
-        multipoles_mean = np.array(multipoles_mean).mean(axis=0)
-
-        data_dir = f'{base_dir}/c000_ph000/seed0'  # NOTE: Hardcoded !
-        multipoles_ph0 = []
-        for hod in range(50): # NOTE: Hardcoded !
-            data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
-            data = TwoPointCorrelationFunction.load(data_fn)[::4]
-            s, multipoles = data(ells=ells, return_sep=True) 
-            multipoles_ph0.append(multipoles)
-        multipoles_ph0 = np.array(multipoles_ph0).mean(axis=0)
-        delta = ((multipoles_mean + 1) - (multipoles_ph0 + 1))/(multipoles_ph0 + 1)
-        return delta.reshape(-1)
-
-    def apply_phase_correction(self, prediction):
-        """
-        Apply the phase correction to the predictions.
-        We apply this to (1 + prediction) to avoid zero-crossings.
+        Plot multi-scale Minkowski functionals predictions against data.
 
         Parameters
         ----------
-        prediction : np.ndarray
-            Array of predictions.
+        model_params : dict
+            Dictionary of model parameters to use for the prediction.
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
 
         Returns
         -------
-        np.ndarray
-            Corrected predictions.
+        fig, lax : matplotlib.figure.Figure, np.ndarray
+            Figure and axes array of the plot.
         """
-        return (1 + prediction) * (1 + self.phase_correction) - 1
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+        })
+
+        height_ratios = [3, 1]
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
+            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        show_legend = False
+
+        lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
+        lax[0].set_ylabel(r'$\textrm{Minkowski functionals}$', fontsize=15)
+
+        bin_idx = self.bin_idx
+        data = self.y[0]
+        model = self.get_model_prediction(model_params)[0]
+        cov = self.get_covariance_matrix(volume_factor=64)
+        error = np.sqrt(np.diag(cov))
+
+        lax[0].errorbar(bin_idx, data, error, marker='o', ms=3, ls='', 
+            color=f'C0', elinewidth=1.0, capsize=None)
+        lax[0].plot(bin_idx, model, ls='-', color=f'C1')
+        lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
+
+        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
+        lax[1].set_ylabel(r'$\Delta \textrm{MF} / \sigma_\textrm{MF}$', fontsize=15)
+        lax[1].set_ylim(-4, 4)
+
+        for ax in lax:
+            ax.grid(True)
+            ax.tick_params(axis='both', labelsize=14)
+        if show_legend: lax[0].legend(fontsize=15)
+
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, lax
+
+
