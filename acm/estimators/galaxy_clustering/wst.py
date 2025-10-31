@@ -16,6 +16,14 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         self.logger.info('Initializing WaveletScatteringTransform.')
         super().__init__(**kwargs)
 
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+            self.logger.info(f'Using GPU: {torch.cuda.get_device_name(0)}')
+        else:
+            self.device = 'cpu'
+            self.logger.info('Using CPU')
+
+        t0 = time.time()
         self.S = HarmonicScattering3D(
             J=J_3d,
             shape=self.data_mesh.meshsize,
@@ -24,17 +32,11 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
             integral_powers=integral_powers,
             max_order=2
         )
+        self.logger.info(f'Initialized Kymatio in {time.time() - t0:.2f} s.')
 
-        if torch.cuda.is_available():
-            self.device = 'cuda'
-            self.logger.info(f'Using GPU: {torch.cuda.get_device_name(0)}')
-        else:
-            self.device = 'cpu'
-            self.logger.info('Using CPU')
         self.S.to(self.device)
         self.integral_powers = integral_powers
-
-        self.query_positions = self.get_query_positions(self.data_mesh, method='lattice')
+        self.query_positions = self.get_query_positions(method='lattice')
 
     def run(self, delta_query=None):
         """

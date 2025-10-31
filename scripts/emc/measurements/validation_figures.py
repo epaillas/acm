@@ -19,6 +19,18 @@ def get_spectrum_fns(cosmo_idx=0, phase_idx=0, n_hod=1, sim_type='base'):
         fns = sorted(base_dir.glob(handle))
         return fns
 
+def get_bispectrum_fns(cosmo_idx=0, phase_idx=0, n_hod=1, sim_type='base'):
+    if sim_type == 'base':
+        base_dir = Path(f'/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/bispectrum/c{cosmo_idx:03}_ph000/seed0/')
+        handle = f'mesh3_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
+        fns = sorted(base_dir.glob(handle))
+        return fns[:n_hod]
+    elif sim_type == 'small':
+        base_dir = Path(f'/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/spectrum/')
+        handle = f'mesh3_spectrum_poles_ph*.h5'
+        fns = sorted(base_dir.glob(handle))
+        return fns
+
 def get_recon_spectrum_fns(cosmo_idx=0, phase_idx=0, n_hod=1, sim_type='base'):
     if sim_type == 'base':
         base_dir = Path(f'/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/recon_spectrum/c{cosmo_idx:03}_ph000/seed0/')
@@ -38,6 +50,14 @@ def read_spectrum(filename):
     poles = [data.get(ell) for ell in (0, 2, 4)]
     k = poles[0].coords('k')
     return k, poles
+
+def read_bispectrum(filename):
+    data = read(filename)
+    # data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
+    poles = [data.get(ell) for ell in (0, 2)]
+    k = poles[0].coords('k')
+    print(k)
+    # y.append(np.concatenate(poles))
 
 def get_tpcf_fns(cosmo_idx=0, phase_idx=0, n_hod=1):
     base_dir = Path(f'/pscratch/sd/e/epaillas/emc/v1.2/abacus/raw_measurements/tpcf/c{cosmo_idx:03}_ph000/seed0/')
@@ -94,6 +114,23 @@ def plot_spectrum_small():
     plt.tight_layout()
     plt.savefig('fig/spectrum_measurements_small.png', dpi=300, bbox_inches='tight')
     plt.close()
+
+def plot_bispectrum():
+    bk_fns = np.concatenate([get_bispectrum_fns(cosmo_idx=i) for i in range(5)])
+    k, _ = read_bispectrum(bk_fns[0])
+    poles = [read_bispectrum(fn)[1] for fn in bk_fns]
+
+    # fig, ax = plt.subplots(1, 3, figsize=(11, 3))
+    # for pole in poles:
+    #     for ell in (0, 2, 4):
+    #         ax[ell//2].plot(k, k*pole[ell//2], ls='-', lw=1.0)
+    # for aa in ax:
+    #     aa.set_xlabel(r'$k$ [h/Mpc]', fontsize=13)
+    # for ell in (0, 2, 4):
+    #     ax[ell//2].set_ylabel(r'$k B_{%d}(k)$ [h$^{-4}$ Mpc$^{4}$]' % ell, fontsize=13)
+    # plt.tight_layout()
+    # plt.savefig('fig/bispectrum_measurements.png', dpi=300, bbox_inches='tight')
+    # plt.close()
 
 def plot_recon_spectrum():
     pk_fns = np.concatenate([get_recon_spectrum_fns(cosmo_idx=i) for i in range(5)])
@@ -217,11 +254,12 @@ def compare_tpcf_vs_recon_tpcf():
 
 if __name__ == '__main__':
 
-    plot_spectrum()
-    plot_recon_spectrum()
-    compare_spectrum_vs_recon_spectrum()
-    plot_tpcf()
-    plot_recon_tpcf()
-    compare_tpcf_vs_recon_tpcf()
-    plot_spectrum_small()
-    plot_recon_spectrum_small()
+    # plot_spectrum()
+    # plot_recon_spectrum()
+    # compare_spectrum_vs_recon_spectrum()
+    # plot_tpcf()
+    # plot_recon_tpcf()
+    # compare_tpcf_vs_recon_tpcf()
+    # plot_spectrum_small()
+    # plot_recon_spectrum_small()
+    plot_bispectrum()
