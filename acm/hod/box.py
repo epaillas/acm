@@ -27,7 +27,7 @@ class BoxHOD:
     Note that BGS is also supported, by using `tracer='LRG'` and BGS characteristics (mean density, redshift, etc.)
     """
     
-    logger = logging.getLogger('AbacusHOD') # Set up logger for the class as a class attribute
+    logger = logging.getLogger('BoxHOD') # Set up logger for the class as a class attribute
     
     def __init__(
         self,
