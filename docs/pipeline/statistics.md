@@ -30,7 +30,7 @@ Each estimator has its own class and interface. The general workflow is:
 4. Save or analyze the results
 
 ```{tip}
-Example notebooks showing how to compute these statistics are available in the [Tutorials](../notebooks/densitysplit) section.
+Example notebooks showing how to compute statistics like density-split are available in the [Tutorials](../notebooks/densitysplit) section.
 ```
 
 ### Storage Conventions

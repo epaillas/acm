@@ -28,7 +28,7 @@ The package can be installed with the following optional dependencies:
 - `nersc` for NERSC environment (containing `cosmodesi`)
 - `cosmodesi` to install extra cosmodesi dependencies
 - `docs` to install the documentation building dependencies
-- Some [estimators](../acm/estimators) also have their own dependencies, which can be installed through the estimator name (e.g., `knn`, `mst`, `minkowski`)
+- Some estimators also have their own dependencies, which can be installed through the estimator name (e.g., `knn`, `mst`, `minkowski`)
 
 ```{tip}
 Add the dependency names separated by commas, e.g. `pip install acm[nersc,sunbird,cosmodesi,estimator1,estimator2]` to install several dependencies at once.

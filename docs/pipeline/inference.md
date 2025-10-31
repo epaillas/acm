@@ -51,7 +51,7 @@ For detailed examples, see the [sunbird documentation](https://github.com/florpi
 
 ## Chain Storage
 
-Inference chains are stored following the conventions described in the [Data Storage](../code/data.md#inference-chains) section. 
+Inference chains are stored following the conventions described in the [Data Storage](../code/data#inference-chains) section. 
 
 The chain files contain:
 - `samples`: The parameter samples from the chain

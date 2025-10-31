@@ -78,7 +78,7 @@ See the [Dependencies](dependencies) page for a complete list of packages used b
 We recommend citing this package as:
 
 ```
-ACM Topical Group (2025). Alternative Clustering Methods (ACM) Pipeline. 
+ACM Topical Group (2024-2025). Alternative Clustering Methods (ACM) Pipeline. 
 GitHub repository: https://github.com/epaillas/acm
 ```
 
