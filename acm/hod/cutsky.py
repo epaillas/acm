@@ -1,6 +1,7 @@
 from abc import ABC
 import logging
 import warnings
+from typing import List, Optional
 
 import numpy as np
 import fitsio
@@ -53,12 +54,12 @@ class BaseCutskyCatalog(ABC):
 
     def apply_angular_mask(
         self,
-        region='N+SNGC',
-        release='Y1',
-        npasses=None,
-        program='dark',
-        custom_mask_path=None
-    ):
+        region: str = 'N+SNGC',
+        release: str = 'Y1',
+        npasses: Optional[int] = None,
+        program: str = 'dark',
+        custom_mask_path: Optional[str] = None
+    ) -> None:
         """
         Applies the angular mask to the cutsky catalog based on the specified region.
 
@@ -108,7 +109,7 @@ class BaseCutskyCatalog(ABC):
                 self.catalog[key] = self.catalog[key][is_in_mask]
             
 
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False):
+    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False) -> None:
         """
         Applies the radial selection function to a cutsky catalog based on 
         an input n(z) file (number desity as a function of redshift).
@@ -237,7 +238,7 @@ class BaseCutskyCatalog(ABC):
             }
             return pixels, dr9_footprint(convert_dict[region])[pixels]
 
-    def add_columns_fiberassign(self, seed: int = 0):
+    def add_columns_fiberassign(self, seed: int = 0) -> None:
         """
         Add columns to the catalog that are needed for fiber assignment.
 
@@ -259,7 +260,7 @@ class BaseCutskyCatalog(ABC):
         self.catalog['NUMOBS_MORE'] = np.ones(csize, dtype='i8')
         self.catalog['TARGETID'] = np.arange(csize, dtype='i8')
 
-    def save(self, filename: str):
+    def save(self, filename: str) -> None:
         """
         Save the cutsky catalog to a file. Supports .fits and .npy formats.
 
@@ -285,12 +286,12 @@ class CutskyHOD(BaseCutskyCatalog):
     """
     def __init__(
         self,
-        varied_params,
-        config_file: str = None,
+        varied_params: List[str],
+        config_file: Optional[str] = None,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
-        zranges: list[list] = [[0.4, 0.6]],
-        snapshots: list = [0.5],
+        zranges: List[List[float]] = [[0.4, 0.6]],
+        snapshots: List[float] = [0.5],
         DM_DICT: dict = LRG_Abacus_DM,
         load_existing_hod: bool = False,
         sim_type: str = 'base',
@@ -303,7 +304,7 @@ class CutskyHOD(BaseCutskyCatalog):
 
         Parameters
         ----------
-        varied_params : list
+        varied_params : List[str]
             List of HOD parameters that will be varied.
         config_file : str, optional
             Path to the configuration file for HOD parameters. If None,
@@ -312,10 +313,10 @@ class CutskyHOD(BaseCutskyCatalog):
             Index of the cosmology to use for the AbacusSummit simulation.
         phase_idx : int, optional
             Index of the phase to use for the AbacusSummit simulation.
-        zranges : list[list], optional
+        zranges : List[List[float]], optional
             List of redshift ranges for which to build the cutsky catalog.
             Each sublist should contain two elements: [zmin, zmax].
-        snapshots : list, optional
+        snapshots : List[float], optional
             List of snapshots (redshifts) to use for building each redshift range
             specified in `zranges`.
         DM_DICT : dict, optional
@@ -331,7 +332,7 @@ class CutskyHOD(BaseCutskyCatalog):
         tracer : str, optional
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
         """
-        BaseCutskyCatalog.__init__(self)
+        super().__init__()
         self.logger = logging.getLogger('CutskyHOD')
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
@@ -846,18 +847,19 @@ class CutskyRandoms(BaseCutskyCatalog):
     """
     def __init__(
         self,
-        rarange=(0., 360.),
-        decrange=(-90., 90.),
-        zrange=(0.4, 0.6),
-        csize=None,
-        nbar=None,
-        seed=None,
-        cosmo_idx=0
+        rarange: tuple = (0., 360.),
+        decrange: tuple = (-90., 90.),
+        zrange: tuple = (0.4, 0.6),
+        csize: Optional[int] = None,
+        nbar: Optional[float] = None,
+        seed: Optional[int] = None,
+        cosmo_idx: int = 0
     ):
         """
         Initialize the CutskyRandoms class. This generates randoms in a cutsky region
         that has a certain right ascension, declination and redshift range, but 
         the proper angular and radial mask needs to be applied later with the dedicated methods.
+
         Parameters
         ----------
         rarange : tuple, optional
@@ -875,7 +877,7 @@ class CutskyRandoms(BaseCutskyCatalog):
         cosmo_idx : int, optional
             Index of the AbacusSummit cosmology. Used for the redshift-distance relation.
         """
-        BaseCutskyCatalog.__init__(self)
+        super().__init__()
         self.logger = logging.getLogger('CutskyRandoms')
         self.rarange = rarange
         self.decrange = decrange
