@@ -146,14 +146,16 @@ class BaseObservableEMC(Observable):
         return emulator_error
         
     # NOTE: Override Observable prediction to add the phase correction if needed !
-    def get_model_prediction(self, x, model=None, coords=None, attrs=None, nofilters: bool = False):
+    def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False):
         """
         Get the prediction from the model.
         
         Parameters
         ----------
         x : array_like, dict
-            Input features.
+            Input features for the model. 
+            If an array, it should have shape (n_samples, n_params). 
+            If a dict, it should have keys matching the model input names and values as lists/1d-arrays of shape (n_samples,).
         model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
@@ -182,7 +184,7 @@ class BaseObservableEMC(Observable):
                     f"Unexpected keys: {extra}"
                 )
             x = [x[name] for name in self.x_names]
-            x = np.asarray(x).T  # Need to transpose to (n_samples, n_features)
+            x = np.asarray(x).T  # Need to transpose to (n_samples, n_params)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
         
