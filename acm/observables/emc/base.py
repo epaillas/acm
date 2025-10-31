@@ -91,7 +91,7 @@ class BaseObservableEMC(Observable):
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
-        emulator_covariance_y = self.flatten_output(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
@@ -138,7 +138,7 @@ class BaseObservableEMC(Observable):
         emulator_error = self.apply_filters(emulator_error)
         if 'emulator_error' in self.select_indices_on:
             emulator_error = self.apply_indices_selection(emulator_error)
-        emulator_error = self.flatten_output(emulator_error)
+        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if self.squeeze_output:
             emulator_error = emulator_error.squeeze()
         if self.numpy_output:
@@ -177,7 +177,7 @@ class BaseObservableEMC(Observable):
                     f"Missing keys: {missing}"
                 )
             if extra:
-                logger.warning(
+                self.logger.warning(
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
@@ -220,7 +220,7 @@ class BaseObservableEMC(Observable):
         
         pred = self.apply_filters(pred)
         pred = self.apply_indices_selection(pred)
-        pred = self.flatten_output(pred)
+        pred = self.flatten_output(pred, self.flat_output_dims)
         
         if self.squeeze_output:
             pred = pred.squeeze()
