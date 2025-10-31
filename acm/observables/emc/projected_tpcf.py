@@ -1,6 +1,5 @@
 import xarray
 import numpy as np
-import glob
 from pathlib import Path
 from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
