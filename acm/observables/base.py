@@ -491,10 +491,7 @@ class Observable():
         
         # Ensure 2D shape of the covariance array
         if isinstance(cov_y, xarray.DataArray):
-            cov_y = cov_y.unstack()
-            cov_y = self.stack_on_attribute('sample', cov_y)
-            cov_y = self.stack_on_attribute('features', cov_y)
-            cov_y = cov_y.transpose('sample', 'features')
+            cov_y = self.flatten_output(cov_y, flat_output_dims=2) # Force 2D flattening for covariance
         elif len(cov_y.shape) > 2:
             self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
             cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
@@ -515,10 +512,7 @@ class Observable():
         
         # Ensure 2D shape of the covariance array
         if isinstance(cov_y, xarray.DataArray):
-            cov_y = cov_y.unstack()
-            cov_y = self.stack_on_attribute('sample', cov_y)
-            cov_y = self.stack_on_attribute('features', cov_y)
-            cov_y = cov_y.transpose('sample', 'features')
+            cov_y = cov_y = self.flatten_output(cov_y, flat_output_dims=2) # Force 2D flattening for covariance
         elif len(cov_y.shape) > 2:
             self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
             cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
