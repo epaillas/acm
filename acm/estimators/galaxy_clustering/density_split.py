@@ -45,8 +45,7 @@ class DensitySplit(BaseDensityMeshEstimator):
             if self.has_randoms:
                 raise ValueError('query_positions must be provided when working with a non-uniform geometry.')
             else:
-                query_positions = self.get_query_positions(self.delta_mesh, method=query_method,
-                                                           nquery=nquery_factor*self.size_data)
+                query_positions = self.get_query_positions(method=query_method, nquery=nquery_factor*self.size_data)
         self.query_method = query_method
         self.query_positions = query_positions
         self.delta_query = self.delta_mesh.read(query_positions)
@@ -362,8 +361,7 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
             if self.has_randoms:
                 raise ValueError('Query points must be provided when working with a non-uniform geometry.')
             else:
-                query_positions = self.get_query_positions(method=query_method,
-                                                           nquery=nquery_factor*self._size_data)
+                query_positions = self.get_query_positions(method=query_method, nquery=nquery_factor*self.size_data)
         self.query_method = query_method
         self.query_positions = query_positions
         offset = self.mesh.boxcenter - self.mesh.boxsize/2.
