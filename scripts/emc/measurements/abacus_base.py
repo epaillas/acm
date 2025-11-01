@@ -73,8 +73,32 @@ def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
         print(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
-def compute_tpcf(output_fn, positions, los='z', **attrs):
-    """Compute the two-point correlation function using the ACM package."""
+def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', **attrs):
+    from jaxpower import (ParticleField, FKPField, compute_fkp3_normalization, compute_fkp3_shotnoise, BinMesh3SpectrumPoles, get_mesh_attrs, compute_mesh3_spectrum, MeshAttrs)
+    t0 = time.time()
+    mattrs = MeshAttrs(**attrs)
+    data = ParticleField(positions, attrs=mattrs, exchange=True, backend='jax')
+    mesh = data.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
+    mean = mesh.mean()
+    mesh = mesh - mean
+    ells = [(0, 0, 0), (0, 0, 2)] if 'sugiyama' in basis else [0, 2]
+    bin = BinMesh3SpectrumPoles(mattrs, edges={'step': 0.01}, basis=basis, ells=ells, buffer_size=2)
+    #jitted_compute_mesh3_spectrum = jax.jit(compute_mesh3_spectrum, static_argnames=['los'], donate_argnums=[0])
+    kw = dict(resampler='tsc', interlacing=3, compensate=True)
+    num_shotnoise = compute_fkp3_shotnoise(data, los=los, bin=bin, **kw)
+    mesh = data.paint(**kw, out='real')
+    spectrum = compute_mesh3_spectrum(mesh, los=los, bin=bin)
+    spectrum = spectrum.clone(norm=[pole.values('norm') * mean**3 for pole in spectrum], num_shotnoise=num_shotnoise)
+    # spectrum.attrs.update(mesh=dict(mesh.attrs), los=los)
+    jax.block_until_ready(spectrum)
+    t1 = time.time()
+    if jax.process_index() == 0:
+        print(f'Bispectrum done in {t1 - t0:.2f} s.')
+        print(f'Saving to {output_fn}')
+    spectrum.write(output_fn)
+
+def compute_tpcf_smu(output_fn, positions, los='z', **attrs):
+    """Compute the two-point correlation function in s-mu bins using the ACM package."""
     from pycorr import TwoPointCorrelationFunction
 
     sedges = np.arange(0, 201, 1)
@@ -84,6 +108,21 @@ def compute_tpcf(output_fn, positions, los='z', **attrs):
     xi = TwoPointCorrelationFunction(
         'smu', edges=edges, data_positions1=positions,
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=4, gpu=True,
+        compute_sepsavg=False, position_type='pos', los=los,
+    )
+
+    xi.save(output_fn)
+
+def compute_tpcf_rppi(output_fn, positions, los='z', **attrs):
+    """Compute the two-point correlation function in rp-pi bins using the ACM package."""
+    from pycorr import TwoPointCorrelationFunction
+
+    rp_edges = np.logspace(-1, 1.5, num = 19, endpoint = True, base = 10.0)
+    pi_edges = np.linspace(-40, 40, 41)
+    edges = (rp_edges, pi_edges)
+    xi = TwoPointCorrelationFunction(
+        'rppi', edges=edges, data_positions1=positions,
+        engine='corrfunc', boxsize=attrs['boxsize'], nthreads=128, gpu=False,
         compute_sepsavg=False, position_type='pos', los=los,
     )
 
@@ -122,7 +161,7 @@ def compute_recon_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attr
         print(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
-def compute_recon_tpcf(output_fn, positions, los='z', **attrs):
+def compute_recon_tpcf_smu(output_fn, positions, los='z', **attrs):
     """Compute the two-point correlation function of reconstructed positions."""
     from jaxpower import (MeshAttrs, ParticleField, generate_uniform_particles)
     from jaxrecon.zeldovich import IterativeFFTReconstruction
@@ -152,7 +191,7 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     """Compute density-split statistics using the ACM package."""
     from acm.estimators.galaxy_clustering.density_split import DensitySplit
 
-    ds = DensitySplit(data=positions, **attrs)
+    ds = DensitySplit(data_positions=positions, **attrs)
 
     ds.set_density_contrast(smoothing_radius=smoothing_radius)
     ds.set_quantiles(nquantiles=5, query_method='randoms')
@@ -188,7 +227,7 @@ def compute_minkowski(output_fn, positions, **attrs):
     thresholds_all = np.load(thresholds_fn, allow_pickle=True).item()
     smoothing_radii = [5, 7, 10, 15]
     
-    mf = MinkowskiFunctionals(data=positions, thres_mask=-5, **attrs)
+    mf = MinkowskiFunctionals(data_positions=positions, thres_mask=-5, **attrs)
 
     mfs3d = {}
     for smoothing_radius in smoothing_radii:
@@ -214,12 +253,25 @@ def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62
     print(f'Saving spherical VSF to {output_fn}')
     np.save(output_fn, n_v)
 
+def compute_dt_voids(output_fn, positions, **attrs):
+    """Compute the Delaunay Triangulation void size function using the ACM package."""
+    from acm.estimators.galaxy_clustering.pydive import DTVoids
+
+    dtv = DTVoids()
+    # dtv.run_voidfinding(threads=32)
+
+    # n_v = np.vstack([dtv.void_radii,
+    #                 dtv.void_count / np.prod(attrs['boxsize'])])  # comoving number density of voids
+
+    # print(f'Saving DT VSF to {output_fn}')
+    # np.save(output_fn, n_v)
+
 
 if __name__ == '__main__':
 
     args = get_cli_args()
 
-    is_distributed = any(td in ['spectrum', 'recon_spectrum'] for td in args.todo_stats)
+    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.todo_stats)
     if is_distributed:
         os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
         import jax
@@ -273,6 +325,19 @@ if __name__ == '__main__':
                         with create_sharding_mesh() as sharding_mesh:
                             compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
+                    if 'bispectrum' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/bispectrum/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'mesh3_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
+                        if output_fn.exists():
+                            print(f'Skipping {output_fn}, already exists.')
+                            continue
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        box_args = get_box_args(boxsize, cellsize=10)
+                        with create_sharding_mesh() as sharding_mesh:
+                            compute_bispectrum(output_fn, hod_positions, **box_args)
+
                     if 'tpcf' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/tpcf/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
@@ -283,16 +348,28 @@ if __name__ == '__main__':
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
-                        compute_tpcf(output_fn, hod_positions, **box_args)
+                        compute_tpcf_smu(output_fn, hod_positions, **box_args)
 
-                    if 'recon_tpcf' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/recon_tpcf/'
+                    if 'tpcf_rppi' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/projected_tpcf/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
-                        output_fn = Path(save_dir) / f'recon_tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        output_fn = Path(save_dir) / f'tpcf_rppi_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        if output_fn.exists():
+                            print(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
-                        compute_recon_tpcf(output_fn, hod_positions, **box_args)
+                        compute_tpcf_rppi(output_fn, hod_positions, **box_args)
+
+                    if 'recon_tpcf_smu' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/recon_tpcf_smu/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'recon_tpcf_smu_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0)
+                        compute_recon_tpcf_smu(output_fn, hod_positions, **box_args)
 
                     if 'density_split' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/density_split/'
@@ -314,6 +391,9 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'minkowski_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        if output_fn.exists():
+                            print(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=3.9)
                         compute_minkowski(output_fn, hod_positions, **box_args)
@@ -334,4 +414,12 @@ if __name__ == '__main__':
                         output_fn = Path(save_dir) / f'sv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_spherical_voids(output_fn, hod_positions, boxsize)
+
+                    if 'dt_voids' in args.todo_stats:
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/dt_voids/'
+                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        output_fn = Path(save_dir) / f'dt_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        compute_dt_voids(output_fn, hod_positions)
 
