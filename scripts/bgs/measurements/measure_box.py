@@ -511,7 +511,7 @@ if __name__ == "__main__":
                             else:
                                 # NOTE : hardcoded settings for simplification
                                 kwargs = dict( # Dict for code readability
-                                    edges = (np.arange(0, 150, 1), np.linspace(-1, 1, 120)), # s and mu edges for the correlation functions
+                                    edges = (np.arange(0, 151, 1), np.linspace(-1, 1, 120)), # s and mu edges for the correlation functions
                                     boxsize = boxsize,
                                     los = los,
                                     save_fn = save_fn,
