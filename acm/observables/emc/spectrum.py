@@ -150,18 +150,17 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
             handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = read(filename)
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
                 poles = [data.get(ell) for ell in (0, 2, 4)]
                 k = poles[0].coords('k')
                 y.append(np.concatenate(poles))
-            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),

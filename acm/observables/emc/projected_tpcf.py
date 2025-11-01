@@ -118,11 +118,12 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
             handle = f'c{cosmo_idx:03}_ph000/seed0/tpcf_rppi_c{cosmo_idx:03}_hod???.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = TwoPointCorrelationFunction.load(filename)
                 r_p, w_p = data(pimax=None, return_sep=True)
                 y.append(w_p)
-            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
+            
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, -1),
