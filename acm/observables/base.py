@@ -1,11 +1,16 @@
 import torch
 import xarray
+import logging
 import numpy as np
 from pathlib import Path 
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
 from acm.utils.xarray_data import dataset_from_dict
-import logging
+
+# Register safe globals for transform classes to allow loading checkpoints
+# with PyTorch 2.6+ (which changed weights_only default to True)
+from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
+SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 
 class Observable():
     """
@@ -136,7 +141,7 @@ class Observable():
             if name in self.select_indices_on:
                 data = self.apply_indices_selection(data)
             
-            data = self.flatten_output(data)
+            data = self.flatten_output(data, self.flat_output_dims)
         
             if self.squeeze_output:
                 data = data.squeeze()
@@ -210,7 +215,8 @@ class Observable():
             dataarray = dataarray.sel(**slice_filters)
         return dataarray
 
-    def flatten_output(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+    @classmethod
+    def flatten_output(cls, dataarray: xarray.DataArray, flat_output_dims: int) -> xarray.DataArray:
         """
         Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
         containing the list of dimensions to stack on.
@@ -223,6 +229,8 @@ class Observable():
         ----------
         dataarray : xarray.DataArray
             The DataArray to flatten.
+        flat_output_dims : int
+            Number of dimensions to flatten the output on (1 or 2).
 
         Returns
         -------
@@ -230,11 +238,11 @@ class Observable():
             The flattened DataArray.
         """
         dataarray = dataarray.unstack()
-        if self.flat_output_dims == 2:
-            dataarray = self.stack_on_attribute('sample', dataarray)
-            dataarray = self.stack_on_attribute('features', dataarray)
+        if flat_output_dims == 2:
+            dataarray = cls.stack_on_attribute('sample', dataarray)
+            dataarray = cls.stack_on_attribute('features', dataarray)
             dataarray = dataarray.transpose('sample', 'features')
-        elif self.flat_output_dims == 1:
+        elif flat_output_dims == 1:
             dataarray = dataarray.stack(dims=[...])
         
         return dataarray
@@ -314,7 +322,7 @@ class Observable():
             data = self.apply_filters(data)
             if 'emulator_error' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -336,7 +344,7 @@ class Observable():
             data = self.apply_filters(data)
             if 'emulator_covariance_y' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -361,51 +369,30 @@ class Observable():
         if checkpoint_fn is None:
             checkpoint_fn = self.checkpoint_fn
         
-        # Register safe globals for transform classes to allow loading checkpoints
-        # with PyTorch 2.6+ (which changed weights_only default to True)
-        safe_classes = []
-        transforms_array_imported = False
-        
-        # Try to import transform classes from sunbird.data.transforms_array
-        try:
-            from sunbird.data.transforms_array import (
-                LogTransform,
-                ArcsinhTransform,
-            )
-            safe_classes.extend([LogTransform, ArcsinhTransform])
-            transforms_array_imported = True
-        except ImportError:
-            pass
-        
         # Register the classes as safe globals if torch.serialization.add_safe_globals exists
-        if safe_classes:
+        if SAFE_CLASSES:
             try:
-                torch.serialization.add_safe_globals(safe_classes)
+                torch.serialization.add_safe_globals(SAFE_CLASSES)
             except AttributeError:
                 # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
                 self.logger.debug("torch.serialization.add_safe_globals not available, skipping safe globals registration")
         
         # Load the model
+        self.logger.info(f"Loading model from {checkpoint_fn}")
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
-        
-        # Set transforms for minkowski models
-        if self.stat_name.startswith('minkowski'):
-            if not transforms_array_imported:
-                # Import if not already done (e.g., if initial import failed)
-                from sunbird.data.transforms_array import WeiLiuInputTransform, WeiLiuOutputTransForm
-            model.transform_output = WeiLiuOutputTransForm()
-            model.transform_input = WeiLiuInputTransform()
         return model
     
-    def get_model_prediction(self, x, model=None, coords=None, attrs=None, nofilters: bool = False) -> xarray.DataArray:
+    def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False):
         """
         Get the prediction from the model.
         
         Parameters
         ----------
         x : array_like, dict
-            Input features.
+            Input features for the model. 
+            If an array, it should have shape (n_samples, n_params). 
+            If a dict, it should have keys matching the model input names and values as lists/1d-arrays of shape (n_samples,).
         model : FCN
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
@@ -429,12 +416,12 @@ class Observable():
                     f"Missing keys: {missing}"
                 )
             if extra:
-                logger.warning(
+                self.logger.warning(
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
             x = [x[name] for name in self.x_names]
-            x = np.asarray(x).T  # Need to transpose to (n_samples, n_features)
+            x = np.asarray(x).T  # Need to transpose to (n_samples, n_params)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
         
@@ -469,7 +456,7 @@ class Observable():
         
         pred = self.apply_filters(pred)
         pred = self.apply_indices_selection(pred)
-        pred = self.flatten_output(pred)
+        pred = self.flatten_output(pred, self.flat_output_dims)
         
         if self.squeeze_output:
             pred = pred.squeeze()
@@ -486,10 +473,7 @@ class Observable():
         
         # Ensure 2D shape of the covariance array
         if isinstance(cov_y, xarray.DataArray):
-            cov_y = cov_y.unstack()
-            cov_y = self.stack_on_attribute('sample', cov_y)
-            cov_y = self.stack_on_attribute('features', cov_y)
-            cov_y = cov_y.transpose('sample', 'features')
+            cov_y = self.flatten_output(cov_y, flat_output_dims=2) # Force 2D flattening for covariance
         elif len(cov_y.shape) > 2:
             self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
             cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
@@ -510,10 +494,7 @@ class Observable():
         
         # Ensure 2D shape of the covariance array
         if isinstance(cov_y, xarray.DataArray):
-            cov_y = cov_y.unstack()
-            cov_y = self.stack_on_attribute('sample', cov_y)
-            cov_y = self.stack_on_attribute('features', cov_y)
-            cov_y = cov_y.transpose('sample', 'features')
+            cov_y = cov_y = self.flatten_output(cov_y, flat_output_dims=2) # Force 2D flattening for covariance
         elif len(cov_y.shape) > 2:
             self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
             cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
