@@ -12,12 +12,12 @@ def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
         'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
     }
     observable = getattr(emc, observable_name, None)(
-        paths=paths, numpy_output=True,
+        paths=paths,
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
     )
     save_fn = f'fig/{observable.stat_name}_model.png'
     model_params = observable.x[0]
-    observable.plot_observable(model_params, save_fn)
+    observable.plot_observable(model_params=model_params, save_fn=save_fn)
 
 def plot_emulator_residuals(observable_name):
     """

@@ -204,7 +204,9 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
 
     np.save(output_fn['xiqg'], ccf)
+    print(f'Saving {output_fn["xiqg"]}')
     np.save(output_fn['xiqq'], acf)
+    print(f'Saving {output_fn["xiqq"]}')
 
 def compute_wst(output_fn, positions, init=None, **attrs):
     """Compute the wavelet scattering transform using the ACM package."""
