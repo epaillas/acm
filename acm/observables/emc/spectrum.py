@@ -223,15 +223,16 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
         fig.subplots_adjust(hspace=0.1)
         show_legend = True
-        print('im here')
+        
         for i, ell in enumerate(ells):
             lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
             lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
-            k = self.k
-            data = self.y[0]
-            model = self.get_model_prediction(model_params)[0]
+            k = self.k.values
+            data = self.flatten_output(self.y, flat_output_dims=2)[0]
+            model = self.get_model_prediction(model_params)
+            model = self.flatten_output(model, flat_output_dims=2)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 

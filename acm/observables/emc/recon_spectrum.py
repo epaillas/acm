@@ -233,9 +233,10 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
-            k = self.k
-            data = self.y[0]
-            model = self.get_model_prediction(model_params)[0]
+            k = self.k.values
+            data = self.flatten_output(self.y, flat_output_dims=2)[0]
+            model = self.get_model_prediction(model_params)
+            model = self.flatten_output(model, flat_output_dims=2)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 
