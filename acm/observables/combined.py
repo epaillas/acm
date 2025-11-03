@@ -281,7 +281,7 @@ class CombinedObservable():
         save_fn: str|Path = None,
     ):
         """
-        Plot the observable.
+        Plot a compilation of all summary statistics included at class instantiation.
 
         Parameters
         ----------
@@ -301,8 +301,6 @@ class CombinedObservable():
             save_fn = Path(save_fn)
             if save_fn.suffix != '.pdf':
                 raise ValueError(f'save_fn must have a .pdf extension, got {save_fn.suffix}')
-
-        n_obs = len(self.observables)
         with PdfPages(save_fn) if save_fn is not None else nullcontext() as pdf:
             for i, observable in enumerate(self.observables):
                 fig, ax = observable.plot_observable(model_params=model_params)
