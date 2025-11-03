@@ -13,8 +13,8 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='projected_tpcf', n_test=6*200, **kwargs)
+    def __init__(self, n_test=6*200, **kwargs):
+        super().__init__(stat_name='projected_tpcf', n_test=n_test, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:

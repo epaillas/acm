@@ -14,8 +14,8 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='bispectrum', n_test=6*50, **kwargs)
+    def __init__(self, n_test=6*50, **kwargs):
+        super().__init__(stat_name='bispectrum', n_test=n_test, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
