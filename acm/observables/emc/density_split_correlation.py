@@ -145,7 +145,7 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/density_split/')
+        base_dir = Path(self.paths['measurements_dir']) / 'base' / 'density_split'
         
         y = []
         hods = {}
