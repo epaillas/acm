@@ -1,5 +1,6 @@
 import numpy as np
 from pathlib import Path
+from contextlib import nullcontext
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import linalg
 from .base import Observable
