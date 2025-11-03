@@ -2,8 +2,10 @@ import xarray
 import numpy as np
 from pathlib import Path
 from .base import BaseObservableEMC
+import matplotlib.pyplot as plt
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.plotting import set_plot_style
 
 class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
@@ -28,7 +30,6 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         rebin: int = 4, 
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        statistics: list = ['quantile_data_correlation', 'quantile_correlation'],
         overwrite_s : np.ndarray = None,
     ):
         """
@@ -77,6 +78,7 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         y = np.array(y)
         y = y.reshape(n_sims, len(quantiles), len(ells), -1)
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        s = overwrite_s if overwrite_s is not None else s
         
         cout = xarray.DataArray(
             data = y,
@@ -108,7 +110,6 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         smax: float = 150,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        statistics: list = ['quantile_data_correlation', 'quantile_correlation'],
         cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase_idx: int = 0,
@@ -157,7 +158,8 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
                 for q in quantiles:
-                    result = data[q][::rebin].select((smin, smax))
+                    result = data[q][::rebin]
+                    result.select((smin, smax))
                     s, multipoles = result(ells=ells, return_sep=True)
                     y.append(np.concatenate(multipoles))
         y = np.array(y)
@@ -196,3 +198,31 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
+
+    @set_plot_style
+    def plot_training_set(self, save_fn: str = None):
+        ells = self._dataset.y.coords['multipoles'].values.tolist()
+        quantiles = self._dataset.y.coords['quantiles'].values.tolist()
+
+        fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
+
+        for ell in ells:
+            self.select_filters.update({'multipoles': ell})
+            s = self.s
+            cov = self.get_covariance_matrix(volume_factor=64)
+            error = np.sqrt(np.diag(cov))
+
+            for i, quantile in enumerate(quantiles):
+                self.select_filters.update({'quantiles': quantile})
+
+                for data in self.y:
+                    lax[ell//2].plot(s, s**2 * data, ls='-', color=f'C{i}', lw=0.1, alpha=0.5)
+
+            lax[ell//2].set_ylabel(r'$s^2\xi_{\ell}(s)\,[h^{-2}{\rm Mpc}^2]$')
+        lax[-1].set_xlabel(r'$s\,[h^{-1}{\rm Mpc}]$')
+
+        plt.tight_layout()
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, lax
