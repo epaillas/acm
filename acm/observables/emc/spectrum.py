@@ -17,8 +17,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='spectrum', **kwargs)
-        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
     def checkpoint_fn(self) -> str:
