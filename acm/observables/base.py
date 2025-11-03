@@ -636,8 +636,6 @@ class Observable():
 
         # Eigendecomposition
         evals, evecs = np.linalg.eigh(R)
-        # Guard tiny/negative eigenvalues (can happen numerically)
-        evals = np.clip(evals, 1e-10, None)
 
         # Rotate standardized data
         U = Z @ evecs
