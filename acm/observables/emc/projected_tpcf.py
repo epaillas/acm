@@ -187,7 +187,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         lax[-1].set_xlabel(r'$r_p$ [$h^{-1}\,\mathrm{Mpc}$]', fontsize=15)
         lax[0].set_ylabel(r'$r_p w_p(r_p)$ [$h^{-1}\,\mathrm{Mpc}$]', fontsize=15)
 
-        rp = self.r_p
+        rp = self.r_p.values
         data = self.y[0]
         model = self.get_model_prediction(model_params)[0]
         cov = self.get_covariance_matrix(volume_factor=64)
