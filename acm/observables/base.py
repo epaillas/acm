@@ -567,7 +567,7 @@ class Observable():
             return mad
 
         X = np.asarray(residuals)
-        n_test, n_bins = X.shape
+        n_bins = X.shape[1]
 
         # debias the residuals
         X -= np.median(X, axis=0, keepdims=True)
@@ -613,7 +613,7 @@ class Observable():
             return mad
 
         X = np.asarray(residuals)
-        n_test, n_bins = X.shape
+        n_bins = X.shape[1]
 
         # Debias the residuals
         X -= np.median(X, axis=0, keepdims=True)
@@ -640,7 +640,7 @@ class Observable():
         evals = np.clip(evals, 1e-10, None)
 
         # Rotate standardized data
-        U = Z @ evecs  # (n_test, n_bins)
+        U = Z @ evecs
 
         # Robust variances along orthogonal directions
         tau = _mad_1d(U, axis=0)**2
