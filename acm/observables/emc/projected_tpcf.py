@@ -115,7 +115,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/tpcf_rppi_c{cosmo_idx:03}_hod???.npy'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/tpcf_rppi_c{cosmo_idx:03}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
