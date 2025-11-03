@@ -209,8 +209,6 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         for ell in ells:
             self.select_filters.update({'multipoles': ell})
             s = self.s
-            cov = self.get_covariance_matrix(volume_factor=64)
-            error = np.sqrt(np.diag(cov))
 
             for i, quantile in enumerate(quantiles):
                 self.select_filters.update({'quantiles': quantile})
