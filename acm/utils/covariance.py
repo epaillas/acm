@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import norm
 
 
 def get_covariance_correction(n_s, n_d, n_theta=None, method='percival'):
@@ -49,7 +50,7 @@ def mad_1d(x, axis=None, keepdims=False):
     """Median absolute deviation with Gaussian-consistent scaling."""
     med = np.median(x, axis=axis, keepdims=True)
     mad = np.median(np.abs(x - med), axis=axis, keepdims=True)
-    mad = 1.4826 * mad
+    mad = mad * 1/norm.ppf(3/4)
     if not keepdims:
         mad = np.squeeze(mad, axis=axis)
     return mad
