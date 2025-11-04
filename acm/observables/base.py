@@ -2,12 +2,12 @@ import torch
 import xarray
 import logging
 import numpy as np
-from pathlib import Path 
+from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
 from acm.utils.xarray_data import dataset_from_dict
 from acm.utils.covariance import orthogonal_gk_mad_covariance
-from scipy.stats import median_abs_deviation
+from scipy.stats import median_abs_deviation, norm
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
@@ -517,18 +517,21 @@ class Observable():
             cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
         elif len(cov_y.shape) < 2:
             self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
+
+        if isinstance(cov_y, xarray.DataArray):
+            cov_y = cov_y.values
         
         if method == 'median':
             if diag:
                 mad = median_abs_deviation(cov_y, axis=0)
-                mad *= 1.4826  #  make summary consistent with stdev for a normal distribution
+                mad *= 1/norm.ppf(3/4)   #  make summary consistent with stdev for a normal distribution
                 cov = np.diag(mad ** 2)
             else:
-                cov = orthogonal_gk_mad_covariance(cov_y.values)
+                cov = orthogonal_gk_mad_covariance(cov_y)
         elif method == 'mean':
             if diag:
                 mad = np.mean(np.abs(cov_y - np.mean(cov_y, axis=0)), axis=0)
-                mad *= 1.2533  # make summary consistent with stdev for a normal distribution
+                mad *= np.sqrt(np.pi/2)  # make summary consistent with stdev for a normal distribution
                 cov = np.diag(mad ** 2)
             else:
                 raise NotImplementedError("Mean absolute deviation covariance is not implemented for full matrix (diag=False).")
