@@ -8,7 +8,7 @@ logM_cut:
 logM_1:
   prior:
     distribution: uniform
-    min: 13.6
+    min: 12.5
     max: 15.1
   latex: \log M_1
 
