@@ -108,8 +108,7 @@ def check_covariance_matrix(
             UserWarning,
             stacklevel=2
         )
-        all_passed = False
-        return all_passed  # Can't proceed with other checks
+        return False  # Can't proceed with other checks
     
     # Check if matrix is symmetric
     if not check_symmetric(matrix, rtol=rtol, atol=atol):
