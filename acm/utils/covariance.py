@@ -3,9 +3,6 @@ Utility functions for covariance matrix sanity checks.
 """
 import numpy as np
 import warnings
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 def check_symmetric(matrix: np.ndarray, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
@@ -65,9 +62,10 @@ def check_covariance_matrix(
     Perform sanity checks on a covariance matrix and raise warnings if checks fail.
     
     This function checks that the matrix is:
-    1. Square
-    2. Symmetric
-    3. Positive-definite
+    1. 2-dimensional
+    2. Square
+    3. Symmetric
+    4. Positive-definite
     
     Parameters
     ----------
