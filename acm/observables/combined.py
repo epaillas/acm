@@ -1,6 +1,7 @@
 import numpy as np
 from pathlib import Path
 from .base import Observable
+from acm.utils.covariance import check_covariance_matrix
 import logging
 
 
@@ -205,6 +206,10 @@ class CombinedObservable():
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="combined data covariance")
+        
         return cov
 
     def get_emulator_covariance_matrix(self, prefactor: float = 1) -> np.ndarray:
@@ -215,6 +220,10 @@ class CombinedObservable():
         prefactor = prefactor
         
         cov = prefactor * np.cov(cov_y, rowvar=False)
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="combined emulator covariance")
+        
         return cov
     
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
