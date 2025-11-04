@@ -511,16 +511,13 @@ class Observable():
         
         # Ensure 2D shape of the covariance array
         if isinstance(cov_y, xarray.DataArray):
-            cov_y = self.flatten_output(cov_y, flat_output_dims=2)  # Force 2D flattening for covariance
+            cov_y = self.flatten_output(cov_y, flat_output_dims=2).values  # Force 2D flattening for covariance
         elif len(cov_y.shape) > 2:
             self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
             cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
         elif len(cov_y.shape) < 2:
             self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
 
-        if isinstance(cov_y, xarray.DataArray):
-            cov_y = cov_y.values
-        
         if method == 'median':
             if diag:
                 mad = median_abs_deviation(cov_y, axis=0)
