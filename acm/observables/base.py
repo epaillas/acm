@@ -6,6 +6,7 @@ from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
 from acm.utils.xarray_data import dataset_from_dict
+from acm.utils.covariance import check_covariance_matrix
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
@@ -483,6 +484,10 @@ class Observable():
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="data covariance")
+        
         return cov
     
     def get_emulator_covariance_matrix(self, prefactor: float = 1) -> np.ndarray:
@@ -502,6 +507,10 @@ class Observable():
             self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
         
         cov = prefactor * np.cov(cov_y, rowvar=False)
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="emulator covariance")
+        
         return cov
    
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
