@@ -432,3 +432,5 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dt_voids(output_fn, hod_positions)
 
+
+        jax.clear_caches()
