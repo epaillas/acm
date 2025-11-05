@@ -13,8 +13,8 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='projected_tpcf', n_test=6*200, **kwargs)
+    def __init__(self, n_test=6*200, **kwargs):
+        super().__init__(stat_name='projected_tpcf', n_test=n_test, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
@@ -115,7 +115,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/tpcf_rppi_c{cosmo_idx:03}_hod???.npy'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/tpcf_rppi_c{cosmo_idx:03}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
@@ -187,7 +187,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         lax[-1].set_xlabel(r'$r_p$ [$h^{-1}\,\mathrm{Mpc}$]', fontsize=15)
         lax[0].set_ylabel(r'$r_p w_p(r_p)$ [$h^{-1}\,\mathrm{Mpc}$]', fontsize=15)
 
-        rp = self.r_p
+        rp = self.r_p.values
         data = self.y[0]
         model = self.get_model_prediction(model_params)[0]
         cov = self.get_covariance_matrix(volume_factor=64)
