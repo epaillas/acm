@@ -26,6 +26,6 @@ PHASE=${PHASE_LIST[$ID]} # Phase to be used
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/measurements/logs/small/log_small_c000_ph%03d_seed0.log" ${PHASE})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements/
-python measure_box.py --phases ${PHASE} --sim_type small --hods 0 --gpu --config config.yaml --log_file "${LOGFILE}"
+python measure_box.py --config config.yaml --gpu --sim_type small --hods 157 --phases ${PHASE} --log_file "${LOGFILE}"
 
 # Launch with : sbatch --array=0-1643 ... 

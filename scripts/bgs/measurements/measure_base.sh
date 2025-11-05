@@ -26,6 +26,6 @@ COSMO=${COSMO_LIST[ID]} # Cosmology to be used
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/measurements/logs/log_base_c%03d_ph000_seed0.log" ${COSMO})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements/
-python measure_box.py --cosmologies ${COSMO} --gpu --config config.yaml --log_file "${LOGFILE}"
+python measure_box.py --config config.yaml --gpu --cosmologies ${COSMO} --log_file "${LOGFILE}"
 
 # Launch with : sbatch --array=0-86 ...
