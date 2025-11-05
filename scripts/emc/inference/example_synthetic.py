@@ -3,9 +3,129 @@ Example script demonstrating posterior predictive checks with synthetic data.
 
 This script shows how to use the posterior_predictive_pvalue function
 with synthetic data when actual EMC data or trained models are not available.
+It also demonstrates the visualization capabilities.
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+
+
+def plot_ppc_summary_inline(T_obs, T_rep, pval, chi2_at_best, dof, chi2_per_dof, 
+                            output_path=None):
+    """
+    Create comprehensive summary plot with multiple panels.
+    Inline version for the example that doesn't require external imports.
+    """
+    fig = plt.figure(figsize=(15, 10))
+    gs = gridspec.GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
+    
+    # Panel 1: Histogram comparison
+    ax1 = fig.add_subplot(gs[0, 0])
+    bins = np.linspace(min(T_obs.min(), T_rep.min()), 
+                       max(T_obs.max(), T_rep.max()), 40)
+    ax1.hist(T_rep, bins=bins, alpha=0.6, label='T_rep (replicated)', 
+             color='steelblue', edgecolor='black', linewidth=0.5)
+    ax1.hist(T_obs, bins=bins, alpha=0.6, label='T_obs (observed)', 
+             color='coral', edgecolor='black', linewidth=0.5)
+    ax1.axvline(np.mean(T_rep), color='steelblue', linestyle='--', linewidth=2)
+    ax1.axvline(np.mean(T_obs), color='coral', linestyle='--', linewidth=2)
+    ax1.set_xlabel('Chi-squared statistic', fontsize=11)
+    ax1.set_ylabel('Count', fontsize=11)
+    ax1.set_title('Distribution of Test Statistics', fontsize=12, fontweight='bold')
+    ax1.legend(fontsize=9)
+    ax1.grid(True, alpha=0.3)
+    
+    # Panel 2: Scatter plot
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2.scatter(T_obs, T_rep, alpha=0.5, s=20, color='steelblue', 
+                edgecolors='black', linewidth=0.5)
+    min_val = min(T_obs.min(), T_rep.min())
+    max_val = max(T_obs.max(), T_rep.max())
+    ax2.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, alpha=0.7)
+    ax2.set_xlabel('T_obs', fontsize=11)
+    ax2.set_ylabel('T_rep', fontsize=11)
+    ax2.set_title('T_obs vs T_rep', fontsize=12, fontweight='bold')
+    ax2.grid(True, alpha=0.3)
+    ax2.set_aspect('equal', adjustable='box')
+    
+    # Panel 3: Cumulative distribution
+    ax3 = fig.add_subplot(gs[1, 0])
+    sorted_T_obs = np.sort(T_obs)
+    sorted_T_rep = np.sort(T_rep)
+    ax3.plot(sorted_T_obs, np.arange(1, len(T_obs) + 1) / len(T_obs), 
+             label='T_obs', color='coral', linewidth=2)
+    ax3.plot(sorted_T_rep, np.arange(1, len(T_rep) + 1) / len(T_rep), 
+             label='T_rep', color='steelblue', linewidth=2)
+    ax3.set_xlabel('Chi-squared statistic', fontsize=11)
+    ax3.set_ylabel('Cumulative probability', fontsize=11)
+    ax3.set_title('Cumulative Distribution Functions', fontsize=12, fontweight='bold')
+    ax3.legend(fontsize=9)
+    ax3.grid(True, alpha=0.3)
+    
+    # Panel 4: Summary statistics
+    ax4 = fig.add_subplot(gs[1, 1])
+    ax4.axis('off')
+    
+    fit_status = 'GOOD FIT ✓' if 0.05 < pval < 0.95 else 'POOR FIT ✗'
+    
+    summary_text = f"""
+    POSTERIOR PREDICTIVE CHECK SUMMARY
+    {'=' * 42}
+    
+    P-value:              {pval:.4f}
+    Model fit status:     {fit_status}
+    
+    {'─' * 42}
+    
+    T_obs (observed):
+      Mean:               {np.mean(T_obs):.2f}
+      Std:                {np.std(T_obs):.2f}
+      Min:                {np.min(T_obs):.2f}
+      Max:                {np.max(T_obs):.2f}
+    
+    T_rep (replicated):
+      Mean:               {np.mean(T_rep):.2f}
+      Std:                {np.std(T_rep):.2f}
+      Min:                {np.min(T_rep):.2f}
+      Max:                {np.max(T_rep):.2f}
+    
+    {'─' * 42}
+    
+    Chi-squared at best fit: {chi2_at_best:.2f}
+    Degrees of freedom:      {dof}
+    Chi-squared per DOF:     {chi2_per_dof:.4f}
+    
+    {'─' * 42}
+    
+    Samples used:            {len(T_obs)}
+    Points where T_rep > T_obs: {np.sum(T_rep > T_obs)} ({100*pval:.1f}%)
+    """
+    
+    ax4.text(0.1, 0.95, summary_text, transform=ax4.transAxes, 
+             fontsize=10, verticalalignment='top', 
+             fontfamily='monospace',
+             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+    
+    # Add colored box for fit status
+    status_y = 0.78
+    if 0.05 < pval < 0.95:
+        ax4.add_patch(plt.Rectangle((0.58, status_y), 0.3, 0.05, 
+                                     transform=ax4.transAxes, 
+                                     facecolor='lightgreen', alpha=0.5))
+    else:
+        ax4.add_patch(plt.Rectangle((0.58, status_y), 0.3, 0.05, 
+                                     transform=ax4.transAxes, 
+                                     facecolor='lightcoral', alpha=0.5))
+    
+    fig.suptitle('Posterior Predictive Check Results', 
+                 fontsize=16, fontweight='bold', y=0.98)
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    return fig
 
 
 def posterior_predictive_pvalue(data, model_func, cov, theta_samples):
@@ -221,14 +341,41 @@ def create_bad_fit_example():
         print("  ✓ Chi-squared per DOF also indicates poor fit")
     
     print("\n" + "=" * 60)
+    
+    return pval, T_obs, T_rep, chi2, dof, chi2_per_dof
 
 
 if __name__ == '__main__':
     # Run example with good model fit
-    create_synthetic_example()
+    print("Running synthetic examples...")
+    pval1, T_obs1, T_rep1, chi2_1, dof1, chi2_per_dof1 = create_synthetic_example()
     
     # Run example with poor model fit
-    create_bad_fit_example()
+    pval2, T_obs2, T_rep2, chi2_2, dof2, chi2_per_dof2 = create_bad_fit_example()
+    
+    # Generate plots
+    print("\n" + "=" * 60)
+    print("GENERATING VISUALIZATION PLOTS")
+    print("=" * 60)
+    
+    try:
+        # Plot for good fit example
+        print("\nGenerating plots for good fit example...")
+        plot_ppc_summary_inline(T_obs1, T_rep1, pval1, chi2_1, dof1, chi2_per_dof1,
+                       output_path='example_good_fit_summary.png')
+        print("  ✓ Saved: example_good_fit_summary.png")
+        
+        # Plot for poor fit example
+        print("\nGenerating plots for poor fit example...")
+        plot_ppc_summary_inline(T_obs2, T_rep2, pval2, chi2_2, dof2, chi2_per_dof2,
+                       output_path='example_poor_fit_summary.png')
+        print("  ✓ Saved: example_poor_fit_summary.png")
+        
+        print("\nPlots generated successfully!")
+    except Exception as e:
+        print(f"\nWarning: Could not generate plots: {e}")
+        import traceback
+        traceback.print_exc()
     
     print("\n")
     print("These examples demonstrate how posterior predictive checks work.")
@@ -238,5 +385,7 @@ if __name__ == '__main__':
     print("  python posterior_predictive_checks.py \\")
     print("      --chain /path/to/chain.npy \\")
     print("      --observable spectrum \\")
-    print("      --n-samples 1000")
+    print("      --n-samples 1000 \\")
+    print("      --plot \\")
+    print("      --output results.npy")
     print("")

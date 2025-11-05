@@ -13,6 +13,8 @@ import argparse
 from pathlib import Path
 from sunbird.inference.samples import Chain
 import logging
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 
 def posterior_predictive_pvalue(data, model_func, cov, theta_samples):
@@ -298,6 +300,265 @@ def compute_chi2_at_best_fit(data, model_func, cov, best_fit_params):
     return chi2, dof, chi2_per_dof
 
 
+def plot_ppc_results(T_obs, T_rep, pval, output_path=None):
+    """
+    Create visualization of posterior predictive check results.
+    
+    This function creates a comparison plot showing:
+    - Histograms of T_obs and T_rep distributions
+    - The p-value
+    - Visual indicators of model fit quality
+    
+    Parameters
+    ----------
+    T_obs : np.ndarray
+        Array of chi-squared statistics for observed data
+    T_rep : np.ndarray
+        Array of chi-squared statistics for replicated data
+    pval : float
+        Posterior predictive p-value
+    output_path : str or Path, optional
+        Path to save the figure. If None, figure is displayed.
+    
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The created figure
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Plot histograms
+    bins = np.linspace(min(T_obs.min(), T_rep.min()), 
+                       max(T_obs.max(), T_rep.max()), 50)
+    
+    ax.hist(T_rep, bins=bins, alpha=0.6, label='T_rep (replicated)', 
+            color='steelblue', edgecolor='black', linewidth=0.5)
+    ax.hist(T_obs, bins=bins, alpha=0.6, label='T_obs (observed)', 
+            color='coral', edgecolor='black', linewidth=0.5)
+    
+    # Add vertical lines for means
+    ax.axvline(np.mean(T_rep), color='steelblue', linestyle='--', 
+               linewidth=2, label=f'Mean T_rep = {np.mean(T_rep):.1f}')
+    ax.axvline(np.mean(T_obs), color='coral', linestyle='--', 
+               linewidth=2, label=f'Mean T_obs = {np.mean(T_obs):.1f}')
+    
+    # Add p-value text
+    fit_status = 'Good fit' if 0.05 < pval < 0.95 else 'Poor fit'
+    textstr = f'p-value = {pval:.4f}\n{fit_status}'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+    ax.text(0.72, 0.95, textstr, transform=ax.transAxes, fontsize=12,
+            verticalalignment='top', bbox=props)
+    
+    ax.set_xlabel('Chi-squared statistic', fontsize=12)
+    ax.set_ylabel('Count', fontsize=12)
+    ax.set_title('Posterior Predictive Check: Distribution of Test Statistics', 
+                 fontsize=14, fontweight='bold')
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    return fig
+
+
+def plot_ppc_scatter(T_obs, T_rep, pval, output_path=None):
+    """
+    Create scatter plot comparing T_obs and T_rep.
+    
+    Parameters
+    ----------
+    T_obs : np.ndarray
+        Array of chi-squared statistics for observed data
+    T_rep : np.ndarray
+        Array of chi-squared statistics for replicated data
+    pval : float
+        Posterior predictive p-value
+    output_path : str or Path, optional
+        Path to save the figure. If None, figure is displayed.
+    
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The created figure
+    """
+    fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Scatter plot
+    ax.scatter(T_obs, T_rep, alpha=0.5, s=20, color='steelblue', edgecolors='black', linewidth=0.5)
+    
+    # Add diagonal line (y=x)
+    min_val = min(T_obs.min(), T_rep.min())
+    max_val = max(T_obs.max(), T_rep.max())
+    ax.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, 
+            label='T_rep = T_obs', alpha=0.7)
+    
+    # Add p-value text
+    fit_status = 'Good fit' if 0.05 < pval < 0.95 else 'Poor fit'
+    textstr = f'p-value = {pval:.4f}\n{fit_status}\n\nPoints above line:\n{np.sum(T_rep > T_obs)}/{len(T_obs)} ({100*pval:.1f}%)'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=11,
+            verticalalignment='top', bbox=props)
+    
+    ax.set_xlabel('T_obs (observed chi-squared)', fontsize=12)
+    ax.set_ylabel('T_rep (replicated chi-squared)', fontsize=12)
+    ax.set_title('Posterior Predictive Check: T_obs vs T_rep', 
+                 fontsize=14, fontweight='bold')
+    ax.legend(fontsize=10)
+    ax.grid(True, alpha=0.3)
+    ax.set_aspect('equal', adjustable='box')
+    
+    plt.tight_layout()
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    return fig
+
+
+def plot_ppc_summary(T_obs, T_rep, pval, chi2_at_best, dof, chi2_per_dof, 
+                     output_path=None):
+    """
+    Create comprehensive summary plot with multiple panels.
+    
+    Parameters
+    ----------
+    T_obs : np.ndarray
+        Array of chi-squared statistics for observed data
+    T_rep : np.ndarray
+        Array of chi-squared statistics for replicated data
+    pval : float
+        Posterior predictive p-value
+    chi2_at_best : float
+        Chi-squared at best fit
+    dof : int
+        Degrees of freedom
+    chi2_per_dof : float
+        Chi-squared per degree of freedom
+    output_path : str or Path, optional
+        Path to save the figure. If None, figure is displayed.
+    
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        The created figure
+    """
+    fig = plt.figure(figsize=(15, 10))
+    gs = gridspec.GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
+    
+    # Panel 1: Histogram comparison
+    ax1 = fig.add_subplot(gs[0, 0])
+    bins = np.linspace(min(T_obs.min(), T_rep.min()), 
+                       max(T_obs.max(), T_rep.max()), 40)
+    ax1.hist(T_rep, bins=bins, alpha=0.6, label='T_rep (replicated)', 
+             color='steelblue', edgecolor='black', linewidth=0.5)
+    ax1.hist(T_obs, bins=bins, alpha=0.6, label='T_obs (observed)', 
+             color='coral', edgecolor='black', linewidth=0.5)
+    ax1.axvline(np.mean(T_rep), color='steelblue', linestyle='--', linewidth=2)
+    ax1.axvline(np.mean(T_obs), color='coral', linestyle='--', linewidth=2)
+    ax1.set_xlabel('Chi-squared statistic', fontsize=11)
+    ax1.set_ylabel('Count', fontsize=11)
+    ax1.set_title('Distribution of Test Statistics', fontsize=12, fontweight='bold')
+    ax1.legend(fontsize=9)
+    ax1.grid(True, alpha=0.3)
+    
+    # Panel 2: Scatter plot
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2.scatter(T_obs, T_rep, alpha=0.5, s=20, color='steelblue', 
+                edgecolors='black', linewidth=0.5)
+    min_val = min(T_obs.min(), T_rep.min())
+    max_val = max(T_obs.max(), T_rep.max())
+    ax2.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, alpha=0.7)
+    ax2.set_xlabel('T_obs', fontsize=11)
+    ax2.set_ylabel('T_rep', fontsize=11)
+    ax2.set_title('T_obs vs T_rep', fontsize=12, fontweight='bold')
+    ax2.grid(True, alpha=0.3)
+    ax2.set_aspect('equal', adjustable='box')
+    
+    # Panel 3: Cumulative distribution
+    ax3 = fig.add_subplot(gs[1, 0])
+    sorted_T_obs = np.sort(T_obs)
+    sorted_T_rep = np.sort(T_rep)
+    ax3.plot(sorted_T_obs, np.arange(1, len(T_obs) + 1) / len(T_obs), 
+             label='T_obs', color='coral', linewidth=2)
+    ax3.plot(sorted_T_rep, np.arange(1, len(T_rep) + 1) / len(T_rep), 
+             label='T_rep', color='steelblue', linewidth=2)
+    ax3.set_xlabel('Chi-squared statistic', fontsize=11)
+    ax3.set_ylabel('Cumulative probability', fontsize=11)
+    ax3.set_title('Cumulative Distribution Functions', fontsize=12, fontweight='bold')
+    ax3.legend(fontsize=9)
+    ax3.grid(True, alpha=0.3)
+    
+    # Panel 4: Summary statistics
+    ax4 = fig.add_subplot(gs[1, 1])
+    ax4.axis('off')
+    
+    fit_status = 'GOOD FIT ✓' if 0.05 < pval < 0.95 else 'POOR FIT ✗'
+    fit_color = 'green' if 0.05 < pval < 0.95 else 'red'
+    
+    summary_text = f"""
+    POSTERIOR PREDICTIVE CHECK SUMMARY
+    {'=' * 42}
+    
+    P-value:              {pval:.4f}
+    Model fit status:     {fit_status}
+    
+    {'─' * 42}
+    
+    T_obs (observed):
+      Mean:               {np.mean(T_obs):.2f}
+      Std:                {np.std(T_obs):.2f}
+      Min:                {np.min(T_obs):.2f}
+      Max:                {np.max(T_obs):.2f}
+    
+    T_rep (replicated):
+      Mean:               {np.mean(T_rep):.2f}
+      Std:                {np.std(T_rep):.2f}
+      Min:                {np.min(T_rep):.2f}
+      Max:                {np.max(T_rep):.2f}
+    
+    {'─' * 42}
+    
+    Chi-squared at best fit: {chi2_at_best:.2f}
+    Degrees of freedom:      {dof}
+    Chi-squared per DOF:     {chi2_per_dof:.4f}
+    
+    {'─' * 42}
+    
+    Samples used:            {len(T_obs)}
+    Points where T_rep > T_obs: {np.sum(T_rep > T_obs)} ({100*pval:.1f}%)
+    """
+    
+    ax4.text(0.1, 0.95, summary_text, transform=ax4.transAxes, 
+             fontsize=10, verticalalignment='top', 
+             fontfamily='monospace',
+             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.3))
+    
+    # Add colored box for fit status
+    status_y = 0.78
+    if 0.05 < pval < 0.95:
+        ax4.add_patch(plt.Rectangle((0.58, status_y), 0.3, 0.05, 
+                                     transform=ax4.transAxes, 
+                                     facecolor='lightgreen', alpha=0.5))
+    else:
+        ax4.add_patch(plt.Rectangle((0.58, status_y), 0.3, 0.05, 
+                                     transform=ax4.transAxes, 
+                                     facecolor='lightcoral', alpha=0.5))
+    
+    fig.suptitle('Posterior Predictive Check Results', 
+                 fontsize=16, fontweight='bold', y=0.98)
+    
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    return fig
+
+
 def main():
     """
     Main function to run posterior predictive checks.
@@ -320,6 +581,10 @@ def main():
                        help='Factor to divide covariance matrix by')
     parser.add_argument('--output', type=str, default=None,
                        help='Output file to save results')
+    parser.add_argument('--plot', action='store_true',
+                       help='Generate visualization plots')
+    parser.add_argument('--plot-output', type=str, default=None,
+                       help='Directory to save plots (defaults to same dir as output)')
     parser.add_argument('--seed', type=int, default=42,
                        help='Random seed for reproducibility')
     
@@ -411,6 +676,44 @@ def main():
         
         np.save(output_path, results)
         logger.info(f"Results saved to: {output_path}")
+    
+    # Generate plots if requested
+    if args.plot:
+        logger.info("Generating visualization plots...")
+        
+        # Determine plot output directory
+        if args.plot_output:
+            plot_dir = Path(args.plot_output)
+        elif args.output:
+            plot_dir = Path(args.output).parent
+        else:
+            plot_dir = Path('.')
+        
+        plot_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create base filename for plots
+        if args.output:
+            base_name = Path(args.output).stem
+        else:
+            base_name = f"ppc_{args.observable}"
+        
+        # Generate histogram comparison plot
+        histogram_path = plot_dir / f"{base_name}_histogram.png"
+        plot_ppc_results(T_obs, T_rep, pval, output_path=histogram_path)
+        logger.info(f"Histogram plot saved to: {histogram_path}")
+        
+        # Generate scatter plot
+        scatter_path = plot_dir / f"{base_name}_scatter.png"
+        plot_ppc_scatter(T_obs, T_rep, pval, output_path=scatter_path)
+        logger.info(f"Scatter plot saved to: {scatter_path}")
+        
+        # Generate comprehensive summary plot
+        summary_path = plot_dir / f"{base_name}_summary.png"
+        plot_ppc_summary(T_obs, T_rep, pval, chi2, dof, chi2_per_dof, 
+                        output_path=summary_path)
+        logger.info(f"Summary plot saved to: {summary_path}")
+        
+        logger.info("All plots generated successfully!")
 
 
 if __name__ == '__main__':
