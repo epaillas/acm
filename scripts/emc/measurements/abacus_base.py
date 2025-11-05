@@ -78,6 +78,7 @@ def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', **att
     t0 = time.time()
     mattrs = MeshAttrs(**attrs)
     data = ParticleField(positions, attrs=mattrs, exchange=True, backend='jax')
+    del positions
     mesh = data.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
     mean = mesh.mean()
     mesh = mesh - mean
@@ -87,6 +88,7 @@ def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', **att
     kw = dict(resampler='tsc', interlacing=3, compensate=True)
     num_shotnoise = compute_fkp3_shotnoise(data, los=los, bin=bin, **kw)
     mesh = data.paint(**kw, out='real')
+    del data
     spectrum = compute_mesh3_spectrum(mesh, los=los, bin=bin)
     spectrum = spectrum.clone(norm=[pole.values('norm') * mean**3 for pole in spectrum], num_shotnoise=num_shotnoise)
     # spectrum.attrs.update(mesh=dict(mesh.attrs), los=los)

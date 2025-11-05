@@ -402,7 +402,7 @@ class BaseObservableEMC(Observable):
             ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
 
         # summary statistics of the emulator residuals
-        for method in ['median', 'stdev']:
+        for method in ['mean', 'median', 'stdev']:
             emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
             emu_err = np.sqrt(np.diag(emu_cov))
 
