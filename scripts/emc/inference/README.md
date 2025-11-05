@@ -13,7 +13,7 @@ Basic usage:
 python posterior_predictive_checks.py --chain /path/to/chain.npy --observable spectrum
 ```
 
-Full options:
+Full options with visualization:
 ```bash
 python posterior_predictive_checks.py \
     --chain /path/to/chain.npy \
@@ -22,6 +22,8 @@ python posterior_predictive_checks.py \
     --burnin 0.1 \
     --divide-factor 64 \
     --output results.npy \
+    --plot \
+    --plot-output ./plots \
     --seed 42
 ```
 
@@ -34,6 +36,8 @@ python posterior_predictive_checks.py \
 - `--burnin`: Fraction of samples to discard as burnin (default: 0.1)
 - `--divide-factor`: Factor to divide covariance matrix by (default: 64)
 - `--output`: Output file to save results (optional)
+- `--plot`: Generate visualization plots (flag)
+- `--plot-output`: Directory to save plots (defaults to same directory as output)
 - `--seed`: Random seed for reproducibility (default: 42)
 
 ### Output
@@ -51,10 +55,37 @@ If an output file is specified, results are saved as a numpy dictionary containi
 - `dof`: Degrees of freedom
 - `chi2_per_dof`: Chi-squared per DOF
 
+### Visualization
+
+When the `--plot` flag is used, the script generates three types of plots:
+
+1. **Histogram Plot** (`*_histogram.png`): Overlaid histograms comparing the distributions of T_obs and T_rep with their means marked
+2. **Scatter Plot** (`*_scatter.png`): Scatter plot of T_obs vs T_rep with a diagonal reference line
+3. **Summary Plot** (`*_summary.png`): Comprehensive 4-panel figure showing:
+   - Histogram comparison
+   - Scatter plot
+   - Cumulative distribution functions
+   - Summary statistics table with fit assessment
+
+The plots visually indicate whether the model provides a good fit to the data by comparing the observed chi-squared statistics (T_obs) with those from replicated data (T_rep).
+
+### Examples
+
+Run the `example_synthetic.py` script to see posterior predictive checks in action with synthetic data:
+
+```bash
+python example_synthetic.py
+```
+
+This will generate example plots demonstrating:
+- A well-fitting model (good p-value)
+- A misspecified model (poor p-value)
+
 ### Interpretation
 
 - **P-value close to 0.5**: Good model fit
 - **P-value < 0.05 or > 0.95**: Poor model fit, model may not adequately describe the data
+- **T_rep and T_obs distributions should overlap**: If they're very different, the model is not capturing the data well
 
 ### Reference
 
