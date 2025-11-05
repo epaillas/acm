@@ -100,14 +100,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train FCN for EMC observables.')
     parser.add_argument('--apply_transform', action='store_true', help='Apply log transform to outputs.')
     parser.add_argument('--transform', type=str, default='log', help='Transform to apply to outputs.')
-    parser.add_argument('--stat', type=str, default='bispectrum', help='Statistic to train on.')
+    parser.add_argument('-s', '--statistic', type=str, default='bispectrum', help='Statistic to train on.')
     args = parser.parse_args()
 
     paths = {
         'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/', # Loads x, y can also contain covariance_y
     }
 
-    observable = Observable(stat_name=args.stat, paths=paths, numpy_output=True, flat_output_dims=2)
+    observable = Observable(stat_name=args.statistic, paths=paths, numpy_output=True, flat_output_dims=2)
 
     model_dir = f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{observable}/'
     TrainFCN(
