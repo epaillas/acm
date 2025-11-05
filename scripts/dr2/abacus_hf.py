@@ -18,6 +18,7 @@ def get_cli_args():
     parser.add_argument("--start_phase", type=int, default=0)
     parser.add_argument("--n_phase", type=int, default=1)
     parser.add_argument('--todo_stats', nargs='+', default=['spectrum'])
+    parser.add_argument('--save_dir', type=str, default='./')
 
     args = parser.parse_args()
     return args
@@ -126,7 +127,7 @@ def get_randoms_fn(tracer='LRG', region='NGC', phase_idx=0, rand_idx=0, complete
     mock_dir += f'AbacusSummit_v4_1/altmtl{phase_idx}/kibo-v1/mock{phase_idx}/LSScats'
     return Path(mock_dir) / f'{tracer}_{region}_{rand_idx}_clustering.ran.fits'
 
-def compute_spectrum(output_fn, get_data, get_randoms, ells=(0, 2, 4), los='firstpoint', **attrs):
+def compute_spectrum(save_fn, get_data, get_randoms, ells=(0, 2, 4), los='firstpoint', **attrs):
     import jax
     from jaxpower import (ParticleField, FKPField, compute_fkp2_normalization, compute_fkp2_shotnoise, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum)
     t0 = time.time()
@@ -147,9 +148,9 @@ def compute_spectrum(output_fn, get_data, get_randoms, ells=(0, 2, 4), los='firs
     t1 = time.time()
     if jax.process_index() == 0:
         print(f'Done in {t1 - t0:.2f}')
-    spectrum.save(output_fn)
+    spectrum.save(save_fn)
 
-def compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
+def compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
     """Compute density-split statistics using the ACM package."""
     from acm.estimators.galaxy_clustering.density_split import DensitySplit
     from jaxpower import get_mesh_attrs
@@ -177,8 +178,8 @@ def compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10,
         randoms_positions=randoms_positions,
         edges=edges, los=los, nthreads=4, gpu=True)
 
-    np.save(output_fn['xiqg'], ccf)
-    np.save(output_fn['xiqq'], acf)
+    np.save(save_fn['xiqg'], ccf)
+    np.save(save_fn['xiqq'], acf)
     
     ds.plot_quantiles(save_fn='quantiles.png')
     ds.plot_quantile_data_correlation(save_fn='xi_qg.png')
@@ -218,21 +219,18 @@ if __name__ == '__main__':
         if 'spectrum' in args.todo_stats:
             cutsky_args = dict(cellsize=10.0, boxsize=get_proposal_boxsize(catalog_args['tracer']), ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
-                output_dir = '/global/cfs/cdirs/desicollab/users/agolinki/y3-growth/'
-                output_fn = Path(output_dir) / f'spectrum_QSO_NGC_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.npy'
-                compute_spectrum(output_fn, get_data, get_randoms, **cutsky_args)
+                save_fn = Path(args.save_dir) / f'spectrum_{tracer}_{region}_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.npy'
+                compute_spectrum(save_fn, get_data, get_randoms, **cutsky_args)
 
         if 'density_split' in args.todo_stats:
-            save_dir = '/pscratch/sd/e/agolinki/acm/dr2/'
-            save_dir += f'test/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
-            output_fn = {
-                'xiqg': Path(save_dir) / f'dsc_xiqg_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy',
-                'xiqq': Path(save_dir) / f'dsc_xiqq_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy'
+            save_fn = {
+                'xiqg': Path(args.save_dir) / f'dsc_xiqg_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy',
+                'xiqq': Path(args.save_dir) / f'dsc_xiqq_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy'
             }
-            if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
-                print(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
+            if save_fn['xiqg'].exists() and save_fn['xiqq'].exists():
+                print(f'Skipping {save_fn["xiqg"]} and {save_fn["xiqq"]}, already exists.')
                 continue
             cutsky_args = dict(cellsize=5.0, boxpad=1.2, check=True)
             with create_sharding_mesh() as sharding_mesh:
-                compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args)
+                compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args)
