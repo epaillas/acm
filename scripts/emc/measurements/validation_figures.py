@@ -1,5 +1,6 @@
 from jaxpower import read
 from pycorr import TwoPointCorrelationFunction
+import acm.observables.emc as emc
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
@@ -214,14 +215,26 @@ def compare_tpcf_vs_recon_tpcf():
     plt.savefig('fig/compare_tpcf_vs_recon_tpcf_measurements.png', dpi=300, bbox_inches='tight')
     plt.close()
 
+def plot_training_set(observable_name):
+    paths = {
+        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/',
+        'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
+    }
+    observable = getattr(emc, observable_name, None)(
+        paths=paths, select_filters={}, numpy_output=True,
+    )
+    save_fn = f'fig/{observable.stat_name}_training_set.png'
+    observable.plot_training_set(save_fn=save_fn)
+
 
 if __name__ == '__main__':
 
-    plot_spectrum()
-    plot_recon_spectrum()
-    compare_spectrum_vs_recon_spectrum()
-    plot_tpcf()
-    plot_recon_tpcf()
-    compare_tpcf_vs_recon_tpcf()
-    plot_spectrum_small()
-    plot_recon_spectrum_small()
+    # plot_spectrum()
+    # plot_recon_spectrum()
+    # compare_spectrum_vs_recon_spectrum()
+    # plot_tpcf()
+    # plot_recon_tpcf()
+    # compare_tpcf_vs_recon_tpcf()
+    # plot_spectrum_small()
+    # plot_recon_spectrum_small()
+    plot_training_set('DensitySplitGalaxyCorrelationFunctionMultipoles')

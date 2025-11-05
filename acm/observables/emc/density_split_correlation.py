@@ -12,7 +12,7 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     Class for the Emulator's Mock Challenge density-split correlation
     function multipoles.
     """
-    def __init__(self, n_test=6*3, **kwargs):
+    def __init__(self, n_test=6*200, **kwargs):
         super().__init__(stat_name='ds_xiqg', n_test=n_test, **kwargs)
     
     @property
