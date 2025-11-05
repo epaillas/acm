@@ -4,7 +4,7 @@ import argparse
 
 
 parser = argparse.ArgumentParser(description='Compress EMC measurement files.')
-parser.add_argument('--statistic', type=str, help='Statistic to compress.', default='GalaxyPowerSpectrumMultipoles')
+parser.add_argument('-s', '--statistic', type=str, help='Statistic to compress.', default='GalaxyPowerSpectrumMultipoles')
 parser.add_argument('--n_hod', type=int, default=500, help='Number of HOD realizations to use for compression.')
 parser.add_argument('--add_covariance', action='store_true', help='Whether to add covariance to the compressed data.')
 

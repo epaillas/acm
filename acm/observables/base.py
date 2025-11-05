@@ -2,10 +2,12 @@ import torch
 import xarray
 import logging
 import numpy as np
-from pathlib import Path 
+from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
 from acm.utils.xarray_data import dataset_from_dict
+from acm.utils.covariance import orthogonal_gk_mad_covariance
+from scipy.stats import median_abs_deviation, norm
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
@@ -485,25 +487,62 @@ class Observable():
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         return cov
     
-    def get_emulator_covariance_matrix(self, prefactor: float = 1) -> np.ndarray:
+    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
         """
-        Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
+        Covariance matrix of the emulator residuals.
+
+        Parameters
+        ----------
+        prefactor : float
+            Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival). Defaults to 1.
+        method : str
+            Method to compute the covariance matrix from the emulator residuals.
+            Options include the mean absolute deviation ('mean'), median absolute deviation ('median'),
+            or standard deviation ('stdev'). Defaults to 'median'.
+        diag : bool
+            If True, only the diagonal of the covariance matrix is computed. Defaults to False.
+
+        Returns
+        -------
+        np.ndarray
+            The emulator covariance matrix.
         """
         cov_y = self.emulator_covariance_y
-        prefactor = prefactor
         
         # Ensure 2D shape of the covariance array
         if isinstance(cov_y, xarray.DataArray):
-            cov_y = cov_y = self.flatten_output(cov_y, flat_output_dims=2) # Force 2D flattening for covariance
+            cov_y = self.flatten_output(cov_y, flat_output_dims=2).values  # Force 2D flattening for covariance
         elif len(cov_y.shape) > 2:
             self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
             cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
         elif len(cov_y.shape) < 2:
             self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
-        
-        cov = prefactor * np.cov(cov_y, rowvar=False)
-        return cov
-   
+
+        if method == 'median':
+            if diag:
+                mad = median_abs_deviation(cov_y, axis=0)
+                mad *= 1/norm.ppf(3/4)   #  make summary consistent with stdev for a normal distribution
+                cov = np.diag(mad ** 2)
+            else:
+                cov = orthogonal_gk_mad_covariance(cov_y)
+        elif method == 'mean':
+            if diag:
+                mad = np.mean(np.abs(cov_y - np.mean(cov_y, axis=0)), axis=0)
+                mad *= np.sqrt(np.pi/2)  # make summary consistent with stdev for a normal distribution
+                cov = np.diag(mad ** 2)
+            else:
+                raise NotImplementedError("Mean absolute deviation covariance is not implemented for full matrix (diag=False).")
+        elif method == 'stdev':
+            if diag:
+                std = np.std(cov_y, axis=0)
+                cov = np.diag(std ** 2)
+            else:
+                cov = np.cov(cov_y, rowvar=False)
+        else:
+            raise ValueError(f"Unknown method '{method}' for emulator covariance matrix computation.")
+        self.logger.info(f"Emulator covariance matrix computed using method '{method}' with diag={diag}.")
+        return prefactor * cov
+
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
         Creates a handle that includes the statistics and filters used.

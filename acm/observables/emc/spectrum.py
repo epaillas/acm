@@ -17,8 +17,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='spectrum', **kwargs)
-        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
     def checkpoint_fn(self) -> str:
@@ -151,7 +149,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         hods = {}
         for cosmo_idx in cosmos:
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_spectrum_poles_c{cosmo_idx:03}_hod*.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
@@ -223,15 +221,16 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
         fig.subplots_adjust(hspace=0.1)
         show_legend = True
-        print('im here')
+        
         for i, ell in enumerate(ells):
             lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
             lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
-            k = self.k
-            data = self.y[0]
-            model = self.get_model_prediction(model_params)[0]
+            k = self.k.values
+            data = self.flatten_output(self.y, flat_output_dims=2)[0]
+            model = self.get_model_prediction(model_params)
+            model = self.flatten_output(model, flat_output_dims=2)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 

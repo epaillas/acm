@@ -347,7 +347,7 @@ class BaseObservableEMC(Observable):
         fig.subplots_adjust(hspace=0.1)
         show_legend = False
 
-        lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
+        lax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
         lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
 
         data = self.flatten_output(self.y, flat_output_dims=2)[sample_idx] # Enforce 2D flattening and get a single sample
@@ -401,11 +401,14 @@ class BaseObservableEMC(Observable):
         for res in residuals:
             ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
 
-        ax[1].plot(np.median(np.abs(residuals), axis=0) / data_err, lw=1.0, label='MAE', color='C0')
-        ax[1].plot(np.std(residuals, axis=0) / data_err, lw=1.0, label='STD', ls='--', color='C1')
+        # summary statistics of the emulator residuals
+        for method in ['mean', 'median', 'stdev']:
+            emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
+            emu_err = np.sqrt(np.diag(emu_cov))
+
+            ax[1].plot(emu_err / data_err, lw=1.0, label=method)
 
         ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
-
         ax[1].set_xlabel('bin index', fontsize=13)
         ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
         ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)
