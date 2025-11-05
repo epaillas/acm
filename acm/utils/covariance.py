@@ -81,7 +81,7 @@ def check_condition_number(matrix, precision_threshold: float = 10):
     eps = np.finfo(float).eps
     cond *= eps
     digits = -np.log10(cond) # Number of significant digits that can be trusted
-    print(f"Condition number: {cond}, Significant digits: {digits}")
+    # print(f"Condition number: {cond}, Significant digits: {digits}")
     if cond >= 1: # Can't be trusted at all
         return 0
     elif digits < precision_threshold: # Ill-conditioned
