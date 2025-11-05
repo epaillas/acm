@@ -238,7 +238,13 @@ def load_chain_samples(chain_path, n_samples=None, burnin_fraction=0.1,
     chain = Chain.load(chain_path)
     
     # Convert to getdist format to access samples easily
-    gd_samples = Chain.to_getdist(chain, add_derived=add_derived)
+    # Note: Chain.to_getdist can be called as either a class method or instance method
+    # depending on the sunbird version. We try class method first (as used in existing code),
+    # then fall back to instance method if needed.
+    try:
+        gd_samples = Chain.to_getdist(chain, add_derived=add_derived)
+    except (TypeError, AttributeError):
+        gd_samples = chain.to_getdist(add_derived=add_derived)
     
     # Get samples after burnin
     n_total = gd_samples.samples.shape[0]
@@ -285,7 +291,7 @@ def compute_chi2_at_best_fit(data, model_func, cov, best_fit_params):
     chi2 = residual @ Cinv @ residual
     
     n_data = len(data)
-    n_params = len(best_fit_params) if isinstance(best_fit_params, (list, np.ndarray)) else len(best_fit_params)
+    n_params = len(best_fit_params)
     dof = n_data - n_params
     chi2_per_dof = chi2 / dof
     

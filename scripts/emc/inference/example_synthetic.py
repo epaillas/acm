@@ -44,7 +44,7 @@ def compute_chi2_at_best_fit(data, model_func, cov, best_fit_params):
     chi2 = residual @ Cinv @ residual
     
     n_data = len(data)
-    n_params = len(best_fit_params) if isinstance(best_fit_params, (list, np.ndarray)) else len(best_fit_params)
+    n_params = len(best_fit_params)
     dof = n_data - n_params
     chi2_per_dof = chi2 / dof
     
