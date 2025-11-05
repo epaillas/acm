@@ -52,11 +52,50 @@ def check_positive_definite(matrix: np.ndarray) -> bool:
         return False
 
 
+def check_condition_number(matrix, precision_threshold: float = 10):
+    """
+    Computes the condition number of the matrix to check its inversibility.
+
+    Parameters
+    ----------
+    matrix : array-like
+        The matrix to check.
+    precision_threshold : float, optional
+        The threshold for the number of significant digits below which the matrix is considered ill-conditioned. Default is 10.
+    
+    Returns
+    -------
+    int
+        0 if the matrix is singular,
+        1 if the matrix is well-conditioned,
+        2 if the matrix is ill-conditioned (number of significant digits < precision_threshold).
+        
+    Notes
+    -----
+    For a condition number with an order of magnitude of 10^k, the precision is roughly reduced by k digits.
+    1. If the condition number is very large (>= 1/eps), the matrix is singular: No significant digits can be trusted.
+    2. If the number of significant digits is less than precision_threshold, the matrix is ill-conditioned.
+    3. Otherwise, the matrix is well-conditioned.
+    """
+    cond = np.linalg.cond(matrix)
+    eps = np.finfo(float).eps
+    cond *= eps
+    digits = -np.log10(cond) # Number of significant digits that can be trusted
+    print(f"Condition number: {cond}, Significant digits: {digits}")
+    if cond >= 1: # Can't be trusted at all
+        return 0
+    elif digits < precision_threshold: # Ill-conditioned
+        return 2
+    else: # Well-conditioned
+        return 1
+
+
 def check_covariance_matrix(
     matrix: np.ndarray,
     name: str = "covariance",
     rtol: float = 1e-5,
     atol: float = 1e-8,
+    precision_threshold: float = 10,
 ) -> bool:
     """
     Perform sanity checks on a covariance matrix and raise warnings if checks fail.
@@ -77,6 +116,9 @@ def check_covariance_matrix(
         Relative tolerance for the symmetry check. Default is 1e-5.
     atol : float, optional
         Absolute tolerance for the symmetry check. Default is 1e-8.
+    precision_threshold : float, optional
+        Threshold for the number of significant digits below which the matrix is considered ill-conditioned. 
+        Default is 10.
     
     Returns
     -------
@@ -133,6 +175,27 @@ def check_covariance_matrix(
             f"Found {n_negative} negative eigenvalue(s), minimum eigenvalue: {min_eigenvalue:.6e}. "
             "This will cause issues when inverting the matrix in likelihood analysis. "
             "Consider checking the mock realizations or increasing the number of samples.",
+            UserWarning,
+            stacklevel=2
+        )
+        all_passed = False
+    
+    # Check condition number
+    cond_status = check_condition_number(matrix, precision_threshold=precision_threshold)
+    if cond_status == 0:
+        warnings.warn(
+            f"{name} matrix is singular (ill-conditioned). "
+            "This will cause issues when inverting the matrix in likelihood analysis. "
+            "Using the diagonal covariance only may be a temporary workaround.",
+            UserWarning,
+            stacklevel=2
+        )
+        all_passed = False
+    elif cond_status == 2:
+        warnings.warn(
+            f"{name} matrix is ill-conditioned. "
+            "This may lead to unreliable results when inverting the matrix in likelihood analysis. "
+            "Using the diagonal covariance only may be a temporary workaround.",
             UserWarning,
             stacklevel=2
         )
