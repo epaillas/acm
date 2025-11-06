@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import time
 import glob
+import gc
 
 
 def get_cli_args():
@@ -344,8 +345,14 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=10)
                         with create_sharding_mesh() as sharding_mesh:
-                            bspec_bin = compute_bispectrum(output_fn, hod_positions, bin=bspec_bin, **box_args)
-                            # jax.clear_caches()
+                            while True:
+                                try:
+                                    bspec_bin = compute_bispectrum(output_fn, hod_positions, bin=bspec_bin, **box_args)
+                                    break
+                                except:
+                                    print('Bispectrum computation failed, retrying after clearing caches...', flush=True)
+                                    jax.clear_caches()
+                                    gc.collect()
 
                     if 'tpcf' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/tpcf/'
