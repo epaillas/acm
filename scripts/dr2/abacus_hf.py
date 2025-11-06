@@ -136,19 +136,19 @@ def compute_spectrum(save_fn, get_data, get_randoms, ells=(0, 2, 4), los='firstp
     data = ParticleField(*data, attrs=attrs, exchange=True, backend='jax')
     randoms = ParticleField(*randoms, attrs=attrs, exchange=True, backend='jax')
     fkp = FKPField(data, randoms)
-    norm, num_shotnoise = compute_fkp2_normalization(fkp), compute_fkp2_shotnoise(fkp)
+    bin = BinMesh2SpectrumPoles(attrs, edges={'step': 0.001}, ells=ells)
+    norm, num_shotnoise = compute_fkp2_normalization(fkp, bin=bin), compute_fkp2_shotnoise(fkp, bin=bin)
     mesh = fkp.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
     wsum_data1 = data.sum()
     del fkp, data, randoms
-    bin = BinMesh2SpectrumPoles(mesh.attrs, edges={'step': 0.001}, ells=ells)
     jitted_compute_mesh2_spectrum = jax.jit(compute_mesh2_spectrum, static_argnames=['los'], donate_argnums=[0])
     spectrum = jitted_compute_mesh2_spectrum(mesh, bin=bin, los=los).clone(norm=norm, num_shotnoise=num_shotnoise)
-    spectrum.attrs.update(mesh=dict(mesh.attrs), los=los, wsum_data1=wsum_data1)
+    # spectrum.attrs.update(mesh=dict(mesh.attrs), los=los, wsum_data1=wsum_data1)
     jax.block_until_ready(spectrum)
     t1 = time.time()
     if jax.process_index() == 0:
-        print(f'Done in {t1 - t0:.2f}')
-    spectrum.save(save_fn)
+        print(f'Done in {t1 - t0:.2f}', flush=True)
+    spectrum.write(save_fn)
 
 def compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
     """Compute density-split statistics using the ACM package."""
@@ -203,7 +203,7 @@ if __name__ == '__main__':
     tracer = 'LRG'
     region = 'NGC'
     zmin, zmax = 0.4, 0.6
-    nrandoms = 3  # number of random catalogs per phase
+    nrandoms = 1  # number of random catalogs per phase
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
 
     catalog_args = dict(tracer=tracer, region=region, zrange=(zmin, zmax), complete=False)
@@ -217,9 +217,9 @@ if __name__ == '__main__':
         get_randoms = lambda: get_clustering_positions_weights(*all_randoms_fn, **catalog_args)
 
         if 'spectrum' in args.todo_stats:
-            cutsky_args = dict(cellsize=10.0, boxsize=get_proposal_boxsize(catalog_args['tracer']), ells=(0, 2, 4))
+            cutsky_args = dict(cellsize=10.0, ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
-                save_fn = Path(args.save_dir) / f'spectrum_{tracer}_{region}_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.npy'
+                save_fn = Path(args.save_dir) / f'spectrum_{tracer}_{region}_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.h5'
                 compute_spectrum(save_fn, get_data, get_randoms, **cutsky_args)
 
         if 'density_split' in args.todo_stats:
