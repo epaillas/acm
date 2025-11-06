@@ -1,3 +1,9 @@
+"""
+Find the best-fit HOD based on chi-squared statistic.
+
+Usage:
+    python best_fit.py --cosmology 0 --ells 0 2 --ndof 5 --diag --plot --log_level INFO
+"""
 import logging
 import argparse
 import numpy as np
@@ -33,6 +39,7 @@ def load_ref(dir: str|Path, phase: int = 0):
     """Load reference measurements from the specified directory."""
     dir = Path(dir)
     fns = dir.glob(f'AbacusSummit_base_c000_ph{phase:03d}/measurements/Mr-20/tpcf_los_*.npy')
+    # TODO: Find a way to not encode path structure this strictly ?
     cfs = [TwoPointEstimator.load(fn) for fn in fns]
     cf = cfs[0].concatenate_x(cfs)
     return cf
@@ -63,10 +70,11 @@ def plot_best_fit(s, ref_poles, best_poles, ells, hod):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Find best-fit HOD based on chi-squared statistic.')
-    parser.add_argument('--ells', type=int, nargs='+', default=[0], help='Multipole moments to consider (default: 0)')
-    parser.add_argument('--ndof', type=int, help='Calculate chi-squared per degree of freedom')
-    parser.add_argument('--diag', action='store_true', help='Use diagonal covariance matrix only')
-    parser.add_argument('--plot', action='store_true', help='Plot the best-fit comparison')
+    parser.add_argument('--cosmology', '-c', type=int, default=0, help='Cosmology index to find the fit for (default: 0)')
+    parser.add_argument('--ells', '-e', type=int, nargs='+', default=[0], help='Multipole moments to consider (default: 0)')
+    parser.add_argument('--ndof', '-n', type=int, help='Calculate chi-squared per degree of freedom')
+    parser.add_argument('--diag', '-d', action='store_true', help='Use diagonal covariance matrix only')
+    parser.add_argument('--plot', '-p', action='store_true', help='Plot the best-fit comparison')
     parser.add_argument('--log_level', type=str, help='Set logging level (e.g., DEBUG, INFO)', default='warning')
     args = parser.parse_args()
     ells = tuple(args.ells)
@@ -76,8 +84,8 @@ if __name__ == "__main__":
     
     logger.info(f'Using multipoles: {ells}')
     logger.info(f'Calculating chi-squared {f"with {args.ndof} degree of freedom" if args.ndof else ""}')
-    
-    data_dir = Path('/pscratch/sd/s/sbouchar/acm/bgs/measurements/base/c000_ph000/seed0')
+
+    data_dir = Path(f'/pscratch/sd/s/sbouchar/acm/bgs/measurements/base/c{args.cosmology:03d}_ph000/seed0')
     hods = [f.stem.lstrip('hod') for f in sorted(data_dir.glob('hod*'))]
     cfs = load_cfs(data_dir)
     
@@ -102,11 +110,11 @@ if __name__ == "__main__":
         chi2_values.append(chi2_value)
         logger.debug(f'Chi-squared: {chi2_value}')
     best_idx = np.argmin(chi2_values)
-        
-    print(f'Best-fit index: {best_idx} (HOD {hods[best_idx]}) with chi-squared: {chi2_values[best_idx]}')
-    
+
+    print(f'c{args.cosmology:03d} Best-fit index: {best_idx} (HOD {hods[best_idx]}) with chi-squared: {chi2_values[best_idx]}')
+
     if args.plot:
         s, ref_poles = ref(ells=ells, return_sep=True)
         s, best_poles = cfs[best_idx](ells=ells, return_sep=True)
         fig, ax = plot_best_fit(s, ref_poles, best_poles, ells, hods[best_idx])
-        fig.savefig(f'best_fit_ells{ells}.png', dpi=300, bbox_inches='tight')
+        fig.savefig(f'best_fit_c{args.cosmology:03d}_ells{ells}.png', dpi=300, bbox_inches='tight')
