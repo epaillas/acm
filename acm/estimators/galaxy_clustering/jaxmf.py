@@ -129,7 +129,7 @@ class MinkowskiFunctionals(BaseDensityMeshEstimator):
         
         super().__init__(**kwargs)
 
-        self.query_positions = self.get_query_positions(self.data_mesh, method='lattice')
+        self.query_positions = self.get_query_positions(method='lattice')
 
     def run(self, thresholds):
         t0 = time.time()
