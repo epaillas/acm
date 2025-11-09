@@ -7,89 +7,9 @@ from matplotlib.colors import to_hex
 
 from sunbird.inference import BaseSampler
 from acm.observables import Observable, CombinedObservable
-from acm.utils.tools import correlation_from_covariance
+from acm.utils.covariance import correlation_from_covariance
 
 import logging
-
-class HODPlots():
-    def load_hod_params(self, dir: str|Path, glob: str, idx: list = None) -> dict:
-        """
-        Load HOD parameters from CSV files for given cosmologies.
-
-        Parameters
-        ----------
-        dir : str|Path
-            Directory containing HOD parameter files.
-        glob : str
-            Glob pattern to match HOD parameter files.
-        cosmologies : list, optional
-            List of cosmology indices to load.
-        idx : list, optional
-            List of indices to select from each HOD file, by default None
-
-        Returns
-        -------
-        dict
-            Array of HOD parameters for each cosmology, with dtype names as the HOD parameter names.
-            
-        Files
-        -----
-        Expects csv files ending with `_c{cosmo_index}` in the specified directory.
-        """
-        hod_params = {}
-        fn_list = sorted(Path(dir).glob(glob))
-        for fn in fn_list:
-            key = fn.stem.split('_')[1]
-            hod_file = np.genfromtxt(fn, delimiter=',', names=True)
-            if idx is not None:
-                hod_file = hod_file[idx]
-            hod_params[key] = hod_file
-        self.hod_params = hod_params
-        return self.hod_params
-
-    @staticmethod
-    def plot_histogram(hods: list, parameters: list[str], **kwargs) -> tuple:
-        """
-        Plot histograms of specified HOD parameters from a list of HOD parameter arrays.
-        
-        Parameters
-        ----------
-        hods : list
-            List of HOD parameter dicts or arrays with dtype column names associated with parameters.
-        parameters : list[str]
-            List of parameter names to plot histograms for.
-        **kwargs
-            Additional keyword arguments to pass to `plt.hist`.
-            Can also include:
-            - figsize : tuple, optional
-                Figure size, by default (8, 4 * len(parameters)).
-            - labels : list[str], optional
-                List of labels for each HOD array, by default None. Must match length of hods if provided.
-            - colors : list[str], optional
-                List of colors for each HOD array, by default ['C0', 'C1', ...]. Must match length of hods if provided.
-            
-        Returns
-        -------
-        fig, ax : matplotlib Figure and Axes
-            The figure and axes objects containing the histograms.
-        """
-        
-        figsize = kwargs.pop('figsize', (4, 2 * len(parameters)))
-        labels = kwargs.pop('labels', None)
-        colors = kwargs.pop('colors', [f'C{i}' for i in range(len(hods))])
-
-        fig, ax = plt.subplots(len(parameters), 1, figsize=figsize)
-        
-        if labels is not None:
-            assert len(labels) == len(hods), "Length of labels must match length of hods"
-        for i, param in enumerate(parameters):
-            for j, hod in enumerate(hods):
-                if labels:
-                    ax[i].hist(hod[param].flatten(), color=colors[j], label=labels[j], **kwargs)
-                else:
-                    ax[i].hist(hod[param].flatten(), color=colors[j], **kwargs)
-            ax[i].set_xlabel(param)
-        return fig, ax
 
 class ObservablePlots():
     """
