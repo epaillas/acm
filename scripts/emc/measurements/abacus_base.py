@@ -219,13 +219,14 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    wst = init if init is not None else WaveletScatteringTransform(data_positions=positions, **attrs)
+    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
 
     print(f'Saving WST coefficients to {output_fn}')
     np.save(output_fn, smatavg)
+    return wst.S  # Return the kymatio initialization for reuse
 
 def compute_minkowski(output_fn, positions, **attrs):
     from acm.estimators.galaxy_clustering.jaxmf import MinkowskiFunctionals
@@ -296,9 +297,9 @@ if __name__ == '__main__':
 
     redshift = 0.5
     jitted_compute_mesh3_spectrum = None
+    wst_init = None
 
     for cosmo_idx in cosmos:
-        init = None
         bspec_bin = None
         for phase_idx in phases:
             for seed_idx in seeds:
@@ -419,9 +420,13 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        if output_fn.exists():
+                            print(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
                         box_args = get_box_args(boxsize, cellsize=10)
-                        init = compute_wst(output_fn, hod_positions, init=init, **box_args)
+                        wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
 
                     if 'spherical_voids' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/spherical_voids/'
@@ -440,4 +445,5 @@ if __name__ == '__main__':
                         compute_dt_voids(output_fn, hod_positions)
 
 
-        jax.clear_caches()
+        if is_distributed:
+            jax.clear_caches()
