@@ -23,6 +23,10 @@ def get_cli_args():
     args = parser.parse_args()
     return args
 
+def get_box_args(boxsize, cellsize):
+    meshsize = (boxsize / cellsize).astype(int)
+    return dict(boxsize=boxsize, boxcenter=0.0, meshsize=meshsize)
+
 def get_hod_fn(phase=0, redshift=0.5):
     """
     Get the list of HOD file names for a given cosmology,
@@ -33,7 +37,7 @@ def get_hod_fn(phase=0, redshift=0.5):
     return filename
 
 def get_hod_positions(filename, los='z'):
-    boxsize = 500
+    boxsize = np.array([500.0, 500.0, 500.0])
     hod = fitsio.read(filename)
     pos = np.c_[hod['X'], hod['Y'], hod['Z']] + boxsize / 2
     hubble = 100 * fid_cosmo.efunc(redshift)
@@ -184,15 +188,15 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    wst = init if init is not None else WaveletScatteringTransform(**attrs)
+    # wst = init if init is not None else WaveletScatteringTransform(data_positions=positions, **attrs)
+    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
 
-    wst.assign_data(positions=positions, wrap=True, clear_previous=True)
     wst.set_density_contrast()
     smatavg = wst.run()
 
     print(f'Saving WST coefficients to {output_fn}')
-    np.save(output_fn, smatavg.cpu())
-    return wst
+    np.save(output_fn, smatavg)
+    return wst.S  # Return the kymatio initialization for reuse
 
 
 
@@ -217,7 +221,7 @@ if __name__ == '__main__':
 
     fid_cosmo = AbacusSummit(0)
     redshift = 0.5
-    init = None
+    wst_init = None
 
     for phase_idx in phases:
         hod_fn = get_hod_fn(phase=phase_idx, redshift=redshift)
@@ -242,6 +246,16 @@ if __name__ == '__main__':
             box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
                 compute_recon_spectrum(output_fn, hod_positions, **box_args)
+
+        if 'wst' in args.todo_stats:
+            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/wst/'
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            output_fn = Path(save_dir) / f'wst_ph{phase_idx:03}.npy'
+            if output_fn.exists():
+                print(f'Skipping {output_fn}, already exists.')
+                continue
+            box_args = get_box_args(boxsize, cellsize=10)
+            wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
 
         # if 'tpcf' in args.todo_stats:
         #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/tpcf/'
