@@ -76,12 +76,12 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
+                "ells": ells,
                 "bin_idx": bin_idx,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "bin_idx"],
+                "features": ["ells", "bin_idx"],
             },
             name = "covariance_y",
         )
@@ -164,12 +164,12 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'multipoles': ells,
+                'ells': ells,
                 'bin_idx': bin_idx,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 'bin_idx'],
+                'features': ['ells', 'bin_idx'],
             },
             name = 'y',
         )
@@ -211,7 +211,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-        ells = self._dataset.y.coords['multipoles'].values.tolist()
+        ells = self._dataset.y.coords['ells'].values.tolist()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -224,7 +224,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
             lax[0].set_ylabel(r'$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
 
-            self.select_filters.update({'multipoles': ell})
+            self.select_filters.update({'ells': ell})
             bin_idx = self.bin_idx
             data = self.y[0]
             model = self.get_model_prediction(model_params)[0]
