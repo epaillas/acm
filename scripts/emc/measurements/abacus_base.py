@@ -1,6 +1,7 @@
 import os
 import fitsio
 from pathlib import Path
+import cloudpickle as cp
 import numpy as np
 import time
 import glob
@@ -219,6 +220,14 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
+    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/init/')
+    meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
+    init_fn = init_dir / f'wst_init_meshsize{meshsize_str}.npy'
+    if init_fn.exists() and init is None:
+        print(f'Loading WST initialization from {init_fn}')
+        with open(init_fn, 'rb') as f:
+            init = cp.load(f)
+
     wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
 
     wst.set_density_contrast()
@@ -226,7 +235,13 @@ def compute_wst(output_fn, positions, init=None, **attrs):
 
     print(f'Saving WST coefficients to {output_fn}')
     np.save(output_fn, smatavg)
-    return wst.S  # Return the kymatio initialization for reuse
+
+    if not init_fn.exists():
+        # save kymatio initalization to a file
+        with open(init_fn, 'wb') as f:
+            print(f'Saving WST initialization to {init_fn}')
+            cp.dump(wst.S, f)
+    return wst.S
 
 def compute_minkowski(output_fn, positions, **attrs):
     from acm.estimators.galaxy_clustering.jaxmf import MinkowskiFunctionals
@@ -297,9 +312,9 @@ if __name__ == '__main__':
 
     redshift = 0.5
     jitted_compute_mesh3_spectrum = None
-    wst_init = None
 
     for cosmo_idx in cosmos:
+        wst_init = None
         bspec_bin = None
         for phase_idx in phases:
             for seed_idx in seeds:
@@ -416,7 +431,7 @@ if __name__ == '__main__':
                         compute_minkowski(output_fn, hod_positions, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
@@ -424,7 +439,7 @@ if __name__ == '__main__':
                             print(f'Skipping {output_fn}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
+                        # boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
                         box_args = get_box_args(boxsize, cellsize=10)
                         wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
 
