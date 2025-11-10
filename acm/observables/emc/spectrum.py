@@ -80,12 +80,12 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
+                "ells": ells,
                 "k": k,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "k"],
+                "features": ["ells", "k"],
             },
             name = "covariance_y",
         )
@@ -165,12 +165,12 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'multipoles': ells,
+                'ells': ells,
                 'k': k,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 'k'],
+                'features': ['ells', 'k'],
             },
             name = 'y',
         )
@@ -213,7 +213,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Figure and axes of the plot.
         """
 
-        ells = self._dataset.y.coords['multipoles'].values.tolist()
+        ells = self._dataset.y.coords['ells'].values.tolist()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -226,7 +226,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
             lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
-            self.select_filters.update({'multipoles': ell})
+            self.select_filters.update({'ells': ell})
             k = self.k.values
             data = self.flatten_output(self.y, flat_output_dims=2)[0]
             model = self.get_model_prediction(model_params)
