@@ -2,30 +2,6 @@ import glob
 from pathlib import Path
 
 #%% Phase index utilities
-def find_phases(dir: str|Path, z: float, cosmo: int = 0) -> tuple[list[str], list[int]]:
-    """
-    Finds the simulation phases for a given redshift.
-
-    Parameters
-    ----------
-    dir : str | Path
-        Directory containing the simulation data.
-    z : float
-        Redshift value for which to find the simulation phases.
-    cosmo : int, optional
-        Cosmology index to search phases for (default is 0).
-
-    Returns
-    -------
-    tuple[list[str], list[int]]
-        A tuple containing a list of file paths and a list of phase indices.
-    """
-    dir = Path(dir) # Ensure dir is a Path object
-    glob_pattern = str(dir / f'AbacusSummit_small_c{cosmo:03d}_ph*' / '*' / f'z{z:.3f}/')
-    abacus_fns = sorted(glob.glob(glob_pattern))
-    phases = [int(abacus_fn.split('/')[-3].split('_')[-1].lstrip('ph')) for abacus_fn in abacus_fns]
-    return abacus_fns, phases
-
 def list_to_sequence(l: list[int]) -> list[tuple[int, int] | int]:
     """
     Converts a list of integers into a list of tuples representing consecutive sequences.

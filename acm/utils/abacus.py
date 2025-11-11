@@ -1,3 +1,5 @@
+import glob
+from pathlib import Path
 import pandas as pd
 
 def load_abacus_cosmologies(
@@ -30,3 +32,29 @@ def load_abacus_cosmologies(
     cosmo_params.set_index(pd.Index([f'c{c:03d}' for c in cosmologies]), inplace=True)
     cosmo_params.rename(columns=mapping, inplace=True)
     return cosmo_params.to_dict(orient='index')
+
+def get_abacus_phases(dir: str|Path, z: float, cosmo: int = 0) -> tuple[list[str], list[int]]:
+    """
+    Finds the simulation phases for a given redshift.
+
+    Parameters
+    ----------
+    dir : str | Path
+        Directory containing the simulation data.
+        Files are expected to follow the structure:
+        `AbacusSummit_small_c{cosmo:03d}_ph{phase:03d}/.../z{z:.3f}/`
+    z : float
+        Redshift value for which to find the simulation phases.
+    cosmo : int, optional
+        Cosmology index to search phases for (default is 0).
+
+    Returns
+    -------
+    tuple[list[str], list[int]]
+        A tuple containing a list of file paths and a list of phase indices.
+    """
+    dir = Path(dir) # Ensure dir is a Path object
+    glob_pattern = str(dir / f'AbacusSummit_small_c{cosmo:03d}_ph*' / '**' / f'z{z:.3f}/')
+    abacus_fns = sorted(glob.glob(glob_pattern))
+    phases = [int(Path(f).relative_to(dir).parts[0].split('_')[-1].lstrip('ph')) for f in abacus_fns]
+    return abacus_fns, phases
