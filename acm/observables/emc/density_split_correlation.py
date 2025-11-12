@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
@@ -200,6 +201,7 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         return cout
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_training_set(self, save_fn: str = None):
         ells = self._dataset.y.coords['multipoles'].values.tolist()
         quantiles = self._dataset.y.coords['quantiles'].values.tolist()
