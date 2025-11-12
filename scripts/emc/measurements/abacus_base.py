@@ -73,29 +73,33 @@ def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
         print(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
-def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', **attrs):
+def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', bin=None, **attrs):
     from jaxpower import (ParticleField, FKPField, compute_fkp3_normalization, compute_fkp3_shotnoise, BinMesh3SpectrumPoles, get_mesh_attrs, compute_mesh3_spectrum, MeshAttrs)
     t0 = time.time()
     mattrs = MeshAttrs(**attrs)
     data = ParticleField(positions, attrs=mattrs, exchange=True, backend='jax')
+    del positions
     mesh = data.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
     mean = mesh.mean()
     mesh = mesh - mean
     ells = [(0, 0, 0), (0, 0, 2)] if 'sugiyama' in basis else [0, 2]
-    bin = BinMesh3SpectrumPoles(mattrs, edges={'step': 0.01}, basis=basis, ells=ells, buffer_size=2)
-    #jitted_compute_mesh3_spectrum = jax.jit(compute_mesh3_spectrum, static_argnames=['los'], donate_argnums=[0])
+    if bin is None:
+        bin = BinMesh3SpectrumPoles(mattrs, edges={'step': 0.01}, basis=basis, ells=ells, buffer_size=30)
+    jitted_compute_mesh3_spectrum = jax.jit(compute_mesh3_spectrum, static_argnames=['los'], donate_argnums=[0])
     kw = dict(resampler='tsc', interlacing=3, compensate=True)
     num_shotnoise = compute_fkp3_shotnoise(data, los=los, bin=bin, **kw)
     mesh = data.paint(**kw, out='real')
-    spectrum = compute_mesh3_spectrum(mesh, los=los, bin=bin)
+    del data
+    spectrum = jitted_compute_mesh3_spectrum(mesh, los=los, bin=bin)
     spectrum = spectrum.clone(norm=[pole.values('norm') * mean**3 for pole in spectrum], num_shotnoise=num_shotnoise)
     # spectrum.attrs.update(mesh=dict(mesh.attrs), los=los)
     jax.block_until_ready(spectrum)
     t1 = time.time()
     if jax.process_index() == 0:
-        print(f'Bispectrum done in {t1 - t0:.2f} s.')
-        print(f'Saving to {output_fn}')
-    spectrum.write(output_fn)
+        print(f'Bispectrum done in {t1 - t0:.2f} s.', flush=True)
+        print(f'Saving to {output_fn}', flush=True)
+        spectrum.write(output_fn)
+    return bin
 
 def compute_tpcf_smu(output_fn, positions, los='z', **attrs):
     """Compute the two-point correlation function in s-mu bins using the ACM package."""
@@ -204,7 +208,9 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
 
     np.save(output_fn['xiqg'], ccf)
+    print(f'Saving {output_fn["xiqg"]}')
     np.save(output_fn['xiqq'], acf)
+    print(f'Saving {output_fn["xiqq"]}')
 
 def compute_wst(output_fn, positions, init=None, **attrs):
     """Compute the wavelet scattering transform using the ACM package."""
@@ -288,9 +294,11 @@ if __name__ == '__main__':
     seeds = list(range(args.start_seed, args.start_seed + args.n_seed))
 
     redshift = 0.5
+    jitted_compute_mesh3_spectrum = None
 
     for cosmo_idx in cosmos:
         init = None
+        bspec_bin = None
         for phase_idx in phases:
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
@@ -336,7 +344,8 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=10)
                         with create_sharding_mesh() as sharding_mesh:
-                            compute_bispectrum(output_fn, hod_positions, **box_args)
+                            bspec_bin = compute_bispectrum(output_fn, hod_positions, bin=bspec_bin, **box_args)
+                            # jax.clear_caches()
 
                     if 'tpcf' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/tpcf/'

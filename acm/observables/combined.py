@@ -1,8 +1,12 @@
 import numpy as np
 from pathlib import Path
+from contextlib import nullcontext
+from matplotlib.backends.backend_pdf import PdfPages
+from scipy import linalg
 from .base import Observable
 from acm.utils.covariance import check_covariance_matrix
 import logging
+
 
 
 class CombinedModel():
@@ -207,22 +211,41 @@ class CombinedObservable():
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         
-        # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name="combined data covariance")
+        
         
         return cov
 
-    def get_emulator_covariance_matrix(self, prefactor: float = 1) -> np.ndarray:
+    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
         """
-        Emulator covariance matrix for the statistic. The prefactor is here for corrections if needed.
+        Covariance matrix of the emulator residuals for a combination of multiple summary statistics.
+        The matrix is block-diagonal, with each block corresponding to the covariance matrix of each
+        individual observable.
+
+        Parameters
+        ----------
+        prefactor : float
+            Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival). Defaults to 1.
+        method : str
+            Method to compute the covariance matrix from the emulator residuals.
+            Options include the mean absolute deviation ('mean'), median absolute deviation ('median'),
+            or standard deviation ('stdev'). Defaults to 'median'.
+        diag : bool
+            If True, only the diagonal of the covariance matrix is computed. Defaults to False.
+
+        Returns
+        -------
+        np.ndarray
+            The emulator covariance matrix.
         """
-        cov_y = self.emulator_covariance_y
-        prefactor = prefactor
+        covs = []
+        for observable in self.observables:
+            cov_y = observable.get_emulator_covariance_matrix(prefactor=prefactor, method=method, diag=diag)
+            covs.append(cov_y)
         
-        cov = prefactor * np.cov(cov_y, rowvar=False)
+        cov = linalg.block_diag(*covs)
         
         # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name="combined emulator covariance")
+        check_covariance_matrix(cov, name="combined data covariance")
         
         return cov
     
@@ -261,3 +284,39 @@ class CombinedObservable():
         if isinstance(save_dir, str):
             return cout.as_posix() # Return as string if save_dir is a string
         return Path(save_dir) / f'{statistic_handle}'
+
+    def plot_observable(
+        self, 
+        model_params: dict, 
+        save_fn: str|Path = None,
+    ):
+        """
+        Plot a compilation of all summary statistics included at class instantiation.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters to use for the prediction.
+        save_fn : str|Path
+            File name to save the plot. If None, the plot is not saved.
+            Default is None.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The last figure plotted.
+        """
+        # check that save_fn has a .pdf extension
+        if save_fn is not None:
+            save_fn = Path(save_fn)
+            if save_fn.suffix != '.pdf':
+                raise ValueError(f'save_fn must have a .pdf extension, got {save_fn.suffix}')
+        with PdfPages(save_fn) if save_fn is not None else nullcontext() as pdf:
+            for i, observable in enumerate(self.observables):
+                fig, ax = observable.plot_observable(model_params=model_params)
+                if pdf is not None:
+                    pdf.savefig(fig, bbox_inches='tight', pad_inches=0.2)
+                else:
+                    fig.show()
+        self.logger.info(f'Saving {save_fn}')
+        return fig

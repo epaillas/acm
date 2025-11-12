@@ -130,9 +130,10 @@ class MinkowskiFunctionals(BaseObservableEMC):
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/minkowski_c{cosmo_idx:03}_hod???.npy'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/minkowski_c{cosmo_idx:03}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True).item()
                 mf = []
@@ -141,7 +142,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
                     for j in range(4):
                         mf.append(data[Rg][threshold_index[f'Threshold_index_{Rg}'][j], j ] * (10 * i) ** j) 
                 y.append(np.concatenate(mf))
-            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         
         y = xarray.DataArray(
