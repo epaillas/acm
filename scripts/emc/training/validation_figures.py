@@ -1,6 +1,7 @@
 import acm.observables.emc as emc
 from acm import setup_logging
 import argparse
+from pathlib import Path
 
 
 def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
@@ -12,12 +13,12 @@ def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
         'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
     }
     observable = getattr(emc, observable_name, None)(
-        paths=paths, numpy_output=True,
+        paths=paths,
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
     )
-    save_fn = f'fig/{observable.stat_name}_model.png'
+    save_fn = Path(save_dir) / f'{observable.stat_name}_model.png'
     model_params = observable.x[0]
-    observable.plot_observable(model_params, save_fn)
+    observable.plot_observable(model_params=model_params, save_fn=save_fn)
 
 def plot_emulator_residuals(observable_name):
     """
@@ -30,17 +31,29 @@ def plot_emulator_residuals(observable_name):
     observable = getattr(emc, observable_name, None)(
         paths=paths, select_filters={},
     )
-    save_fn = f'fig/{observable.stat_name}_emulator_residuals.png'
+    save_fn = Path(save_dir) / f'{observable.stat_name}_emulator_residuals.png'
     observable.plot_emulator_residuals(save_fn)
 
 
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Compress EMC measurement files.')
-    parser.add_argument('--stats', nargs='+', default=['GalaxyPowerSpectrumMultipoles'],
-                        help='List of statistics to compress.')
+    parser.add_argument(
+        '-s', '--statistics', nargs='+',
+        default=[
+            'ProjectedGalaxyCorrelationFunction',
+            'GalaxyPowerSpectrumMultipoles',
+            'ReconstructedGalaxyPowerSpectrumMultipoles',
+            'GalaxyBispectrumMultipoles',
+            'DensitySplitGalaxyCorrelationFunctionMultipoles',
+            'MinkowskiFunctionals',
+        ],
+        help='List of statistics to compress.'
+    )
+    parser.add_argument('--save_dir', type=str, default='fig/',)
     args = parser.parse_args()
-    todo_stats = args.stats
+    todo_stats = args.statistics
+    save_dir = args.save_dir
 
     setup_logging()
 
