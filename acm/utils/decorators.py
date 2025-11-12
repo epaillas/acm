@@ -8,7 +8,6 @@ def temporary_class_state(**attrs):
     def decorator(method):
         @wraps(method)
         def wrapper(self, *args, **kwargs):
-            
             # Save original values
             original_attrs = {key: getattr(self, key) for key in attrs}
             for key, value in attrs.items():
