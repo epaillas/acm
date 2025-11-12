@@ -549,7 +549,7 @@ class Observable():
         cov *= prefactor 
         
         # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name="emulator covariance")
+        check_covariance_matrix(cov, name=f"{self.stat_name} emulator covariance")
         
         return cov
 
