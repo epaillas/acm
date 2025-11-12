@@ -63,25 +63,27 @@ def load_hod_params(hod_params_dir: str | Path, keys: list[str] | None = None) -
     return hod_params
 
 
-def plot_hod_histogram(hods: list, parameters: list[str], **kwargs) -> tuple:
+def plot_parameters_histogram(parameters: list, names: list[str], mapping: dict = None, **kwargs) -> tuple:
     """
-    Plot histograms of specified HOD parameters from a list of HOD parameter arrays.
+    Plot histograms of specified parameters from a list of parameter arrays.
     
     Parameters
     ----------
-    hods : list
-        List of HOD parameter dicts or structured arrays with dtype column names associated with parameters.
-    parameters : list[str]
+    parameters : list
+        List of parameter dicts or structured arrays with dtype column names associated with parameters.
+    names : list[str]
         List of parameter names to plot histograms for.
+    mapping : dict, optional
+        Dictionary mapping parameter names to labels for the x-axis, by default None. If None, `parameter` names are used as labels.
     **kwargs
         Additional keyword arguments to pass to `plt.hist`.
         Can also include:
         - figsize : tuple, optional
-            Figure size, by default (8, 4 * len(parameters)).
+            Figure size, by default (8, 4 * len(names)).
         - labels : list[str], optional
-            List of labels for each HOD array, by default None. Must match length of hods if provided.
+            List of labels for each parameter array, by default None. Must match length of `parameters` if provided.
         - colors : list[str], optional
-            List of colors for each HOD array, by default ['C0', 'C1', ...]. Must match length of hods if provided.
+            List of colors for each parameter array, by default ['C0', 'C1', ...]. Must match length of `parameters` if provided.
         
     Returns
     -------
@@ -89,44 +91,47 @@ def plot_hod_histogram(hods: list, parameters: list[str], **kwargs) -> tuple:
         The figure and axes objects containing the histograms.
     """
     
-    figsize = kwargs.pop('figsize', (4, 2 * len(parameters)))
+    figsize = kwargs.pop('figsize', (4, 2 * len(names)))
     labels = kwargs.pop('labels', None)
-    colors = kwargs.pop('colors', [f'C{i}' for i in range(len(hods))])
+    colors = kwargs.pop('colors', [f'C{i}' for i in range(len(parameters))])
 
-    fig, ax = plt.subplots(len(parameters), 1, figsize=figsize)
+    fig, ax = plt.subplots(len(names), 1, figsize=figsize)
     
     if labels is not None:
-        assert len(labels) == len(hods), "Length of labels must match length of hods"
-    for i, param in enumerate(parameters):
-        for j, hod in enumerate(hods):
+        assert len(labels) == len(parameters), "Length of labels must match length of parameters"
+    for i, param in enumerate(names):
+        for j, p in enumerate(parameters):
             if labels:
-                ax[i].hist(hod[param].flatten(), color=colors[j], label=labels[j], **kwargs)
+                ax[i].hist(p[param].flatten(), color=colors[j], label=labels[j], **kwargs)
             else:
-                ax[i].hist(hod[param].flatten(), color=colors[j], **kwargs)
-        ax[i].set_xlabel(param)
+                ax[i].hist(p[param].flatten(), color=colors[j], **kwargs)
+        l = mapping.get(param, param) if mapping else param
+        ax[i].set_xlabel(l)
     return fig, ax
 
 
-def plot_hod_triangle(hods: list, parameters: list[str], **kwargs) -> tuple:
+def plot_parameters_triangle(parameters: list, names: list[str], mapping: dict = None, **kwargs) -> tuple:
     """
-    Plot a triangle scatter plot of specified HOD parameters.
+    Plot a triangle scatter plot of specified parameters names.
 
     Parameters
     ----------
-    hods : list
-        List of HOD parameter dicts or structured arrays with dtype column names associated with parameters.
-    parameters : list[str]
+    parameters : list
+        List of parameters parameter dicts or structured arrays with dtype column names associated with names.
+    names : list[str]
         List of parameter names to include in the triangle plot.
+    mapping : dict, optional
+        Dictionary mapping `parameter` names to labels for the axes, by default None. If None, `parameter` names are used as labels.
     **kwargs
         Additional keyword arguments to pass to `plt.scatter`.
         Can also include:
         - figsize : tuple, optional
-            Figure size, by default (3 * len(parameters), 3 * len(parameters)).
+            Figure size, by default (3 * len(names), 3 * len(names)).
         - labels : list[str], optional
-            List of labels for each HOD array, by default None. Must match length of hod
+            List of labels for each parameter array, by default None. Must match length of `parameters`
             if provided.
         - colors : list[str], optional
-            List of colors for each HOD array, by default ['C0', 'C1', ...]. Must match length of hods if provided.
+            List of colors for each parameter array, by default ['C0', 'C1', ...]. Must match length of `parameters` if provided.
         - bins : int, optional
             Number of bins for the diagonal histograms, by default 30.
         - histtype : str, optional
@@ -137,33 +142,33 @@ def plot_hod_triangle(hods: list, parameters: list[str], **kwargs) -> tuple:
     fig, axes : matplotlib Figure and Axes
         The figure and axes objects containing the triangle plot.
     """
-    figsize = kwargs.pop('figsize', (3 * len(parameters), 3 * len(parameters)))
+    figsize = kwargs.pop('figsize', (3 * len(names), 3 * len(names)))
     labels = kwargs.pop('labels', None)
-    colors = kwargs.pop('colors', [f'C{i}' for i in range(len(hods))])
+    colors = kwargs.pop('colors', [f'C{i}' for i in range(len(parameters))])
     bins = kwargs.pop('bins', 30)
     histtype = kwargs.pop('histtype', 'step')
-    alpha = kwargs.pop('alpha', 1/len(hods))
+    alpha = kwargs.pop('alpha', 1/len(parameters))
     s = kwargs.pop('s', 1)  # size of scatter points
-    print(s)
     
-    fig, axes = plt.subplots(len(parameters), len(parameters), figsize=figsize)
+    fig, axes = plt.subplots(len(names), len(names), figsize=figsize)
     
-    for i, x_param in enumerate(parameters):
-        for j, y_param in enumerate(parameters):
+    for i, x_param in enumerate(names):
+        for j, y_param in enumerate(names):
             ax = axes[i, j]
-            for k, hod in enumerate(hods):
+            for k, p in enumerate(parameters):
                 if i == j:
-                    ax.hist(hod[x_param], bins=bins, color=colors[k], histtype=histtype, alpha=alpha)
+                    ax.hist(p[x_param], bins=bins, color=colors[k], histtype=histtype, alpha=alpha)
                 elif i > j:
-                    ax.scatter(hod[y_param], hod[x_param], color=colors[k], s=s, alpha=alpha, **kwargs)
+                    ax.scatter(p[y_param], p[x_param], color=colors[k], s=s, alpha=alpha, **kwargs)
                 else:
                     ax.axis('off')
     # Set labels on bottom and left axis
-    for i, param in enumerate(parameters):
-        axes[-1, i].set_xlabel(param)
-        axes[i, 0].set_ylabel(param)
+    for i, param in enumerate(names):
+        l = mapping.get(param, param) if mapping else param
+        axes[-1, i].set_xlabel(l)
+        axes[i, 0].set_ylabel(l)
     # Set legend only on the top-right plot
-    handles = [plt.Line2D([0], [0], color=colors[k], lw=2) for k in range(len(hods))]
+    handles = [plt.Line2D([0], [0], color=colors[k], lw=2) for k in range(len(parameters))]
     if labels is not None:
         fig.legend(handles, labels)
     return fig, axes
