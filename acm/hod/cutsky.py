@@ -404,8 +404,13 @@ class CutskyHOD(BaseCutskyCatalog):
             Number of threads to use for sampling, by default 1.
         seed : float, optional
             Random seed for reproducibility, by default 0.
-        target_nbar : float, optional
-            Number density to downsample the HOD catalog to, in (Mpc/h)^-3.
+        target_nbar : list[float], optional
+            List containing (min_nbar, max_nbar) for downsampling catalogue 
+            to desired density (nbar > max_nbar) or cutting from sample 
+            (nbar < min_nbar). If only one value provided, this is taken as 
+            the maximum threshold (no minimum threshold applied). Default 
+            is None (no thresholds applied).
+        
 
         Returns
         -------
@@ -416,7 +421,7 @@ class CutskyHOD(BaseCutskyCatalog):
             hod_params,
             seed=seed,
             nthreads=nthreads,
-            tracer_density_mean=target_nbar
+            tracer_density=target_nbar
         )[self.tracer]
         pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']]
         vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']]
