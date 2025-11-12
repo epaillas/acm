@@ -487,7 +487,7 @@ class Observable():
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         
         # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name="data covariance")
+        check_covariance_matrix(cov, name=f"{self.stat_name} data covariance")
         
         return cov
     
