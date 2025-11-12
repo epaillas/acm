@@ -50,10 +50,8 @@ class BaseObservableEMC(Observable):
         y = self._dataset.y
         
         # Flatten on 2D for indexing
-        x = self.stack_on_attribute('sample', x)
-        x = self.stack_on_attribute('features', x)
-        y = self.stack_on_attribute('sample', y)
-        y = self.stack_on_attribute('features', y)
+        x = self.flatten_output(x, flat_output_dims=2)
+        y = self.flatten_output(y, flat_output_dims=2)
         
         if isinstance(n_test, int):
             idx_test = list(range(n_test))
@@ -66,8 +64,7 @@ class BaseObservableEMC(Observable):
         prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
         
         # Flatten on 2D for indexing
-        prediction = self.stack_on_attribute('sample', prediction)
-        prediction = self.stack_on_attribute('features', prediction)
+        prediction = self.flatten_output(prediction, flat_output_dims=2)
         
         if isinstance(test_y, xarray.DataArray):
             test_y = test_y.values
@@ -123,8 +120,7 @@ class BaseObservableEMC(Observable):
         emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
         
         # Flatten on 2D for indexing
-        emulator_covariance_y = self.stack_on_attribute('sample', emulator_covariance_y)
-        emulator_covariance_y = self.stack_on_attribute('features', emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
         
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
