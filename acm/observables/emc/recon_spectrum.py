@@ -8,7 +8,7 @@ from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
-
+from acm.utils.decorators import temporary_class_state
 
 class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
@@ -198,6 +198,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         return cout
     
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
@@ -232,9 +233,8 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
             self.select_filters.update({'multipoles': ell})
             k = self.k.values
-            data = self.flatten_output(self.y, flat_output_dims=2)[0]
-            model = self.get_model_prediction(model_params)
-            model = self.flatten_output(model, flat_output_dims=2)[0]
+            data = self.y[0]
+            model = self.get_model_prediction(model_params)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 
