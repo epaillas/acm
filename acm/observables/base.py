@@ -71,7 +71,7 @@ class Observable():
         ::
         
             slice_filters = {'sep': (0, 0.5),} 
-            select_filters = {'multipoles': [0, 2],}
+            select_filters = {'ells': [0, 2],}
 
 
         will return the summary statistics for `0 < sep < 0.5` and multipoles 0 and 2
