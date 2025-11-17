@@ -69,6 +69,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
                 randoms_mesh = (_2c(randoms_mesh) * kernel).c2r()
         data_mesh = _2r(data_mesh)
         if randoms_mesh is not None:
+            self.logger.info('Using randoms to compute density contrast.')
             randoms_mesh = _2r(randoms_mesh)
             sum_data, sum_randoms = data_mesh.sum(), randoms_mesh.sum()
             alpha = sum_data * 1. / sum_randoms
