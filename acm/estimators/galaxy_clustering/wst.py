@@ -10,7 +10,7 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
-    def __init__(self, J_3d=4, L_3d=4, integral_powers=[1.0], sigma=0.8, init_kymatio=None, **kwargs):
+    def __init__(self, J_3d=4, L_3d=4, integral_powers=[0.8], sigma=0.8, init_kymatio=None, **kwargs):
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
         self.logger.info('Initializing WaveletScatteringTransform.')
@@ -25,7 +25,7 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         self.query_positions = self.get_query_positions(method='lattice')
 
         if init_kymatio is not None:
-            self.logger.info('Pre-loading Kymatio initialization.')
+            self.logger.info(f'Pre-loading Kymatio initialization.')
             self.S = init_kymatio
         else:
             self.init_kymatio()
@@ -56,13 +56,11 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         if delta_query is not None:
             self.delta_query = delta_query.reshape(self.meshsize)
         else:
-            self.delta_query = self.delta_mesh.read(self.query_positions).real.reshape(self.meshsize)
-        # self.delta_query = torch.tensor(np.copy(self.delta_query), dtype=torch.float32).to(self.device)
+            self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.meshsize)
         smat_orders_12 = self.S(self.delta_query)
         smat = np.absolute(smat_orders_12[:, :, 0])
         s0 = np.sum(np.absolute(self.delta_query)**self.integral_powers[0])
         smatavg = smat.flatten()
-        # self.smatavg = np.hstack((s0, smatavg)).cpu()
         self.smatavg = np.hstack((s0, smatavg))
         self.smatavg /= np.prod(self.meshsize)
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
