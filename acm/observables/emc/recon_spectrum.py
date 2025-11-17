@@ -8,7 +8,7 @@ from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
-
+from acm.utils.decorators import temporary_class_state
 
 class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
@@ -81,12 +81,12 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
+                "ells": ells,
                 "k": k,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "k"],
+                "features": ["ells", "k"],
             },
             name = "covariance_y",
         )
@@ -167,12 +167,12 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'multipoles': ells,
+                'ells': ells,
                 'k': k,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 'k'],
+                'features': ['ells', 'k'],
             },
             name = 'y',
         )
@@ -198,6 +198,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         return cout
     
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
@@ -217,7 +218,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Figure and axes of the plot.
         """
 
-        ells = self._dataset.y.coords['multipoles'].values.tolist()
+        ells = self._dataset.y.coords['ells'].values.tolist()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -230,11 +231,10 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             lax[-1].set_xlabel(r'$k$ [$h\,\mathrm{Mpc}^{-1}$]', fontsize=15)
             lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
-            self.select_filters.update({'multipoles': ell})
+            self.select_filters.update({'ells': ell})
             k = self.k.values
-            data = self.flatten_output(self.y, flat_output_dims=2)[0]
-            model = self.get_model_prediction(model_params)
-            model = self.flatten_output(model, flat_output_dims=2)[0]
+            data = self.y[0]
+            model = self.get_model_prediction(model_params)[0]
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 

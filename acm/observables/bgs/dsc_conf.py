@@ -95,12 +95,12 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
                 "phase_idx": list(range(y.shape[0])),
                 "statistics": statistics,
                 "quantiles": quantiles,
-                "multipoles": ells,
+                "ells": ells,
                 "s": s,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["statistics", "quantiles", "multipoles", "s"],
+                "features": ["statistics", "quantiles", "ells", "s"],
             },
             name = "covariance_y",
         )
@@ -188,12 +188,12 @@ class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
                 'hod_idx': list(range(n_hod)), # re-index HODs to be continuous
                 'statistics': statistics,
                 'quantiles': quantiles,
-                'multipoles': ells,
+                'ells': ells,
                 's': s,
             },
             attrs = {
                 "sample": ["cosmo_idx", "hod_idx"],
-                "features": ["statistics", "quantiles", "multipoles", "s"],
+                "features": ["statistics", "quantiles", "ells", "s"],
             },
             name = 'y',
         )
