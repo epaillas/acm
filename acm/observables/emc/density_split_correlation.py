@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
@@ -85,12 +86,12 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             coords = {
                 "phase_idx": list(range(y.shape[0])),
                 "quantiles": quantiles,
-                "multipoles": ells,
+                "ells": ells,
                 "s": s,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["quantiles", "multipoles", "s"],
+                "features": ["quantiles", "ells", "s"],
             },
             name = "covariance_y",
         )
@@ -169,12 +170,12 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
                 'quantiles': quantiles,
-                'multipoles': ells,
+                'ells': ells,
                 's': s,
             },
             attrs = {
                 "sample": ["cosmo_idx", "hod_idx"],
-                "features": ["quantiles", "multipoles", "s"],
+                "features": ["quantiles", "ells", "s"],
             },
             name = 'y',
         )
@@ -200,14 +201,15 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         return cout
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_training_set(self, save_fn: str = None):
-        ells = self._dataset.y.coords['multipoles'].values.tolist()
+        ells = self._dataset.y.coords['ells'].values.tolist()
         quantiles = self._dataset.y.coords['quantiles'].values.tolist()
 
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
 
         for ell in ells:
-            self.select_filters.update({'multipoles': ell})
+            self.select_filters.update({'ells': ell})
             s = self.s
 
             for i, quantile in enumerate(quantiles):

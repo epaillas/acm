@@ -81,12 +81,12 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
+                "ells": ells,
                 "s": s,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "s"],
+                "features": ["ells", "s"],
             },
             name = "covariance_y",
         )
@@ -159,12 +159,12 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)), # re-index HODs to be continuous
-                'multipoles': ells,
+                'ells': ells,
                 's': s,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 's'],
+                'features': ['ells', 's'],
             },
             name = 'y',
         )
