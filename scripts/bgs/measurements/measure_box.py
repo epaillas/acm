@@ -13,7 +13,9 @@ Directories and files:
   where XXX is the cosmology index, YYY is the phase index, Z is the seed, and AAA is the HOD index.
 - Results will be saved in a similar structure under their respective name and formats.
 """
+import gc
 import sys
+import jax
 import yaml
 import fitsio
 import logging
@@ -364,6 +366,7 @@ if __name__ == "__main__":
     parser.add_argument('--overwrite', action='store_true', help='Whether to overwrite existing measurement files.')
     parser.add_argument('--log_level', type=str, default='INFO', help='Logging level (e.g., DEBUG, INFO, WARNING, ERROR).')
     parser.add_argument('--log_file', type=str, default=None, help='File to save logs. If None, logs are printed to console.')
+    parser.add_argument('--failures', type=int, default=3, help='Number of tries to attempt before skipping a measurement in case of failure.')
     
     parser.epilog = """
     Measurements options:
@@ -409,6 +412,7 @@ if __name__ == "__main__":
     add_ap = args.add_ap
 
     measurements = args.measurements
+    failures = args.failures
     gpu = args.gpu
     nthreads = args.nthreads
     save_galaxies = args.save_galaxies
@@ -539,7 +543,20 @@ if __name__ == "__main__":
                                     nthreads = nthreads,
                                     gpu = gpu,
                                 )
-                                compute_density_split(positions, **kwargs)
+                                n_tries = 0
+                                while n_tries < failures:
+                                    try:
+                                        compute_density_split(positions, **kwargs)
+                                        break
+                                    except Exception as e:
+                                        n_tries += 1
+                                        logger.warning(f'Error computing density split for HOD {hod_idx:03d}, seed {seed}, los {los}. Try {n_tries}/{failures}. Error: {e}')
+                                        logger.info('Clearing cache and retrying...')
+                                        jax.clear_caches()
+                                        gc.collect()
+                                if n_tries == failures:
+                                    logger.error(f'Failed to compute density split for HOD {hod_idx:03d}, seed {seed}, los {los} after {failures} tries. Skipping...')
+                                    continue
 
                         if 'power_spectrum' in measurements:
                             save_fn = get_save_fn(save_dir, measurement='power_spectrum', los=los, exist_ok=overwrite)
