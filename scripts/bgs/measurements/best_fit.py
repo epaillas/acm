@@ -27,11 +27,11 @@ def chi2_ndof(observed, expected, covariance, dof):
 def load_cfs(dir: str|Path):
     """Load the CFs from the specified directory."""
     dir = Path(dir)
-    fns = sorted(dir.glob('hod*/tpcf_los_*.npy'))
+    hod_fns = sorted(dir.glob('hod*'))
     cfs = []
-    for i in range(0, len(fns), 3):
-        cf = [TwoPointEstimator.load(fns[i+j]) for j in range(3)]
-        cf = cf[0].concatenate_x(cf)
+    for hod in hod_fns:
+        fns = sorted(hod.glob('tpcf_los_*.npy'))
+        cf = sum([TwoPointEstimator.load(fn).normalize() for fn in fns])
         cfs.append(cf)
     return cfs
 
@@ -40,8 +40,7 @@ def load_ref(dir: str|Path, phase: int = 0):
     dir = Path(dir)
     fns = dir.glob(f'AbacusSummit_base_c000_ph{phase:03d}/measurements/Mr-20/tpcf_los_*.npy')
     # TODO: Find a way to not encode path structure this strictly ?
-    cfs = [TwoPointEstimator.load(fn) for fn in fns]
-    cf = cfs[0].concatenate_x(cfs)
+    cf = sum([TwoPointEstimator.load(fn).normalize() for fn in fns])
     return cf
 
 def load_covariance(dir: str|Path, ells=(0, 2)):
