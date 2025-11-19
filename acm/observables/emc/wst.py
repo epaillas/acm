@@ -16,14 +16,26 @@ class WaveletScatteringTransform(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='wst', **kwargs)
+        super().__init__(stat_name='wst', n_test=6*100, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last.ckpt'
+        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
+
+    def renorm_wst(self, inpt):
+        s0 = inpt[0]
+        s12 =  inpt[1:].reshape(15,5)
+        outp = np.zeros_like(s12)
+        outp[:5,:] = s12[:5,:]/s0
+        outp[5:9,:] = s12[5:9,:]/s12[0,:]
+        outp[9:12,:] = s12[9:12,:]/s12[1,:]
+        outp[12:14,:] = s12[12:14,:]/s12[2,:]
+        outp[14:,:] = s12[14:,:]/s12[3,:]
+        sfin = np.hstack((1.0,outp.flatten()))  
+        return sfin   
     
     def compress_covariance(
         self,
@@ -50,7 +62,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
         y = []
         for data_fn in data_fns:
             data = np.load(data_fn, allow_pickle=True)
-            y.append(data)
+            y.append(self.renorm_wst(data))
+            # y.append(data)
         y = np.array(y)
         
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
@@ -109,7 +122,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
+        base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/adaptive/')
         
         y = []
         hods = {}
@@ -121,7 +134,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
-                y.append(data)
+                y.append(self.renorm_wst(data))
+                # y.append(data)
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, -1),
@@ -213,16 +227,16 @@ class WaveletScatteringTransform(BaseObservableEMC):
         bin_idx = self.bin_idx.values
 
         if not self.numpy_output:
-            data = self.flatten_output(self.y, flat_output_dims=2)
+            data = self.flatten_output(self.y, flat_output_dims=2)[0]
             model = self.get_model_prediction(model_params)
-            model = self.flatten_output(model, flat_output_dims=2)
+            model = self.flatten_output(model, flat_output_dims=2)[0]
         else:
             data = self.y
             model = self.get_model_prediction(model_params)
 
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
-        
+
         lax[0].errorbar(bin_idx, data, error, marker='o', ms=3, ls='', 
             color=f'C0', elinewidth=1.0, capsize=None)
         lax[0].plot(bin_idx, model, ls='-', color=f'C1')
@@ -241,3 +255,38 @@ class WaveletScatteringTransform(BaseObservableEMC):
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, lax
+
+    @set_plot_style
+    def plot_covariance_set(self, save_fn: str = None):
+        """
+        Plot the covariance matrix for the observable.
+
+        Parameters
+        ----------
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, matplotlib.axes.Axes
+            Figure and axes of the plot.
+        """
+        fig, ax = plt.subplots(figsize=(5, 4))
+
+        for data in self.covariance_y:
+            ax.plot(data, color='gray', alpha=0.5, lw=0.1)
+
+        mean = np.mean(self.covariance_y, axis=0)
+        ax.plot(mean, color='k', lw=1.0)
+
+        ax.set_xlabel('bin index')
+        ax.set_ylabel('WST coefficient')
+
+        cov = np.cov(self.covariance_y, rowvar=False)
+        prec = np.linalg.inv(cov)
+
+        if save_fn is not None:
+            fig.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving training set figure to {save_fn}')
+            
+        return fig, ax
