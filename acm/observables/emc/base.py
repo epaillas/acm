@@ -231,6 +231,31 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             pred = pred.values
         return pred
+
+    def get_raw_hod_idx(self, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
+        """
+        Get the HOD indexes from the statistic files for a given phase and seed.
+        
+        Parameters
+        ----------
+        cosmo_idx : int
+            Cosmology index to read the HOD indexes from.
+        phase : int, optional
+            Phase index to read the HOD indexes from. Defaults to 0.
+        seed : int, optional
+            Seed index to read the HOD indexes from. Defaults to 0.
+        statistic : str, optional
+            Statistic to read the HOD indexes from. Defaults to 'density'.
+
+        Returns
+        -------
+        np.ndarray
+            Array of HOD indexes.
+        """
+        data_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior'
+        data_dir = Path(data_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
+        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))] # Only keep non-empty directories numbers
+        return np.array(hod_idx)
         
     def compress_x(self, hods: dict, cosmos: list = cosmo_list) -> tuple:
         """
