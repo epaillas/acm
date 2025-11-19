@@ -1,22 +1,13 @@
-import argparse
-import importlib
+"""
+Compress measurement files for BGS observables.
+
+Usage:
+    python compress_files.py --measurements tpcf ds_xigg ds_xiqg --output /pscratch/sd/s/sbouchar/acm/bgs/input_data/ --log_level INFO    
+"""
 import logging
-
+import argparse
+from acm.utils.modules import get_class_from_module
 from acm.utils.logging import setup_logging
-setup_logging()
-logger = logging.getLogger(__file__.split('/')[-1])
-
-mapping = {
-    'density': 'TODO', # TODO: Add correct mapping
-    'tpcf': 'GalaxyCorrelationFunctionMultipoles',
-    'wp': 'GalaxyProjectedCorrelationFunction',
-    'dsc_conf': 'DensitySplitCorrelationFunctionMultipoles',
-}
-
-def get_class_from_module(module_path, class_name):
-    module = importlib.import_module(module_path)
-    cls = getattr(module, class_name)
-    return cls
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -25,26 +16,14 @@ if __name__ == "__main__":
     parser.add_argument('--output', type=str, default='/pscratch/sd/s/sbouchar/acm/bgs/input_data/', help='Output directory for compressed files') # TODO: Change default
     args = parser.parse_args()
     
-    if 'density' in args.measurements:
-        cls = get_class_from_module(args.module, mapping['density'])
-        instance = cls()
-        # TODO : Implement density class
-        
-    if 'tpcf' in args.measurements:
-        cls = get_class_from_module(args.module, mapping['tpcf'])
-        instance = cls()
-        instance.compress_data(add_covariance=True, save_to=args.output)
-    
-    if 'wp' in args.measurements:
-        cls = get_class_from_module(args.module, mapping['wp'])
+    setup_logging()
+    logger = logging.getLogger(__file__.split('/')[-1])
+
+    for stat_name in args.measurements:
+        try:
+            cls = get_class_from_module(args.module, stat_name)
+        except ImportError as e:
+            logger.error(f"Could not import class for measurement '{stat_name}': {e}")
+            continue
         instance = cls()
         instance.compress_data(add_covariance=True, save_to=args.output)
-        
-    if 'dsc_conf' in args.measurements:
-        cls = get_class_from_module(args.module, mapping['dsc_conf'])
-        instance = cls()
-        instance.compress_data(add_covariance=True, save_to=args.output)
-    
-    if any(m not in mapping for m in args.measurements):
-        unknown = [m for m in args.measurements if m not in mapping]
-        logger.error(f"Unknown measurements: {unknown}. Available options are: {list(mapping.keys())}")
