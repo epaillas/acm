@@ -228,9 +228,13 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
             self.select_filters.update({'multipoles': ell})
             k = self.k.values
-            data = self.flatten_output(self.y, flat_output_dims=2)[0]
-            model = self.get_model_prediction(model_params)
-            model = self.flatten_output(model, flat_output_dims=2)[0]
+            if not self.numpy_output:
+                data = self.flatten_output(self.y, flat_output_dims=2)[0]
+                model = self.get_model_prediction(model_params)
+                model = self.flatten_output(model, flat_output_dims=2)[0]
+            else:
+                data = self.y
+                model = self.get_model_prediction(model_params)
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 
