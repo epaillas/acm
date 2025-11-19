@@ -13,7 +13,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, n_test=6*200, **kwargs):
+    def __init__(self, n_test=6*500, **kwargs):
         super().__init__(stat_name='projected_tpcf', n_test=n_test, **kwargs)
     
     @property
@@ -188,8 +188,8 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         lax[0].set_ylabel(r'$r_p w_p(r_p)$ [$h^{-1}\,\mathrm{Mpc}$]', fontsize=15)
 
         rp = self.r_p.values
-        data = self.y[0]
-        model = self.get_model_prediction(model_params)[0]
+        data = self.y
+        model = self.get_model_prediction(model_params)
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 

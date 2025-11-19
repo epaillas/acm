@@ -210,9 +210,9 @@ class MinkowskiFunctionals(BaseObservableEMC):
         lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
         lax[0].set_ylabel(r'$\textrm{Minkowski functionals}$', fontsize=15)
 
-        bin_idx = self.bin_idx
-        data = self.y[0]
-        model = self.get_model_prediction(model_params)[0]
+        bin_idx = self.bin_idx.values
+        data = self.y
+        model = self.get_model_prediction(model_params)
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 
