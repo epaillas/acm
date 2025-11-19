@@ -192,6 +192,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         rp = self.r_p.values
         data = self.y
         model = self.get_model_prediction(model_params)
+        
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 

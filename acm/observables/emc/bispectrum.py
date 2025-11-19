@@ -227,15 +227,10 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             lax[0].set_ylabel(r'$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
-            bin_idx = self.bin_idx.values
 
-            if not self.numpy_output:
-                data = self.flatten_output(self.y, flat_output_dims=2)[0]
-                model = self.get_model_prediction(model_params)
-                model = self.flatten_output(model, flat_output_dims=2)[0]
-            else:
-                data = self.y
-                model = self.get_model_prediction(model_params)
+            bin_idx = self.bin_idx.values
+            data = self.y
+            model = self.get_model_prediction(model_params)
 
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))

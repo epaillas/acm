@@ -346,7 +346,7 @@ class BaseObservableEMC(Observable):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, sample_idx: int = 0, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -373,9 +373,10 @@ class BaseObservableEMC(Observable):
         lax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
         lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
 
-        data = self.y[sample_idx]
+        data = self.y
         bin_idx = np.arange(len(data))
-        model = self.get_model_prediction(model_params)[0]
+        model = self.get_model_prediction(model_params)
+        
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 

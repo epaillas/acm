@@ -216,6 +216,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
         bin_idx = self.bin_idx.values
         data = self.y
         model = self.get_model_prediction(model_params)
+        
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 
