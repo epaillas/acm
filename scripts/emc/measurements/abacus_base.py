@@ -220,6 +220,17 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
+    # generate random positions within the box
+    # nrand = 20 * len(positions)
+    # seed for reproducibility
+    # np.random.seed(42)
+    # randoms = np.random.rand(nrand, 3) * attrs['boxsize'] + attrs['boxcenter'] - attrs['boxsize'] / 2.0
+    # print(randoms.min(), randoms.max())
+
+    # we now switch to a larger box size which will be fixed for all simulations
+    # boxsize = np.array([2300.0, 2300.0, 2300.0])
+    # attrs = get_box_args(boxsize, cellsize=10)
+
     init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/init/')
     meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
     init_fn = init_dir / f'wst_init_meshsize{meshsize_str}.npy'
@@ -228,6 +239,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
         with open(init_fn, 'rb') as f:
             init = cp.load(f)
 
+    # wst = WaveletScatteringTransform(data_positions=positions, randoms_positions=randoms, init_kymatio=init, **attrs)
     wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
 
     wst.set_density_contrast()
@@ -314,8 +326,8 @@ if __name__ == '__main__':
     jitted_compute_mesh3_spectrum = None
 
     for cosmo_idx in cosmos:
-        wst_init = None
         bspec_bin = None
+        wst_init = None
         for phase_idx in phases:
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
@@ -431,7 +443,7 @@ if __name__ == '__main__':
                         compute_minkowski(output_fn, hod_positions, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/ip0.8/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'

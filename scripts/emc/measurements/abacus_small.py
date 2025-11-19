@@ -131,7 +131,7 @@ def compute_tpcf(output_fn, positions, los='z', **attrs):
     edges = (sedges, muedges)
     xi = TwoPointCorrelationFunction(
         'smu', edges=edges, data_positions1=positions,
-        engine='corrfunc', boxsize=boxsize, nthreads=4, gpu=True,
+        engine='corrfunc', boxsize=boxsize, nthreads=128, gpu=False,
         compute_sepsavg=False, position_type='pos', los=los,
     )
     xi.save(output_fn)
@@ -257,13 +257,12 @@ if __name__ == '__main__':
             box_args = get_box_args(boxsize, cellsize=10)
             wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
 
-        # if 'tpcf' in args.todo_stats:
-        #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/tpcf/'
-        #     save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-        #     Path(save_dir).mkdir(parents=True, exist_ok=True)
-        #     output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-        #     box_args = dict(boxsize=boxsize, boxcenter=0.0)
-        #     compute_tpcf(output_fn, hod_positions, **box_args)
+        if 'tpcf' in args.todo_stats:
+            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/tpcf/'
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            output_fn = Path(save_dir) / f'tpcf_smu_ph{phase_idx:03}.npy'
+            box_args = dict(boxsize=boxsize, boxcenter=0.0)
+            compute_tpcf(output_fn, hod_positions, **box_args)
 
         # if 'recon_tpcf' in args.todo_stats:
         #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/recon_tpcf/'
