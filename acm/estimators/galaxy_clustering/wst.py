@@ -1,5 +1,5 @@
-import torch
-from kymatio.torch import HarmonicScattering3D
+# import torch
+from kymatio.jax import HarmonicScattering3D
 import numpy as np
 import logging
 import time
@@ -10,31 +10,38 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
-    def __init__(self, J_3d=4, L_3d=4, integral_powers=[1.0], sigma=0.8, **kwargs):
+    def __init__(self, J_3d=4, L_3d=4, integral_powers=[0.8], sigma=0.8, init_kymatio=None, **kwargs):
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
         self.logger.info('Initializing WaveletScatteringTransform.')
         super().__init__(**kwargs)
 
+        self.J_3d = J_3d
+        self.L_3d = L_3d
+        self.sigma_0 = sigma
+        self.integral_powers = integral_powers
+        self.max_order = 2
+
+        self.query_positions = self.get_query_positions(method='lattice')
+
+        if init_kymatio is not None:
+            self.logger.info(f'Pre-loading Kymatio initialization.')
+            self.S = init_kymatio
+        else:
+            self.init_kymatio()
+
+    def init_kymatio(self):
+        """
+        Initialize the kymatio scattering transform.
+        """
         self.S = HarmonicScattering3D(
-            J=J_3d,
-            shape=self.data_mesh.meshsize,
-            L=L_3d,
-            sigma_0=sigma,
-            integral_powers=integral_powers,
-            max_order=2
+            J=self.J_3d,
+            L=self.L_3d,
+            shape=self.meshsize,
+            max_order=self.max_order,
+            sigma_0=self.sigma_0,
         )
 
-        if torch.cuda.is_available():
-            self.device = 'cuda'
-            self.logger.info(f'Using GPU: {torch.cuda.get_device_name(0)}')
-        else:
-            self.device = 'cpu'
-            self.logger.info('Using CPU')
-        self.S.to(self.device)
-        self.integral_powers = integral_powers
-
-        self.query_positions = self.get_query_positions(self.data_mesh, method='lattice')
 
     def run(self, delta_query=None):
         """
@@ -50,12 +57,11 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
             self.delta_query = delta_query.reshape(self.meshsize)
         else:
             self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.meshsize)
-        self.delta_query = torch.tensor(np.copy(self.delta_query), dtype=torch.float32).to(self.device)
         smat_orders_12 = self.S(self.delta_query)
-        smat = torch.absolute(smat_orders_12[:, :, 0])
-        s0 = torch.sum(torch.absolute(self.delta_query)**self.integral_powers[0])
+        smat = np.absolute(smat_orders_12[:, :, 0])
+        s0 = np.sum(np.absolute(self.delta_query)**self.integral_powers[0])
         smatavg = smat.flatten()
-        self.smatavg = torch.hstack((s0, smatavg)).cpu()
+        self.smatavg = np.hstack((s0, smatavg))
         self.smatavg /= np.prod(self.meshsize)
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
         return self.smatavg

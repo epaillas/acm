@@ -1,9 +1,11 @@
 import os
 import fitsio
 from pathlib import Path
+import cloudpickle as cp
 import numpy as np
 import time
 import glob
+import gc
 
 
 def get_cli_args():
@@ -218,13 +220,40 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    wst = init if init is not None else WaveletScatteringTransform(data_positions=positions, **attrs)
+    # generate random positions within the box
+    # nrand = 20 * len(positions)
+    # seed for reproducibility
+    # np.random.seed(42)
+    # randoms = np.random.rand(nrand, 3) * attrs['boxsize'] + attrs['boxcenter'] - attrs['boxsize'] / 2.0
+    # print(randoms.min(), randoms.max())
+
+    # we now switch to a larger box size which will be fixed for all simulations
+    # boxsize = np.array([2300.0, 2300.0, 2300.0])
+    # attrs = get_box_args(boxsize, cellsize=10)
+
+    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/init/')
+    meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
+    init_fn = init_dir / f'wst_init_meshsize{meshsize_str}.npy'
+    if init_fn.exists() and init is None:
+        print(f'Loading WST initialization from {init_fn}')
+        with open(init_fn, 'rb') as f:
+            init = cp.load(f)
+
+    # wst = WaveletScatteringTransform(data_positions=positions, randoms_positions=randoms, init_kymatio=init, **attrs)
+    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
 
     print(f'Saving WST coefficients to {output_fn}')
     np.save(output_fn, smatavg)
+
+    if not init_fn.exists():
+        # save kymatio initalization to a file
+        with open(init_fn, 'wb') as f:
+            print(f'Saving WST initialization to {init_fn}')
+            cp.dump(wst.S, f)
+    return wst.S
 
 def compute_minkowski(output_fn, positions, **attrs):
     from acm.estimators.galaxy_clustering.jaxmf import MinkowskiFunctionals
@@ -297,8 +326,8 @@ if __name__ == '__main__':
     jitted_compute_mesh3_spectrum = None
 
     for cosmo_idx in cosmos:
-        init = None
         bspec_bin = None
+        wst_init = None
         for phase_idx in phases:
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
@@ -344,8 +373,14 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=10)
                         with create_sharding_mesh() as sharding_mesh:
-                            bspec_bin = compute_bispectrum(output_fn, hod_positions, bin=bspec_bin, **box_args)
-                            # jax.clear_caches()
+                            while True:
+                                try:
+                                    bspec_bin = compute_bispectrum(output_fn, hod_positions, bin=bspec_bin, **box_args)
+                                    break
+                                except:
+                                    print('Bispectrum computation failed, retrying after clearing caches...', flush=True)
+                                    jax.clear_caches()
+                                    gc.collect()
 
                     if 'tpcf' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/tpcf/'
@@ -408,13 +443,17 @@ if __name__ == '__main__':
                         compute_minkowski(output_fn, hod_positions, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/'
+                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/ip0.8/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        if output_fn.exists():
+                            print(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        # boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
                         box_args = get_box_args(boxsize, cellsize=10)
-                        init = compute_wst(output_fn, hod_positions, init=init, **box_args)
+                        wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
 
                     if 'spherical_voids' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/spherical_voids/'
@@ -432,3 +471,6 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dt_voids(output_fn, hod_positions)
 
+
+        if is_distributed:
+            jax.clear_caches()
