@@ -1,19 +1,17 @@
 import xarray
 import numpy as np
 from pathlib import Path
-from pycorr import TwoPointEstimator
 from .base import BaseObservableBGS
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 
-class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
+class DensitySplitBaseClass(BaseObservableBGS):
     """
-    Class for the application of the Two-point correlation function statistic of the ACM pipeline 
-    to the BGS dataset.
+    Base class for densitysplit observables in the ACM pipeline for the BGS dataset.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='tpcf', **kwargs)
-        
+        super().__init__(**kwargs)
+    
     #%% Compressed files creation
     def compress_covariance(
         self, 
@@ -22,8 +20,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         seed: int = 0,
         los: list[str] = ['x', 'y', 'z'],
         save_to: str = None, 
-        rebin: int = 3, 
+        rebin: int = 1, 
         ells: list = [0, 2], 
+        quantiles: list = [0, 1, 3, 4],
         overwrite_s: np.ndarray = None
     ) -> xarray.DataArray:
         """
@@ -46,6 +45,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             Rebinning factor for the statistics. Default is 1.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2].
+        quantiles : list
+            List of quantiles to compute the statistics for. Default is [0, 1, 3, 4].
         overwrite_s : np.ndarray
             If not None, overwrite the final separation values with this array. 
             This is primarily useful to ensure consistency between the covariance and the data dims.
@@ -59,31 +60,35 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         small_dir = Path(self.paths['measurements_dir']) / 'small' 
         
         y = []
-        phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(small_dir.glob(f'c{cosmo_idx:03d}_ph*'))]
+        phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(small_dir.glob(f'c{cosmo_idx:03d}_ph*'))] # List of available phases from files
         
         for phase in phases:
-            fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
-            fns = [fn_dir / f'{self.stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
-            data = sum([TwoPointEstimator.load(fn).normalize() for fn in fns if fn.exists()])
-            if data == 0:
-                # NOTE: This will crash the process later, but at least we log it
-                self.logger.warning(f'No measurement files found in {fn_dir}, skipping.')
-                continue
-            s, multipoles = data[::rebin](ells=ells, return_sep=True)
-            y.append(multipoles)
+            y_quantiles = []
+            for q in quantiles:
+                fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
+                fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+                data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in fns if fn.exists()])
+                if data == 0:
+                    # NOTE: This will crash the process later, but at least we log it
+                    self.logger.warning(f'No measurement files found in {fn_dir} for quantile {q}, skipping.')
+                    continue
+                s, multipoles = data[::rebin](ells=ells, return_sep=True)
+                y_quantiles.append(multipoles)
+            y.append(y_quantiles)
         y = np.array(y)
         s = overwrite_s if overwrite_s is not None else s
         
         y = xarray.DataArray(
-            data = y.reshape(len(phases), len(ells), -1),
+            data = y.reshape(len(phases), len(quantiles), len(ells), -1),
             coords = {
                 "phase_idx": phases, # TODO: continuous phase indexing ?
+                "quantiles": quantiles,
                 "ells": ells,
                 "s": s,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["ells", "s"],
+                "features": ["quantiles", "ells", "s"],
             },
             name = "covariance_y",
         )
@@ -97,7 +102,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
-    
+
     def compress_data(
         self, 
         phase: int = 0,
@@ -105,8 +110,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         add_covariance: bool = False,
         save_to: str = None,
         los: list[str] = ['x', 'y', 'z'],
-        rebin: int = 3, 
+        rebin: int = 1, 
         ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
         cosmos: list = cosmo_list,
         n_hod: int = None,
         density_threshold: float = None,
@@ -132,6 +138,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             Rebinning factor for the statistics. Default is 1.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2].
+        quantiles : list
+            List of quantiles to compute the statistics for. Default is [0, 1, 3, 4].
         cosmos : list
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is cosmo_list.
@@ -162,33 +170,37 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
                 cosmo_idx, 
                 phase=phase, 
                 seed=seed, 
-                density_threshold=density_threshold,
+                density_threshold=density_threshold, 
                 return_fn=True,
             )[:n_hod] # Restrict to n_hod if needed
             
             for fn_dir in hod_fns:
-                fns = [fn_dir / f'{self.stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
-                data = sum([TwoPointEstimator.load(fn).normalize() for fn in fns if fn.exists()])
-                if data == 0:
-                    # NOTE: This will crash the process later, but at least we log it
-                    self.logger.warning(f'No measurement files found in {fn_dir}, skipping.')
-                    continue
-                s, multipoles = data[::rebin](ells=ells, return_sep=True)
-                y.append(multipoles)
+                y_quantiles = []
+                for q in quantiles:
+                    fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+                    data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in fns if fn.exists()])
+                    if data == 0:
+                        # NOTE: This will crash the process later, but at least we log it
+                        self.logger.warning(f'No measurement files found in {fn_dir} for quantile {q}, skipping.')
+                        continue
+                    s, multipoles = data[::rebin](ells=ells, return_sep=True)
+                    y_quantiles.append(multipoles)
+                y.append(y_quantiles)
         y = np.array(y)
         
         y = xarray.DataArray(
             # NOTE: Should crash if n_hod is not consistent with the hod number from the statistics, this is intended
-            data = y.reshape(len(cosmos), n_hod, len(ells), -1),
+            data = y.reshape(len(cosmos), n_hod, len(quantiles), len(ells), -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)), # re-index HODs to be continuous
+                'quantiles': quantiles,
                 'ells': ells,
                 's': s,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['ells', 's'],
+                'features': ['quantiles', 'ells', 's'],
             },
             name = 'y',
         )
@@ -211,6 +223,25 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
-    
-# Alias
-tpcf = GalaxyCorrelationFunctionMultipoles
+
+
+class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
+    """
+    Class for the application of the densitysplit cross-correlation statistic of the ACM pipeline to the BGS dataset.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(stat_name='ds_xiqg', **kwargs)
+        self.measurement_root = 'quantile_data_correlation'
+
+
+class DensitySplitGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
+    """
+    Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(stat_name='ds_xigg', **kwargs)
+        self.measurement_root = 'quantile_correlation'
+
+# Aliases
+ds_xigg = DensitySplitGalaxyCorrelationFunctionMultipoles
+ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
