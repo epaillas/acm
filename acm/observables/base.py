@@ -106,7 +106,7 @@ class Observable():
         try:
             self.model = self.load_model() 
         except Exception as e: # handle the case where the model checkpoint is not found
-            self.logger.warning(f"{e}, model will be undefined. If you are training a new model, this is expected.")
+            self.logger.warning(f"Model will be undefined. If you are training a new model, this is expected behavior. Exception: {e}")
         
         # Set the filters
         self.select_filters = select_filters
