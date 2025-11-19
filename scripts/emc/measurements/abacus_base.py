@@ -250,8 +250,8 @@ def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
 
-    sv = SphericalVoids(data_positions=positions, cellsize=cellsize)
-    sv.run_voidfinding(radii, threads=32, **attrs)
+    sv = SphericalVoids(data_positions=positions, cellsize=cellsize, **attrs)
+    sv.run_voidfinding(radii, threads=32)
 
     n_v = np.vstack([sorted(radii, reverse=True),
                     sv.void_count / np.prod(boxsize)])  # comoving number density of voids
@@ -422,7 +422,7 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'sv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        compute_spherical_voids(output_fn, hod_positions, boxsize)
+                        compute_spherical_voids(output_fn, hod_positions, boxsize=boxsize, boxcenter=0.)
 
                     if 'dt_voids' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/dt_voids/'
