@@ -7,6 +7,7 @@ from pycorr import TwoPointCorrelationFunction
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
     """
@@ -160,6 +161,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         return cout
     
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the projected galaxy correlation function data, model, and residuals.
