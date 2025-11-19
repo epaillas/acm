@@ -6,7 +6,7 @@ from acm.observables import Observable
 from acm.utils import get_data_dirs
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
-
+from acm.utils.decorators import temporary_class_state
 
 class BaseObservableBGS(Observable):
     """
@@ -41,10 +41,8 @@ class BaseObservableBGS(Observable):
         y = self._dataset.y
         
         # Flatten on 2D for indexing
-        x = self.stack_on_attribute('sample', x)
-        x = self.stack_on_attribute('features', x)
-        y = self.stack_on_attribute('sample', y)
-        y = self.stack_on_attribute('features', y)
+        x = self.flatten_output(x, flat_output_dims=2)
+        y = self.flatten_output(y, flat_output_dims=2)
         
         if isinstance(n_test, int):
             idx_test = list(range(n_test))
@@ -57,8 +55,7 @@ class BaseObservableBGS(Observable):
         prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
         
         # Flatten on 2D for indexing
-        prediction = self.stack_on_attribute('sample', prediction)
-        prediction = self.stack_on_attribute('features', prediction)
+        prediction = self.flatten_output(prediction, flat_output_dims=2)
         
         if isinstance(test_y, xarray.DataArray):
             test_y = test_y.values
@@ -114,8 +111,7 @@ class BaseObservableBGS(Observable):
         emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
         
         # Flatten on 2D for indexing
-        emulator_covariance_y = self.stack_on_attribute('sample', emulator_covariance_y)
-        emulator_covariance_y = self.stack_on_attribute('features', emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
         
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
@@ -141,11 +137,11 @@ class BaseObservableBGS(Observable):
         if self.numpy_output:
             emulator_error = emulator_error.values
         return emulator_error
-    
-    def get_raw_hod_idx(self, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
+
+    def get_hod_from_files(self, cosmo_idx: int, phase: int = 0, seed: int = 0, density_threshold: float = None, return_fn: bool = False) -> np.ndarray:
         """
-        Get the HOD indexes from the statistic files for a given phase and seed.
-        
+        Get the existing HOD indexes from the mock folders for a given phase and seed.
+
         Parameters
         ----------
         cosmo_idx : int
@@ -154,27 +150,45 @@ class BaseObservableBGS(Observable):
             Phase index to read the HOD indexes from. Defaults to 0.
         seed : int, optional
             Seed index to read the HOD indexes from. Defaults to 0.
-        statistic : str, optional
-            Statistic to read the HOD indexes from. Defaults to 'density'.
+        density_threshold : float, optional
+            Tries to read the `density.npy` file in each HOD folder and only keep HODs with density above this threshold. Defaults to None.
+        return_fn : bool, optional
+            If True, returns the list of file paths instead of the HOD indexes. Defaults to False.
 
         Returns
         -------
         np.ndarray
-            Array of HOD indexes.
+            Array of HOD indexes or file paths.
             
         Notes
         -----
-        The HOD indexes are read from the statistic files for each cosmology. It assumes an architecture like:
-        `measurements_dir/base/c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{statistic}/hod{hod:03}.npy`
+        The HOD indexes are read from the mock folders for each cosmology. It assumes an architecture like:
+        `measurements_dir/base/c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/hod{hod:03}/` 
+        and only non-empty HOD directories are considered.
         """
         measurements_dir = self.paths['measurements_dir']
         stat_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
-        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(stat_dir.glob('hod*')) if any(fn.iterdir())] # Only keep non-empty directories numbers
+        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(stat_dir.glob('hod*')) if any(fn.iterdir())] # Only keep non-empty directories numbers, sorted
+        
+        if density_threshold is not None:
+            filtered_hod_idx = []
+            for hod in hod_idx:
+                density_fn = stat_dir / f'hod{hod:03d}' / 'density.npy'
+                if density_fn.exists():
+                    density = np.load(density_fn)
+                    if density >= density_threshold:
+                        filtered_hod_idx.append(hod)
+            hod_idx = filtered_hod_idx
+            
+        if return_fn:
+            fn_list = [stat_dir / f'hod{hod:03d}' for hod in hod_idx]
+            return np.array(fn_list)
         return np.array(hod_idx)
     
     def compress_x(
         self, 
         cosmos: list = cosmo_list, 
+        n_hod: int = None,
         **kwargs
     ) -> xarray.DataArray:
         """
@@ -184,6 +198,10 @@ class BaseObservableBGS(Observable):
         ----------
         cosmos : list, optional
             List of cosmologies to get from the files. Defaults to cosmo_list.
+        n_hod : int, optional
+            Number of HODs to consider per cosmology. 
+            If None, it is determined from the first cosmology and restricted to that number for all cosmologies. 
+            Defaults to None.
         **kwargs : dict
             Additional arguments to pass to `get_raw_hod_idx`.
         
@@ -191,6 +209,12 @@ class BaseObservableBGS(Observable):
         -------
         xarray.DataArray
             Compressed x values.
+        
+        Raises
+        ------
+        ValueError
+            If the number of HODs for a cosmology is lower than the expected number, 
+            as the compression requires all cosmologies to have the same number of HODs.
             
         Notes
         -----
@@ -199,7 +223,6 @@ class BaseObservableBGS(Observable):
         param_dir = self.paths['param_dir']
         
         x = []
-        n_hod = None # To be determined from the files
         for cosmo_idx in cosmos:
             data_fn = Path(param_dir) / f'AbacusSummit_c{cosmo_idx:03}.csv'
             x_i = pd.read_csv(data_fn)
@@ -207,17 +230,20 @@ class BaseObservableBGS(Observable):
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
 
             # Get the hod indexes to slice from the existing densities
-            hod_idx = self.get_raw_hod_idx(cosmo_idx, **kwargs)
+            hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
             if n_hod is None:
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
                 self.logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
-            assert len(hod_idx) == n_hod, f'Number of HODs for c{cosmo_idx:03d} is {len(hod_idx)}, expected {n_hod}' # Assume same number of HODs for all cosmologies
             
-            # TODO : 
-            # - Add a density cut option here to filter HODs based on density if measured (w/ logger event)
-            # - Replace assertion on hod number by a raised error only if the filtered number of HODs is lower than expected, otherwise just warn and select the expected number amongst the available ones
-
+            # Ensure the number of HODs is as expected
+            if len(hod_idx) > n_hod:
+                hod_idx = hod_idx[:n_hod] # Restrict to the expected number of HODs
+                self.logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
+            elif len(hod_idx) < n_hod:
+                raise ValueError(f'Number of HODs for c{cosmo_idx:03d} is lower than expected ({len(hod_idx)} < {n_hod}). Cannot proceed with compression.')
+            
             x.append(x_i.values[hod_idx, :])
+        
         x = np.concatenate(x)
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),
@@ -234,6 +260,14 @@ class BaseObservableBGS(Observable):
         )
         return x
 
+    @temporary_class_state(
+        flat_output_dims = 0,
+        numpy_output = False,
+        squeeze_output = False,
+        select_filters = None,
+        slice_filters = None,
+        select_indices = None,
+    )
     def compress_emulator_error(self, n_test: int|list, save_to: str = None) -> xarray.Dataset:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
@@ -252,11 +286,10 @@ class BaseObservableBGS(Observable):
             Compressed dataset containing 'emulator_error' and 'emulator_covariance_y' DataArrays.
         """
         n_test = n_test if n_test else self.n_test
-        observable = self.__class__() # Unfiltered values !!
-        
-        emulator_cov_y = observable.get_emulator_covariance_y(n_test).unstack().squeeze()
-        emulator_error = observable.get_emulator_error(n_test).unstack().squeeze()
-        
+
+        emulator_cov_y = self.get_emulator_covariance_y(n_test)
+        emulator_error = self.get_emulator_error(n_test)
+
         emulator_error_dataset = xarray.Dataset(
             data_vars = {
                 'emulator_covariance_y': emulator_cov_y,
