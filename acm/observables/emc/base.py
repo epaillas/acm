@@ -10,6 +10,7 @@ from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class BaseObservableEMC(Observable):
     """
@@ -49,10 +50,8 @@ class BaseObservableEMC(Observable):
         y = self._dataset.y
         
         # Flatten on 2D for indexing
-        x = self.stack_on_attribute('sample', x)
-        x = self.stack_on_attribute('features', x)
-        y = self.stack_on_attribute('sample', y)
-        y = self.stack_on_attribute('features', y)
+        x = self.flatten_output(x, flat_output_dims=2)
+        y = self.flatten_output(y, flat_output_dims=2)
         
         if isinstance(n_test, int):
             idx_test = list(range(n_test))
@@ -65,8 +64,7 @@ class BaseObservableEMC(Observable):
         prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
         
         # Flatten on 2D for indexing
-        prediction = self.stack_on_attribute('sample', prediction)
-        prediction = self.stack_on_attribute('features', prediction)
+        prediction = self.flatten_output(prediction, flat_output_dims=2)
         
         if isinstance(test_y, xarray.DataArray):
             test_y = test_y.values
@@ -122,8 +120,7 @@ class BaseObservableEMC(Observable):
         emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
         
         # Flatten on 2D for indexing
-        emulator_covariance_y = self.stack_on_attribute('sample', emulator_covariance_y)
-        emulator_covariance_y = self.stack_on_attribute('features', emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
         
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
@@ -348,6 +345,7 @@ class BaseObservableEMC(Observable):
         return emulator_error_dataset
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, sample_idx: int = 0, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
@@ -375,10 +373,9 @@ class BaseObservableEMC(Observable):
         lax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
         lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
 
-        data = self.flatten_output(self.y, flat_output_dims=2)[sample_idx] # Enforce 2D flattening and get a single sample
+        data = self.y[sample_idx]
         bin_idx = np.arange(len(data))
-        model = self.get_model_prediction(model_params)
-        model = self.flatten_output(model, flat_output_dims=2)[0] # Enforce 2D flattening and get the first sample
+        model = self.get_model_prediction(model_params)[0]
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 
@@ -402,6 +399,7 @@ class BaseObservableEMC(Observable):
         return fig, lax
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_emulator_residuals(self, save_fn: str = None):
         """
         Plot the emulator residuals.
@@ -417,7 +415,7 @@ class BaseObservableEMC(Observable):
             Figure and axes of the plot.
         """
 
-        residuals = self.flatten_output(self.emulator_covariance_y, flat_output_dims=2) # Enforce 2D flattening
+        residuals = self.emulator_covariance_y
         data_cov = self.get_covariance_matrix(volume_factor=64)
         data_err = np.sqrt(np.diag(data_cov))
 
