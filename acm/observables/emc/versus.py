@@ -11,25 +11,24 @@ from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 
 
-class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
+class VERSUSVoidSizeFunction(BaseObservableEMC):
     """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
+    Class for the Emulator Mock Challenge's VERSUS void size function.
+.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='vide_ccf', **kwargs)
+        super().__init__(stat_name='versus_vsf', **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/vide_ccf/last.ckpt'
+        return 'none'
     
     def compress_covariance(
         self,
         save_to: str = None,
-        ells: list = [0, 2, 4],
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -39,37 +38,33 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         save_to : str
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
-        ells : list
-            List of multipoles to compute the statistics for. Default is [0, 2, 4].
             
         Returns
         -------
         xarray.DataArray
             Covariance array. 
         """
-        measurements_dir = '/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/'
-        base_dir = Path(measurements_dir)
-        # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
-
-        filename = base_dir / 'multipoles_[0, 2, 4]_85cosmologies_100HODs_4bins_0.0-1.0_rv0.3-2.5.npz'
-        data = np.load(filename, allow_pickle=True)
-        y = data['cov_y']
-        rv = data['rv']
-        n_stacked_bins = 4
-
+        # Directories
+        base_dir = Path(self.paths['measurements_dir']) / 'small' / 'spherical_voids'
+        data_fns = list(base_dir.glob('sv_ph*.npy')) # NOTE: File name format hardcoded !
+        
+        y = []
+        for data_fn in data_fns:
+            data = np.load(data_fn, allow_pickle=True)
+            rv, vsf = data
+            y.append(vsf)
+        y = np.array(y)
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.DataArray(
-            data = y.reshape(y.shape[0], n_stacked_bins, len(ells), -1),
+            data = y.reshape(y.shape[0], -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                'stacked_bins': list(range(n_stacked_bins)),
-                'ells': ells,
                 'rv': rv,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                'features': ['stacked_bins', 'ells', 'rv'],
+                'features': ['rv'],
             },
             name = "covariance_y",
         )
@@ -105,8 +100,6 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Default is None.
         n_hod : int
             Number of HOD parameters to use. Default is 100.
-        ells : list
-            List of multipoles to compute the statistics for. Default is [0, 2, 4].
         phase_idx : int
             TODO
         seed_idx : int
@@ -118,33 +111,31 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        measurements_dir = '/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/'
-        base_dir = Path(measurements_dir)
-        # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
+        base_dir = Path(self.paths['measurements_dir'],  f'base/spherical_voids/')
 
-        filename = base_dir / 'multipoles_[0, 2, 4]_85cosmologies_100HODs_4bins_0.0-1.0_rv0.3-2.5.npz'
-        data = np.load(filename, allow_pickle=True)
-        y = data['y']
-        rv = data['rv']
-        n_stacked_bins = 4
-
-        # get hod indices
+        y = []
         hods = {}
         for cosmo_idx in cosmos:
+            self.logger.info(f'Compressing c{cosmo_idx:03}')
+            handle = f'c{cosmo_idx:03}_ph000/seed0/sv_c{cosmo_idx:03}_hod*.npy'
+            filenames = sorted(base_dir.glob(handle))[:n_hod]
+            for filename in filenames:
+                data = np.load(filename, allow_pickle=True)
+                rv, vsf = data
+                y.append(vsf)
             hods[cosmo_idx] = self.get_raw_hod_idx(cosmo_idx)[:n_hod]
+        y = np.array(y)
 
         y = xarray.DataArray(
-            data = y.reshape(len(cosmos), n_hod, n_stacked_bins, len(ells), -1),
+            data = y.reshape(len(cosmos), n_hod, -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'stacked_bins': list(range(n_stacked_bins)),
-                'ells': ells,
                 'rv': rv,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['stacked_bins', 'ells', 'rv'],
+                'features': ['rv'],
             },
             name = 'y',
         )
@@ -159,7 +150,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(ells=ells)
+            cov_y = self.compress_covariance()
             cout = xarray.merge([cout, cov_y])
         
         if save_to is not None:
@@ -180,27 +171,21 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
-        ells = self._dataset.y.coords['ells'].values.tolist()
-        stacked_bins = self._dataset.y.coords['stacked_bins'].values.tolist()
         rv = self.rv.values
 
-        fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
+        fig, ax = plt.subplots(figsize=(5, 4))
 
-        for ell in ells:
-            for sb in stacked_bins:
-                self.select_filters.update({'ells': ell, 'stacked_bins': sb})
+        for data in self.y:
+            ax.plot(rv, data, alpha=0.5, lw=0.3)
 
-                for data in self.y:
-                    lax[ell//2].plot(rv, data, color=f'C{sb}', alpha=0.5, lw=0.1)
-
-            lax[ell//2].set_ylabel(rf'$\xi_{ell}(r / R_{{\rm void}})$')
-        lax[-1].set_xlabel(r'$r / R_{\rm void}$')
+        ax.set_ylabel(r'$\textrm{PDF}$')
+        ax.set_xlabel(r'$R_{\rm void}$')
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving training set figure to {save_fn}')
             
-        return fig, lax
+        return fig, ax
 
     @set_plot_style
     def plot_covariance_set(self, save_fn: str = None):
@@ -213,27 +198,21 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
-        ells = self._dataset.y.coords['ells'].values.tolist()
-        stacked_bins = self._dataset.y.coords['stacked_bins'].values.tolist()
         rv = self.rv.values
 
-        fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
+        fig, ax = plt.subplots(figsize=(5, 4))
 
-        for ell in ells:
-            for sb in stacked_bins:
-                self.select_filters.update({'ells': ell, 'stacked_bins': sb})
+        for data in self.covariance_y:
+            ax.plot(rv, data, color='grey', alpha=0.5, lw=0.1)
 
-                for data in self.covariance_y:
-                    lax[ell//2].plot(rv, data, color=f'C{sb}', alpha=0.5, lw=0.1)
-
-            lax[ell//2].set_ylabel(rf'$\xi_{ell}(r / R_{{\rm void}})$')
-        lax[-1].set_xlabel(r'$r / R_{\rm void}$')
+        ax.set_ylabel(r'$\textrm{PDF}$')
+        ax.set_xlabel(r'$R_{\rm void}$')
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving training set figure to {save_fn}')
             
-        return fig, lax
+        return fig, ax
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
