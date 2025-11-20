@@ -39,7 +39,7 @@ def get_hod_fn(phase=0, redshift=0.5):
 def get_hod_positions(filename, los='z'):
     boxsize = np.array([500.0, 500.0, 500.0])
     hod = fitsio.read(filename)
-    pos = np.c_[hod['X'], hod['Y'], hod['Z']] + boxsize / 2
+    pos = np.c_[hod['X'], hod['Y'], hod['Z']]
     hubble = 100 * fid_cosmo.efunc(redshift)
     scale_factor = 1 / (1 + redshift)
     if los == 'x':
@@ -48,6 +48,7 @@ def get_hod_positions(filename, los='z'):
         pos[:, 1] += hod['VY'] / (hubble * scale_factor)
     elif los == 'z':
         pos[:, 2] += hod['VZ'] / (hubble * scale_factor)
+    pos = (pos % boxsize) - boxsize / 2
     return pos, boxsize
 
 def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
@@ -198,6 +199,19 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     np.save(output_fn, smatavg)
     return wst.S  # Return the kymatio initialization for reuse
 
+def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62,2), cellsize=5, **attrs):
+    """Compute the spherical void size function using the ACM package."""
+    from VERSUS import SphericalVoids
+
+    sv = SphericalVoids(data_positions=positions, cellsize=cellsize, **attrs)
+    sv.run_voidfinding(radii, threads=32)
+
+    n_v = np.vstack([sorted(radii, reverse=True),
+                    sv.void_count / np.prod(boxsize)])  # comoving number density of voids
+
+    print(f'Saving spherical VSF to {output_fn}')
+    np.save(output_fn, n_v)
+
 
 
 if __name__ == '__main__':
@@ -263,6 +277,13 @@ if __name__ == '__main__':
             output_fn = Path(save_dir) / f'tpcf_smu_ph{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
             compute_tpcf(output_fn, hod_positions, **box_args)
+
+        if 'spherical_voids' in args.todo_stats:
+            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/spherical_voids/'
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            output_fn = Path(save_dir) / f'sv_ph{phase_idx:03}.npy'
+            box_args = dict(boxsize=boxsize, boxcenter=0.0)
+            compute_spherical_voids(output_fn, hod_positions, **box_args)
 
         # if 'recon_tpcf' in args.todo_stats:
         #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/recon_tpcf/'
