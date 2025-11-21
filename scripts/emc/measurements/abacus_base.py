@@ -275,7 +275,7 @@ def compute_minkowski(output_fn, positions, **attrs):
     print(f'Saving {output_fn}')
     np.save(output_fn, mfs3d)
 
-def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62,2), cellsize=5, **attrs):
+def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), cellsize=5, **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
 
@@ -283,7 +283,7 @@ def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62
     sv.run_voidfinding(radii, threads=32)
 
     n_v = np.vstack([sorted(radii, reverse=True),
-                    sv.void_count / np.prod(boxsize)])  # comoving number density of voids
+                    sv.void_count / np.prod(box_args['boxsize'])])  # comoving number density of voids
 
     print(f'Saving spherical VSF to {output_fn}')
     np.save(output_fn, n_v)
@@ -315,7 +315,9 @@ if __name__ == '__main__':
     config.update('jax_enable_x64', True)
     from jaxpower.mesh import create_sharding_mesh
     from acm import setup_logging
+    import logging
 
+    logger = logging.getLogger(__name__)
     setup_logging()
 
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
@@ -332,7 +334,7 @@ if __name__ == '__main__':
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
                 if len(hod_fns) == 0:
-                    print(f'No HOD files found for c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}. Skipping.')
+                    logger.info(f'No HOD files found for c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}. Skipping.')
                     continue
 
                 for hod_fn in hod_fns[args.start_hod : args.start_hod +args.n_hod]:
@@ -355,7 +357,7 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'mesh2_recon_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         if output_fn.exists():
-                            print(f'Skipping {output_fn}, already exists.')
+                            logger.info(f'Skipping {output_fn}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
@@ -368,7 +370,7 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'mesh3_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         if output_fn.exists():
-                            print(f'Skipping {output_fn}, already exists.')
+                            logger.info(f'Skipping {output_fn}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=10)
@@ -378,7 +380,7 @@ if __name__ == '__main__':
                                     bspec_bin = compute_bispectrum(output_fn, hod_positions, bin=bspec_bin, **box_args)
                                     break
                                 except:
-                                    print('Bispectrum computation failed, retrying after clearing caches...', flush=True)
+                                    logger.info('Bispectrum computation failed, retrying after clearing caches...', flush=True)
                                     jax.clear_caches()
                                     gc.collect()
 
@@ -388,7 +390,7 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
-                            print(f'Skipping {output_fn}, already exists.')
+                            logger.info(f'Skipping {output_fn}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
@@ -400,7 +402,7 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'tpcf_rppi_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
-                            print(f'Skipping {output_fn}, already exists.')
+                            logger.info(f'Skipping {output_fn}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
@@ -424,7 +426,7 @@ if __name__ == '__main__':
                             'xiqq': Path(save_dir) / f'dsc_xiqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         }
                         if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
-                            print(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
+                            logger.info(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=3.9)
@@ -436,7 +438,7 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'minkowski_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
-                            print(f'Skipping {output_fn}, already exists.')
+                            logger.info(f'Skipping {output_fn}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=3.9)
@@ -448,7 +450,7 @@ if __name__ == '__main__':
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
-                            print(f'Skipping {output_fn}, already exists.')
+                            logger.info(f'Skipping {output_fn}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         # boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
@@ -460,8 +462,12 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'sv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        if output_fn.exists():
+                            logger.info(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        compute_spherical_voids(output_fn, hod_positions, boxsize=boxsize, boxcenter=0.)
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0)
+                        compute_spherical_voids(output_fn, hod_positions, **box_args)
 
                     if 'dt_voids' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/dt_voids/'
