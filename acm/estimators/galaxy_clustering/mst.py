@@ -1,6 +1,7 @@
 # acm/estimators/galaxy_clustering/mst.py
 
 import numpy as np
+import matplotlib.pyplot as plt
 import logging
 import time
 from acm.estimators.galaxy_clustering.base import BaseDensityMeshEstimator
@@ -64,18 +65,27 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         x, y, z : array_like
             Coordinate positions.
         """
-        cond = np.where(x < 0.)[0]
-        x[cond] += self.boxsize[0]
-        cond = np.where(x >= self.boxsize[0])[0]
-        x[cond] -= self.boxsize[0]
-        cond = np.where(y < 0.)[0]
-        y[cond] += self.boxsize[1]
-        cond = np.where(y >= self.boxsize[1])[0]
-        y[cond] -= self.boxsize[1]
-        cond = np.where(z < 0.)[0]
-        z[cond] += self.boxsize[2]
-        cond = np.where(z >= self.boxsize[2])[0]
-        z[cond] -= self.boxsize[2]
+        # cond = np.where(x < 0.)[0]
+        # x[cond] += self.boxsize[0]
+        # cond = np.where(x >= self.boxsize[0])[0]
+        # x[cond] -= self.boxsize[0]
+        
+        # cond = np.where(y < 0.)[0]
+        # y[cond] += self.boxsize[1]
+        # cond = np.where(y >= self.boxsize[1])[0]
+        # y[cond] -= self.boxsize[1]
+        
+        # cond = np.where(z < 0.)[0]
+        # z[cond] += self.boxsize[2]
+        # cond = np.where(z >= self.boxsize[2])[0]
+        # z[cond] -= self.boxsize[2]
+
+        for i, dim in enumerate(x, y, z):
+            cond = np.where(dim < 0.)[0]
+            dim[cond] += self.boxsize[i]
+            cond = np.where(dim >= self.boxsize[i])[0]
+            dim[cond] -= self.boxsize[i]
+            
         return x, y, z
     
     def _smooth(self, x, y, z, periodic=True):
@@ -141,9 +151,10 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
 
         x, y, z = data_pos[:,0], data_pos[:,1], data_pos[:,2]
         # remove origin
-        x -= self.origin[0]
-        y -= self.origin[1]
-        z -= self.origin[2]
+        # x -= self.origin[0]
+        # y -= self.origin[1]
+        # z -= self.origin[2]
+        x, y, z = (data_pos[:,i] - self.origin[i] for i in range(3))
         # apply point-process smoothing
         if self.sigmaJ > 0.:
             x, y, z = self._smooth(x, y, z, periodic=True)
@@ -241,11 +252,11 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
             mstdict['mst%ipt'%N] /= self.iterations
             mstdict['end%ipt'%N] /= self.iterations
 
-        Normalize by the volume
-        mstdict['mst1pt'] /= self.boxsize[0]*self.boxsize[1]*self.boxsize[2]
+        # Normalize by the volume
+        mstdict['mst1pt'] /= np.prod(self.boxsize) #self.boxsize[0]*self.boxsize[1]*self.boxsize[2]
         for N in range(2, self.Nthpoint+1):
-            mstdict['mst%ipt'%N] /= self.boxsize[0]*self.boxsize[1]*self.boxsize[2]
-            mstdict['end%ipt'%N] /= self.boxsize[0]*self.boxsize[1]*self.boxsize[2]
+            mstdict['mst%ipt'%N] /= np.prod(self.boxsize) #self.boxsize[0]*self.boxsize[1]*self.boxsize[2]
+            mstdict['end%ipt'%N] /= np.prod(self.boxsize) #self.boxsize[0]*self.boxsize[1]*self.boxsize[2]
         
         return mstdict
     
@@ -264,13 +275,11 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         fname : str, optional
             Optional to save the plot output.
         """
-        import matplotlib.pyplot as plt
-        import matplotlib
         # plt.rc('text', usetex=True)
         plt.rc('font', family='serif')
         percentedge = np.linspace(0., 100., len(mstdict['mst1pt'])+1)
         percentmids = 0.5*(percentedge[1:] + percentedge[:-1])
-        colormap = matplotlib.cm.get_cmap(cmap)
+        colormap = plt.cm.get_cmap(cmap)
         plt.figure(figsize=figsize)
         plt.plot(percentmids, mstdict['mst1pt'], linestyle='-', color=colormap((1-1)/(10-1)))
         xticks = [50.]
