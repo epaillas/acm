@@ -17,7 +17,7 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
 .
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='versus_vsf', **kwargs)
+        super().__init__(stat_name='versus_vsf', n_test=6*1, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
@@ -86,7 +86,7 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
         seed_idx: int = 0,
     ) -> dict:
         """
-        Compress the data from the tpcf raw measurement files.
+        Compress the data from the VSF raw measurement files.
         
         Parameters
         ----------
@@ -178,8 +178,8 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
         for data in self.y:
             ax.plot(rv, data, alpha=0.5, lw=0.3)
 
-        ax.set_ylabel(r'$\textrm{PDF}$')
-        ax.set_xlabel(r'$R_{\rm void}$')
+        ax.set_ylabel(r'$n_{\rm void}\,[h^3{\rm Mpc}^{-3}]$')
+        ax.set_xlabel(r'$R_{\rm void}\, [h^{-1}{\rm Mpc}]$')
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches='tight')
@@ -205,8 +205,8 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
         for data in self.covariance_y:
             ax.plot(rv, data, color='grey', alpha=0.5, lw=0.1)
 
-        ax.set_ylabel(r'$\textrm{PDF}$')
-        ax.set_xlabel(r'$R_{\rm void}$')
+        ax.set_ylabel(r'$n_{\rm void}\,[h^3{\rm Mpc}^{-3}]$')
+        ax.set_xlabel(r'$R_{\rm void}\, [h^{-1}{\rm Mpc}]$')
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches='tight')
@@ -218,7 +218,7 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
-        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
+        Plot the data, model, and residuals.
 
         Parameters
         ----------
@@ -232,45 +232,4 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-
-        ells = self._dataset.y.coords['ells'].values.tolist()
-        print(ells)
-
-        height_ratios = [max(len(ells), 3)] + [1] * len(ells)
-        figsize = (6, 1.5 * sum(height_ratios))
-        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
-            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
-        fig.subplots_adjust(hspace=0.1)
-        show_legend = True
-        
-        for i, ell in enumerate(ells):
-            lax[0].set_ylabel(rf'$\xi_{ell}(r / R_{{\rm void}})$', fontsize=15)
-            lax[-1].set_xlabel(r'$r / R_{\rm void}$', fontsize=15)
-
-            self.select_filters.update({'ells': ell, 'stacked_bins': 0})
-
-            rv = self.rv.values
-            data = self.y
-            model = self.get_model_prediction(model_params)
-            
-            cov = self.get_covariance_matrix(volume_factor=64)
-            error = np.sqrt(np.diag(cov))
-
-            lax[0].errorbar(rv, data, error, marker='o', ms=4, ls='', 
-                color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
-            lax[0].plot(rv, model, ls='-', color=f'C{i}')
-            lax[i + 1].plot(rv, (data - model) / error, ls='-', color=f'C{i}')
-
-            for offset in [-2, 2]: lax[i + 1].axhline(offset, color='k', ls='--')
-            lax[i + 1].set_ylabel(rf'$\Delta \xi_{{{ell:d}}} / \sigma_{{ \xi_{{{ell:d}}} }}$', fontsize=15)
-            lax[i + 1].set_ylim(-4, 4)
-
-        for ax in lax:
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=14)
-        if show_legend: lax[0].legend(fontsize=15)
-
-        if save_fn is not None:
-            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
-            self.logger.info(f'Saving plot to {save_fn}')
-        return fig, lax
+        raise NotImplementedError()

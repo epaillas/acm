@@ -68,8 +68,8 @@ def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
     jax.block_until_ready(spectrum)
     t1 = time.time()
     if jax.process_index() == 0:
-        print(f'Power spectrum done in {t1 - t0:.2f} s.')
-        print(f'Saving to {output_fn}')
+        logger.info(f'Power spectrum done in {t1 - t0:.2f} s.')
+        logger.info(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
 def compute_recon_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
@@ -84,7 +84,7 @@ def compute_recon_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attr
     positions_rec = recon.read_shifted_positions(data.positions)
     randoms = generate_uniform_particles(mattrs, 20 * len(positions), seed=42)
     randoms_positions_rec = recon.read_shifted_positions(randoms.positions)
-    print(f'Reconstruction done in {time.time() - t0:.2f} s.')
+    logger.info(f'Reconstruction done in {time.time() - t0:.2f} s.')
 
     t0 = time.time()
     data = ParticleField(positions_rec, attrs=mattrs, exchange=True, backend='jax')
@@ -102,8 +102,8 @@ def compute_recon_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attr
     mattrs = {name: mattrs[name] for name in ['boxsize', 'boxcenter', 'meshsize']}
     spectrum = spectrum.clone(attrs=dict(los=los, wsum_data1=wsum_data1, **mattrs))
     if jax.process_index() == 0:
-        print(f'Reconstructed power spectrum done in {time.time() - t0:.2f}')
-        print(f'Saving to {output_fn}')
+        logger.info(f'Reconstructed power spectrum done in {time.time() - t0:.2f}')
+        logger.info(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
     # t0 = time.time()
@@ -199,7 +199,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     np.save(output_fn, smatavg)
     return wst.S  # Return the kymatio initialization for reuse
 
-def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62,2), cellsize=5, **attrs):
+def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), cellsize=5, **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
 
@@ -207,7 +207,7 @@ def compute_spherical_voids(output_fn, positions, boxsize, radii=np.arange(24,62
     sv.run_voidfinding(radii, threads=32)
 
     n_v = np.vstack([sorted(radii, reverse=True),
-                    sv.void_count / np.prod(boxsize)])  # comoving number density of voids
+                    sv.void_count / np.prod(box_args['boxsize'])])  # comoving number density of voids
 
     print(f'Saving spherical VSF to {output_fn}')
     np.save(output_fn, n_v)
@@ -228,7 +228,9 @@ if __name__ == '__main__':
     from jaxpower.mesh import create_sharding_mesh
     from cosmoprimo.fiducial import AbacusSummit
     from acm import setup_logging
+    import logging
 
+    logger = logging.getLogger(__name__)
     setup_logging()
 
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
@@ -240,7 +242,7 @@ if __name__ == '__main__':
     for phase_idx in phases:
         hod_fn = get_hod_fn(phase=phase_idx, redshift=redshift)
         if not hod_fn.exists():
-            print(f'{hod_fn} not found')
+            logger.info(f'{hod_fn} not found')
             continue
 
         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
@@ -266,7 +268,7 @@ if __name__ == '__main__':
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = Path(save_dir) / f'wst_ph{phase_idx:03}.npy'
             if output_fn.exists():
-                print(f'Skipping {output_fn}, already exists.')
+                logger.info(f'Skipping {output_fn}, already exists.')
                 continue
             box_args = get_box_args(boxsize, cellsize=10)
             wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
