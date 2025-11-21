@@ -4,7 +4,7 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node 1
 #SBATCH --qos regular
-#SBATCH --constraint gpu
+#SBATCH --constraint gpu&hbm80g
 
 #SBATCH --time 48:00:00
 
