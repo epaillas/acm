@@ -90,8 +90,8 @@ def plot_best_fit(s, ref_poles, best_poles, ells, hod):
         ax.plot(s, best_poles[i]*s**2, c=f'C{i}')
     
     handles = [
-        plt.Line2D([0], [0], color='k', label='SecondGen mock'),
-        plt.Line2D([0], [0], color='k', ls='--', label=f'Best HOD fit (HOD {hod})'),
+        plt.Line2D([0], [0], color='k', ls='--', label='SecondGen mock'),
+        plt.Line2D([0], [0], color='k', label=f'Best HOD fit (HOD {hod})'),
     ]
     ax.legend(handles=handles)
     ax.set_title('Best-fit HOD comparison')
