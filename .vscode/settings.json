@@ -1,0 +1,7 @@
+{
+    "python.envFile":	"${workspaceFolder}/.env",
+    // "python.analysis.extraPaths": [
+    //     "./",
+    // ],
+    "python.languageServer": "Pylance"
+}
