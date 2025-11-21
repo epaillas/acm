@@ -1,6 +1,6 @@
 pylint
 coverage
-lxml
-pytest
+#lxml
+#pytest
 black
-black[jupyter]
+#black[jupyter]
