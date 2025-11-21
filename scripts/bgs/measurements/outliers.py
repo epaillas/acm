@@ -72,7 +72,8 @@ def get_y(cls, **kwargs):
         hods = obs.get_hod_from_files(cosmo_idx, **hod_kwargs)
         for hod in hods:
             index.append( (cosmo_idx, hod) )
-    index = np.array(index)
+    dtype = np.dtype([('cosmo_idx', int), ('hod', int)])
+    index = np.array(index, dtype=dtype)
     return index, y
 
 def get_outliers(data: np.ndarray, index: np.ndarray = None, **kwargs):
@@ -109,6 +110,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0, help='Seed number for measurements.')
     parser.add_argument('--sigma', type=float, default=6.0, help='Sigma threshold for clipping.')
     parser.add_argument('--measurements', type=str, nargs='+', choices=['tpcf', 'ds_xiqg', 'ds_xigg'], default='tpcf', help='Type of measurements to analyze.')
+    parser.add_argument('--save', action='store_true', help='Whether to save the outlier results to a file.')
     parser.add_argument('--log_level', type=str, default='warning', help='Set logging level (e.g., DEBUG, INFO)')
     args = parser.parse_args()
     
@@ -135,6 +137,13 @@ if __name__ == "__main__":
         
         outliers = get_outliers(data, index, sigma=sigma, axis=0)
         n_outliers = len(outliers)
+        
+        if args.save and n_outliers > 0:
+            outlier_dir = Path('outliers')
+            outlier_dir.mkdir(exist_ok=True)
+            outlier_fn = outlier_dir / f'{stat_name}_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
+            np.save(outlier_fn, outliers)
+            logger.info(f'Saved {n_outliers} {stat_name} outliers to {outlier_fn}')
         
         if n_outliers > 0:
             print(f'Found {n_outliers} {stat_name} outliers at indices:', *outliers, sep='\n')
