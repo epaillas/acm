@@ -10,7 +10,7 @@ source acm_quality_init.sh
 Local user installation (to begin)
 
 ```console
-python -m pip install --user -r quality/requirements.txt
+python -m pip install --user -r requirements.txt
 ```
 
 
@@ -68,7 +68,6 @@ We use [pylint](https://www.pylint.org/) as static code analysis to check coding
 quality/pylint.conf
 ```
 
-
 ### Script for acm
 
 ```console
@@ -81,5 +80,3 @@ The analysis concludes with an overall score out of 10. It is recommended to pay
 ```console
 grep '\[E' report_pylint.txt
 ```
-
-
