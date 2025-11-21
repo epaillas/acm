@@ -7,9 +7,10 @@
 source acm_quality_init.sh
 ```
  
+Local user installation (to begin)
 
 ```console
-python -m pip install -r quality/requirements.txt
+python -m pip install --user -r quality/requirements.txt
 ```
 
 
