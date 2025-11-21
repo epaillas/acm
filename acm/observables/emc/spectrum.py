@@ -194,6 +194,37 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
+
+    @set_plot_style
+    def plot_covariance_set(self, save_fn: str = None):
+        """
+        Plot the covariance set for the observable.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Path to save the figure. If None, the figure is not saved.
+            Default is None.
+        """
+        ells = self._dataset.y.coords['ells'].values.tolist()
+        k = self.k.values
+
+        fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
+
+        for ell in ells:
+            self.select_filters.update({'ells': ell})
+
+            for data in self.covariance_y:
+                lax[ell//2].plot(k, k * data, color=f'C{ell // 2}', alpha=0.5, lw=0.1)
+
+            lax[ell//2].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
+        lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
+
+        if save_fn is not None:
+            fig.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving training set figure to {save_fn}')
+            
+        return fig, lax
     
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)

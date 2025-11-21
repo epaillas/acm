@@ -7,5 +7,6 @@ from .minkowski import MinkowskiFunctionals
 from .density_split_correlation import DensitySplitGalaxyCorrelationFunctionMultipoles
 from .vide import VIDEVoidGalaxyCorrelationFunctionMultipoles
 from .wst import WaveletScatteringTransform
+from .versus import VERSUSVoidSizeFunction
 
 from .priors.priors import get_priors
