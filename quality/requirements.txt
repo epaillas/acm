@@ -1,0 +1,6 @@
+pylint
+coverage
+lxml
+pytest
+black
+black[jupyter]
