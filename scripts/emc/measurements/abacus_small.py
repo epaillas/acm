@@ -194,6 +194,116 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     np.save(output_fn, smatavg.cpu())
     return wst
 
+def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
+    """Compute data-random knn CDFs using the ACM package"""
+    from acm.estimators.galaxy_clustering.knn import KthNearestNeighbor
+
+    # Force boxsize to be an array of shape (3,)
+    if isinstance(boxsize, float):
+        boxsize = np.array([boxsize, boxsize, boxsize])
+    else:
+        assert isinstance(boxsize, np.ndarray), "boxsize should be either float or np.array of floats"
+        if boxsize.shape==(1,) or boxsize.shape==():
+            boxsize = np.repeat(boxsize, 3)
+    assert boxsize.shape==(3,)
+
+    # Do periodic wrap
+    positions = positions % boxsize
+
+    # Shift positions to [0,L]^3 box from [-L/2, L/2]^3
+    if np.any(positions < 0.):
+        positions += (boxsize/2)
+
+    # Check that shapes are what they are expected to be
+    assert np.all(positions >= 0.0), "Something is off with the edges of the box..."
+    assert np.all(positions[:,0] <= boxsize[0]), f'{np.max(positions[:,0])} falls out of the box with size {boxsize[0]} along the z-axis'
+    assert np.all(positions[:,1] <= boxsize[1]), f'{np.max(positions[:,1])} falls out of the box with size {boxsize[1]} along the z-axis'
+    assert np.all(positions[:,2] <= boxsize[2]), f'{np.max(positions[:,2])} falls out of the box with size {boxsize[2]} along the z-axis'
+
+    # Generate a query of randoms, 10 times the size of data
+    N_randoms = 10 * len(positions)
+    randoms = np.random.random((N_randoms, 3))
+    randoms[0] *= boxsize[0]
+    randoms[1] *= boxsize[1]
+    randoms[2] *= boxsize[2]
+
+    # Measurement params
+    ks  = [1,2,3,4,5,6,7,8,9]
+    rps = np.logspace(-0.2, 1.8, 8)
+    pis = np.logspace(-0.3, 1.5, 5)
+
+    # Do the measurement
+    knn  = KthNearestNeighbor()
+    cdfs = knn.run_knn(
+             rps,
+             pis,
+             xgal=positions,
+             xrand=randoms,
+             kneighbors=ks,
+             nthread=32,
+             periodic=boxsize,
+             method='fnn',
+             leafsize=32
+           )
+
+    # Save
+    print(f'Saving DR knns in {output_fn}')
+    np.save(output_fn, cdfs)
+
+def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
+    """Compute data-data knn CDFs using the ACM package"""
+    from acm.estimators.galaxy_clustering.knn import KthNearestNeighbor
+
+    # Force boxsize to be an array of shape (3,)
+    if isinstance(boxsize, float) or isinstance(boxsize, int):
+        boxsize = np.array([boxsize, boxsize, boxsize], dtype=np.float32)
+    else:
+        assert isinstance(boxsize, np.ndarray), "boxsize should be either float or np.array of floats"
+        if boxsize.shape==(1,) or boxsize.shape==():
+            boxsize = np.repeat(boxsize, 3)
+    assert boxsize.shape==(3,)
+
+    # Do periodic wrap
+    positions = positions % boxsize
+
+    # No need in randoms, positions are used as query
+    # Measurement params, k is shifted by 1 compured to dr
+    ks  = [2,3,4,5,6,7,8,9,10]
+    rps = np.logspace(-0.2, 1.8, 8)
+    pis = np.logspace(-0.3, 1.5, 5)
+
+    # Shift positions to [0,L/2]^3 box from [-L/2, L/2]^3
+    if np.any(positions < 0.):
+        positions += (boxsize/2)
+
+    # Check that shapes are what they are expected to be
+    assert np.all(positions >= 0.0), "Something is off with the edges of the box..."
+    assert np.all(positions[:,0] <= boxsize[0]), f'{np.max(positions[:,0])} falls out of the box with size {boxsize[0]} along the z-axis'
+    assert np.all(positions[:,1] <= boxsize[1]), f'{np.max(positions[:,1])} falls out of the box with size {boxsize[1]} along the z-axis'
+    assert np.all(positions[:,2] <= boxsize[2]), f'{np.max(positions[:,2])} falls out of the box with size {boxsize[2]} along the z-axis'
+
+    # Just in case, mod the particles to the other side, kdtree wants data to be in [0,L)
+    # Moreover float32 precision should be taken into account by adjusting the boxsize by approx machine_eps*L_box
+    # At the scales of interest this leads up to ~0.433% error in distance calculations
+    boxsize += 1.192e-7 * boxsize       #float32_eps = 1.192e-7
+
+    # Do the measurement
+    knn  = KthNearestNeighbor()
+    cdfs = knn.run_knn(
+             rps,
+             pis,
+             xgal=positions,
+             xrand=positions,
+             kneighbors=ks,
+             nthread=32,
+             periodic=boxsize,
+             method='fnn',
+             leafsize=32
+           )
+
+    # Save
+    print(f'Saving DD knns in {output_fn}')
+    np.save(output_fn, cdfs)
 
 
 if __name__ == '__main__':
@@ -242,6 +352,20 @@ if __name__ == '__main__':
             box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
                 compute_recon_spectrum(output_fn, hod_positions, **box_args)
+
+        if 'dr_knn' in args.todo_stats:
+            save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            output_fn = Path(save_dir) / f'dr_knn_ph{phase_idx:03}.npy'
+            box_args = dict(boxsize=boxsize, los='z')
+            compute_dr_knn(output_fn, hod_positions, **box_args)
+
+        if 'dd_knn' in args.todo_stats:
+            save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            output_fn = Path(save_dir) / f'dd_knn_ph{phase_idx:03}.npy'
+            box_args = dict(boxsize=boxsize, los='z')
+            compute_dd_knn(output_fn, hod_positions, **box_args)            
 
         # if 'tpcf' in args.todo_stats:
         #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/tpcf/'
