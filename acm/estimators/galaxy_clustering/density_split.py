@@ -1,6 +1,13 @@
 import numpy as np
 import logging
 import time
+import jax
+from jaxpower import (
+    MeshAttrs, ParticleField, FKPField,
+    BinMesh2SpectrumPoles, get_mesh_attrs,
+    compute_mesh2_spectrum, compute_fkp2_shotnoise,
+    compute_box2_normalization
+)
 from pandas import qcut
 from .base import BaseDensityMeshEstimator, BasePypowerMeshEstimator
 
@@ -148,7 +155,8 @@ class DensitySplit(BaseDensityMeshEstimator):
 
         return self._quantile_correlation
 
-    def quantile_data_power(self, data_positions, **kwargs):
+    def quantile_data_power(self, data_positions, edges={'step': 0.001}, ells=(0, 2, 4),
+        los='z', resampler='cic', interlacing=3, compensate=True, **kwargs):
         """
         Compute the cross-power spectrum between the data and the density field quantiles.
 
@@ -156,6 +164,18 @@ class DensitySplit(BaseDensityMeshEstimator):
         ----------
         data_positions : array_like
             Positions of the data.
+        edges : dict, optional
+            Bin edges for the power spectrum.
+        ells : tuple, optional
+            Multipole moments to compute.
+        los : str, optional
+            Line-of-sight direction.
+        resampler : str, optional
+            Resampling scheme for the mesh painting.
+        interlacing : int, optional
+            Interlacing factor for the mesh painting.
+        compensate : bool, optional
+            Whether to apply compensation for the mass assignment scheme.
         kwargs : dict
             Additional arguments for pypower.CatalogFFTPower.
 
@@ -182,21 +202,44 @@ class DensitySplit(BaseDensityMeshEstimator):
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.delta_mesh.boxsize
-        if self.query_method == 'lattice':
-            kwargs['shotnoise'] = 0.0
+
+        # TODO handle survey-mode geometry with FKPField for data mesh
+
+        jitted_compute_mesh2_spectrum = jax.jit(
+            compute_mesh2_spectrum,
+            static_argnames=['los'],
+            donate_argnums=[0]
+        )
+
+        bin = BinMesh2SpectrumPoles(
+            self.mattrs,
+            edges=edges,
+            ells=ells,
+        )
+
         self._quantile_data_power = []
-        for quantile in self.quantiles:
-            result = CatalogFFTPower(
-                data_positions1 = quantile,
-                data_positions2 = data_positions,
-                ells = (0, 2, 4),
-                position_type = 'pos',
-                **kwargs,
-            ).poles
-            self._quantile_data_power.append(result)
+        for i, quantile in enumerate(self.quantiles):
+            t0 = time.time()
+            quantile_mesh = ParticleField(
+                quantile, attrs=self.mattrs, exchange=True, backend='jax'
+            )
+
+            norm = compute_box2_normalization(quantile_mesh, self.data_mesh, bin=bin)
+            num_shotnoise = compute_fkp2_shotnoise(quantile_mesh, self.data_mesh, bin=bin)
+
+            kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing)
+            quantile_mesh = quantile_mesh.paint(**kw, out='real')
+            quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+
+            spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, self.delta_mesh, bin=bin, los=los)
+            spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
+
+            self._quantile_data_power.append(spectrum)
+            self.logger.info(f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s.")
         return self._quantile_data_power
 
-    def quantile_power(self, **kwargs):
+    def quantile_power(self, edges={'step': 0.001}, ells=(0, 2, 4),
+        los='z', resampler='cic', interlacing=3, compensate=True, **kwargs):
         """
         Compute the auto-power spectrum of the density field quantiles.
 
@@ -204,6 +247,18 @@ class DensitySplit(BaseDensityMeshEstimator):
         ----------
         data_positions : array_like
             Positions of the data.
+        edges : dict, optional
+            Bin edges for the power spectrum.
+        ells : tuple, optional
+            Multipole moments to compute.
+        los : str, optional
+            Line-of-sight direction.
+        resampler : str, optional
+            Resampling scheme for the mesh painting.
+        interlacing : int, optional
+            Interlacing factor for the mesh painting.
+        compensate : bool, optional
+            Whether to apply compensation for the mass assignment scheme.
         kwargs : dict
             Additional arguments for pypower.CatalogFFTPower.
 
@@ -224,17 +279,40 @@ class DensitySplit(BaseDensityMeshEstimator):
         else:
             if 'boxsize' not in kwargs:
                 kwargs['boxsize'] = self.delta_mesh.boxsize
-        if self.query_method == 'lattice':
-            kwargs['shotnoise'] = 0.0
+
+        # TODO handle survey-mode geometry with FKPField for data mesh
+
+        jitted_compute_mesh2_spectrum = jax.jit(
+            compute_mesh2_spectrum,
+            static_argnames=['los'],
+            donate_argnums=[0]
+        )
+
+        bin = BinMesh2SpectrumPoles(
+            self.mattrs,
+            edges=edges,
+            ells=ells,
+        )
+
         self._quantile_power = []
-        for quantile in self.quantiles:
-            result = CatalogFFTPower(
-                data_positions1 = quantile,
-                ells = (0, 2, 4),
-                position_type = 'pos',
-                **kwargs,
-            ).poles
-            self._quantile_power.append(result)
+        for i, quantile in enumerate(self.quantiles):
+            t0 = time.time()
+            quantile_mesh = ParticleField(
+                quantile, attrs=self.mattrs, exchange=True, backend='jax'
+            )
+
+            norm = compute_box2_normalization(quantile_mesh, bin=bin)
+            num_shotnoise = compute_fkp2_shotnoise(quantile_mesh, bin=bin)
+
+            kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing)
+            quantile_mesh = quantile_mesh.paint(**kw, out='real')
+            quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+
+            spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, bin=bin, los=los)
+            spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
+
+            self._quantile_power.append(spectrum)
+            self.logger.info(f"Q{i} auto-spectrum calculated in {time.time() - t0:.2f} s.")
         return self._quantile_power
 
     def plot_quantiles(self, save_fn=None):
