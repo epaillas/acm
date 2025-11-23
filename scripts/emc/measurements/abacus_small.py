@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import time
 import glob
+from acm.utils.catalogs_safety_checks import check_catalog
 
 
 def get_cli_args():
@@ -35,7 +36,7 @@ def get_hod_fn(phase=0, redshift=0.5):
 def get_hod_positions(filename, los='z'):
     boxsize = 500
     hod = fitsio.read(filename)
-    pos = np.c_[hod['X'], hod['Y'], hod['Z']] + boxsize / 2
+    pos = np.c_[hod['X'], hod['Y'], hod['Z']] + boxsize / 2     # If you intend to remove this +boxsize/2, correct check_catalog arguments too!
     hubble = 100 * fid_cosmo.efunc(redshift)
     scale_factor = 1 / (1 + redshift)
     if los == 'x':
@@ -44,6 +45,12 @@ def get_hod_positions(filename, los='z'):
         pos[:, 1] += hod['VY'] / (hubble * scale_factor)
     elif los == 'z':
         pos[:, 2] += hod['VZ'] / (hubble * scale_factor)
+    
+    # Periodic wrap is necessary after RSD to keep in [0,L).
+    pos = np.mod(pos, boxsize) 
+
+    # Make sure the catalog has all galaxies are inside expected ranges
+    check_catalog(pos, boxsize, check_in_float32=True, center_at_zero=False)
     return pos, boxsize
 
 def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):

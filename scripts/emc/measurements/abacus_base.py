@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import time
 import glob
+from acm.utils.catalogs_safety_checks import check_catalog
 
 
 def get_cli_args():
@@ -50,6 +51,11 @@ def get_hod_positions(filename, los='z'):
     elif los == 'z':
         pos = np.c_[hod['X_PERP'], hod['Y_PERP'], hod['Z_RSD']]
         boxsize = np.array([2000/qperp, 2000/qperp, 2000/qpar])
+
+    # Make sure the catalog has all galaxies are inside expected ranges
+    pos += boxsize / 2
+    pos  = np.mod(pos, boxsize)
+    check_catalog(pos, boxsize, check_in_float32=True, center_at_zero=False)
     return pos, boxsize
 
 def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
@@ -300,7 +306,7 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     assert np.all(positions.astype(np.float32) >= np.float32(0.0)), "Something is off with the edges of the box..."
     assert np.all(positions[:,0].astype(np.float32) < np.float32(boxsize[0])), f'{repr(np.max(positions[:,0]))} falls out of the box with size {repr(boxsize[0])} along the z-axis'
     assert np.all(positions[:,1].astype(np.float32) < np.float32(boxsize[1])), f'{repr(np.max(positions[:,1]))} falls out of the box with size {repr(boxsize[1])} along the z-axis'
-    assert np.all(positions[:,2].astype(np.float32) < np.flot32(boxsize[2])), f'{repr(np.max(positions[:,2]))} falls out of the box with size {repr(boxsize[2])} along the z-axis'
+    assert np.all(positions[:,2].astype(np.float32) < np.float32(boxsize[2])), f'{repr(np.max(positions[:,2]))} falls out of the box with size {repr(boxsize[2])} along the z-axis'
 
     # Do the measurement
     knn  = KthNearestNeighbor()
