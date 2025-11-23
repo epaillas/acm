@@ -8,14 +8,15 @@ from pycorr import TwoPointCorrelationFunction
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class GalaxyBispectrumMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='bispectrum', n_test=6*50, **kwargs)
+    def __init__(self, n_test=6*500, **kwargs):
+        super().__init__(stat_name='bispectrum', n_test=n_test, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
@@ -76,12 +77,12 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
+                "ells": ells,
                 "bin_idx": bin_idx,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "bin_idx"],
+                "features": ["ells", "bin_idx"],
             },
             name = "covariance_y",
         )
@@ -146,9 +147,10 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh3_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh3_spectrum_poles_c{cosmo_idx:03}_hod*.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = read(filename)
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
@@ -156,7 +158,6 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 k = poles[0].coords('k')
                 weights = k.prod(axis=1) / 1e5
                 y.append(np.concatenate([weights * pole.value().real for pole in poles]))
-            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         bin_idx = np.arange(len(k))
         y = xarray.DataArray(
@@ -164,12 +165,12 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'multipoles': ells,
+                'ells': ells,
                 'bin_idx': bin_idx,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 'bin_idx'],
+                'features': ['ells', 'bin_idx'],
             },
             name = 'y',
         )
@@ -195,6 +196,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         return cout
     
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy bispectrum multipoles data, model, and residuals.
@@ -211,7 +213,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-        ells = self._dataset.y.coords['multipoles'].values.tolist()
+        ells = self._dataset.y.coords['ells'].values.tolist()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -225,9 +227,11 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             lax[0].set_ylabel(r'$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
 
             self.select_filters.update({'multipoles': ell})
-            bin_idx = self.bin_idx
-            data = self.y[0]
-            model = self.get_model_prediction(model_params)[0]
+
+            bin_idx = self.bin_idx.values
+            data = self.y
+            model = self.get_model_prediction(model_params)
+
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 
@@ -248,48 +252,3 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, lax
-
-    @set_plot_style
-    def plot_emulator_residuals(self, save_fn: str = None):
-        """
-        Plot the emulator residuals normalized by the data error.
-        Parameters
-        ----------
-        save_fn : str
-            Filename to save the plot. If None, the plot is not saved.
-
-        Returns
-        -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
-            Figure and axes of the plot.
-        """
-
-        ells = self._dataset.y.coords['multipoles'].values.tolist()
-
-        fig, ax = plt.subplots(3, 1, figsize=(4, 3), sharex=True)
-
-        for i, ell in enumerate(ells):
-            self.select_filters.update({'multipoles': ell})
-            bin_idx = self.bin_idx
-            residuals = self.emulator_covariance_y
-            data_cov = np.cov(self.covariance_y.T) / 64
-            data_err = np.sqrt(np.diag(data_cov))
-            
-            for res in residuals:
-                ax[i].plot(bin_idx, res/data_err, alpha=0.1, lw=0.5, color=f'C{i}')
-
-            ax[2].plot(bin_idx, np.median(np.abs(residuals), axis=0) / data_err,
-                       lw=1.0, color=f'C{i}', label=rf'$\ell={ell}$')
-            ax[i].set_ylabel(rf'$\Delta B_{{{ell}}}/\sigma_{{\mathrm{{data}}}}$')
-            ax[i].text(0.98, 0.75, rf'$\ell={ell}$', transform=ax[i].transAxes,
-                horizontalalignment='right', fontsize=10)
-
-        ax[2].set_ylabel(r'$\left< \Delta B_{\ell}/\sigma_{\mathrm{data}} \right>$')
-        ax[2].set_xlabel(r'$\textrm{bin index}$')
-        plt.tight_layout()
-
-        if save_fn is not None:
-            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
-            self.logger.info(f'Saving plot to {save_fn}')
-        return fig, ax
-        

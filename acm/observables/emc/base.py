@@ -10,6 +10,7 @@ from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class BaseObservableEMC(Observable):
     """
@@ -49,10 +50,8 @@ class BaseObservableEMC(Observable):
         y = self._dataset.y
         
         # Flatten on 2D for indexing
-        x = self.stack_on_attribute('sample', x)
-        x = self.stack_on_attribute('features', x)
-        y = self.stack_on_attribute('sample', y)
-        y = self.stack_on_attribute('features', y)
+        x = self.flatten_output(x, flat_output_dims=2)
+        y = self.flatten_output(y, flat_output_dims=2)
         
         if isinstance(n_test, int):
             idx_test = list(range(n_test))
@@ -65,8 +64,7 @@ class BaseObservableEMC(Observable):
         prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
         
         # Flatten on 2D for indexing
-        prediction = self.stack_on_attribute('sample', prediction)
-        prediction = self.stack_on_attribute('features', prediction)
+        prediction = self.flatten_output(prediction, flat_output_dims=2)
         
         if isinstance(test_y, xarray.DataArray):
             test_y = test_y.values
@@ -122,8 +120,7 @@ class BaseObservableEMC(Observable):
         emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
         
         # Flatten on 2D for indexing
-        emulator_covariance_y = self.stack_on_attribute('sample', emulator_covariance_y)
-        emulator_covariance_y = self.stack_on_attribute('features', emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
         
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
@@ -234,6 +231,31 @@ class BaseObservableEMC(Observable):
         if self.numpy_output:
             pred = pred.values
         return pred
+
+    def get_raw_hod_idx(self, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
+        """
+        Get the HOD indexes from the statistic files for a given phase and seed.
+        
+        Parameters
+        ----------
+        cosmo_idx : int
+            Cosmology index to read the HOD indexes from.
+        phase : int, optional
+            Phase index to read the HOD indexes from. Defaults to 0.
+        seed : int, optional
+            Seed index to read the HOD indexes from. Defaults to 0.
+        statistic : str, optional
+            Statistic to read the HOD indexes from. Defaults to 'density'.
+
+        Returns
+        -------
+        np.ndarray
+            Array of HOD indexes.
+        """
+        data_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior'
+        data_dir = Path(data_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
+        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))] # Only keep non-empty directories numbers
+        return np.array(hod_idx)
         
     def compress_x(self, hods: dict, cosmos: list = cosmo_list) -> tuple:
         """
@@ -323,7 +345,8 @@ class BaseObservableEMC(Observable):
         return emulator_error_dataset
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, sample_idx: int = 0, save_fn: str = None):
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -347,13 +370,13 @@ class BaseObservableEMC(Observable):
         fig.subplots_adjust(hspace=0.1)
         show_legend = False
 
-        lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
+        lax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
         lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
 
-        data = self.flatten_output(self.y, flat_output_dims=2)[sample_idx] # Enforce 2D flattening and get a single sample
+        data = self.y
         bin_idx = np.arange(len(data))
         model = self.get_model_prediction(model_params)
-        model = self.flatten_output(model, flat_output_dims=2)[0] # Enforce 2D flattening and get the first sample
+        
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 
@@ -377,6 +400,7 @@ class BaseObservableEMC(Observable):
         return fig, lax
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_emulator_residuals(self, save_fn: str = None):
         """
         Plot the emulator residuals.
@@ -392,7 +416,7 @@ class BaseObservableEMC(Observable):
             Figure and axes of the plot.
         """
 
-        residuals = self.flatten_output(self.emulator_covariance_y, flat_output_dims=2) # Enforce 2D flattening
+        residuals = self.emulator_covariance_y
         data_cov = self.get_covariance_matrix(volume_factor=64)
         data_err = np.sqrt(np.diag(data_cov))
 
@@ -401,11 +425,14 @@ class BaseObservableEMC(Observable):
         for res in residuals:
             ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
 
-        ax[1].plot(np.median(np.abs(residuals), axis=0) / data_err, lw=1.0, label='MAE', color='C0')
-        ax[1].plot(np.std(residuals, axis=0) / data_err, lw=1.0, label='STD', ls='--', color='C1')
+        # summary statistics of the emulator residuals
+        for method in ['mean', 'median', 'stdev']:
+            emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
+            emu_err = np.sqrt(np.diag(emu_cov))
+
+            ax[1].plot(emu_err / data_err, lw=1.0, label=method)
 
         ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
-
         ax[1].set_xlabel('bin index', fontsize=13)
         ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
         ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)

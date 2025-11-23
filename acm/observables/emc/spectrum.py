@@ -8,7 +8,7 @@ from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
-
+from acm.utils.decorators import temporary_class_state
 
 class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
@@ -17,8 +17,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='spectrum', **kwargs)
-        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/spectrum/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
     def checkpoint_fn(self) -> str:
@@ -82,12 +80,12 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
+                "ells": ells,
                 "k": k,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "k"],
+                "features": ["ells", "k"],
             },
             name = "covariance_y",
         )
@@ -150,30 +148,29 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_spectrum_poles_c{cosmo_idx:03}_hod???.h5'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh2_spectrum_poles_c{cosmo_idx:03}_hod*.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = read(filename)
                 data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
                 poles = [data.get(ell) for ell in (0, 2, 4)]
                 k = poles[0].coords('k')
                 y.append(np.concatenate(poles))
-            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'multipoles': ells,
+                'ells': ells,
                 'k': k,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 'k'],
+                'features': ['ells', 'k'],
             },
             name = 'y',
         )
@@ -197,8 +194,40 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
+
+    @set_plot_style
+    def plot_covariance_set(self, save_fn: str = None):
+        """
+        Plot the covariance set for the observable.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Path to save the figure. If None, the figure is not saved.
+            Default is None.
+        """
+        ells = self._dataset.y.coords['ells'].values.tolist()
+        k = self.k.values
+
+        fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
+
+        for ell in ells:
+            self.select_filters.update({'ells': ell})
+
+            for data in self.covariance_y:
+                lax[ell//2].plot(k, k * data, color=f'C{ell // 2}', alpha=0.5, lw=0.1)
+
+            lax[ell//2].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
+        lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
+
+        if save_fn is not None:
+            fig.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving training set figure to {save_fn}')
+            
+        return fig, lax
     
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
@@ -216,7 +245,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Figure and axes of the plot.
         """
 
-        ells = self._dataset.y.coords['multipoles'].values.tolist()
+        ells = self._dataset.y.coords['ells'].values.tolist()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -224,15 +253,17 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
         fig.subplots_adjust(hspace=0.1)
         show_legend = True
-        print('im here')
+        
         for i, ell in enumerate(ells):
             lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
             lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
-            self.select_filters.update({'multipoles': ell})
-            k = self.k
-            data = self.y[0]
-            model = self.get_model_prediction(model_params)[0]
+            self.select_filters.update({'ells': ell})
+
+            k = self.k.values
+            data = self.y
+            model = self.get_model_prediction(model_params)
+            
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
 
