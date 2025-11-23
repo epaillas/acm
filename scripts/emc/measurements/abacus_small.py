@@ -214,11 +214,14 @@ def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
     if np.any(positions < 0.):
         positions += (boxsize/2)
 
-    # Check that shapes are what they are expected to be
-    assert np.all(positions >= 0.0), "Something is off with the edges of the box..."
-    assert np.all(positions[:,0] <= boxsize[0]), f'{np.max(positions[:,0])} falls out of the box with size {boxsize[0]} along the z-axis'
-    assert np.all(positions[:,1] <= boxsize[1]), f'{np.max(positions[:,1])} falls out of the box with size {boxsize[1]} along the z-axis'
-    assert np.all(positions[:,2] <= boxsize[2]), f'{np.max(positions[:,2])} falls out of the box with size {boxsize[2]} along the z-axis'
+    # And periodic wrap in single precision
+    positions = np.mod(positions.astype(np.float32), boxsize.astype(np.float32))
+
+    # Check that shapes are what they are expected to be and do so in single precision!
+    assert np.all(positions.astype(np.float32) >= np.float32(0.0)), "Something is off with the edges of the box..."
+    assert np.all(positions[:,0].astype(np.float32) < np.float32(boxsize[0])), f'{repr(np.max(positions[:,0]))} falls out of the box with size {repr(boxsize[0])} along the z-axis'
+    assert np.all(positions[:,1].astype(np.float32) < np.float32(boxsize[1])), f'{repr(np.max(positions[:,1]))} falls out of the box with size {repr(boxsize[1])} along the z-axis'
+    assert np.all(positions[:,2].astype(np.float32) < np.flot32(boxsize[2])), f'{repr(np.max(positions[:,2]))} falls out of the box with size {repr(boxsize[2])} along the z-axis'
 
     # Generate a query of randoms, 10 times the size of data
     N_randoms = 10 * len(positions)
@@ -226,6 +229,7 @@ def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
     randoms[0] *= boxsize[0]
     randoms[1] *= boxsize[1]
     randoms[2] *= boxsize[2]
+    randoms = np.mod(randoms.astype(np.float32), boxsize)
 
     # Measurement params
     ks  = [1,2,3,4,5,6,7,8,9]
@@ -242,7 +246,6 @@ def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
              kneighbors=ks,
              nthread=32,
              periodic=boxsize,
-             method='fnn',
              leafsize=32
            )
 
@@ -263,9 +266,6 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
             boxsize = np.repeat(boxsize, 3)
     assert boxsize.shape==(3,)
 
-    # Do periodic wrap
-    positions = positions % boxsize
-
     # No need in randoms, positions are used as query
     # Measurement params, k is shifted by 1 compured to dr
     ks  = [2,3,4,5,6,7,8,9,10]
@@ -276,16 +276,14 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     if np.any(positions < 0.):
         positions += (boxsize/2)
 
-    # Check that shapes are what they are expected to be
-    assert np.all(positions >= 0.0), "Something is off with the edges of the box..."
-    assert np.all(positions[:,0] <= boxsize[0]), f'{np.max(positions[:,0])} falls out of the box with size {boxsize[0]} along the z-axis'
-    assert np.all(positions[:,1] <= boxsize[1]), f'{np.max(positions[:,1])} falls out of the box with size {boxsize[1]} along the z-axis'
-    assert np.all(positions[:,2] <= boxsize[2]), f'{np.max(positions[:,2])} falls out of the box with size {boxsize[2]} along the z-axis'
+    # And periodic wrap in single precision
+    positions = np.mod(positions.astype(np.float32), boxsize.astype(np.float32))
 
-    # Just in case, mod the particles to the other side, kdtree wants data to be in [0,L)
-    # Moreover float32 precision should be taken into account by adjusting the boxsize by approx machine_eps*L_box
-    # At the scales of interest this leads up to ~0.433% error in distance calculations
-    boxsize += 1.192e-7 * boxsize       #float32_eps = 1.192e-7
+    # Check that shapes are what they are expected to be and do so in single precision!
+    assert np.all(positions.astype(np.float32) >= np.float32(0.0)), "Something is off with the edges of the box..."
+    assert np.all(positions[:,0].astype(np.float32) < np.float32(boxsize[0])), f'{repr(np.max(positions[:,0]))} falls out of the box with size {repr(boxsize[0])} along the z-axis'
+    assert np.all(positions[:,1].astype(np.float32) < np.float32(boxsize[1])), f'{repr(np.max(positions[:,1]))} falls out of the box with size {repr(boxsize[1])} along the z-axis'
+    assert np.all(positions[:,2].astype(np.float32) < np.flot32(boxsize[2])), f'{repr(np.max(positions[:,2]))} falls out of the box with size {repr(boxsize[2])} along the z-axis'
 
     # Do the measurement
     knn  = KthNearestNeighbor()
@@ -297,7 +295,6 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
              kneighbors=ks,
              nthread=32,
              periodic=boxsize,
-             method='fnn',
              leafsize=32
            )
 
