@@ -37,7 +37,7 @@ class KthNearestNeighbor(BaseEstimator):
             xtree = scipy.spatial.cKDTree(data, leafsize=leafsize, boxsize=periodic)
 
         # Query the tree (this is parallel)
-        _, disi = xtree.query(query.astype(np.float64), k=k, workers=nthread)
+        _, disi = xtree.query(query, k=k, workers=nthread)
 
         # Conversion into 2D should be done separately
         dis_trans, dis_par = convert_rppi(disi, data, query, k)
@@ -70,7 +70,7 @@ class KthNearestNeighbor(BaseEstimator):
         cdf = dist_cdf2d_k / dist_cdf2d_k[-1, -1]
         return (ik, cdf)
 
-    def run_knn(self, rs, pis, xgal, xrand, kneighbors, periodic, nthread = 32, method = 'fnn', leafsize = 32):
+    def run_knn(self, rs, pis, xgal, xrand, kneighbors, periodic, nthread = 32, leafsize = 32):
         """
         run the knns calculator
 
@@ -90,11 +90,6 @@ class KthNearestNeighbor(BaseEstimator):
             number of threads, default 32 
         periodic : list or np.ndarray of shape (3,) with periodic boxsizes along each axis.
             If any value is less than zero, the box is assumed to be non-periodic along all axes
-        method : str
-            what method to use for computing kdtrees. 
-            'fnn': a fast kD-tree library that aims to be one of the most, if not the most, performant parallel kNN libraries that exist. Recommended. 
-            See https://pypi.org/project/pyfnntw/. 
-            Otherwise, use standard ckdtree. 
         leafsize : int
             leaf size for kdtree. default 32. 
             
@@ -103,13 +98,16 @@ class KthNearestNeighbor(BaseEstimator):
         knns_out : array_like
             final knn array in shape (k, len(rs), len(pis))
         """
+        # Check that 3D positions are given
         assert xgal.shape[1] == 3
         assert xrand.shape[1] == 3
 
-        rs = np.float32(rs)
-        pis = np.float32(pis)
-        xgal = np.float32(xgal)
-        xrand = np.float32(xrand)
+        # Convert to double for extra speed
+        rs       = np.float32(rs)
+        pis      = np.float32(pis)
+        xgal     = np.float32(xgal)
+        xrand    = np.float32(xrand)
+        periodic = np.float32(periodic)
 
         xgal = np.array(xgal, order="C") # data
         xrand = np.array(xrand, order="C") # queries
@@ -119,6 +117,9 @@ class KthNearestNeighbor(BaseEstimator):
         if (len(periodic.shape) == 0) or (periodic.shape[0] < 3):
             periodic = np.ones(3) * periodic
         assert periodic.shape==(3,), 'Boxsize should have shape (3,)'
+
+        # Do periodic wrap again in case float64->float32 conversion broke the box
+        #xgal = np.mod(xgal, periodic)
 
         # Construct kDtree and query it
         dis_t, dis_p = self.compute_knn_distances(
