@@ -10,7 +10,7 @@ import argparse
 torch.set_float32_matmul_precision('high')
 
 def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, 
-    model_dir=None):
+    model_dir=None, transform=None):
 
     # load the data
     lhc_x = observable.x
@@ -22,22 +22,21 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     ncosmo, nhod = [len(observable.get_coordinate_list(name)) for name in ['cosmo_idx', 'hod_idx']]
     print(f'Number of cosmologies: {ncosmo}, Number of HODs: {nhod}')
 
-    # # covariance_matrix = observable.get_covariance_matrix(divide_factor=64)
-    # # print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
+    # covariance_matrix = observable.get_covariance_matrix(volume_factor=64)
+    # print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
-    if args.apply_transform:
-        if args.transform == 'log':
+    if transform is not None:
+        if transform == 'log':
             transform = LogTransform()
-        elif args.transform == 'arcsinh':
+        elif transform == 'arcsinh':
             transform = ArcsinhTransform()
         else:
             raise ValueError(f'Unknown transform: {args.transform}')
         lhc_y = transform.transform(lhc_y)
-    else:
-        transform = None
         
     ntot = len(lhc_y)
     idx_train = list(range(nhod * 6, ntot))
+    # idx_train = list(range(ntot))
 
     print(f'Using {len(idx_train)} samples for training')
 
@@ -69,7 +68,7 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
             act_fn='learned_sigmoid',
             # act_fn='SiLU',
             # loss='GaussianNLoglike',
-            loss='mae',
+            # loss='mae',
             training=True,
             mean_output=train_mean,
             std_output=train_std,
@@ -98,16 +97,15 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Train FCN for EMC observables.')
-    parser.add_argument('--apply_transform', action='store_true', help='Apply log transform to outputs.')
-    parser.add_argument('--transform', type=str, default='log', help='Transform to apply to outputs.')
-    parser.add_argument('--stat', type=str, default='bispectrum', help='Statistic to train on.')
+    parser.add_argument('--transform', type=str, choices=['log', 'arcsinh'], default=None, help='Transform to apply to outputs.')
+    parser.add_argument('-s', '--statistic', type=str, default='bispectrum', help='Statistic to train on.')
     args = parser.parse_args()
 
     paths = {
         'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/', # Loads x, y can also contain covariance_y
     }
 
-    observable = Observable(stat_name=args.stat, paths=paths, numpy_output=True, flat_output_dims=2)
+    observable = Observable(stat_name=args.statistic, paths=paths, numpy_output=True, flat_output_dims=2)
 
     model_dir = f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{observable}/'
     TrainFCN(
@@ -116,5 +114,6 @@ if __name__ == '__main__':
         n_hidden=[512, 512, 512, 512],
         dropout_rate=0.,
         weight_decay=0,
-        model_dir=model_dir
+        model_dir=model_dir,
+        transform=args.transform,
     )

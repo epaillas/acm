@@ -6,7 +6,8 @@ from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
-
+from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class MinkowskiFunctionals(BaseObservableEMC):
     """
@@ -130,9 +131,10 @@ class MinkowskiFunctionals(BaseObservableEMC):
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/minkowski_c{cosmo_idx:03}_hod???.npy'
+            handle = f'c{cosmo_idx:03}_ph000/seed0/minkowski_c{cosmo_idx:03}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True).item()
                 mf = []
@@ -141,7 +143,6 @@ class MinkowskiFunctionals(BaseObservableEMC):
                     for j in range(4):
                         mf.append(data[Rg][threshold_index[f'Threshold_index_{Rg}'][j], j ] * (10 * i) ** j) 
                 y.append(np.concatenate(mf))
-            self.logger.info(f'HOD indices: {hods[cosmo_idx]}')
         y = np.array(y)
         
         y = xarray.DataArray(
@@ -178,6 +179,8 @@ class MinkowskiFunctionals(BaseObservableEMC):
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
     
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot multi-scale Minkowski functionals predictions against data.
@@ -210,9 +213,10 @@ class MinkowskiFunctionals(BaseObservableEMC):
         lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
         lax[0].set_ylabel(r'$\textrm{Minkowski functionals}$', fontsize=15)
 
-        bin_idx = self.bin_idx
-        data = self.y[0]
-        model = self.get_model_prediction(model_params)[0]
+        bin_idx = self.bin_idx.values
+        data = self.y
+        model = self.get_model_prediction(model_params)
+        
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
 
