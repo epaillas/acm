@@ -75,7 +75,6 @@ def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
         print(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
-<<<<<<< HEAD
 def compute_spectrum_acm(output_fn, ells=(0, 2, 4), los='z', **attrs):
     """Compute the power spectrum of a set of positions using the ACM package."""
     from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
@@ -90,9 +89,6 @@ def compute_spectrum_acm(output_fn, ells=(0, 2, 4), los='z', **attrs):
         print(f'Power spectrum (ACM) done in {t1 - t0:.2f} s.')
 
 def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', **attrs):
-=======
-def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', bin=None, **attrs):
->>>>>>> a0ba7bf99fcb4f79adb92172c2e8b462c20cb733
     from jaxpower import (ParticleField, FKPField, compute_fkp3_normalization, compute_fkp3_shotnoise, BinMesh3SpectrumPoles, get_mesh_attrs, compute_mesh3_spectrum, MeshAttrs)
     t0 = time.time()
     mattrs = MeshAttrs(**attrs)
@@ -224,7 +220,6 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
 
-<<<<<<< HEAD
     if do_correlation:
         ccf = ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True)
         acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
@@ -237,15 +232,6 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
         pkqq = ds.quantile_power(edges={'step': 0.001}, ells=ells, los=los)
         print(f'Saving {output_fn["pkqq"]}')
         np.save(output_fn['pkqq'], pkqq)
-=======
-    ccf = ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True)
-    acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
-
-    np.save(output_fn['xiqg'], ccf)
-    print(f'Saving {output_fn["xiqg"]}')
-    np.save(output_fn['xiqq'], acf)
-    print(f'Saving {output_fn["xiqq"]}')
->>>>>>> a0ba7bf99fcb4f79adb92172c2e8b462c20cb733
 
 def compute_wst(output_fn, positions, init=None, **attrs):
     """Compute the wavelet scattering transform using the ACM package."""
@@ -505,7 +491,7 @@ if __name__ == '__main__':
                         wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
 
                     if 'spherical_voids' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/spherical_voids/'
+                        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/spherical_voids/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'sv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
