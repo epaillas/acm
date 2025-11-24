@@ -586,8 +586,6 @@ if __name__ == '__main__':
                         output_fn = Path(save_dir) / f'dd_knn_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dd_knn(output_fn, hod_positions, boxsize, los='z')
-                        box_args = dict(boxsize=boxsize, boxcenter=0.0)
-                        compute_spherical_voids(output_fn, hod_positions, **box_args)
 
                     if 'dt_voids' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/dt_voids/'
