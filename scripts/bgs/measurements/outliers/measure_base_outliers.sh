@@ -25,7 +25,7 @@ COSMO=${COSMO_LIST[ID]} # Cosmology to be used
 
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/measurements/logs/outliers/log_base_c%03d_ph000_seed0.log" ${COSMO})
 
-cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements/outliers
+cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 python outliers/measure_box_outliers.py --config config.yaml --gpu --cosmologies ${COSMO} --log_file "${LOGFILE}" --measurements tpcf density_split --overwrite
 
 # Launch with : sbatch --array=0-84 ...
