@@ -144,9 +144,7 @@ class Observable():
                 data = self.apply_indices_selection(data)
             
             # Drop NaN dimensions if marked in attributes
-            for dim in data.getattr('nan_dims', []):
-                data = data.dropna(dim=dim, how='all')
-            # TODO: catch case where all values are dropped due to filters ?
+            data = self.drop_nan_dimensions(data)
             
             data = self.flatten_output(data, self.flat_output_dims)
         
@@ -157,6 +155,33 @@ class Observable():
                 data = data.values
             
         return data
+    
+    def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+        """
+        Drops dimensions that contain only NaN values in a DataArray.
+        Does nothing if no 'nan_dims' attribute is found.
+
+        Parameters
+        ----------
+        dataarray : xarray.DataArray
+            The DataArray to drop NaN dimensions from. Must contain a 'nan_dims' attribute listing dimensions to check.
+
+        Returns
+        -------
+        xarray.DataArray
+            The DataArray with NaN dimensions dropped.
+        """
+        if 'nan_dims' not in dataarray.attrs:
+            return dataarray
+        
+        for dim in dataarray.attrs['nan_dims']:
+            # Ignore if dimension not present (e.g., already squeezed or filtered out)
+            if dim not in dataarray.dims: 
+                continue
+            dataarray = dataarray.dropna(dim=dim, how='all')
+        if dataarray.size == 0:
+            self.logger.warning(f"All values dropped for {dataarray.name} due to NaN filters.")
+        return dataarray
 
     @staticmethod
     def stack_on_attribute(attribute: str|dict, dataarray: xarray.DataArray, **kwargs) -> xarray.DataArray:
