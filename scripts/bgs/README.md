@@ -62,6 +62,13 @@ The outliers are identified in `find_outliers.py`.
 > [!NOTE]
 > Both scripts use the `acm.observables` compression functions to read the measurements on `base` and `small` boxes.
 
+> [!TIP]
+> The `outliers.py` scripts can save the outlier indexes in a `.npy` file, that can be read to re-run only those outliers.
+> In particular, this is useful for the `base` boxes, where each cosmology can have different outliers. 
+> In practice, this can be run by hand using the `--hods` argument of `measure_box.py`, but for all 85 cosmologies it can be quite tedious.
+> I've added a variation of `measure_box.py` called `measure_box_outliers.py` that reads the outlier indexes from the outliers.py outputs (hardcoded name at the moment) and re-runs only those HODs for all cosmologies.
+> **This script is not documented nor generalized at the moment, but can be used as a quick fix to re-run only the outliers.**
+
 ## Data
 
 The data is stored in `/pscratch/sd/s/sbouchar/acm/bgs/` on NERSC. Let's detail the different subfolders:
