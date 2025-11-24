@@ -46,8 +46,8 @@ def plot_parameters_histogram(parameters: list, names: list[str], mapping: dict 
 
     fig, ax = plt.subplots(len(names), 1, figsize=figsize)
     
-    if labels is not None:
-        assert len(labels) == len(parameters), "Length of labels must match length of parameters"
+    if labels is not None and len(labels) != len(parameters):
+            raise ValueError("Length of labels must match length of parameters")
     for i, param in enumerate(names):
         for j, p in enumerate(parameters):
             if labels:
@@ -96,7 +96,7 @@ def plot_parameters_triangle(parameters: list, names: list[str], mapping: dict =
     colors = kwargs.pop('colors', [f'C{i}' for i in range(len(parameters))])
     bins = kwargs.pop('bins', 30)
     histtype = kwargs.pop('histtype', 'step')
-    alpha = kwargs.pop('alpha', 1/len(parameters))
+    alpha = kwargs.pop('alpha', 1/len(parameters) if len(parameters) > 0 else 1.0)
     s = kwargs.pop('s', 1)  # size of scatter points
     
     fig, axes = plt.subplots(len(names), len(names), figsize=figsize)
