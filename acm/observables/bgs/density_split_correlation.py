@@ -67,11 +67,12 @@ class DensitySplitBaseClass(BaseObservableBGS):
             for q in quantiles:
                 fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
                 fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
-                data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in fns if fn.exists()])
-                if data == 0:
+                existing_fns = [fn for fn in fns if fn.exists()]
+                if len(existing_fns) == 0:
                     # NOTE: This will crash the process later, but at least we log it
                     self.logger.warning(f'No measurement files found in {fn_dir} for quantile {q}, skipping.')
                     continue
+                data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in existing_fns])
                 s, multipoles = data[::rebin](ells=ells, return_sep=True)
                 y_quantiles.append(multipoles)
             y.append(y_quantiles)
