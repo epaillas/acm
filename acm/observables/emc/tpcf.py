@@ -48,7 +48,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         """
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
-        # base_dir = Path(f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/') # Old FIXME : remove it later
         data_fns = list(base_dir.glob('tpcf_ph*_hod466.npy')) # NOTE: File name format hardcoded !
         
         y = []
@@ -65,12 +64,12 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "multipoles": ells,
+                "ells": ells,
                 "s": s,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["multipoles", "s"],
+                "features": ["ells", "s"],
             },
             name = "covariance_y",
         )
@@ -139,12 +138,12 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'multipoles': ells,
+                'ells': ells,
                 's': s,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['multipoles', 's'],
+                'features': ['ells', 's'],
             },
             name = 'y',
         )

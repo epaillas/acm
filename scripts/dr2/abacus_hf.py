@@ -18,6 +18,7 @@ def get_cli_args():
     parser.add_argument("--start_phase", type=int, default=0)
     parser.add_argument("--n_phase", type=int, default=1)
     parser.add_argument('--todo_stats', nargs='+', default=['spectrum'])
+    parser.add_argument('--save_dir', type=str, default='./')
 
     args = parser.parse_args()
     return args
@@ -126,30 +127,30 @@ def get_randoms_fn(tracer='LRG', region='NGC', phase_idx=0, rand_idx=0, complete
     mock_dir += f'AbacusSummit_v4_1/altmtl{phase_idx}/kibo-v1/mock{phase_idx}/LSScats'
     return Path(mock_dir) / f'{tracer}_{region}_{rand_idx}_clustering.ran.fits'
 
-def compute_spectrum(output_fn, get_data, get_randoms, ells=(0, 2, 4), los='firstpoint', **attrs):
+def compute_spectrum(save_fn, get_data, get_randoms, ells=(0, 2, 4), los='firstpoint', **attrs):
     import jax
-    from jaxpower import (ParticleField, FKPField, compute_fkp2_spectrum_normalization, compute_fkp2_spectrum_shotnoise, BinMesh2Spectrum, get_mesh_attrs, compute_mesh2_spectrum)
+    from jaxpower import (ParticleField, FKPField, compute_fkp2_normalization, compute_fkp2_shotnoise, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum)
     t0 = time.time()
     data, randoms = get_data(), get_randoms()
     attrs = get_mesh_attrs(data[0], randoms[0], check=True, **attrs)
     data = ParticleField(*data, attrs=attrs, exchange=True, backend='jax')
     randoms = ParticleField(*randoms, attrs=attrs, exchange=True, backend='jax')
     fkp = FKPField(data, randoms)
-    norm, num_shotnoise = compute_fkp2_spectrum_normalization(fkp), compute_fkp2_spectrum_shotnoise(fkp)
+    bin = BinMesh2SpectrumPoles(attrs, edges={'step': 0.001}, ells=ells)
+    norm, num_shotnoise = compute_fkp2_normalization(fkp, bin=bin), compute_fkp2_shotnoise(fkp, bin=bin)
     mesh = fkp.paint(resampler='tsc', interlacing=3, compensate=True, out='real')
     wsum_data1 = data.sum()
     del fkp, data, randoms
-    bin = BinMesh2Spectrum(mesh.attrs, edges={'step': 0.001}, ells=ells)
     jitted_compute_mesh2_spectrum = jax.jit(compute_mesh2_spectrum, static_argnames=['los'], donate_argnums=[0])
     spectrum = jitted_compute_mesh2_spectrum(mesh, bin=bin, los=los).clone(norm=norm, num_shotnoise=num_shotnoise)
-    spectrum.attrs.update(mesh=dict(mesh.attrs), los=los, wsum_data1=wsum_data1)
+    # spectrum.attrs.update(mesh=dict(mesh.attrs), los=los, wsum_data1=wsum_data1)
     jax.block_until_ready(spectrum)
     t1 = time.time()
     if jax.process_index() == 0:
-        print(f'Done in {t1 - t0:.2f}')
-    spectrum.save(output_fn)
+        print(f'Done in {t1 - t0:.2f}', flush=True)
+    spectrum.write(save_fn)
 
-def compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
+def compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
     """Compute density-split statistics using the ACM package."""
     from acm.estimators.galaxy_clustering.density_split import DensitySplit
     from jaxpower import get_mesh_attrs
@@ -177,8 +178,8 @@ def compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10,
         randoms_positions=randoms_positions,
         edges=edges, los=los, nthreads=4, gpu=True)
 
-    np.save(output_fn['xiqg'], ccf)
-    np.save(output_fn['xiqq'], acf)
+    np.save(save_fn['xiqg'], ccf)
+    np.save(save_fn['xiqq'], acf)
     
     ds.plot_quantiles(save_fn='quantiles.png')
     ds.plot_quantile_data_correlation(save_fn='xi_qg.png')
@@ -202,7 +203,7 @@ if __name__ == '__main__':
     tracer = 'LRG'
     region = 'NGC'
     zmin, zmax = 0.4, 0.6
-    nrandoms = 3  # number of random catalogs per phase
+    nrandoms = 1  # number of random catalogs per phase
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
 
     catalog_args = dict(tracer=tracer, region=region, zrange=(zmin, zmax), complete=False)
@@ -216,23 +217,20 @@ if __name__ == '__main__':
         get_randoms = lambda: get_clustering_positions_weights(*all_randoms_fn, **catalog_args)
 
         if 'spectrum' in args.todo_stats:
-            cutsky_args = dict(cellsize=10.0, boxsize=get_proposal_boxsize(catalog_args['tracer']), ells=(0, 2, 4))
+            cutsky_args = dict(cellsize=10.0, ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
-                output_dir = '/global/cfs/cdirs/desicollab/users/epaillas/y3-growth/'
-                output_fn = Path(output_dir) / f'spectrum_QSO_NGC_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.npy'
-                compute_spectrum(output_fn, get_data, get_randoms, **cutsky_args)
+                save_fn = Path(args.save_dir) / f'spectrum_{tracer}_{region}_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.h5'
+                compute_spectrum(save_fn, get_data, get_randoms, **cutsky_args)
 
         if 'density_split' in args.todo_stats:
-            save_dir = '/pscratch/sd/e/epaillas/acm/dr2/'
-            save_dir += f'test/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
-            output_fn = {
-                'xiqg': Path(save_dir) / f'dsc_xiqg_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy',
-                'xiqq': Path(save_dir) / f'dsc_xiqq_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy'
+            save_fn = {
+                'xiqg': Path(args.save_dir) / f'dsc_xiqg_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy',
+                'xiqq': Path(args.save_dir) / f'dsc_xiqq_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy'
             }
-            if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
-                print(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
+            if save_fn['xiqg'].exists() and save_fn['xiqq'].exists():
+                print(f'Skipping {save_fn["xiqg"]} and {save_fn["xiqq"]}, already exists.')
                 continue
             cutsky_args = dict(cellsize=5.0, boxpad=1.2, check=True)
             with create_sharding_mesh() as sharding_mesh:
-                compute_density_split(output_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args)
+                compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args)

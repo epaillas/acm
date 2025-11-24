@@ -40,7 +40,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.logger.info(f'Box center: {self.boxcenter}')
         self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float=15., randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
+    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
         def _2r(mesh):
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
@@ -69,6 +69,7 @@ class BaseDensityMeshEstimator(BaseEstimator):
                 randoms_mesh = (_2c(randoms_mesh) * kernel).c2r()
         data_mesh = _2r(data_mesh)
         if randoms_mesh is not None:
+            self.logger.info('Using randoms to compute density contrast.')
             randoms_mesh = _2r(randoms_mesh)
             sum_data, sum_randoms = data_mesh.sum(), randoms_mesh.sum()
             alpha = sum_data * 1. / sum_randoms
