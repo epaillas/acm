@@ -5,7 +5,7 @@ import numpy as np
 from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
-from acm.utils.xarray_data import dataset_from_dict
+from acm.utils.xarray import dataset_from_dict
 from acm.utils.covariance import orthogonal_gk_mad_covariance
 from scipy.stats import median_abs_deviation, norm
 
@@ -142,6 +142,11 @@ class Observable():
                 
             if name in self.select_indices_on:
                 data = self.apply_indices_selection(data)
+            
+            # Drop NaN dimensions if marked in attributes
+            for dim in data.getattr('nan_dims', []):
+                data = data.dropna(dim=dim, how='all')
+            # TODO: catch case where all values are dropped due to filters ?
             
             data = self.flatten_output(data, self.flat_output_dims)
         
