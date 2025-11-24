@@ -4,6 +4,7 @@ from pathlib import Path
 import numpy as np
 import time
 import glob
+from acm.utils.catalogs_safety_checks import check_catalog
 
 
 def get_cli_args():
@@ -48,7 +49,12 @@ def get_hod_positions(filename, los='z'):
         pos[:, 1] += hod['VY'] / (hubble * scale_factor)
     elif los == 'z':
         pos[:, 2] += hod['VZ'] / (hubble * scale_factor)
-    pos = (pos % boxsize) - boxsize / 2
+
+    # Periodic wrap is necessary after RSD to keep in [0,L).
+    pos = np.mod(pos + boxsize/2, boxsize) - boxsize/2
+
+    # Make sure the catalog has all galaxies are inside expected ranges
+    check_catalog(pos, boxsize, check_in_float32=False, center_at_zero=True)
     return pos, boxsize
 
 def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
@@ -212,6 +218,104 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), ce
     print(f'Saving spherical VSF to {output_fn}')
     np.save(output_fn, n_v)
 
+def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
+    """Compute data-random knn CDFs using the ACM package"""
+    from acm.estimators.galaxy_clustering.knn import KthNearestNeighbor
+
+    # Force boxsize to be an array of shape (3,)
+    if isinstance(boxsize, float):
+        boxsize = np.array([boxsize, boxsize, boxsize])
+    else:
+        assert isinstance(boxsize, np.ndarray), "boxsize should be either float or np.array of floats"
+        if boxsize.shape==(1,) or boxsize.shape==():
+            boxsize = np.repeat(boxsize, 3)
+    assert boxsize.shape==(3,)
+
+    # Convert to single precision
+    positions = positions.astype(np.float32)
+    boxsize   = boxsize.astype(np.float32)
+
+    # Shift positions to [0,L]^3 box from [-L/2, L/2]^3
+    positions += (boxsize/2)
+
+    # And periodic wrap in single precision
+    positions = np.mod(positions, boxsize)
+
+    # Generate a query of randoms, 10 times the size of data
+    N_randoms = 10 * len(positions)
+    randoms = np.random.random((N_randoms, 3)).astype(np.float32)
+    randoms[0] *= boxsize[0]
+    randoms[1] *= boxsize[1]
+    randoms[2] *= boxsize[2]
+    randoms = np.mod(randoms, boxsize)
+
+    # Measurement params
+    ks  = [1,2,3,4,5,6,7,8,9]
+    rps = np.logspace(-0.2, 1.8, 8)
+    pis = np.logspace(-0.3, 1.5, 5)
+
+    # Do the measurement
+    knn  = KthNearestNeighbor()
+    cdfs = knn.run_knn(
+             rps,
+             pis,
+             xgal=positions,
+             xrand=randoms,
+             kneighbors=ks,
+             nthread=32,
+             periodic=boxsize,
+             leafsize=32
+           )
+
+    # Save
+    print(f'Saving DR knns in {output_fn}')
+    np.save(output_fn, cdfs)
+
+def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
+    """Compute data-data knn CDFs using the ACM package"""
+    from acm.estimators.galaxy_clustering.knn import KthNearestNeighbor
+
+    # Force boxsize to be an array of shape (3,)
+    if isinstance(boxsize, float) or isinstance(boxsize, int):
+        boxsize = np.array([boxsize, boxsize, boxsize], dtype=np.float32)
+    else:
+        assert isinstance(boxsize, np.ndarray), "boxsize should be either float or np.array of floats"
+        if boxsize.shape==(1,) or boxsize.shape==():
+            boxsize = np.repeat(boxsize, 3)
+    assert boxsize.shape==(3,)
+
+    # No need in randoms, positions are used as query
+    # Measurement params, k is shifted by 1 compured to dr
+    ks  = [2,3,4,5,6,7,8,9,10]
+    rps = np.logspace(-0.2, 1.8, 8)
+    pis = np.logspace(-0.3, 1.5, 5)
+
+    # Convert to single precision
+    positions = positions.astype(np.float32)
+    boxsize   = boxsize.astype(np.float32)
+
+    # Shift positions to [0,L/2]^3 box from [-L/2, L/2]^3
+    positions += (boxsize/2)
+
+    # And periodic wrap in single precision
+    positions = np.mod(positions, boxsize)
+
+    # Do the measurement
+    knn  = KthNearestNeighbor()
+    cdfs = knn.run_knn(
+             rps,
+             pis,
+             xgal=positions,
+             xrand=positions,
+             kneighbors=ks,
+             nthread=32,
+             periodic=boxsize,
+             leafsize=32
+           )
+
+    # Save
+    print(f'Saving DD knns in {output_fn}')
+    np.save(output_fn, cdfs)
 
 
 if __name__ == '__main__':
@@ -263,6 +367,27 @@ if __name__ == '__main__':
             with create_sharding_mesh() as sharding_mesh:
                 compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
+        if 'dr_knn' in args.todo_stats:
+            save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            output_fn = Path(save_dir) / f'dr_knn_ph{phase_idx:03}.npy'
+            box_args = dict(boxsize=boxsize, los='z')
+            compute_dr_knn(output_fn, hod_positions, **box_args)
+
+        if 'dd_knn' in args.todo_stats:
+            save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
+            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            output_fn = Path(save_dir) / f'dd_knn_ph{phase_idx:03}.npy'
+            box_args = dict(boxsize=boxsize, los='z')
+            compute_dd_knn(output_fn, hod_positions, **box_args)            
+
+        # if 'tpcf' in args.todo_stats:
+        #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/tpcf/'
+        #     save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+        #     Path(save_dir).mkdir(parents=True, exist_ok=True)
+        #     output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+        #     box_args = dict(boxsize=boxsize, boxcenter=0.0)
+        #     compute_tpcf(output_fn, hod_positions, **box_args)
         if 'wst' in args.todo_stats:
             save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/wst/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
