@@ -40,7 +40,7 @@ def get_covariance(cls, **kwargs):
 
 def get_y(cls, **kwargs):
     """
-    Compresses the measureents of the given statistic.
+    Compresses the measurements of the given statistic.
      
     Parameters
     ----------
