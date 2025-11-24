@@ -116,9 +116,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         seed_idx : int
             TODO
         test_filters : dict, optional
-            Dictionary of selection criteria to split data into train and test sets, 
-            passed to `split_vars`. Each key-value pair specifies a dimension and its 
-            selection values (e.g., {'cosmo_idx': [0, 1, 2]}). If None, no train/test 
+            Dictionary of selection criteria to split data into train and test sets,
+            passed to `split_vars`. Each key-value pair specifies a dimension and its
+            selection values (e.g., {'cosmo_idx': [0, 1, 2]}). If None, no train/test
             split is performed. Default is None.
             
         Returns
