@@ -168,11 +168,12 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             
             for fn_dir in hod_fns:
                 fns = [fn_dir / f'{self.stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
-                data = sum([TwoPointEstimator.load(fn).normalize() for fn in fns if fn.exists()])
-                if data == 0:
+                existing_fns = [fn for fn in fns if fn.exists()]
+                if len(existing_fns) == 0:
                     # NOTE: This will crash the process later, but at least we log it
                     self.logger.warning(f'No measurement files found in {fn_dir}, skipping.')
                     continue
+                data = sum([TwoPointEstimator.load(fn).normalize() for fn in existing_fns])
                 s, multipoles = data[::rebin](ells=ells, return_sep=True)
                 y.append(multipoles)
         y = np.array(y)
