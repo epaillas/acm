@@ -3,11 +3,14 @@ import xarray
 import logging
 import numpy as np
 from pathlib import Path
+import matplotlib.pyplot as plt
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
+from scipy.stats import median_abs_deviation, norm
 from acm.utils.xarray_data import dataset_from_dict
 from acm.utils.covariance import orthogonal_gk_mad_covariance
-from scipy.stats import median_abs_deviation, norm
+from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
@@ -580,3 +583,112 @@ class Observable():
         if isinstance(save_dir, str):
             return cout.as_posix() # Return as string if save_dir is a string
         return cout
+
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_observable(self, model_params: dict, save_fn: str = None, **kwargs) -> tuple:
+        """
+        Plot the observable with error bars and the model prediction, along with the residuals.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters for the prediction.
+        save_fn : str, optional
+            Filename to save the plot. If None, the plot is not saved.
+        **kwargs : dict
+            Additional arguments for the plot, such as height_ratios and show_legend, and volume_factor and prefactor for covariance calculation.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+        height_ratios = kwargs.pop('height_ratios', [3, 1])
+        show_legend = kwargs.pop('show_legend', False)
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, ax = plt.subplots(len(height_ratios), sharex=True, sharey=False, gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        
+        ax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
+        ax[0].set_ylabel(r'${\rm X}$', fontsize=15)
+        
+        data = self.y
+        bin_idx = np.arange(len(data))
+        model = self.get_model_prediction(model_params)
+        
+        volume_factor = kwargs.pop('volume_factor', 64)
+        prefactor = kwargs.pop('prefactor', 1)
+        cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+        error = np.sqrt(np.diag(cov))
+        
+        ax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', color=f'C0', elinewidth=1.0, capsize=None)
+        ax[0].plot(bin_idx, model, ls='-', color=f'C0')
+        ax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
+        
+        for offset in [-2, 2]: 
+            ax[1].axhline(offset, color='k', ls='--')
+            
+        ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+        ax[1].set_ylim(-4, 4)
+        
+        for a in ax:
+            a.grid(True)
+            a.tick_params(axis='both', labelsize=14)
+            
+        if show_legend: 
+            ax[0].legend(fontsize=15)
+        
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax
+    
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_emulator_residuals(self, save_fn: str = None, **kwargs) -> tuple:
+        """
+        Plot the emulator residuals.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+        **kwargs : dict
+            Additional arguments for the plot, such as figsize, and volume_factor and prefactor for covariance calculation.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+
+        volume_factor = kwargs.pop('volume_factor', 64)
+        prefactor = kwargs.pop('prefactor', 1)
+        data_cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+        data_err = np.sqrt(np.diag(data_cov))
+        residuals = self.emulator_covariance_y
+        
+        figsize = kwargs.pop('figsize', (4, 4))
+        fig, ax = plt.subplots(2, 1, figsize=figsize, sharex=True)
+
+        for res in residuals:
+            ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
+
+        # summary statistics of the emulator residuals
+        for method in ['mean', 'median', 'stdev']:
+            emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
+            emu_err = np.sqrt(np.diag(emu_cov))
+
+            ax[1].plot(emu_err / data_err, lw=1.0, label=method)
+
+        ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
+        ax[1].set_xlabel('bin index', fontsize=13)
+        ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
+        ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)
+        ax[1].legend(fontsize=8)
+        fig.tight_layout()
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax
