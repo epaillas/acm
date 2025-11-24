@@ -34,9 +34,9 @@ def get_hod_fn(phase=0, redshift=0.5):
     return filename
 
 def get_hod_positions(filename, los='z'):
-    boxsize = 500
+    boxsize = 500.0
     hod = fitsio.read(filename)
-    pos = np.c_[hod['X'], hod['Y'], hod['Z']] + boxsize / 2     # If you intend to remove this +boxsize/2, correct check_catalog arguments too!
+    pos = np.c_[hod['X'], hod['Y'], hod['Z']]
     hubble = 100 * fid_cosmo.efunc(redshift)
     scale_factor = 1 / (1 + redshift)
     if los == 'x':
@@ -45,12 +45,12 @@ def get_hod_positions(filename, los='z'):
         pos[:, 1] += hod['VY'] / (hubble * scale_factor)
     elif los == 'z':
         pos[:, 2] += hod['VZ'] / (hubble * scale_factor)
-    
+
     # Periodic wrap is necessary after RSD to keep in [0,L).
-    pos = np.mod(pos, boxsize) 
+    pos = np.mod(pos + boxsize/2, boxsize) - boxsize/2
 
     # Make sure the catalog has all galaxies are inside expected ranges
-    check_catalog(pos, boxsize, check_in_float32=True, center_at_zero=False)
+    check_catalog(pos, boxsize, check_in_float32=False, center_at_zero=True)
     return pos, boxsize
 
 def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
@@ -214,29 +214,23 @@ def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
             boxsize = np.repeat(boxsize, 3)
     assert boxsize.shape==(3,)
 
-    # Do periodic wrap
-    positions = positions % boxsize
+    # Convert to single precision
+    positions = positions.astype(np.float32)
+    boxsize   = boxsize.astype(np.float32)
 
     # Shift positions to [0,L]^3 box from [-L/2, L/2]^3
-    if np.any(positions < 0.):
-        positions += (boxsize/2)
+    positions += (boxsize/2)
 
     # And periodic wrap in single precision
-    positions = np.mod(positions.astype(np.float32), boxsize.astype(np.float32))
-
-    # Check that shapes are what they are expected to be and do so in single precision!
-    assert np.all(positions.astype(np.float32) >= np.float32(0.0)), "Something is off with the edges of the box..."
-    assert np.all(positions[:,0].astype(np.float32) < np.float32(boxsize[0])), f'{repr(np.max(positions[:,0]))} falls out of the box with size {repr(boxsize[0])} along the z-axis'
-    assert np.all(positions[:,1].astype(np.float32) < np.float32(boxsize[1])), f'{repr(np.max(positions[:,1]))} falls out of the box with size {repr(boxsize[1])} along the z-axis'
-    assert np.all(positions[:,2].astype(np.float32) < np.flot32(boxsize[2])), f'{repr(np.max(positions[:,2]))} falls out of the box with size {repr(boxsize[2])} along the z-axis'
+    positions = np.mod(positions, boxsize)
 
     # Generate a query of randoms, 10 times the size of data
     N_randoms = 10 * len(positions)
-    randoms = np.random.random((N_randoms, 3))
+    randoms = np.random.random((N_randoms, 3)).astype(np.float32)
     randoms[0] *= boxsize[0]
     randoms[1] *= boxsize[1]
     randoms[2] *= boxsize[2]
-    randoms = np.mod(randoms.astype(np.float32), boxsize)
+    randoms = np.mod(randoms, boxsize)
 
     # Measurement params
     ks  = [1,2,3,4,5,6,7,8,9]
@@ -279,18 +273,15 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     rps = np.logspace(-0.2, 1.8, 8)
     pis = np.logspace(-0.3, 1.5, 5)
 
+    # Convert to single precision
+    positions = positions.astype(np.float32)
+    boxsize   = boxsize.astype(np.float32)
+
     # Shift positions to [0,L/2]^3 box from [-L/2, L/2]^3
-    if np.any(positions < 0.):
-        positions += (boxsize/2)
+    positions += (boxsize/2)
 
     # And periodic wrap in single precision
-    positions = np.mod(positions.astype(np.float32), boxsize.astype(np.float32))
-
-    # Check that shapes are what they are expected to be and do so in single precision!
-    assert np.all(positions.astype(np.float32) >= np.float32(0.0)), "Something is off with the edges of the box..."
-    assert np.all(positions[:,0].astype(np.float32) < np.float32(boxsize[0])), f'{repr(np.max(positions[:,0]))} falls out of the box with size {repr(boxsize[0])} along the z-axis'
-    assert np.all(positions[:,1].astype(np.float32) < np.float32(boxsize[1])), f'{repr(np.max(positions[:,1]))} falls out of the box with size {repr(boxsize[1])} along the z-axis'
-    assert np.all(positions[:,2].astype(np.float32) < np.flot32(boxsize[2])), f'{repr(np.max(positions[:,2]))} falls out of the box with size {repr(boxsize[2])} along the z-axis'
+    positions = np.mod(positions, boxsize)
 
     # Do the measurement
     knn  = KthNearestNeighbor()

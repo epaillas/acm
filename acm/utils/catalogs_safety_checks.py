@@ -18,7 +18,7 @@ def check_catalog(
     - center_at_zero: bool. If True, positions are required to be in [-L_i/2,L_i/2) for each axis.
                       If False, [0, L_i) is used.
     '''
-    boxsize = np.array(boxsize)
+    boxsize = np.atleast_1d(np.array(boxsize))
     # Convert boxsize to (3,) array, if required
     if isinstance(boxsize, float):
         boxsize = np.array([boxsize, boxsize, boxsize])
@@ -46,9 +46,6 @@ def check_catalog(
         R = boxsize.astype(dtype)
 
     # Do checks
-    assert np.all(positions[:,0] >= L[0]), f'{repr(np.min(positions[:,0]))} falls out of the box on the left edge {repr(L[0])} along the 0-th axis'
-    assert np.all(positions[:,1] >= L[1]), f'{repr(np.min(positions[:,1]))} falls out of the box on the left edge {repr(L[1])} along the 1-st axis'
-    assert np.all(positions[:,2] >= L[2]), f'{repr(np.min(positions[:,2]))} falls out of the box on the left edge {repr(L[2])} along the 2-nd axis'
-    assert np.all(positions[:,0] < R[0]), f'{repr(np.max(positions[:,0]))} falls out of the box on the right edge {repr(R[0])} along the 0-th axis'
-    assert np.all(positions[:,1] < R[1]), f'{repr(np.max(positions[:,1]))} falls out of the box on the right edge {repr(R[1])} along the 1-st axis'
-    assert np.all(positions[:,2] < R[2]), f'{repr(np.max(positions[:,2]))} falls out of the box on the right edge {repr(R[2])} along the 2-nd axis'
+    for i in range(positions.shape[1]):
+        assert np.all(positions[:,i] >= L[i]), f'{repr(np.min(positions[:,i]))} falls out of the box on the left edge {repr(L[i])} along the 0-th axis'
+        assert np.all(positions[:,i] < R[i]), f'{repr(np.max(positions[:,i]))} falls out of the box on the right edge {repr(R[i])} along the 0-th axis'
