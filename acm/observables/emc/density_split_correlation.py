@@ -4,7 +4,7 @@ from pathlib import Path
 from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.xarray import dataset_to_dict
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 
