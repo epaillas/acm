@@ -229,7 +229,7 @@ class BaseObservableBGS(Observable):
             x_names = list(x_i.columns)
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
 
-            # Get the hod indexes to slice from the existing densities
+            # Get the HOD indexes from folder names (density filtering is optional)
             hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
             if n_hod is None:
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
