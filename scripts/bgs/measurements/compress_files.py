@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser.add_argument('--module', type=str, default='acm.observables.bgs', help='Base module path for observables')
     parser.add_argument('--measurements', type=str, nargs='+', help='List of measurements to process')
     parser.add_argument('--output', type=str, default='/pscratch/sd/s/sbouchar/acm/bgs/input_data/', help='Output directory for compressed files') # TODO: Change default
+    parser.add_argument('--add_covariance', action='store_true', help='Whether to add covariance to the compressed files')
     args = parser.parse_args()
     
     setup_logging()
@@ -26,4 +27,4 @@ if __name__ == "__main__":
             logger.error(f"Could not import class for measurement '{stat_name}': {e}")
             continue
         instance = cls()
-        instance.compress_data(add_covariance=True, save_to=args.output)
+        instance.compress_data(add_covariance=args.add_covariance, save_to=args.output)
