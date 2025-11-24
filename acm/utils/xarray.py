@@ -70,5 +70,4 @@ def split_vars(*data_vars, **kwargs):
     for v in data_vars:
         v_in = v.sel(**kwargs)
         v_out = v.drop_sel(**kwargs)
-    
         yield v_in, v_out
