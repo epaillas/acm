@@ -48,3 +48,27 @@ def dataset_from_dict(data_dict: dict) -> xr.Dataset:
             name=var_info.get('name', None)
         )
     return xr.Dataset(data_vars=data_vars)
+
+def split_vars(*data_vars, **kwargs):
+    """
+    Splits variables of a DataSet in two: the selected values, and the non-selected values.
+    
+    Parameters
+    ----------
+    *data_vars : xr.DataArray
+        The data variables to split.
+    **kwargs : dict
+        The selection criteria (e.g., dim=value) to pass to sel and drop_sel.
+    
+    Yields
+    -------
+    v_in : xr.DataArray
+        The selected values.
+    v_out : xr.DataArray
+        The non-selected values.
+    """
+    for v in data_vars:
+        v_in = v.sel(**kwargs)
+        v_out = v.drop_sel(**kwargs)
+    
+        yield v_in, v_out

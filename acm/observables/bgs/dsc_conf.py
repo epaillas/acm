@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 from .base import BaseObservableBGS
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.xarray import dataset_to_dict
 
 class DensitySplitCorrelationFunctionMultipoles(BaseObservableBGS):
     """
