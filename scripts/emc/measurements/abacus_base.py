@@ -284,6 +284,7 @@ def compute_minkowski(output_fn, positions, **attrs):
 def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), cellsize=5, recon=False, los='z', **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
+    from pycorr import TwoPointCorrelationFunction
 
     sv = SphericalVoids(data_positions=positions, cellsize=cellsize, 
                         reconstruct='rsd' if recon else None, 
