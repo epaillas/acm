@@ -281,13 +281,13 @@ def compute_minkowski(output_fn, positions, **attrs):
     print(f'Saving {output_fn}')
     np.save(output_fn, mfs3d)
 
-def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), cellsize=5, recon=False, los='z', **attrs):
+def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), cellsize=5, recon=False, **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
 
     sv = SphericalVoids(data_positions=positions, cellsize=cellsize, 
                         reconstruct='rsd' if recon else None, 
-                        recon_args={'f': 0.76, 'bias': 2., 'los': los, 'smoothing_radius': 10.})
+                        recon_args={'f': 0.76, 'bias': 2., 'los': attrs['los'], 'smoothing_radius': 10.},
                         **attrs)
     sv.run_voidfinding(radii, threads=32)
     
@@ -297,7 +297,7 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), ce
 
     # comoving number density of voids
     n_v = np.vstack([sorted(radii, reverse=True),
-                    sv.void_count / np.prod(box_args['boxsize'])])  
+                    sv.void_count / np.prod(attrs['boxsize'])])  
     print(f"Saving spherical VSF to {output_fn['vsf']}")
     np.save(output_fn['vsf'], n_v)
 
@@ -314,8 +314,8 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), ce
     xivg = TwoPointCorrelationFunction(
         'smu', edges=edges, data_positions1=sv.void_position,
         data_positions2=positions,
-        engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,# gpu=True,
-        compute_sepsavg=False, position_type='pos', los=los,
+        engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
+        compute_sepsavg=False, position_type='pos', los=attrs['los'],
     )
     print(f"Saving spherical vg-CCF to {output_fn['xivg']}")
     xivg.save(output_fn['xivg'])
@@ -323,8 +323,8 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 48, 2), ce
     # void auto correlation
     xivv = TwoPointCorrelationFunction(
         'smu', edges=edges, data_positions1=sv.void_position,
-        engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,# gpu=True,
-        compute_sepsavg=False, position_type='pos', los=los,
+        engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
+        compute_sepsavg=False, position_type='pos', los=attrs['los'],
     )
     print(f"Saving spherical vv-ACF to {output_fn['xivv']}")
     xivv.save(output_fn['xivv'])
@@ -601,32 +601,34 @@ if __name__ == '__main__':
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = {
-                            'void': Path(save_dir) / f'sv_void_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                            'vsf' : Path(save_dir) / f'sv_vsf_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                            'xivg': Path(save_dir) / f'sv_xivg_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                            'void': Path(save_dir) / f'sv_void_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
+                            'vsf' : Path(save_dir) / f'sv_vsf_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
+                            'xivg': Path(save_dir) / f'sv_xivg_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
                             'xivv': Path(save_dir) / f'sv_xivv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         }
                         if output_fn['void'].exists() and output_fn['vsf'].exists() and output_fn['xivg'].exists() and output_fn['xivv'].exists():
                             logger.info(f'Skipping sv_*_c{cosmo_idx:03}_hod{hod_idx:03}.npy, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        compute_spherical_voids(output_fn, hod_positions, boxsize, los='z')
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0, los='z')
+                        compute_spherical_voids(output_fn, hod_positions, **box_args)
 
                     if 'recon_spherical_voids' in args.todo_stats:
                         save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/recon_spherical_voids/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = {
-                            'void': Path(save_dir) / f'sv_recon_void_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                            'vsf' : Path(save_dir) / f'sv_recon_vsf_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                            'xivg': Path(save_dir) / f'sv_recon_xivg_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                            'void': Path(save_dir) / f'sv_recon_void_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
+                            'vsf' : Path(save_dir) / f'sv_recon_vsf_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
+                            'xivg': Path(save_dir) / f'sv_recon_xivg_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
                             'xivv': Path(save_dir) / f'sv_recon_xivv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         }
                         if output_fn['void'].exists() and output_fn['vsf'].exists() and output_fn['xivg'].exists() and output_fn['xivv'].exists():
                             logger.info(f'Skipping sv_recon_*_c{cosmo_idx:03}_hod{hod_idx:03}.npy, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        compute_spherical_voids(output_fn, hod_positions, boxsize, los='z', recon=True)
+                        box_args = dict(boxsize=boxsize, boxcenter=0.0, los='z')
+                        compute_spherical_voids(output_fn, hod_positions, recon=True, **box_args)
                     
                     if 'dr_knn' in args.todo_stats:
                         save_dir = '/pscratch/sd/p/pd2487/knn_measurements/'
