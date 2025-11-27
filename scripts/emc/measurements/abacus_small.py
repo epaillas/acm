@@ -454,7 +454,13 @@ if __name__ == '__main__':
             }
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
-            compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
+            while True:
+                try:
+                    compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
+                    break
+                except Exception as e:
+                    logger.info(f"{e} occured. Retrying measurement ph{phase_idx:03}.") 
+                    continue
 
         if 'recon_spherical_voids' in args.todo_stats:
             save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/small/recon_spherical_voids/'
@@ -468,7 +474,13 @@ if __name__ == '__main__':
             }
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
-            compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
+            while True:
+                try:
+                    compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
+                    break
+                except Exception as e:
+                    logger.info(f"{e} occured. Retrying measurement ph{phase_idx:03}.") 
+                    continue
 
         # if 'recon_tpcf' in args.todo_stats:
         #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/recon_tpcf/'

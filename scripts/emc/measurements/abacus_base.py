@@ -601,35 +601,49 @@ if __name__ == '__main__':
                         save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/spherical_voids/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        label = 'c{cosmo_idx:03}_hod{hod_idx:03}' 
                         output_fn = {
-                            'void': Path(save_dir) / f'sv_void_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
-                            'vsf' : Path(save_dir) / f'sv_vsf_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
-                            'xivg': Path(save_dir) / f'sv_xivg_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
-                            'xivv': Path(save_dir) / f'sv_xivv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                            'void': Path(save_dir) / f'sv_void_{label}.npy',
+                            'vsf' : Path(save_dir) / f'sv_vsf_{label}.npy',
+                            'xivg': Path(save_dir) / f'sv_xivg_{label}.npy',
+                            'xivv': Path(save_dir) / f'sv_xivv_{label}.npy'
                         }
                         if output_fn['void'].exists() and output_fn['vsf'].exists() and output_fn['xivg'].exists() and output_fn['xivv'].exists():
-                            logger.info(f'Skipping sv_*_c{cosmo_idx:03}_hod{hod_idx:03}.npy, already exists.')
+                            logger.info(f'Skipping sv_*_{label}.npy, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
-                        compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
+                        while True:
+                            try:
+                                compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
+                                break
+                            except Exception as e:
+                                logger.info(f"{e} occured. Retrying measurement {label}.") 
+                                continue
 
                     if 'recon_spherical_voids' in args.todo_stats:
                         save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/recon_spherical_voids/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        label = 'c{cosmo_idx:03}_hod{hod_idx:03}' 
                         output_fn = {
-                            'void': Path(save_dir) / f'sv_recon_void_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
-                            'vsf' : Path(save_dir) / f'sv_recon_vsf_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
-                            'xivg': Path(save_dir) / f'sv_recon_xivg_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
-                            'xivv': Path(save_dir) / f'sv_recon_xivv_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                            'void': Path(save_dir) / f'sv_recon_void_{label}.npy',
+                            'vsf' : Path(save_dir) / f'sv_recon_vsf_{label}.npy',
+                            'xivg': Path(save_dir) / f'sv_recon_xivg_{label}.npy',
+                            'xivv': Path(save_dir) / f'sv_recon_xivv_{label}.npy'
                         }
                         if output_fn['void'].exists() and output_fn['vsf'].exists() and output_fn['xivg'].exists() and output_fn['xivv'].exists():
-                            logger.info(f'Skipping sv_recon_*_c{cosmo_idx:03}_hod{hod_idx:03}.npy, already exists.')
+                            logger.info(f'Skipping sv_recon_*_{label}.npy, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
-                        compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
+                        while True:
+                            try:
+                                compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
+                                break
+                            except Exception as e:
+                                logger.info(f"{e} occured. Retrying measurement {label}.") 
+                                continue
                     
                     if 'dr_knn' in args.todo_stats:
                         save_dir = '/pscratch/sd/p/pd2487/knn_measurements/'
