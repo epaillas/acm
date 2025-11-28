@@ -617,6 +617,9 @@ class Observable():
         bin_idx = np.arange(len(data))
         model = self.get_model_prediction(model_params)
         
+        if len(data.shape) > 1:
+            self.logger.warning("Multiple samples found in the data. This might lead to unexpected plotting behavior.")
+        
         volume_factor = kwargs.pop('volume_factor', 64)
         prefactor = kwargs.pop('prefactor', 1)
         cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
