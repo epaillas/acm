@@ -365,7 +365,7 @@ class Observable():
         """
         Path to the checkpoint file of the model, constructed from the paths and the statistic name.
         """
-        return self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name'] # FIXME : Update this format later
+        return self.paths['model_dir'] + f'{self.stat_name}.ckpt'
    
     def load_model(self, checkpoint_fn: str = None) -> FCN:
         """
