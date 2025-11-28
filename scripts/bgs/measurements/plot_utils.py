@@ -1,7 +1,5 @@
 import numpy as np
 from pathlib import Path
-import matplotlib.pyplot as plt
-
 
 def csv_to_structured_array(filename: str | Path, **kwargs) -> np.ndarray:
     """
