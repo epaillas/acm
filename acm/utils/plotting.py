@@ -96,7 +96,7 @@ def plot_parameters_triangle(parameters: list, names: list[str], mapping: dict =
     colors = kwargs.pop('colors', [f'C{i}' for i in range(len(parameters))])
     bins = kwargs.pop('bins', 30)
     histtype = kwargs.pop('histtype', 'step')
-    alpha = kwargs.pop('alpha', 1/len(parameters) if len(parameters) > 0 else 1.0)
+    alpha = kwargs.pop('alpha', 1.0 / len(parameters) if len(parameters) else 1.0)
     s = kwargs.pop('s', 1)  # size of scatter points
     
     fig, axes = plt.subplots(len(names), len(names), figsize=figsize)
