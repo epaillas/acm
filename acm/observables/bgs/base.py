@@ -175,7 +175,7 @@ class BaseObservableBGS(Observable):
             for hod in hod_idx:
                 density_fn = stat_dir / f'hod{hod:03d}' / 'density.npy'
                 if density_fn.exists():
-                    density = np.load(density_fn)
+                    density = np.load(density_fn).item()
                     if density >= density_threshold:
                         filtered_hod_idx.append(hod)
             hod_idx = filtered_hod_idx
