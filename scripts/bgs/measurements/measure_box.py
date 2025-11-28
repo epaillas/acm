@@ -9,8 +9,9 @@ Usage:
 
 Directories and files:
 - HOD catalogs should be stored in a directory structure like:
-  root/cXXX_phYYY/seedZ/hodAAA/galaxies.fits
-  where XXX is the cosmology index, YYY is the phase index, Z is the seed, and AAA is the HOD index.
+  <base_dir>/cXXX_phYYY/seedZ/hodAAA/galaxies.fits
+  where <base_dir> is the root directory for your HOD catalogs, XXX is the cosmology index, YYY is the phase index, Z is the seed, and AAA is the HOD index.
+  The <base_dir> can be specified via configuration, environment variable, or command-line argument, depending on your setup. Please refer to the code or documentation for details on how to set this path.
 - Results will be saved in a similar structure under their respective name and formats.
 """
 import gc
