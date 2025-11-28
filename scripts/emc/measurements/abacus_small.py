@@ -444,7 +444,6 @@ if __name__ == '__main__':
 
         if 'spherical_voids' in args.todo_stats:
             save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/small/spherical_voids/'
-            save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = {
                 'void': Path(save_dir) / f'sv_void_ph{phase_idx:03}.npy',
@@ -464,7 +463,6 @@ if __name__ == '__main__':
 
         if 'recon_spherical_voids' in args.todo_stats:
             save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/small/recon_spherical_voids/'
-            save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = {
                 'void': Path(save_dir) / f'sv_recon_void_ph{phase_idx:03}.npy',
