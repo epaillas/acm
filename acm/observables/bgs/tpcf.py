@@ -1,10 +1,13 @@
 import xarray
 import numpy as np
 from pathlib import Path
+import matplotlib.pyplot as plt
 from pycorr import TwoPointEstimator
 from .base import BaseObservableBGS
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     """
@@ -212,6 +215,81 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             np.save(save_fn, dataset_to_dict(cout))
             self.logger.info(f'Saving compressed data to {save_fn}')
         return cout
+    
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_observable(self, model_params: dict, save_fn: str = None, ells: list = [0, 2], **kwargs) -> tuple:
+        """
+        Plot the observable with error bars and the model prediction, along with the residuals.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters for the prediction.
+        save_fn : str, optional
+            Filename to save the plot. If None, the plot is not saved.
+        **kwargs : dict
+            Additional arguments for the plot, such as height_ratios and show_legend, and volume_factor and prefactor for covariance calculation.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+        height_ratios = kwargs.pop('height_ratios', [3, 1])
+        show_legend = kwargs.pop('show_legend', False)
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, ax = plt.subplots(len(height_ratios), sharex=True, sharey=False, gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        
+        ax[-1].set_xlabel(r'$s [(\mathrm{Mpc}/h)]$', fontsize=15)
+        ax[0].set_ylabel(r'$s^2 \xi_{\ell}(s) [(\mathrm{Mpc}/h)^2]$', fontsize=15)
+        
+        volume_factor = kwargs.pop('volume_factor', 64)
+        prefactor = kwargs.pop('prefactor', 1)
+        
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
+        
+        s = self.s.values
+        for i, ell in enumerate(ells):
+            self.select_filters.update({'ells': ell})
+            data = self.y
+            model = self.get_model_prediction(model_params)
+            cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+            error = np.sqrt(np.diag(cov))
+            
+            if len(data.shape) > 1:
+                self.logger.warning("Multiple samples found in the data. This might lead to unexpected plotting behavior.")
+        
+            ax[0].errorbar(s, data*s**2, error*s**2, marker='o', ms=4, ls='', color=f'C{i}', elinewidth=1.0, capsize=None, label=fr'$\ell={ell}$')
+            ax[0].plot(s, model*s**2, ls='-', color=f'C{i}')
+            ax[1].plot(s, (data - model) / error, ls='-', color=f'C{i}')
+        
+            for offset in [-2, 2]: 
+                ax[1].axhline(offset, color='k', ls='--')
+            
+            ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+            ax[1].set_ylim(-4, 4)
+        
+        # Restore select_filters
+        self.select_filters = default_select_filters
+        
+        for a in ax:
+            a.grid(True)
+            a.tick_params(axis='both', labelsize=14)
+            
+        if show_legend: 
+            ax[0].legend(fontsize=15)
+        
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax
     
 # Alias
 tpcf = GalaxyCorrelationFunctionMultipoles
