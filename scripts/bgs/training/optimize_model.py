@@ -2,6 +2,7 @@ import torch
 import logging
 import argparse
 from pathlib import Path
+from astropy.stats import sigma_clip
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
 from acm.model.optimize import StudyFCN
 from acm.observables import Observable
@@ -21,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--transform', type=str, default=None, help='Data transform to apply (e.g., log, arcsinh)')
     parser.add_argument('--same_n_hidden', action='store_true', help='Whether to use the same number of hidden units')
     parser.add_argument('--log_level', type=str, default='warning', help='Set logging level (e.g., DEBUG, INFO)')
+    parser.add_argument('--sigma', type=float, default=6.0, help='Sigma threshold for clipping outliers from training data. Set to 0 to disable.')
     args = parser.parse_args()
     
     logger = logging.getLogger(__file__.split('/')[-1])
@@ -55,6 +57,13 @@ if __name__ == '__main__':
         lhc_y = observable.get('y_train', observable.y[idx_train])
         lhc_x_names = observable.x_names
         # covariance_matrix = observable.get_covariance_matrix() # Not used in mae loss
+        
+        # sigma clipping
+        if args.sigma > 0:
+            mask = sigma_clip(lhc_y, sigma=args.sigma, masked=True, axis=0).mask.any(axis=1)
+            lhc_x = lhc_x[~mask]
+            lhc_y = lhc_y[~mask]
+            logger.info(f'Removed {mask.sum()} outliers from training data using sigma={args.sigma} clipping')
         
         StudyFCN(
             n_trials=args.n_trials,
