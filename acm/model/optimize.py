@@ -1,5 +1,6 @@
 import joblib
 import optuna
+import shutil
 import logging
 import tempfile
 import numpy as np
@@ -176,7 +177,7 @@ def StudyFCN(
             save_dir = Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
             save_best_fn = save_dir / f'{study_fn.stem}.ckpt'
-            best_checkpoint.rename(save_best_fn)
+            shutil.copy(best_checkpoint, save_best_fn)
             logger.info(f'Moved best model checkpoint to {save_best_fn}')
     return study
 
