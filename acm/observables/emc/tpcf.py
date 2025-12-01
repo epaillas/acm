@@ -4,7 +4,7 @@ from pathlib import Path
 from pycorr import TwoPointCorrelationFunction
 from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.xarray import dataset_to_dict, split_vars
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
@@ -90,6 +90,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         n_hod: int = 100,
         phase_idx: int = 0,
         seed_idx: int = 0,
+        test_filters: dict = None,
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -114,6 +115,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             TODO
         seed_idx : int
             TODO
+        test_filters : dict, optional
+            Dictionary of selection criteria to split data into train and test sets,
+            passed to `split_vars`. Each key-value pair specifies a dimension and its
+            selection values (e.g., {'cosmo_idx': [0, 1, 2]}). If None, no train/test
+            split is performed. Default is None.
             
         Returns
         -------
@@ -160,6 +166,13 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if add_covariance:
             cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s)
             cout = xarray.merge([cout, cov_y])
+        if test_filters:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
