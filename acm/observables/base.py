@@ -688,7 +688,7 @@ class Observable():
         ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
         ax[1].set_xlabel('bin index', fontsize=13)
         ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
-        ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)
+        ax[1].set_ylabel(r'$\sigma_{\rm emulator} / \sigma_{\rm data}$', fontsize=13)
         ax[1].legend(fontsize=8)
         fig.tight_layout()
         if save_fn is not None:
