@@ -2,16 +2,17 @@ import numpy as np
 import logging
 import scipy.spatial
 from functools import partial
+from multiprocessing import Pool
 from numba import njit, types, jit, prange
 
-import ray
-from fast_histogram import histogram2d
-import pyfnntw
+#import ray
+#from fast_histogram import histogram2d
+#import pyfnntw
 
-from .base import BaseEnvironmentEstimator
+from .base import BaseEstimator
 
         
-class KthNearestNeighbor(BaseEnvironmentEstimator):
+class KthNearestNeighbor(BaseEstimator):
     """
     Class to compute the knns.
     """
@@ -21,67 +22,26 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
         self.logger.info('Initializing KthNearestNeighbor.')
         super().__init__(**kwargs)
 
-    def is_linear_or_log(self, X):
-        """
-        check if binning is linear or log
-        """
-        diffs = np.diff(X)
-        ratios = np.divide(diffs[:-1], diffs[1:])
-        avg_diff = np.mean(diffs)
-        avg_ratio = np.mean(ratios)
-        std_diff = np.std(diffs)
-        std_ratio = np.std(ratios)
-        if abs(std_diff) < 1e-4:
-            return "linear"
-        elif abs(std_ratio) < 1e-4:
-            return "log"
-        else:
-            return "neither"
-
-    @njit(parallel = True)
-    def convert_rppi(self, disi, xgal, xrand, k): 
-        """
-        Convert 3d distances to transverse and line of sight
-        """
-        dis_trans = -np.ones((len(xrand), len(k)), dtype = np.float32)
-        dis_par = -np.ones((len(xrand), len(k)), dtype = np.float32)
-        for ik in prange(len(k)):
-            ineighs = disi[:, ik]
-            delta_pos = xgal[ineighs] - xrand
-            delta_trans = np.sqrt(delta_pos[:, 0]**2 + delta_pos[:, 1]**2)
-            delta_par = np.absolute(delta_pos[:, 2])
-            dis_trans[:, ik] = delta_trans          
-            dis_par[:, ik] = delta_par 
-        return dis_trans, dis_par
-
-    def VolumekNN_par_pimax_hist(self, xgal, xrand, pis, k = 1, nthread = 1, periodic = 0):
+    def compute_knn_distances(self, data, query, k, periodic, nthread=1, leafsize=32):
         """
         pair finding with scipy ckdtree
         """
+        # Make sure k in an array
         if isinstance(k, int): 
             k = [k] 
 
-        xtree = scipy.spatial.cKDTree(xgal, boxsize=periodic, leafsize = 16)
-
-        _, disi = xtree.query(xrand, k=k)
-
-        dis_trans, dis_par = self.convert_rppi(disi, xgal, xrand, k)
-
-        return dis_trans, dis_par
-
-    def get_trans_par_fnntw(self, data, query, k, LS = 32, lbox = 1):
-        """
-        pair finding with pyfnntw
-        """
-        if lbox <= 0:
-            xtree = pyfnntw.Treef32(data, leafsize=LS)
+        # If any value is < 0, don't use periodic boxes
+        if np.any(periodic <= 0):
+            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize)
         else:
-            lbox = np.float32(lbox)
-            xtree = pyfnntw.Treef32(data, leafsize=LS, boxsize = np.array([lbox, lbox, lbox]))
+            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize, boxsize=periodic)
 
-        par, trans = xtree.query(query, k=k[-1], axis=2)
+        # Query the tree (this is parallel)
+        _, disi = xtree.query(query, k=k, workers=nthread)
 
-        return trans, par
+        # Conversion into 2D should be done separately
+        dis_trans, dis_par = convert_rppi(disi, data, query, k)
+        return dis_trans, dis_par
 
     def calc_cdf_hist(self, rs, pis, dis_t, dis_p):
         """
@@ -92,36 +52,25 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
         # are the bins lin or log
         rpbins = np.concatenate((np.zeros(1, dtype = np.float32), rs))
         pibins = np.concatenate((np.zeros(1, dtype = np.float32), pis))
-        scaling_t = self.is_linear_or_log(rpbins)
-        scaling_p = self.is_linear_or_log(pibins)
-
-        assert scaling_t == scaling_p
-
-        # args_list = [(self, ik, dis_t, dis_p, rpbins, pibins, scaling_t) for ik in range(dis_t.shape[1])]
-        # results = ray.get([calculate_cdfs.remote(*args) for args in args_list])
-        results = [self.calculate_cdfs(ik, dis_t, dis_p, rpbins, pibins, scaling_t) for ik in range(dis_t.shape[1])]
-        # print(results)
+        results = [self.calculate_single_cdf(ik, dis_t, dis_p, rpbins, pibins) for ik in range(dis_t.shape[1])]
 
         for ik, cdf in results:
             cdfs[ik] = cdf
 
         return cdfs
 
-    def calculate_cdfs(self, ik, dis_t, dis_p, rpbins, pibins, scaling):
+    def calculate_single_cdf(self, ik, dis_t, dis_p, rpbins, pibins):
         """
-        tabulate pair distances into 2d histogram, accelerated with ray 
+        tabulate pair distances into 2d histogram
         """
-        if scaling == 'linear':
-            dist_hist2d_k = histogram2d(dis_t[:, ik], dis_p[:, ik], 
-                            range=[[rpbins[0], rpbins[-1]], [pibins[0], pibins[-1]]], bins=[len(rpbins)-1, len(pibins)-1])
-        else:
-            dist_hist2d_k, _, _ = np.histogram2d(dis_t[:, ik], dis_p[:, ik], bins=(rpbins, pibins))
-
+        # Do 2d histogram of obtained rp and pi
+        dist_hist2d_k, _, _ = np.histogram2d(dis_t[:,ik], dis_p[:,ik], bins=(rpbins, pibins))
         dist_cdf2d_k = np.cumsum(np.cumsum(dist_hist2d_k, axis=0), axis=1)
+        # Normalization
         cdf = dist_cdf2d_k / dist_cdf2d_k[-1, -1]
         return (ik, cdf)
 
-    def run_knn(self, rs, pis, xgal, xrand, kneighbors = 1, nthread = 32, periodic = 0, method = 'fnn', randdown = 1, LS = 32):
+    def run_knn(self, rs, pis, xgal, xrand, kneighbors, periodic, nthread = 32, leafsize = 32):
         """
         run the knns calculator
 
@@ -139,45 +88,48 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
             the largest k to evaluate, default 1
         nthread : int
             number of threads, default 32 
-        periodic : 0 or 1
-            0 for non-periodic boundaries, 1 for periodic boundaries, default 0
-        method : str
-            what method to use for computing kdtrees. 
-            'fnn': a fast kD-tree library that aims to be one of the most, if not the most, performant parallel kNN libraries that exist. Recommended. 
-            See https://pypi.org/project/pyfnntw/. 
-            Otherwise, use standard ckdtree. 
-        randdown : float
-            downsampling factor for queries. default 1 (no downsampling).
-        LS : int
-            leaf size for fnn. default 32. 
+        periodic : list or np.ndarray of shape (3,) with periodic boxsizes along each axis.
+            If any value is less than zero, the box is assumed to be non-periodic along all axes
+        leafsize : int
+            leaf size for kdtree. default 32. 
             
         Returns
         -------
         knns_out : array_like
             final knn array in shape (k, len(rs), len(pis))
         """
+        # Check that 3D positions are given
         assert xgal.shape[1] == 3
         assert xrand.shape[1] == 3
 
-        rs = np.float32(rs)
-        pis = np.float32(pis)
-        xgal = np.float32(xgal)
-        xrand = np.float32(xrand)
+        # Convert to double for extra speed
+        rs       = np.float32(rs)
+        pis      = np.float32(pis)
+        xgal     = np.float32(xgal)
+        xrand    = np.float32(xrand)
+        periodic = np.float32(periodic)
 
         xgal = np.array(xgal, order="C") # data
         xrand = np.array(xrand, order="C") # queries
 
-        # downsample the queries if requested
-        if randdown > 1:
-            xrand = xrand[np.random.choice(np.arange(len(xrand)), size = int(len(xrand)/randdown), replace = False)]
+        # Prep periodic array, if a number, make it an array
+        periodic = np.array(periodic)
+        if (len(periodic.shape) == 0) or (periodic.shape[0] < 3):
+            periodic = np.ones(3) * periodic
+        assert periodic.shape==(3,), 'Boxsize should have shape (3,)'
 
-        # construct kdtrees and find pairs
-        if method == 'fnn':
-            dis_t, dis_p = self.get_trans_par_fnntw(xgal, xrand, 
-                                kneighbors, lbox = periodic, LS = LS)
-        else:
-            dis_t, dis_p = self.VolumekNN_par_pimax_hist(xgal, xrand, pis, 
-                                k=kneighbors, nthread = nthread, periodic = 0)            
+        # Do periodic wrap again in case float64->float32 conversion broke the box
+        #xgal = np.mod(xgal, periodic)
+
+        # Construct kDtree and query it
+        dis_t, dis_p = self.compute_knn_distances(
+                            data=xgal, 
+                            query=xrand, 
+                            k=kneighbors, 
+                            nthread=nthread, 
+                            periodic=periodic,
+                            leafsize=leafsize
+                        )            
 
         assert dis_t.shape == dis_p.shape
 
@@ -185,3 +137,20 @@ class KthNearestNeighbor(BaseEnvironmentEstimator):
         knns_out = self.calc_cdf_hist(rs, pis, dis_t, dis_p)
 
         return knns_out
+
+
+@njit(parallel = True)
+def convert_rppi(disi, xgal, xrand, k): 
+    """
+    Convert 3d distances to transverse and line of sight
+    """
+    dis_trans = -np.ones((len(xrand), len(k)), dtype = np.float32)
+    dis_par = -np.ones((len(xrand), len(k)), dtype = np.float32)
+    for ik in prange(len(k)):
+        ineighs = disi[:, ik]
+        delta_pos = xgal[ineighs] - xrand
+        delta_trans = np.sqrt(delta_pos[:, 0]**2 + delta_pos[:, 1]**2)
+        delta_par = np.absolute(delta_pos[:, 2])
+        dis_trans[:, ik] = delta_trans          
+        dis_par[:, ik] = delta_par 
+    return dis_trans, dis_par

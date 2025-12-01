@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
 from scipy.stats import median_abs_deviation, norm
-from acm.utils.xarray_data import dataset_from_dict
+from acm.utils.xarray import dataset_from_dict
 from acm.utils.covariance import orthogonal_gk_mad_covariance
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
@@ -146,6 +146,9 @@ class Observable():
             if name in self.select_indices_on:
                 data = self.apply_indices_selection(data)
             
+            # Drop NaN dimensions if marked in attributes
+            data = self.drop_nan_dimensions(data)
+            
             data = self.flatten_output(data, self.flat_output_dims)
         
             if self.squeeze_output:
@@ -155,6 +158,33 @@ class Observable():
                 data = data.values
             
         return data
+    
+    def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+        """
+        Drops dimensions that contain only NaN values in a DataArray.
+        Does nothing if no 'nan_dims' attribute is found.
+
+        Parameters
+        ----------
+        dataarray : xarray.DataArray
+            The DataArray to drop NaN dimensions from. Must contain a 'nan_dims' attribute listing dimensions to check.
+
+        Returns
+        -------
+        xarray.DataArray
+            The DataArray with NaN dimensions dropped.
+        """
+        if 'nan_dims' not in dataarray.attrs:
+            return dataarray
+        
+        for dim in dataarray.attrs['nan_dims']:
+            # Ignore if dimension not present (e.g., already squeezed or filtered out)
+            if dim not in dataarray.dims: 
+                continue
+            dataarray = dataarray.dropna(dim=dim, how='all')
+        if dataarray.size == 0:
+            self.logger.warning(f"All values dropped for {dataarray.name} due to NaN filters.")
+        return dataarray
 
     @staticmethod
     def stack_on_attribute(attribute: str|dict, dataarray: xarray.DataArray, **kwargs) -> xarray.DataArray:
