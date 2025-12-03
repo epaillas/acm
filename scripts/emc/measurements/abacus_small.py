@@ -226,19 +226,12 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     print(f"Saving spherical VSF to {output_fn['vsf']}")
     np.save(output_fn['vsf'], n_v)
 
-
-    # correlation functions
-    redges = np.hstack([np.arange(0, 5, 1),
-                        np.arange(7, 30, 3),
-                        np.arange(31, 80, 5),
-                        np.arange(81, 150, 8)])
-    muedges = np.linspace(-1, 1, 241)
-    edges = (redges, muedges)
-
     # void-galaxy cross correlation
+    muedges = np.linspace(-1, 1, 241)
+    redges = np.hstack([np.arange(3, 80, 4), np.arange(83, 150, 7)])
     xivg = TwoPointCorrelationFunction(
-        'smu', edges=edges, data_positions1=sv.void_position,
-        data_positions2=positions,
+        'smu', edges=(redges, muedges), 
+        data_positions1=sv.void_position, data_positions2=positions,
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
         compute_sepsavg=False, position_type='pos', los=los,
     )
@@ -246,8 +239,10 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     xivg.save(output_fn['xivg'])
 
     # void auto correlation
+    redges = np.hstack([35, np.arange(40, 80, 2), np.arange(81, 150, 8)])
     xivv = TwoPointCorrelationFunction(
-        'smu', edges=edges, data_positions1=sv.void_position,
+        'smu', edges=(redges, muedges), 
+        data_positions1=sv.void_position,
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
         compute_sepsavg=False, position_type='pos', los=los,
     )
@@ -453,13 +448,7 @@ if __name__ == '__main__':
             }
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
-            while True:
-                try:
-                    compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
-                    break
-                except Exception as e:
-                    logger.info(f"{e} occured. Retrying measurement ph{phase_idx:03}.") 
-                    continue
+            compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
 
         if 'recon_spherical_voids' in args.todo_stats:
             save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/small/recon_spherical_voids/'
@@ -472,13 +461,7 @@ if __name__ == '__main__':
             }
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
-            while True:
-                try:
-                    compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
-                    break
-                except Exception as e:
-                    logger.info(f"{e} occured. Retrying measurement ph{phase_idx:03}.") 
-                    continue
+            compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
 
         # if 'recon_tpcf' in args.todo_stats:
         #     save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/recon_tpcf/'
