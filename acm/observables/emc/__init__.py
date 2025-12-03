@@ -8,6 +8,5 @@ from .dd_knn import DDkNN
 from .density_split_correlation import DensitySplitGalaxyCorrelationFunctionMultipoles
 from .vide import VIDEVoidGalaxyCorrelationFunctionMultipoles
 from .wst import WaveletScatteringTransform
-from .versus import VERSUSVoidSizeFunction
-
+from .versus import VERSUSVoidSizeFunction, ReconstructedVERSUSVoidSizeFunction, VERSUSVoidGalaxyCorrelationMultipoles, ReconstructedVERSUSVoidGalaxyCorrelationMultipoles, VERSUSVoidAutoCorrelationMultipoles, ReconstructedVERSUSVoidAutoCorrelationMultipoles
 from .priors.priors import get_priors
