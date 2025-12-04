@@ -208,7 +208,7 @@ class BaseCatalogMeshEstimator(BaseEstimator):
         """
         return self.mesh.with_randoms
 
-    def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian'):
+    def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian', random_threshold_replacement=0.0):
         """
         Set the density contrast.
 
@@ -216,12 +216,13 @@ class BaseCatalogMeshEstimator(BaseEstimator):
         ----------
         smoothing_radius : float, optional
             Smoothing radius.
-        check : bool, optional
-            Check if there are enough randoms.
-        ran_min : float, optional
-            Minimum randoms.
-        nquery_factor : int, optional
-            Factor to multiply the number of data points to get the number of query points.
+        compensate : bool, optional
+            Compensate for aliasing effects.
+        filter_shape : str, optional
+            Shape of the filter to use for smoothing. Options are 'Gaussian' or 'TopHat'.
+        random_threshold_replacement : float, optional
+            Value to use for replacing density contrast in cells where randoms are below the threshold.
+            Default is 0.0.
             
         Returns
         -------
@@ -245,7 +246,7 @@ class BaseCatalogMeshEstimator(BaseEstimator):
             delta_mesh = data_mesh - alpha * randoms_mesh
             mask = randoms_mesh > 0
             delta_mesh[mask] /= alpha * randoms_mesh[mask]
-            delta_mesh[~mask] = 0.0
+            delta_mesh[~mask] = random_threshold_replacement
             shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
         else:
             nmesh = self.mesh.nmesh
