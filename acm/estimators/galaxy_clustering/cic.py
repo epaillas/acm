@@ -1,6 +1,5 @@
 import time
 import logging
-import numpy as np
 import matplotlib.pyplot as plt
 from .base import BaseDensityMeshEstimator
 from acm.utils.plotting import set_plot_style
