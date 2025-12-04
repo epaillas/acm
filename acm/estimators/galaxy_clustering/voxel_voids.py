@@ -243,7 +243,7 @@ class VoxelVoids(BaseDensityMeshEstimator):
     def plot_slice(self, data_positions=None, save_fn=None):
         """
         Plot a slice of the density field.
-        """        
+        """
         nmesh = self.delta_mesh.nmesh
         boxsize = self.delta_mesh.boxsize
         boxcenter = self.delta_mesh.boxcenter
