@@ -10,6 +10,9 @@ class BaseEstimator:
     Base estimator class.
     """
     def __init__(self):
+        """
+        Initialize the base estimator.
+        """
         pass
 
 
@@ -18,6 +21,14 @@ class BaseEnvironmentEstimator(BaseEstimator):
     Base estimator class for environment-based estimators.
     """
     def __init__(self, **kwargs):
+        """
+        Initialize the base environment estimator.
+        
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments passed to RealMesh for mesh initialization.
+        """
         super().__init__()
         self.data_mesh = RealMesh(**kwargs)
         self.randoms_mesh = RealMesh(**kwargs)
@@ -67,9 +78,17 @@ class BaseEnvironmentEstimator(BaseEstimator):
 
     @property
     def has_randoms(self):
+        """
+        Check if random catalog has been assigned to the mesh.
+        
+        Returns
+        -------
+        bool
+            True if randoms have been assigned, False otherwise.
+        """
         return self.randoms_mesh.value is not None
 
-    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False):
+    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False, random_threshold_replacement=0.0):
         """
         Set the density contrast.
 
@@ -81,8 +100,11 @@ class BaseEnvironmentEstimator(BaseEstimator):
             Check if there are enough randoms.
         ran_min : float, optional
             Minimum randoms.
-        nquery_factor : int, optional
-            Factor to multiply the number of data points to get the number of query points.
+        save_wisdom : bool, optional
+            Save FFTW wisdom for future use.
+        random_threshold_replacement : float, optional
+            Value to use for replacing density contrast in cells where randoms are below the threshold.
+            Default is 0.0.
             
         Returns
         -------
@@ -105,7 +127,7 @@ class BaseEnvironmentEstimator(BaseEstimator):
             self.ran_min = ran_min * sum_randoms / self._size_randoms
             mask = self.randoms_mesh > self.ran_min
             self.delta_mesh[mask] /= alpha * self.randoms_mesh[mask]
-            self.delta_mesh[~mask] = 0.0
+            self.delta_mesh[~mask] = random_threshold_replacement
         else:
             self.delta_mesh = self.data_mesh / np.mean(self.data_mesh) - 1.
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
@@ -157,7 +179,18 @@ class BaseEnvironmentEstimator(BaseEstimator):
 
 
 class BaseCatalogMeshEstimator(BaseEstimator):
+    """
+    Base estimator class for catalog mesh-based estimators.
+    """
     def __init__(self, **kwargs):
+        """
+        Initialize the base catalog mesh estimator.
+        
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments passed to CatalogMesh for mesh initialization.
+        """
         self.mesh = CatalogMesh(**kwargs, interlacing=0, resampler='tsc')
         self.logger.info(f'Box size: {self.mesh.boxsize}')
         self.logger.info(f'Box center: {self.mesh.boxcenter}')
@@ -165,6 +198,14 @@ class BaseCatalogMeshEstimator(BaseEstimator):
 
     @property
     def has_randoms(self):
+        """
+        Check if random catalog has been assigned to the mesh.
+        
+        Returns
+        -------
+        bool
+            True if randoms have been assigned, False otherwise.
+        """
         return self.mesh.with_randoms
 
     def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian'):
@@ -262,18 +303,43 @@ class BaseCatalogMeshEstimator(BaseEstimator):
             return np.random.rand(nquery, 3) * boxsize
 
     class TopHat(object):
-        '''Top-hat filter in Fourier space
-        adapted from https://github.com/bccp/nbodykit/
+        """
+        Top-hat filter in Fourier space.
+        
+        Adapted from https://github.com/bccp/nbodykit/
 
         Parameters
         ----------
         r : float
-            the radius of the top-hat filter
-        '''
+            The radius of the top-hat filter.
+        """
         def __init__(self, r):
+            """
+            Initialize the top-hat filter.
+            
+            Parameters
+            ----------
+            r : float
+                The radius of the top-hat filter.
+            """
             self.r = r
 
         def __call__(self, k, v):
+            """
+            Apply the top-hat filter in Fourier space.
+            
+            Parameters
+            ----------
+            k : array_like
+                Wave vector components.
+            v : array_like
+                Field values in Fourier space.
+                
+            Returns
+            -------
+            array_like
+                Filtered field values.
+            """
             r = self.r
             k = sum(ki ** 2 for ki in k) ** 0.5
             kr = k * r
@@ -284,17 +350,41 @@ class BaseCatalogMeshEstimator(BaseEstimator):
 
 
     class Gaussian(object):
-        '''Gaussian filter in Fourier space
+        """
+        Gaussian filter in Fourier space.
 
         Parameters
         ----------
         r : float
-            the radius of the Gaussian filter
-        '''
+            The radius of the Gaussian filter.
+        """
         def __init__(self, r):
+            """
+            Initialize the Gaussian filter.
+            
+            Parameters
+            ----------
+            r : float
+                The radius of the Gaussian filter.
+            """
             self.r = r
 
         def __call__(self, k, v):
+            """
+            Apply the Gaussian filter in Fourier space.
+            
+            Parameters
+            ----------
+            k : array_like
+                Wave vector components.
+            v : array_like
+                Field values in Fourier space.
+                
+            Returns
+            -------
+            array_like
+                Filtered field values.
+            """
             r = self.r
             k2 = sum(ki ** 2 for ki in k)
             return np.exp(- 0.5 * k2 * r**2) * v
@@ -306,4 +396,12 @@ class BasePolyBinEstimator(PolyBin3D):
     (https://github.com/oliverphilcox/PolyBin3D).
     """
     def __init__(self, **kwargs):
+        """
+        Initialize the base PolyBin estimator.
+        
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments passed to PolyBin3D for initialization.
+        """
         super().__init__(**kwargs)
