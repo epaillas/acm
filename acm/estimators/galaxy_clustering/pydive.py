@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 import matplotlib
-import matplotlib.pyplot as plt        
+import matplotlib.pyplot as plt
 from pypower import CatalogFFTPower
 from pycorr import TwoPointCorrelationFunction
 from .base import BaseEstimator
