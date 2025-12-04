@@ -18,6 +18,14 @@ class BaseEnvironmentEstimator(BaseEstimator):
     Base estimator class for environment-based estimators.
     """
     def __init__(self, **kwargs):
+        """
+        Initialize the BaseEnvironmentEstimator.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments passed to RealMesh for both data and randoms meshes.
+        """
         super().__init__()
         self.data_mesh = RealMesh(**kwargs)
         self.randoms_mesh = RealMesh(**kwargs)
@@ -67,9 +75,17 @@ class BaseEnvironmentEstimator(BaseEstimator):
 
     @property
     def has_randoms(self):
+        """
+        Check if randoms have been assigned to the mesh.
+
+        Returns
+        -------
+        bool
+            True if randoms have been assigned, False otherwise.
+        """
         return self.randoms_mesh.value is not None
 
-    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False):
+    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False, random_threshold_replacement=0.0):
         """
         Set the density contrast.
 
@@ -81,8 +97,11 @@ class BaseEnvironmentEstimator(BaseEstimator):
             Check if there are enough randoms.
         ran_min : float, optional
             Minimum randoms.
-        nquery_factor : int, optional
-            Factor to multiply the number of data points to get the number of query points.
+        save_wisdom : bool, optional
+            Save FFTW wisdom for faster future computations.
+        random_threshold_replacement : float, optional
+            Value to use for density contrast in cells below the random threshold.
+            Defaults to 0.0.
             
         Returns
         -------
@@ -105,7 +124,7 @@ class BaseEnvironmentEstimator(BaseEstimator):
             self.ran_min = ran_min * sum_randoms / self._size_randoms
             mask = self.randoms_mesh > self.ran_min
             self.delta_mesh[mask] /= alpha * self.randoms_mesh[mask]
-            self.delta_mesh[~mask] = 0.0
+            self.delta_mesh[~mask] = random_threshold_replacement
         else:
             self.delta_mesh = self.data_mesh / np.mean(self.data_mesh) - 1.
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
@@ -157,7 +176,18 @@ class BaseEnvironmentEstimator(BaseEstimator):
 
 
 class BaseCatalogMeshEstimator(BaseEstimator):
+    """
+    Base estimator class using CatalogMesh.
+    """
     def __init__(self, **kwargs):
+        """
+        Initialize the BaseCatalogMeshEstimator.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments passed to CatalogMesh initialization.
+        """
         self.mesh = CatalogMesh(**kwargs, interlacing=0, resampler='tsc')
         self.logger.info(f'Box size: {self.mesh.boxsize}')
         self.logger.info(f'Box center: {self.mesh.boxcenter}')
@@ -165,22 +195,33 @@ class BaseCatalogMeshEstimator(BaseEstimator):
 
     @property
     def has_randoms(self):
+        """
+        Check if the mesh includes randoms.
+
+        Returns
+        -------
+        bool
+            True if randoms are included in the mesh, False otherwise.
+        """
         return self.mesh.with_randoms
 
-    def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian'):
+    def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian', random_threshold_replacement=0.0):
         """
         Set the density contrast.
 
         Parameters
         ----------
         smoothing_radius : float, optional
-            Smoothing radius.
-        check : bool, optional
-            Check if there are enough randoms.
-        ran_min : float, optional
-            Minimum randoms.
-        nquery_factor : int, optional
-            Factor to multiply the number of data points to get the number of query points.
+            Smoothing radius for Gaussian or TopHat filtering.
+        compensate : bool, optional
+            Whether to apply compensation for the mass assignment scheme.
+            Defaults to False.
+        filter_shape : str, optional
+            Shape of the filter to apply. Options are 'Gaussian' or 'TopHat'.
+            Defaults to 'Gaussian'.
+        random_threshold_replacement : float, optional
+            Value to use for density contrast in cells with no randoms.
+            Defaults to 0.0.
             
         Returns
         -------
@@ -204,7 +245,7 @@ class BaseCatalogMeshEstimator(BaseEstimator):
             delta_mesh = data_mesh - alpha * randoms_mesh
             mask = randoms_mesh > 0
             delta_mesh[mask] /= alpha * randoms_mesh[mask]
-            delta_mesh[~mask] = 0.0
+            delta_mesh[~mask] = random_threshold_replacement
             shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
         else:
             nmesh = self.mesh.nmesh
@@ -306,4 +347,12 @@ class BasePolyBinEstimator(PolyBin3D):
     (https://github.com/oliverphilcox/PolyBin3D).
     """
     def __init__(self, **kwargs):
+        """
+        Initialize the BasePolyBinEstimator.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments passed to PolyBin3D initialization.
+        """
         super().__init__(**kwargs)
