@@ -1,9 +1,14 @@
-from .base import BaseEstimator
-from .src.pydive import get_void_catalog_full, get_void_catalog_cgal
+import time
 import logging
 import numpy as np
-import time
 import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt        
+from pypower import CatalogFFTPower
+from pycorr import TwoPointCorrelationFunction
+from .base import BaseEstimator
+from .src.pydive import get_void_catalog_full, get_void_catalog_cgal
+from acm.utils.plotting import set_plot_style
 
 def _default_sample_function(void_cat, column = 'R'):
     limits = np.percentile(void_cat[column], np.linspace(0, 100, 7))
@@ -153,7 +158,6 @@ class DTVoid(BaseEstimator):
         sample_data_ccf : array_like
             Cross-correlation function between samples and data.
         """
-        from pycorr import TwoPointCorrelationFunction
         nsplits = kwargs.pop('nsplits', 1)
         self.logger.info(f"Using randoms split into {nsplits} parts.")
         if self.has_randoms:
@@ -210,7 +214,6 @@ class DTVoid(BaseEstimator):
         sample_acf : array_like
             Auto-correlation function of samples.
         """
-        from pycorr import TwoPointCorrelationFunction
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -256,7 +259,6 @@ class DTVoid(BaseEstimator):
         sample_data_power : array_like
             Cross-power spectrum between samples and data.
         """
-        from pypower import CatalogFFTPower
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -301,7 +303,6 @@ class DTVoid(BaseEstimator):
         sample_power : array_like
             Auto-power spectrum of samples.
         """
-        from pypower import CatalogFFTPower
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -322,11 +323,8 @@ class DTVoid(BaseEstimator):
             self._sample_power.append(result)
         return self._sample_power
 
+    @set_plot_style
     def plot_one_point(self):
-        import matplotlib.pyplot as plt
-        import matplotlib
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         if self.full_catalog:
             fig, ax = plt.subplots(figsize=(12, self.samples[0][:,3:].shape[1]), nrows = 1, ncols = self.samples[0][:,3:].shape[1])
         else:
@@ -366,10 +364,8 @@ class DTVoid(BaseEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_sample_data_correlation(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
@@ -383,10 +379,8 @@ class DTVoid(BaseEstimator):
         plt.show()
         return fig
     
+    @set_plot_style
     def plot_sample_correlation(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
             s, multipoles = self._sample_correlation[i](ells=(0, 2, 4), return_sep=True)
@@ -399,10 +393,8 @@ class DTVoid(BaseEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_sample_data_power(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
             k, poles = self._sample_data_power[i](ell=(0, 2, 4), return_k=True, complex=False)
@@ -415,10 +407,8 @@ class DTVoid(BaseEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_sample_power(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
             k, poles = self._sample_power[i](ell=(0, 2, 4), return_k=True, complex=False)

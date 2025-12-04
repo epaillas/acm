@@ -1,10 +1,10 @@
-# import torch
-from kymatio.jax import HarmonicScattering3D
-import numpy as np
-import logging
 import time
+import logging
+import numpy as np
+import matplotlib.pyplot as plt
+from kymatio.jax import HarmonicScattering3D
 from .base import BaseDensityMeshEstimator
-
+from acm.utils.plotting import set_plot_style
 
 class WaveletScatteringTransform(BaseDensityMeshEstimator):
     """
@@ -66,13 +66,11 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
         return self.smatavg
 
+    @set_plot_style
     def plot_coefficients(self, save_fn=None):
         """
         Plot the wavelet scattering transform coefficients.
         """
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         ax.plot(self.smatavg, ls='-', marker='o', markersize=4, label=r'{\rr AbacusSummit}')
         ax.set_xlabel('WST coefficient order')
