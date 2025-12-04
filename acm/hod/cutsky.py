@@ -19,7 +19,6 @@ from desitarget.targetmask import desi_mask, obsconditions
 
 from .box import BoxHOD
 from .footprint import *
-from acm.utils.paths import get_Abacus_dirs
 
 # Optional imports with better error handling
 try:
@@ -32,7 +31,6 @@ except ImportError:
     HAS_REGRESSIS = False
 
 warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
-LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
 # Valid DESI photometric regions
 # N = North, DN = Dark North, DS = Dark South, SNGC = South NGC, SSGC = South SGC
@@ -257,6 +255,7 @@ class BaseCutskyCatalog(ABC):
         tile = {'LRG': 'DARK', 'QSO': 'DARK', 'ELG': 'DARK', 'BGS': 'BRIGHT'}
 
         csize = len(self.catalog['RA'])
+        # TODO: check if BGS, ELG, QSO tracers map to a valid desi_mask and obsconditions
         self.catalog['DESI_TARGET'] = desi_mask[self.tracer] * np.ones(csize, dtype='i8')
         self.catalog['PRIORITY'] = priority[self.tracer] * np.ones(csize, dtype='i8')
         self.catalog['SUBPRIORITY'] = np.random.uniform(size=csize, low=0, high=1).astype('f8')
@@ -296,7 +295,7 @@ class CutskyHOD(BaseCutskyCatalog):
         phase_idx: int = 0,
         zranges: list[list[float]] = [[0.4, 0.6]],
         snapshots: list[float] = [0.5],
-        DM_DICT: dict = LRG_Abacus_DM,
+        DM_DICT: dict = None,#LRG_Abacus_DM,
         load_existing_hod: bool = False,
         sim_type: str = 'base',
         tracer: str = 'LRG'
@@ -325,7 +324,8 @@ class CutskyHOD(BaseCutskyCatalog):
             specified in `zranges`.
         DM_DICT : dict, optional
             Dictionary containing the DM fields for the HOD sampling.
-            Defaults to LRG_Abacus_DM, which is defined in utils.paths.
+            Defaults to None, which together with the user-specified tracer maps to 
+            a value in utils.paths.
         load_existing_hod : bool, optional
             Flag to allow loading an existing HOD catalog in the `sample_hod` method.
             When True, prevents the Dark Matter catalog from being loaded and allows
@@ -356,10 +356,10 @@ class CutskyHOD(BaseCutskyCatalog):
             self.cosmo = AbacusSummit(self.cosmo_idx)
             self.logger.info('Load existing hod instead of generating new ones.')
         else:
-            self.setup_hod(DM_DICT=DM_DICT)
+            self.setup_hod(DM_DICT=DM_DICT, tracer = tracer)
         self.keys_cutsky = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']
 
-    def setup_hod(self, DM_DICT: dict):
+    def setup_hod(self, DM_DICT: dict, tracer: str):
         """
         Initialize AbacusHOD objects for each snapshot.
 
@@ -372,6 +372,7 @@ class CutskyHOD(BaseCutskyCatalog):
         for zsnap in self.snapshots:
             ball = BoxHOD(
                 varied_params=self.varied_params,
+                tracer = tracer,
                 DM_DICT=DM_DICT,
                 sim_type=self.sim_type,
                 redshift=zsnap,
@@ -417,12 +418,14 @@ class CutskyHOD(BaseCutskyCatalog):
         tuple
             Tuple containing positions and velocities of the sampled galaxies.
         """
+        # No BGS in AbacusHOD so we use LRG
+        tracer = 'LRG' if self.tracer != 'BGS' else self.tracer
         hod_dict = ball.run(
             hod_params,
             seed=seed,
             nthreads=nthreads,
             tracer_density=target_nbar
-        )[self.tracer]
+        )[tracer]
         pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']]
         vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']]
         return pos.astype(np.float32), vel.astype(np.float32)
@@ -786,6 +789,7 @@ class CutskyHOD(BaseCutskyCatalog):
             The maximum number density in the specified redshift range, multiplied by nzpad.
         """
         if nz_filename is None:
+            # TODO: check that this works for non-lrg tracers
             nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{self.tracer}_{region}_nz.txt'
         zbin_min, zbin_max, n_z = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         chosen = np.logical_and(zbin_min >= zmin, zbin_max <= zmax)
