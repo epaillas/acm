@@ -72,7 +72,7 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         Plot the wavelet scattering transform coefficients.
         """
         fig, ax = plt.subplots(figsize=(4, 4))
-        ax.plot(self.smatavg, ls='-', marker='o', markersize=4, label=r'{\rr AbacusSummit}')
+        ax.plot(self.smatavg, ls='-', marker='o', markersize=4, label=r'{\rm AbacusSummit}')
         ax.set_xlabel('WST coefficient order')
         ax.set_ylabel('WST coefficient')
         plt.tight_layout()
