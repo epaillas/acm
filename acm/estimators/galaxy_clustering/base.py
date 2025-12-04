@@ -1,7 +1,9 @@
-from jaxpower import MeshAttrs, ParticleField, FKPField, ComplexMeshField, RealMeshField, get_mesh_attrs
-from jax import numpy as jnp
-import numpy as np
 import time
+import numpy as np
+from jax import numpy as jnp
+from pyrecon import RealMesh
+from pypower import CatalogMesh
+from jaxpower import MeshAttrs, ParticleField, ComplexMeshField, RealMeshField, get_mesh_attrs
 
 
 class BaseEstimator:
@@ -132,7 +134,6 @@ class BaseDensityMeshEstimator(BaseEstimator):
 
 class BasePypowerMeshEstimator(BaseEstimator):
     def __init__(self, **kwargs):
-        from pypower import CatalogMesh
         self.mesh = CatalogMesh(**kwargs, interlacing=0, resampler='tsc')
         self.logger.info(f'Box size: {self.mesh.boxsize}')
         self.logger.info(f'Box center: {self.mesh.boxcenter}')
@@ -280,7 +281,6 @@ class BasePyreconMeshEstimator(BaseEstimator):
     Base estimator class for environment-based estimators.
     """
     def __init__(self, **kwargs):
-        from pyrecon import RealMesh
         super().__init__()
         self.data_mesh = RealMesh(**kwargs)
         self.randoms_mesh = RealMesh(**kwargs)

@@ -1,9 +1,9 @@
-import numpy as np
-import logging
 import time
-from pandas import qcut
+import logging
+import numpy as np
+import matplotlib.pyplot as plt
 from .base import BaseDensityMeshEstimator
-
+from acm.utils.plotting import set_plot_style
 
 class CountsInCells(BaseDensityMeshEstimator):
     """
@@ -45,10 +45,8 @@ class CountsInCells(BaseDensityMeshEstimator):
         self.delta_query = self.delta_mesh.read_cic(query_positions)
         return self.delta_query
 
+    @set_plot_style
     def plot_quantiles(self, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         hist, bin_edges, patches = ax.hist(self.delta_query, bins=200, density=True, lw=2.0)
         ax.set_xlabel(r'$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$', fontsize=15)

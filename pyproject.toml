@@ -53,9 +53,7 @@ cosmodesi = [
     'fitsio',
     'healpy',
     'desitarget',
-    
-    # Lensing
-    'asdf',
+    'regressis @ git+https://github.com/echaussidon/regressis',
 ]
 docs = [
     "sphinx >= 4.2",
@@ -75,8 +73,6 @@ testing = [
 # Estimators
 knn = [
     "numba",
-    "fast-histogram",
-    "pyfnntw",
 ]
 mst = [
     "mistreeplus",
@@ -86,7 +82,11 @@ minkowski = [
 ]
 # Model & inference
 sunbird = [ 
-    'sunbird[inferences] @ git+https://github.com/florpi/sunbird',
+    'sunbird[inference] @ git+https://github.com/florpi/sunbird',
+]
+lensing = [
+    'asdf',
+    'treecorr',
 ]
 
 
