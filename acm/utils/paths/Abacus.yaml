@@ -20,3 +20,31 @@ LRG:
     base:
       sim_dir: /global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/halo_light_cones/
       subsample_dir: /pscratch/sd/e/epaillas/summit_subsamples/lightcones/
+
+ELG:
+  box:
+    small:
+      sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus/small/
+      subsample_dir: /pscratch/sd/e/hrincon/summit_subsamples/boxes/small/
+    base:
+      sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus/
+      subsample_dir: /pscratch/sd/h/hrincon/summit_subsamples/boxes/base/
+
+  lightcone:
+    base:
+      sim_dir: /global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/halo_light_cones/
+      subsample_dir: /pscratch/sd/h/hrincon/summit_subsamples/lightcones/
+
+QSO:
+  box:
+    small:
+      sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus/small/
+      subsample_dir: /pscratch/sd/h/hrincon/summit_subsamples/boxes/small/
+    base:
+      sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus/
+      subsample_dir: /pscratch/sd/h/hrincon/summit_subsamples/boxes/base/
+
+  lightcone:
+    base:
+      sim_dir: /global/cfs/cdirs/desi/public/cosmosim/AbacusSummit/halo_light_cones/
+      subsample_dir: /pscratch/sd/h/hrincon/summit_subsamples/lightcones/

@@ -12,9 +12,6 @@ from .cutsky import CutskyHOD, CutskyRandoms
 from mockfactory import RandomCutskyCatalog
 from mockfactory.utils import radecbox_area
 
-from acm.utils.paths import get_Abacus_dirs
-LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='lightcone')
-
 from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
 import warnings
@@ -193,7 +190,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
     def __init__(
         self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
         phase_idx: int = 0, zrange: list = [0.4, 0.8],
-        DM_DICT: dict = LRG_Abacus_DM, load_existing_hod: bool = False,
+        DM_DICT: dict = None, load_existing_hod: bool = False,
         sim_type: str = 'base', tracer: str = 'LRG',
         ):
         """
@@ -217,7 +214,8 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             Should contain two elements: [zmin, zmax].
         DM_DICT : dict, optional
             Dictionary containing the DM fields for the HOD sampling.
-            Defaults to LRG_Abacus_DM, which is defined in utils.paths.
+            Defaults to None, which together with the user-specified tracer maps to 
+            a value in utils.paths.
         load_existing_hod : bool, optional 
             If True, load an existing HOD catalog instead of generating a new one
             (useful for quick debugging). Defaults to False.
@@ -241,7 +239,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
             self.config_file = Path(config_dir) /  'lightcone.yaml'
-        self.setup_hod(DM_DICT)
+        self.setup_hod(DM_DICT=DM_DICT, tracer = tracer)
         self.monte_carlo_sampling_count = 10000
         self.keys_lightcone = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']
 

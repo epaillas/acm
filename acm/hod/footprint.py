@@ -30,6 +30,7 @@ def minmax_xyz_desi(zrange, region='NGC', release='Y1', tracer='LRG', custom_xyz
         data_fn = custom_xyz_file
     else:
         data_fn  = f'/global/cfs/cdirs/desi/survey/catalogs/{release}/mocks/SecondGenMocks/AbacusSummit_v4_1/'
+        # TODO: check that this works for non-lrg tracers
         data_fn += f'altmtl0/mock0/LSScats/{tracer}_{region}_clustering.dat.fits'
     data = fitsio.read(data_fn)
     zmin, zmax = zrange
@@ -63,6 +64,7 @@ def minmax_skycoord_desi(zrange, region='NGC', release='Y1', tracer='LRG'):
     if release == 'Y5':
         release = 'Y3'  # we don't have Y5 mocks yet, but the minmax should hopefully be the same
     data_fn  = f'/global/cfs/cdirs/desi/survey/catalogs/{release}/mocks/SecondGenMocks/AbacusSummit_v4_1/'
+    # TODO: check that this works for non-lrg tracers
     data_fn += f'altmtl0/mock0/LSScats/{tracer}_{region}_clustering.dat.fits'
     data = fitsio.read(data_fn)
     zmin, zmax = zrange
