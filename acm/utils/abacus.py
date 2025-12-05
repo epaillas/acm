@@ -6,8 +6,8 @@ def load_abacus_cosmologies(
     filename: str, 
     cosmologies: list[int], 
     parameters: list[str],
-    mapping: dict[str, str],
-    ) -> None:
+    mapping: dict[str, str] = None,
+    ) -> dict:
     """
     Loads the AbacusSummit cosmology parameters from the AbacusSummit cosmologies csv file and selects
     the `cosmologies` indexes. Also selects the parameters to keep. Renames the parameters according to mapping.
@@ -20,8 +20,13 @@ def load_abacus_cosmologies(
         List of cosmologies indexes to select.
     parameters : list[str]
         List of parameters to keep.
-    mapping : dict[str, str]
+    mapping : dict[str, str], optional
         Dictionary with the mapping from the original parameter names to the desired names.
+    
+    Returns
+    -------
+    dict
+        Dictionary with the selected cosmology parameters for the selected cosmologies.
     """
     cosmo_params = pd.read_csv(
         filename,
@@ -30,7 +35,8 @@ def load_abacus_cosmologies(
     cosmo_params = cosmo_params[cosmo_params['root'].isin([f'abacus_cosm{c:03d}' for c in cosmologies])]
     cosmo_params.drop(columns=['root'], inplace=True)
     cosmo_params.set_index(pd.Index([f'c{c:03d}' for c in cosmologies]), inplace=True)
-    cosmo_params.rename(columns=mapping, inplace=True)
+    if mapping is not None:
+        cosmo_params.rename(columns=mapping, inplace=True)
     return cosmo_params.to_dict(orient='index')
 
 def get_abacus_phases(dir: str|Path, z: float, cosmo: int = 0) -> tuple[list[str], list[int]]:
