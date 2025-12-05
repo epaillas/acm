@@ -13,8 +13,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='tpcf', **kwargs)
-        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
     def checkpoint_fn(self) -> str:
@@ -168,6 +166,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if add_covariance:
             cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s)
             cout = xarray.merge([cout, cov_y])
+            
         if test_filters:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
                 v_in.name = v_in.name + '_test'

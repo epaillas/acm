@@ -6,9 +6,10 @@ from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
 from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray import dataset_to_dict
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
+from acm.utils.xarray import dataset_to_dict, split_vars
+
 
 
 class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
@@ -372,6 +373,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         n_hod: int = 500,
         phase_idx: int = 0,
         seed_idx: int = 0,
+        test_filters: dict = None
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -394,6 +396,10 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             TODO
         seed_idx : int
             TODO
+        test_filters : dict, optional
+            Dictionary of filters to split the dataset into training and test sets.
+            Keys are the dimension names and values are the values to filter on for the test set.
+            If None, no splitting is done. Default is None.
             
         Returns
         -------
@@ -441,6 +447,14 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         if add_covariance:
             cov_y = self.compress_covariance()
             cout = xarray.merge([cout, cov_y])
+            
+        if test_filters is not None:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
