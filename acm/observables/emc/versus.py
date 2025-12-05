@@ -238,8 +238,8 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         lax[-1].set_xlabel(r'$R_{\rm void}\, [h^{-1}{\rm Mpc}]$')
 
         rv = self.rv.values
-        data = self.y[0]
-        model = self.get_model_prediction(model_params)[0]
+        data = self.y
+        model = self.get_model_prediction(model_params)
         
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
@@ -517,8 +517,8 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             self.select_filters.update({'ells': ell})
 
             s = self.s.values
-            data = self.y[0]
-            model = self.get_model_prediction(model_params)[0]
+            data = self.y
+            model = self.get_model_prediction(model_params)
             
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
