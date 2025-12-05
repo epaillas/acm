@@ -75,7 +75,7 @@ knn = [
     "numba",
 ]
 mst = [
-    "mistreeplus",
+    "mistreeplus @ git+https://github.com/knaidoo29/mistreeplus.git",
 ]
 minkowski = [
     "kymatio",
