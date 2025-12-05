@@ -40,6 +40,7 @@ HOD_params:
         Bsat: 0
         ic: 1.0
 
+    # ELG and QSO default params from https://github.com/abacusorg/abacusutils/blob/880f04a2566a93219e64b0d9f211f92d2dfaf0c9/scripts/hod/config/abacus_hod.yaml#L52
     ELG_params:
         p_max: 0.53
         Q: 10.
@@ -62,7 +63,6 @@ HOD_params:
         Bsat: 0
         ic: 1.0
 
-    # parameters for setting up the HOD of ELGs
     QSO_params:
         p_max: 0.33
         logM_cut: 12.21
