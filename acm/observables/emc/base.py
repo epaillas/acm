@@ -9,7 +9,6 @@ from acm.utils import get_data_dirs
 from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
-from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 
 class BaseObservableEMC(Observable):
@@ -22,17 +21,15 @@ class BaseObservableEMC(Observable):
             self.phase_correction = self.compute_phase_correction()
             
         paths = kwargs.pop('paths', get_data_dirs('emc'))
-        self.n_test = kwargs.pop('n_test', 6*500) # Default number of test samples for EMC
+        self.n_test = kwargs.pop('n_test', 6*500) # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 
-    def get_emulator_covariance_y(self, n_test: int|list = None, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
+    def get_emulator_covariance_y(self, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
         Parameters
         ----------
-        n_test : int|list, optional
-            Number of test samples or list of indices of the test samples. The default is None.
         nofilters : bool, optional
             If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
             
@@ -40,45 +37,44 @@ class BaseObservableEMC(Observable):
         -------
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
-        """
-        n_test = n_test if n_test else self.n_test
-
-        self.logger.info(f'Computing emulator covariance array for {n_test} test samples.')
-        
+        """        
         # Get unfiltered values
-        x = self._dataset.x 
-        y = self._dataset.y
+        x_test = self._dataset.get('x_test', None)
+        y_test = self._dataset.get('y_test', None)
+        
+        if x_test is None or y_test is None:
+            # For backward compatibility
+            if hasattr(self, 'n_test'): 
+                n_test = self.n_test
+                idx_test = range(n_test) if isinstance(n_test, int) else n_test
+                x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
+                y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
+            else:
+                raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
         
         # Flatten on 2D for indexing
-        x = self.flatten_output(x, flat_output_dims=2)
-        y = self.flatten_output(y, flat_output_dims=2)
+        x_test = self.flatten_output(x_test, flat_output_dims=2)
+        y_test = self.flatten_output(y_test, flat_output_dims=2)
         
-        if isinstance(n_test, int):
-            idx_test = list(range(n_test))
-        elif isinstance(n_test, list):
-            idx_test = list(set(n_test))
-        
-        test_x = x[idx_test]
-        test_y = y[idx_test]
-        
-        prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
+        prediction = self.get_model_prediction(x_test, nofilters=True) # Unfiltered prediction !
         
         # Flatten on 2D for indexing
         prediction = self.flatten_output(prediction, flat_output_dims=2)
         
-        if isinstance(test_y, xarray.DataArray):
-            test_y = test_y.values
+        if isinstance(y_test, xarray.DataArray):
+            y_test = y_test.values
         if isinstance(prediction, xarray.DataArray):
             prediction = prediction.values
             
-        diff = test_y - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
+        diff = y_test - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
 
-        y = y.unstack()
-        shape = (len(idx_test),) + y.shape[len(y.attrs['sample']):]
+        n_test = y_test.shape[0] # Indexing on n_test to prevent filtering issues later on
+        y = self._dataset.y.unstack()
+        shape = (n_test,) + y.shape[len(y.attrs['sample']):]
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords = {
-                'n_test': idx_test,
+                'n_test': range(n_test),
                 **{k: y.coords[k] for k in y.dims if k in y.attrs['features']}
             },
             attrs = {
@@ -101,23 +97,16 @@ class BaseObservableEMC(Observable):
             emulator_covariance_y = emulator_covariance_y.values
         return emulator_covariance_y
 
-    def get_emulator_error(self, n_test: int|list = None) -> xarray.DataArray|np.ndarray:
+    def get_emulator_error(self) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
-        
-        Parameters
-        ----------
-        n_test : int|list, optional
-            Number of test samples or list of indices of the test samples. The default is None.
-        
+
         Returns
         -------
         np.ndarray
            Emulator error, with shape (n_features, ).
-        """
-        n_test = n_test if n_test else self.n_test
-        
-        emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
+        """        
+        emulator_covariance_y = self.get_emulator_covariance_y(nofilters=True) # Unfiltered covariance array !
         
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
@@ -254,7 +243,7 @@ class BaseObservableEMC(Observable):
         """
         data_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior'
         data_dir = Path(data_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
-        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))] # Only keep non-empty directories numbers
+        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))] 
         return np.array(hod_idx)
         
     def compress_x(self, hods: dict, cosmos: list = cosmo_list) -> tuple:
@@ -311,6 +300,14 @@ class BaseObservableEMC(Observable):
         )
         return x
     
+    @temporary_class_state(
+        flat_output_dims = 0,
+        numpy_output = False,
+        squeeze_output = False,
+        select_filters = None,
+        slice_filters = None,
+        select_indices = None,
+    )
     def compress_emulator_error(self, n_test: int|list, save_to: str = None):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
@@ -327,9 +324,9 @@ class BaseObservableEMC(Observable):
         -------
         xarray.Dataset
             Compressed dataset containing 'emulator_error' and 'emulator_covariance_y' DataArrays.
-        """
-        emulator_cov_y = self.get_emulator_covariance_y(n_test).unstack().squeeze()
-        emulator_error = self.get_emulator_error(n_test).unstack().squeeze()
+        """        
+        emulator_cov_y = self.get_emulator_covariance_y()
+        emulator_error = self.get_emulator_error()
 
         emulator_error_dataset = xarray.Dataset(
             data_vars = {
@@ -343,102 +340,3 @@ class BaseObservableEMC(Observable):
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
             np.save(save_fn, dataset_to_dict(emulator_error_dataset))
         return emulator_error_dataset
-
-    @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
-        """
-        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
-
-        Parameters
-        ----------
-        model_params : dict
-            Dictionary of model parameters to use for the prediction.
-        save_fn : str
-            Filename to save the plot. If None, the plot is not saved.
-
-        Returns
-        -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
-            Figure and axes of the plot.
-        """
-
-        height_ratios = [3, 1]
-        figsize = (6, 1.5 * sum(height_ratios))
-        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
-            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
-        fig.subplots_adjust(hspace=0.1)
-        show_legend = False
-
-        lax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
-        lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
-
-        data = self.y
-        bin_idx = np.arange(len(data))
-        model = self.get_model_prediction(model_params)
-        
-        cov = self.get_covariance_matrix(volume_factor=64)
-        error = np.sqrt(np.diag(cov))
-
-        lax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', 
-            color=f'C0', elinewidth=1.0, capsize=None)
-        lax[0].plot(bin_idx, model, ls='-', color=f'C0')
-        lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
-
-        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
-        lax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
-        lax[1].set_ylim(-4, 4)
-
-        for ax in lax:
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=14)
-        if show_legend: lax[0].legend(fontsize=15)
-
-        if save_fn is not None:
-            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
-            self.logger.info(f'Saving plot to {save_fn}')
-        return fig, lax
-
-    @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_emulator_residuals(self, save_fn: str = None):
-        """
-        Plot the emulator residuals.
-        
-        Parameters
-        ----------
-        save_fn : str
-            Filename to save the plot. If None, the plot is not saved.
-
-        Returns
-        -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
-            Figure and axes of the plot.
-        """
-
-        residuals = self.emulator_covariance_y
-        data_cov = self.get_covariance_matrix(volume_factor=64)
-        data_err = np.sqrt(np.diag(data_cov))
-
-        fig, ax = plt.subplots(2, 1, figsize=(4, 4), sharex=True)
-
-        for res in residuals:
-            ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
-
-        # summary statistics of the emulator residuals
-        for method in ['mean', 'median', 'stdev']:
-            emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
-            emu_err = np.sqrt(np.diag(emu_cov))
-
-            ax[1].plot(emu_err / data_err, lw=1.0, label=method)
-
-        ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
-        ax[1].set_xlabel('bin index', fontsize=13)
-        ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
-        ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)
-        ax[1].legend(fontsize=8)
-        plt.tight_layout()
-        if save_fn is not None:
-            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
-            self.logger.info(f'Saving plot to {save_fn}')
-        return fig, ax
