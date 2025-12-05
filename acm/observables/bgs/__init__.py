@@ -1,4 +1,4 @@
-from .tpcf import *
-from .density_split_correlation import *
-
+from .tpcf import tpcf, GalaxyCorrelationFunctionMultipoles
+from .density_split_correlation import ds_xigg, ds_xiqg
+from .density_split_correlation import DensitySplitGalaxyCorrelationFunctionMultipoles, DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
 from .priors.priors import Bouchard25, get_priors, truth_within_priors
