@@ -8,21 +8,10 @@ from acm.utils.xarray import dataset_to_dict
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 
-class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge density-split correlation
-    function multipoles.
-    """
-    def __init__(self, n_test=6*200, **kwargs):
-        super().__init__(stat_name='ds_xiqg', n_test=n_test, **kwargs)
-    
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last.ckpt'
-    
+class DensitySplitBaseClass(BaseObservableEMC):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
     def compress_covariance(
         self, 
         save_to: str = None,
@@ -66,7 +55,7 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         """
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / 'density_split'
-        data_fns = list(base_dir.glob('dsc_xiqg_poles_ph*.npy')) # NOTE: File name format hardcoded !
+        data_fns = list(base_dir.glob(f'{self.measurement_root}_poles_ph*.npy')) # NOTE: File name format hardcoded !
         n_sims = len(data_fns)
         
         y = []
@@ -78,10 +67,9 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 y.append(np.concatenate(multipoles))
         y = np.array(y)
         y = y.reshape(n_sims, len(quantiles), len(ells), -1)
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
         s = overwrite_s if overwrite_s is not None else s
         
-        cout = xarray.DataArray(
+        y = xarray.DataArray(
             data = y,
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -95,6 +83,10 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = "covariance_y",
         )
+        
+        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
@@ -152,7 +144,7 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         hods = {}
         for cosmo_idx in cosmos:
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/dsc_xiqg_poles_c{cosmo_idx:03}_hod*.npy'
+            handle = f'c{cosmo_idx:03}_ph{phase_idx:03d}/seed{seed_idx}/{self.measurement_root}_poles_c{cosmo_idx:03}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
@@ -226,3 +218,32 @@ class DensitySplitGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, lax
+
+class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
+    """
+    Class for the Emulator's Mock Challenge density-split correlation
+    function multipoles.
+    """
+    def __init__(self, n_test=6*200, **kwargs):
+        super().__init__(stat_name='ds_xiqg', n_test=n_test, **kwargs)
+        self.measurement_root = 'dsc_xiqg'
+    
+    @property
+    def checkpoint_fn(self) -> str:
+        """
+        Override checkpoint_fn to point to the correct checkpoint file.
+        """
+        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last.ckpt'
+    
+class DensitySplitGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
+    """
+    Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(stat_name='ds_xigg', **kwargs)
+        self.measurement_root = 'dsc_xigg'
+        
+        
+# Aliases
+ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
+ds_xigg = DensitySplitGalaxyCorrelationFunctionMultipoles
