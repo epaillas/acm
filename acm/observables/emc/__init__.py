@@ -1,13 +1,11 @@
-from .tpcf import GalaxyCorrelationFunctionMultipoles
-from .projected_tpcf import ProjectedGalaxyCorrelationFunction
-from .spectrum import GalaxyPowerSpectrumMultipoles
-from .bispectrum import GalaxyBispectrumMultipoles
-from .recon_spectrum import ReconstructedGalaxyPowerSpectrumMultipoles
-from .minkowski import MinkowskiFunctionals
-from .dd_knn import DDkNN
-from .density_split_correlation import DensitySplitGalaxyCorrelationFunctionMultipoles
-from .vide import VIDEVoidGalaxyCorrelationFunctionMultipoles
-from .wst import WaveletScatteringTransform
-from .versus import VERSUSVoidSizeFunction
-
-from .priors.priors import get_priors
+from .tpcf import tpcf, GalaxyCorrelationFunctionMultipoles
+from .projected_tpcf import projected_tpcf, ProjectedGalaxyCorrelationFunction
+from .spectrum import spectrum, GalaxyPowerSpectrumMultipoles
+from .bispectrum import bispectrum, GalaxyBispectrumMultipoles
+from .recon_spectrum import recon_spectrum, ReconstructedGalaxyPowerSpectrumMultipoles
+from .minkowski import minkowski, MinkowskiFunctionals
+from .density_split_correlation import ds_xiqg, ds_xigg
+from .density_split_correlation import DensitySplitQuantileGalaxyCorrelationFunctionMultipoles, DensitySplitGalaxyCorrelationFunctionMultipoles
+from .vide import vide_ccf, vide_vsf, VIDEVoidGalaxyCorrelationFunctionMultipoles, VIDEVoidSizeFunction
+from .wst import wst, WaveletScatteringTransform
+from .versus import versus_vsf, VERSUSVoidSizeFunction
