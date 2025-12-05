@@ -99,8 +99,8 @@ namespaces = false
 
 [tool.setuptools.package-data]
 acm = [
-    "*.yml",
-    "*.yaml",
+    "**/*.yml",
+    "**/*.yaml",
 ]
 
 [tool.pytest.ini_options]
