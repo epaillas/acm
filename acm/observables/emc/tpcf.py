@@ -57,10 +57,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             y.append(np.concatenate(multipoles))
         y = np.array(y)
         s = overwrite_s if overwrite_s is not None else s
-        
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
-        
-        cout = xarray.DataArray(
+                
+        y = xarray.DataArray(
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -73,6 +71,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = "covariance_y",
         )
+        
+        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
@@ -244,3 +246,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Corrected predictions.
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
+    
+# Alias
+tpcf = GalaxyCorrelationFunctionMultipoles

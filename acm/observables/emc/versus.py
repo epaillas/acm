@@ -54,9 +54,8 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
             rv, vsf = data
             y.append(vsf)
         y = np.array(y)
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
-        cout = xarray.DataArray(
+        y = xarray.DataArray(
             data = y.reshape(y.shape[0], -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -68,6 +67,10 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
             },
             name = "covariance_y",
         )
+        
+        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
@@ -233,3 +236,6 @@ class VERSUSVoidSizeFunction(BaseObservableEMC):
             Figure and axes of the plot.
         """
         raise NotImplementedError()
+    
+# Alias
+versus_vsf = VERSUSVoidSizeFunction
