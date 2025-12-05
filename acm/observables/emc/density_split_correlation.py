@@ -249,15 +249,15 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         """
         return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last.ckpt'
     
-class DensitySplitGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
+class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
     Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='ds_xigg', **kwargs)
-        self.measurement_root = 'dsc_xigg'
+        super().__init__(stat_name='ds_xiqq', **kwargs)
+        self.measurement_root = 'dsc_xiqq'
         
         
 # Aliases
 ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
-ds_xigg = DensitySplitGalaxyCorrelationFunctionMultipoles
+ds_xiqq = DensitySplitQuantileCorrelationFunctionMultipoles

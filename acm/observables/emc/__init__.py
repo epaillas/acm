@@ -4,8 +4,8 @@ from .spectrum import spectrum, GalaxyPowerSpectrumMultipoles
 from .bispectrum import bispectrum, GalaxyBispectrumMultipoles
 from .recon_spectrum import recon_spectrum, ReconstructedGalaxyPowerSpectrumMultipoles
 from .minkowski import minkowski, MinkowskiFunctionals
-from .density_split_correlation import ds_xiqg, ds_xigg
-from .density_split_correlation import DensitySplitQuantileGalaxyCorrelationFunctionMultipoles, DensitySplitGalaxyCorrelationFunctionMultipoles
+from .density_split_correlation import ds_xiqg, ds_xiqq
+from .density_split_correlation import DensitySplitQuantileGalaxyCorrelationFunctionMultipoles, DensitySplitQuantileCorrelationFunctionMultipoles
 from .vide import vide_ccf, vide_vsf, VIDEVoidGalaxyCorrelationFunctionMultipoles, VIDEVoidSizeFunction
 from .wst import wst, WaveletScatteringTransform
 from .versus import versus_vsf, VERSUSVoidSizeFunction
