@@ -326,14 +326,14 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         self.measurement_root = 'quantile_data_correlation'
 
 
-class DensitySplitGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
+class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
     Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='ds_xigg', **kwargs)
+        super().__init__(stat_name='ds_xiqq', **kwargs)
         self.measurement_root = 'quantile_correlation'
 
 # Aliases
-ds_xigg = DensitySplitGalaxyCorrelationFunctionMultipoles
+ds_xiqq = DensitySplitQuantileCorrelationFunctionMultipoles
 ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles

@@ -1,3 +1,3 @@
 from .tpcf import tpcf, GalaxyCorrelationFunctionMultipoles
-from .density_split_correlation import ds_xigg, ds_xiqg
-from .density_split_correlation import DensitySplitGalaxyCorrelationFunctionMultipoles, DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
+from .density_split_correlation import ds_xiqq, ds_xiqg
+from .density_split_correlation import DensitySplitQuantileCorrelationFunctionMultipoles, DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
