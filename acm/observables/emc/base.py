@@ -270,6 +270,12 @@ class BaseObservableEMC(Observable):
         -------
         xarray.DataArray
             Compressed x values.
+            
+        Raises
+        ------
+        ValueError
+            If the number of HODs for a cosmology is lower than the expected number, 
+            as the compression requires all cosmologies to have the same number of HODs.
         """
         # NOTE: Hardcoded paths :/
         cosmo_file = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv' 
