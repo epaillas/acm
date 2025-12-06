@@ -119,8 +119,8 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph{phase:03d}/seed{seed}/sv_{self.label}_c{cosmo_idx:03}_hod*.npy'
+            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/sv_{self.label}_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
@@ -402,8 +402,8 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph{phase:03d}/seed{seed}/sv_{self.label}_c{cosmo_idx:03}_hod*.npy'
+            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/sv_{self.label}_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             for filename in filenames:
                 data = TwoPointCorrelationFunction.load(filename)#[::rebin]
