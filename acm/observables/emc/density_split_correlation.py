@@ -10,6 +10,12 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 
 
 class DensitySplitBaseClass(BaseObservableEMC):
+    """
+    Base class for density-split correlation observables in the EMC pipeline.
+    
+    Subclasses must set the `self.measurement_root` attribute in their `__init__` method.
+    This attribute is used by methods in this class to locate measurement files.
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
@@ -235,8 +241,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
-    Class for the Emulator's Mock Challenge density-split correlation
-    function multipoles.
+    Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles.
     """
     def __init__(self, n_test=6*200, **kwargs):
         super().__init__(stat_name='ds_xiqg', n_test=n_test, **kwargs)
@@ -251,7 +256,7 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
     
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
-    Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
+    Class for the Emulator's Mock Challenge density-split auto-correlation function multipoles.
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='ds_xiqq', **kwargs)
