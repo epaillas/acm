@@ -153,7 +153,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
+        x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
