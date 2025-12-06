@@ -1,5 +1,5 @@
-from .tpcf import GalaxyCorrelationFunctionMultipoles
-from .density_split_correlation import DensitySplitQuantileCorrelationFunctionMultipoles, DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
+from .tpcf import tpcf
+from .density_split_correlation import ds_xiqg, ds_xiqq
 
 # Aliases
 from .tpcf import tpcf
