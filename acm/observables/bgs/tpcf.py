@@ -77,7 +77,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         y = xarray.DataArray(
             data = y.reshape(len(phases), len(ells), -1),
             coords = {
-                "phase_idx": list(range(y.shape[0])),
+                "phase_idx": phases, # TODO: continuous phase indexing ?
                 "ells": ells,
                 "s": s,
             },
