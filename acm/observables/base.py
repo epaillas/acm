@@ -109,7 +109,7 @@ class Observable():
         try:
             self.model = self.load_model() 
         except Exception as e: # handle the case where the model checkpoint is not found
-            self.logger.warning(f"Model will be undefined. If you are training a new model, this is expected behavior. Exception: {e}")
+            self.logger.warning(f"Model could not be loaded and will remain undefined. If you are training a new model, this is expected. Exception: {e}")
         
         # Set the filters
         self.select_filters = select_filters
@@ -627,7 +627,9 @@ class Observable():
         save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
         **kwargs : dict
-            Additional arguments for the plot, such as height_ratios and show_legend, and volume_factor and prefactor for covariance calculation.
+            Additional arguments for the plot, such as height_ratios and show_legend.
+            The parameters volume_factor and prefactor are passed to get_covariance_matrix() 
+            to scale the covariance estimates.
 
         Returns
         -------
