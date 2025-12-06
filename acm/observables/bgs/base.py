@@ -5,6 +5,7 @@ from pathlib import Path
 from acm.observables import Observable
 from acm.utils import get_data_dirs
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
+from acm.utils.decorators import temporary_class_state
 from acm.utils.xarray import dataset_to_dict
 
 
@@ -14,18 +15,15 @@ class BaseObservableBGS(Observable):
     """
     def __init__(self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs):
         paths = kwargs.pop('paths', get_data_dirs('bgs'))
-        paths['checkpoint_name'] = 'last.ckpt' # FIXME: Remove this on next model training
-        self.n_test = kwargs.pop('n_test', 6*100) # Default number of test samples for BGS
+        self.n_test = kwargs.pop('n_test', 6*100) # FIXME: Remove this on next file compression !
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
 
-    def get_emulator_covariance_y(self, n_test: int|list = None, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
+    def get_emulator_covariance_y(self, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
         Parameters
         ----------
-        n_test : int|list, optional
-            Number of test samples or list of indices of the test samples. The default is None.
         nofilters : bool, optional
             If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
             
@@ -33,46 +31,44 @@ class BaseObservableBGS(Observable):
         -------
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
-        """
-        n_test = n_test if n_test else self.n_test
-        
+        """        
         # Get unfiltered values
-        x = self._dataset.x 
-        y = self._dataset.y
+        x_test = self._dataset.get('x_test', None)
+        y_test = self._dataset.get('y_test', None)
+        
+        if x_test is None or y_test is None:
+            # For backward compatibility
+            if hasattr(self, 'n_test'): 
+                n_test = self.n_test
+                idx_test = range(n_test) if isinstance(n_test, int) else n_test
+                x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
+                y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
+            else:
+                raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
         
         # Flatten on 2D for indexing
-        x = self.stack_on_attribute('sample', x)
-        x = self.stack_on_attribute('features', x)
-        y = self.stack_on_attribute('sample', y)
-        y = self.stack_on_attribute('features', y)
+        x_test = self.flatten_output(x_test, flat_output_dims=2)
+        y_test = self.flatten_output(y_test, flat_output_dims=2)
         
-        if isinstance(n_test, int):
-            idx_test = list(range(n_test))
-        elif isinstance(n_test, list):
-            idx_test = list(set(n_test))
-        
-        test_x = x[idx_test]
-        test_y = y[idx_test]
-        
-        prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
+        prediction = self.get_model_prediction(x_test, nofilters=True) # Unfiltered prediction !
         
         # Flatten on 2D for indexing
-        prediction = self.stack_on_attribute('sample', prediction)
-        prediction = self.stack_on_attribute('features', prediction)
+        prediction = self.flatten_output(prediction, flat_output_dims=2)
         
-        if isinstance(test_y, xarray.DataArray):
-            test_y = test_y.values
+        if isinstance(y_test, xarray.DataArray):
+            y_test = y_test.values
         if isinstance(prediction, xarray.DataArray):
             prediction = prediction.values
             
-        diff = test_y - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
+        diff = y_test - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
 
-        y = y.unstack()
-        shape = (len(idx_test),) + y.shape[len(y.attrs['sample']):]
+        n_test = y_test.shape[0] # Indexing on n_test to prevent filtering issues later on
+        y = self._dataset.y.unstack()
+        shape = (n_test, ) + y.shape[len(y.attrs['sample']):]
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords = {
-                'n_test': idx_test,
+                'n_test': range(n_test),
                 **{k: y.coords[k] for k in y.dims if k in y.attrs['features']}
             },
             attrs = {
@@ -95,27 +91,19 @@ class BaseObservableBGS(Observable):
             emulator_covariance_y = emulator_covariance_y.values
         return emulator_covariance_y
     
-    def get_emulator_error(self, n_test: int|list = None) -> xarray.DataArray|np.ndarray:
+    def get_emulator_error(self) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
-        
-        Parameters
-        ----------
-        n_test : int|list, optional
-            Number of test samples or list of indices of the test samples. The default is None.
         
         Returns
         -------
         np.ndarray
            Emulator error, with shape (n_features, ).
         """
-        n_test = n_test if n_test else self.n_test
-        
-        emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
+        emulator_covariance_y = self.get_emulator_covariance_y(nofilters=True) # Unfiltered covariance array !
         
         # Flatten on 2D for indexing
-        emulator_covariance_y = self.stack_on_attribute('sample', emulator_covariance_y)
-        emulator_covariance_y = self.stack_on_attribute('features', emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
         
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
@@ -183,15 +171,21 @@ class BaseObservableBGS(Observable):
         )
         return x
 
-    def compress_emulator_error(self, n_test: int|list, save_to: str = None) -> xarray.Dataset:
+    @temporary_class_state(
+        flat_output_dims = 0,
+        numpy_output = False,
+        squeeze_output = False,
+        select_filters = None,
+        slice_filters = None,
+        select_indices = None,
+    )
+    def compress_emulator_error(self, save_to: str = None) -> xarray.Dataset:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
         
         Parameters
         ----------
-        n_test : int|list
-            Number of test samples or list of indices of the test samples.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the emulator error file. If None, the emulator error file is not saved.
             Default is None.
         
@@ -200,11 +194,8 @@ class BaseObservableBGS(Observable):
         xarray.Dataset
             Compressed dataset containing 'emulator_error' and 'emulator_covariance_y' DataArrays.
         """
-        n_test = n_test if n_test else self.n_test
-        observable = self.__class__() # Unfiltered values !!
-        
-        emulator_cov_y = observable.get_emulator_covariance_y(n_test).unstack().squeeze()
-        emulator_error = observable.get_emulator_error(n_test).unstack().squeeze()
+        emulator_cov_y = self.get_emulator_covariance_y()
+        emulator_error = self.get_emulator_error()
         
         emulator_error_dataset = xarray.Dataset(
             data_vars = {
