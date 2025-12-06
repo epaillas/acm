@@ -40,7 +40,8 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.logger.info(f'Box center: {self.boxcenter}')
         self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
+    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float = None, randoms_threshold_value: float = 0.01,
+        randoms_threshold_method: str = 'noise', randoms_threshold_replacement: float = 0.0):
         def _2r(mesh):
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
@@ -75,7 +76,13 @@ class BaseDensityMeshEstimator(BaseEstimator):
             alpha = sum_data * 1. / sum_randoms
             self.delta_mesh = data_mesh - alpha * randoms_mesh
             if threshold_randoms is not None:
-                self.delta_mesh = self.delta_mesh.clone(value=jnp.where(randoms_mesh.value > threshold_randoms, self.delta_mesh.value / (alpha * randoms_mesh.value), 0.))
+                self.delta_mesh = self.delta_mesh.clone(
+                    value=jnp.where(
+                        randoms_mesh.value > threshold_randoms,
+                        self.delta_mesh.value / (alpha * randoms_mesh.value),
+                        randoms_threshold_replacement
+                    )
+                )
         else:
             self.delta_mesh = data_mesh / data_mesh.mean() - 1.
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
