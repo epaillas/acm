@@ -303,3 +303,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             self.logger.info(f'Saving training set figure to {save_fn}')
             
         return fig, ax
+
+# Alias
+wst = WaveletScatteringTransform

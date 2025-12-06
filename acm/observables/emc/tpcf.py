@@ -245,3 +245,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Corrected predictions.
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
+    
+# Aliases
+tpcf = GalaxyCorrelationFunctionMultipoles

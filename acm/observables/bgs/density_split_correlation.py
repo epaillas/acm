@@ -332,3 +332,7 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     def __init__(self, **kwargs):
         super().__init__(stat_name='ds_xiqq', **kwargs)
         self.measurement_root = 'quantile_correlation'
+        
+# Aliases
+ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
+ds_xiqq = DensitySplitQuantileCorrelationFunctionMultipoles
