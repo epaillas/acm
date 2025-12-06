@@ -202,7 +202,7 @@ class BaseObservableBGS(Observable):
             If None, it is determined from the first cosmology and restricted to that number for all cosmologies. 
             Defaults to None.
         **kwargs : dict
-            Additional arguments to pass to `get_raw_hod_idx`.
+            Additional arguments to pass to `get_hod_from_files`.
         
         Returns
         -------
