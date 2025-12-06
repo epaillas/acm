@@ -132,7 +132,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         
         y = []
         for cosmo_idx in cosmos:
-            data_dir = base_dir + f'c{cosmo_idx:03}_ph{phase:03}/seed{seed:01}/'
+            data_dir = base_dir + f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/'
             for hod_idx in range(n_hod):
                 data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy" # NOTE: File name format hardcoded !
                 data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
@@ -153,7 +153,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
+        x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
@@ -167,7 +167,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s)
             cout = xarray.merge([cout, cov_y])
             
-        if test_filters:
+        if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
                 v_in.name = v_in.name + '_test'
                 v_out.name = v_out.name + '_train'

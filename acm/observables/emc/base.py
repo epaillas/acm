@@ -49,6 +49,7 @@ class BaseObservableEMC(Observable):
                 idx_test = range(n_test) if isinstance(n_test, int) else n_test
                 x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
                 y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
+                self.logger.warning('n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
             else:
                 raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
         
@@ -308,7 +309,7 @@ class BaseObservableEMC(Observable):
             hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
             if n_hod is None:
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
-                self.logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
+                self.logger.info(f'Number of HODs determined from c{cosmo_idx:03d}: {n_hod}')
             
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
