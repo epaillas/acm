@@ -306,3 +306,7 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         kwargs.setdefault('measurement_root', 'dsc_xiqq')
         kwargs.setdefault('stat_name', 'ds_xiqq')
         return super().compress_data(**kwargs)
+
+# Aliases
+ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
+ds_xiqq = DensitySplitQuantileCorrelationFunctionMultipoles
