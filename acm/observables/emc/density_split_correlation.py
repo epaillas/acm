@@ -10,6 +10,12 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 
 
 class DensitySplitBaseClass(BaseObservableEMC):
+    """
+    Base class for density-split correlation observables in the EMC pipeline.
+    
+    Subclasses must set the `self.measurement_root` attribute in their `__init__` method.
+    This attribute is used by methods in this class to locate measurement files.
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
@@ -149,8 +155,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph{phase:03d}/seed{seed}/{self.measurement_root}_poles_c{cosmo_idx:03}_hod*.npy'
+            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{self.measurement_root}_poles_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
@@ -177,7 +183,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(hods=hods, cosmos=cosmos)
+        x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
@@ -235,8 +241,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
-    Class for the Emulator's Mock Challenge density-split correlation
-    function multipoles.
+    Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles.
     """
     def __init__(self, n_test=6*200, **kwargs):
         super().__init__(stat_name='ds_xiqg', n_test=n_test, **kwargs)
@@ -251,7 +256,7 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
     
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
-    Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
+    Class for the Emulator's Mock Challenge density-split auto-correlation function multipoles.
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='ds_xiqq', **kwargs)

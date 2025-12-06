@@ -4,8 +4,6 @@ emc:
   param_dir: /pscratch/sd/e/epaillas/emc/cosmo+hod_params/
   hod_dir: /pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior # Path to the HOD files
 
-
-
 bgs:  
   data_dir: /pscratch/sd/s/sbouchar/acm/bgs/input_data/     
   error_dir: /pscratch/sd/s/sbouchar/acm/bgs/emulator_error/
