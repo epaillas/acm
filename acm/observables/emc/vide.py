@@ -89,8 +89,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         ells: list = [0, 2, 4],
-        phase_idx: int = 0,
-        seed_idx: int = 0,
+        test_filters: dict = None
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -109,10 +108,10 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Number of HOD parameters to use. Default is 100.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2, 4].
-        phase_idx : int
-            TODO
-        seed_idx : int
-            TODO
+        test_filters : dict, optional
+            Dictionary of filters to split the dataset into training and test sets.
+            Keys are the dimension names and values are the values to filter on for the test set.
+            If None, no splitting is done. Default is None.
             
         Returns
         -------
@@ -163,6 +162,14 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if add_covariance:
             cov_y = self.compress_covariance(ells=ells)
             cout = xarray.merge([cout, cov_y])
+            
+        if test_filters is not None:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
