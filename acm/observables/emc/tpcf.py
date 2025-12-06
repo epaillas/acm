@@ -13,6 +13,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='tpcf', **kwargs)
+        self.paths['statistic_dir'] = f'/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
+        self.paths['statistic_covariance_dir'] = f'/pscratch/sd/e/epaillas/emc/covariance_sets/tpcf/z0.5/yuan23_prior/'
     
     @property
     def checkpoint_fn(self) -> str:
@@ -55,8 +57,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             y.append(np.concatenate(multipoles))
         y = np.array(y)
         s = overwrite_s if overwrite_s is not None else s
-                
-        y = xarray.DataArray(
+        
+        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.DataArray(
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -69,10 +73,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = "covariance_y",
         )
-        
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
-        
-        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
@@ -166,7 +166,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if add_covariance:
             cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s)
             cout = xarray.merge([cout, cov_y])
-            
         if test_filters:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
                 v_in.name = v_in.name + '_test'
@@ -245,6 +244,3 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Corrected predictions.
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
-    
-# Alias
-tpcf = GalaxyCorrelationFunctionMultipoles
