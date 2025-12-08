@@ -15,15 +15,13 @@ class DDkNN(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='dd_knn', n_test=6*100, **kwargs)
-        self.paths['measurements_dir'] = '/pscratch/sd/p/pd2487/knns/dd_knn_measurements/'
     
     @property
     def checkpoint_fn(self) -> str:
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return f'/pscratch/sd/p/pd2487/knns/trained_models/best/{self.stat_name}/last.ckpt'
-        #return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
+        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/dd_knn/last.ckpt'
 
     def make_mask(self, train_y):
         pass
@@ -66,7 +64,7 @@ class DDkNN(BaseObservableEMC):
         self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.DataArray(
-            data = y.reshape(y.shape[0], -1),
+            data = y,
             coords = {
                 "phase_idx": list(range(y.shape[0])),
                 "bin_idx": np.arange(y.shape[1]),
@@ -237,8 +235,8 @@ class DDkNN(BaseObservableEMC):
         lax[0].set_ylabel(r'$\textrm{2D DD-kNN CDF value}$', fontsize=15)
 
         bin_idx = self.bin_idx.values
-        data = self.y
-        model = self.get_model_prediction(model_params)
+        data = self.y.squeeze()
+        model = self.get_model_prediction(model_params).squeeze()
 
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
