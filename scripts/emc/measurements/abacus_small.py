@@ -415,7 +415,7 @@ if __name__ == '__main__':
             compute_dr_knn(output_fn, hod_positions, **box_args)
 
         if 'dd_knn' in args.todo_stats:
-            save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
+            save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/small/dd_knn/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = Path(save_dir) / f'dd_knn_ph{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, los='z')
