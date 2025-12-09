@@ -319,8 +319,8 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     # No need in randoms, positions are used as query
     # Measurement params, k is shifted by 1 compured to dr
     ks  = [2,3,4,5,6,7,8,9,10]
-    rps = np.logspace(-0.2, 1.8, 8)
-    pis = np.logspace(-0.3, 1.5, 5)
+    rps = np.logspace(-0.2, 1.8, 9)     # 9 edges -> 8 bins
+    pis = np.logspace(-0.3, 1.5, 6)     # 6 edges -> 5 bins
 
     # Convert to single precision
     positions = positions.astype(np.float32)
@@ -331,6 +331,14 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
 
     # And periodic wrap in single precision
     positions = np.mod(positions, boxsize)
+
+    # Swap axes of the box AND boxsize if want non-z LOS
+    if los=='x':
+        positions[:, [0, 2]] = positions[:, [2, 0]]
+        boxsize[[0, 2]] = boxsize[[2, 0]]
+    elif los == 'y':
+        positions[:, [1, 2]] = positions[:, [2, 1]]
+        boxsize[[1, 2]] = boxsize[[2, 1]]
 
     # Do the measurement
     knn  = KthNearestNeighbor()
