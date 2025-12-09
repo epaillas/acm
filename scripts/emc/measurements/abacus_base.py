@@ -656,7 +656,7 @@ if __name__ == '__main__':
                         compute_dr_knn(output_fn, hod_positions, boxsize, los='z')
                     
                     if 'dd_knn' in args.todo_stats:
-                        save_dir = '/pscratch/sd/p/pd2487/knn_measurements/'
+                        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/dd_knn/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'dd_knn_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
