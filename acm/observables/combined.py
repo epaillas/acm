@@ -1,8 +1,9 @@
+import logging
 import numpy as np
+from scipy import linalg
 from pathlib import Path
 from contextlib import nullcontext
 from matplotlib.backends.backend_pdf import PdfPages
-from scipy import linalg
 from .base import Observable
 from acm.utils.covariance import check_covariance_matrix
 import logging
