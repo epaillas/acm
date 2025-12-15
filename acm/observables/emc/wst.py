@@ -16,14 +16,15 @@ class WaveletScatteringTransform(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='wst', n_test=6*100, **kwargs)
+        super().__init__(stat_name='wst', n_test=6*186, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
+        # return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
+        return f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/best/wst/last-v5.ckpt'
 
     def renorm_wst(self, inpt):
         s0 = inpt[0]
@@ -62,7 +63,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         y = []
         for data_fn in data_fns:
             data = np.load(data_fn, allow_pickle=True)
-            y.append(self.renorm_wst(data))
+            y.append(self.renorm_wst(data)[1:])  # Exclude the first element (normalization)
             # y.append(data)
         y = np.array(y)
         
@@ -122,19 +123,19 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/adaptive/')
+        base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
         
         y = []
         hods = {}
         for cosmo_idx in cosmos:
             self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/wst_c{cosmo_idx:03}_hod*.npy'
+            handle = f'fixed-meshsizec{cosmo_idx:03}_ph000/seed0/wst_c{cosmo_idx:03}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
-                y.append(self.renorm_wst(data))
+                y.append(self.renorm_wst(data)[1:])  # Exclude the first element (normalization)
                 # y.append(data)
         y = np.array(y)
         y = xarray.DataArray(
