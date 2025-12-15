@@ -43,7 +43,7 @@ cosmodesi = [
     'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
     'pypower @ git+https://github.com/cosmodesi/pypower', 
     'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
-    'jaxpower @ git+https://github.com/adematti/jax-power.git',
+    'jax-power @ git+https://github.com/adematti/jax-power.git',
 
     # HOD and cutsky
     'astropy',
@@ -53,9 +53,7 @@ cosmodesi = [
     'fitsio',
     'healpy',
     'desitarget',
-    
-    # Lensing
-    'asdf',
+    'regressis @ git+https://github.com/echaussidon/regressis',
 ]
 docs = [
     "sphinx >= 4.2",
@@ -75,32 +73,34 @@ testing = [
 # Estimators
 knn = [
     "numba",
-    "fast-histogram",
-    "pyfnntw",
 ]
 mst = [
-    "mistreeplus",
+    "mistreeplus @ git+https://github.com/knaidoo29/mistreeplus.git",
 ]
 minkowski = [
     "kymatio",
 ]
 # Model & inference
 sunbird = [ 
-    'sunbird[inferences] @ git+https://github.com/florpi/sunbird',
+    'sunbird[inference] @ git+https://github.com/florpi/sunbird',
+]
+lensing = [
+    'asdf',
+    'treecorr',
 ]
 
 
 [project.urls]
 Repository = "https://github.com/epaillas/acm.git"
-
+Documentation = "https://acm.readthedocs.io"
 
 [tool.setuptools.packages.find]
 namespaces = false
 
 [tool.setuptools.package-data]
 acm = [
-    "*.yml",
-    "*.yaml",
+    "**/*.yml",
+    "**/*.yaml",
 ]
 
 [tool.pytest.ini_options]

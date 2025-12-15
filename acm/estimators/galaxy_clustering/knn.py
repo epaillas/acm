@@ -1,14 +1,7 @@
-import numpy as np
 import logging
+import numpy as np
 import scipy.spatial
-from functools import partial
-from multiprocessing import Pool
-from numba import njit, types, jit, prange
-
-#import ray
-#from fast_histogram import histogram2d
-#import pyfnntw
-
+from numba import njit, prange
 from .base import BaseEstimator
 
         
