@@ -224,17 +224,11 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
                         mstdict['mst%ipt'%N] += meanperbin
                         mstdict['end%ipt'%N] += endperbin
         
-        # Normalise by iterations
-        mstdict['mst1pt'] /= self.iterations
+        # Normalise by iterations and splits
+        mstdict['mst1pt'] /= self.iterations*len(ixs)
         for N in range(2, self.Nthpoint+1):
-            mstdict['mst%ipt'%N] /= self.iterations
-            mstdict['end%ipt'%N] /= self.iterations
-
-        # Normalize by the volume
-        mstdict['mst1pt'] /= np.prod(self.boxsize) 
-        for N in range(2, self.Nthpoint+1):
-            mstdict['mst%ipt'%N] /= np.prod(self.boxsize) 
-            mstdict['end%ipt'%N] /= np.prod(self.boxsize) 
+            mstdict['mst%ipt'%N] /= self.iterations*len(ixs)
+            mstdict['end%ipt'%N] /= self.iterations*len(ixs)
         
         return mstdict
     
@@ -262,8 +256,8 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         xticks = [50.]
         xlabel = ['%i'%1]
         for N in range(2, self.Nthpoint+1):
-            plt.plot(100*(N-1)+percentmids, mstdict['mst%ipt'%N], linestyle='-', linewidth=2., color=colormap((N-1)/(10-1)))
-            plt.plot(100*(N-1)+percentmids, mstdict['end%ipt'%N], linestyle='--', linewidth=2., color=colormap((N-1)/(10-1)))
+            plt.plot(100*(N-1)+percentmids, mstdict['mst%ipt'%N], linestyle='-', linewidth=2., color=colormap((N-1)/(self.Nthpoint-1)))
+            plt.plot(100*(N-1)+percentmids, mstdict['end%ipt'%N], linestyle='--', linewidth=2., color=colormap((N-1)/(self.Nthpoint-1)))
             plt.axvline(100*(N-1), color='k', linestyle=':')
             xticks.append(100.*N - 50.)
             xlabel.append('%i'%N)
