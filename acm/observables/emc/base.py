@@ -273,8 +273,6 @@ class BaseObservableEMC(Observable):
         xarray.DataArray
             Compressed x values.
         """
-        data_dir = self.paths['param_dir']
-
         filename = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
         cosmo_params = load_abacus_cosmologies(filename, cosmos, ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld'], mapping={'alpha_s': 'nrun'})
         
