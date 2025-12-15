@@ -6,8 +6,9 @@ import argparse
 
 def plot_training_set(observable_name):
     paths = {
-        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/',
-        'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
+        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+        'param_dir': None
     }
     observable = getattr(emc, observable_name, None)(
         paths=paths, numpy_output=True,
@@ -17,8 +18,9 @@ def plot_training_set(observable_name):
 
 def plot_covariance_set(observable_name):
     paths = {
-        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/',
-        'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
+        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+        'param_dir': None
     }
     observable = getattr(emc, observable_name, None)(
         paths=paths, select_filters={}, numpy_output=True,
