@@ -1,11 +1,9 @@
-# acm/estimators/galaxy_clustering/mst.py
-
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
-import logging
-import time
-from acm.estimators.galaxy_clustering.base import BaseDensityMeshEstimator
-
+import mistreeplus as mist # https://github.com/knaidoo29/mistreeplus
+from .base import BaseDensityMeshEstimator
+from acm.utils.plotting import set_plot_style
 
 class MinimumSpanningTree(BaseDensityMeshEstimator):
     """
@@ -132,9 +130,6 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         mstdict : dict
             Dictionary containing the percolations statistics.
         """
-        # located here: https://github.com/knaidoo29/mistreeplus
-        import mistreeplus as mist
-
         x, y, z = data_pos[:,0], data_pos[:,1], data_pos[:,2]
         # remove origin
         x, y, z = (data_pos[:,i] - self.origin[i] for i in range(3))
@@ -243,6 +238,7 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         
         return mstdict
     
+    @set_plot_style
     def plot_percolation_statistics(self, mstdict, cmap='viridis', figsize=(10, 4), fname=None):
         """
         Plot the percolation statistics.
@@ -258,8 +254,6 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         fname : str, optional
             Optional to save the plot output.
         """
-        # plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         percentedge = np.linspace(0., 100., len(mstdict['mst1pt'])+1)
         percentmids = 0.5*(percentedge[1:] + percentedge[:-1])
         colormap = plt.cm.get_cmap(cmap)
