@@ -1,13 +1,17 @@
-import numpy as np
-import logging
-import time
 import os
-import subprocess
+import time
 import uuid
+import random
+import logging
+import subprocess
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 from pathlib import Path
-from .src import fastmodules
+from pycorr import TwoPointCorrelationFunction
 from .base import BaseDensityMeshEstimator
-
+from .src import fastmodules
+from acm.utils.plotting import set_plot_style
 
 class VoxelVoids(BaseDensityMeshEstimator):
     """
@@ -185,7 +189,6 @@ class VoxelVoids(BaseDensityMeshEstimator):
         void_data_ccf : array_like
             Cross-correlation function between voids and data.
         """
-        from pycorr import TwoPointCorrelationFunction
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -208,13 +211,11 @@ class VoxelVoids(BaseDensityMeshEstimator):
         )
         return self._void_data_correlation
 
+    @set_plot_style
     def plot_void_size_distribution(self, save_fn=None):
         """
         Plot the void size distribution.
         """
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         ax.hist(self.void_radii, bins=25, lw=2.0, alpha=0.5)
         ax.set_xlabel(r'$R_{\rm void}\, [h^{-1}{\rm Mpc}]$', fontsize=15)
@@ -224,10 +225,8 @@ class VoxelVoids(BaseDensityMeshEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_void_data_correlation(self, ells=(0,), save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         s, multipoles = self._void_data_correlation(ells=(0, 2, 4), return_sep=True)
         for ell in ells:
@@ -240,13 +239,11 @@ class VoxelVoids(BaseDensityMeshEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_slice(self, data_positions=None, save_fn=None):
         """
         Plot a slice of the density field.
         """
-        import matplotlib.pyplot as plt
-        import matplotlib
-        import random
         nmesh = self.delta_mesh.nmesh
         boxsize = self.delta_mesh.boxsize
         boxcenter = self.delta_mesh.boxcenter
