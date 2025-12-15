@@ -1,13 +1,12 @@
 import time
 import logging
 import numpy as np
-
-from .base import BaseDensityMeshEstimator
-
 import jax
 import jax.numpy as jnp
 from typing import Tuple
-from jax import config; config.update('jax_enable_x64', True)
+from .base import BaseDensityMeshEstimator
+
+jax.config.update('jax_enable_x64', True)
 
 # JIT-compiled per-slice routine
 @jax.jit

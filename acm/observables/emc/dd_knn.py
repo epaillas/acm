@@ -4,39 +4,27 @@ import glob
 from pathlib import Path
 from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
-from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
-from acm.utils.decorators import temporary_class_state
 from acm.utils.xarray import dataset_to_dict, split_vars
 
 
-class WaveletScatteringTransform(BaseObservableEMC):
+class DDkNN(BaseObservableEMC):
     """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
+    Class for the Emulator's Mock Challenge 2D DD-kNN statistic
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='wst', n_test=6*100, **kwargs)
+        super().__init__(stat_name='dd_knn', n_test=6*100, **kwargs)
     
     @property
     def checkpoint_fn(self) -> str:
         """
         Override checkpoint_fn to point to the correct checkpoint file.
         """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
+        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/dd_knn/last.ckpt'
 
-    def renorm_wst(self, inpt):
-        s0 = inpt[0]
-        s12 =  inpt[1:].reshape(15,5)
-        outp = np.zeros_like(s12)
-        outp[:5,:] = s12[:5,:]/s0
-        outp[5:9,:] = s12[5:9,:]/s12[0,:]
-        outp[9:12,:] = s12[9:12,:]/s12[1,:]
-        outp[12:14,:] = s12[12:14,:]/s12[2,:]
-        outp[14:,:] = s12[14:,:]/s12[3,:]
-        sfin = np.hstack((1.0,outp.flatten()))  
-        return sfin   
+    def make_mask(self, train_y):
+        pass
     
     def compress_covariance(
         self,
@@ -58,17 +46,25 @@ class WaveletScatteringTransform(BaseObservableEMC):
         """
         # Directories
         base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
-        data_fns = list(base_dir.glob('wst_ph*.npy')) # NOTE: File name format hardcoded !
+        data_fns = list(base_dir.glob('dd_knn_ph*.npy')) # NOTE: File name format hardcoded !
         
         y = []
         for data_fn in data_fns:
             data = np.load(data_fn, allow_pickle=True)
-            y.append(self.renorm_wst(data))
-            # y.append(data)
+            y.append(data)
         y = np.array(y)
-                
-        y = xarray.DataArray(
-            data = y.reshape(y.shape[0], -1),
+
+        # Additional step: use the mask obtained from big boxes to filter out noisy bins
+        # Check that mask is present in the class (compress_data() should have been called for that)
+        if not hasattr(self, 'mask'):
+            raise AttributeError('To determine covariance of kNNs, compress_data() should be called first')
+        y = y.reshape(y.shape[0], -1)
+        y = y[:,self.mask]
+        
+        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.DataArray(
+            data = y,
             coords = {
                 "phase_idx": list(range(y.shape[0])),
                 "bin_idx": np.arange(y.shape[1]),
@@ -79,10 +75,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             },
             name = "covariance_y",
         )
-        
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
-        
-        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
@@ -98,7 +90,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None
+        cdf_floor: float = 0.05,
+        test_filters: dict = None,
     ) -> dict:
         """
         Compress the data from raw measurement files.
@@ -130,23 +123,36 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/adaptive/')
+        base_dir = Path(self.paths['measurements_dir'],  f'base/dd_knn')
         
         y = []
         hods = {}
         for cosmo_idx in cosmos:
             self.logger.info(f'Compressing c{cosmo_idx:03d}')
-            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/wst_c{cosmo_idx:03d}_hod*.npy'
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/dd_knn_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
-                y.append(self.renorm_wst(data))
-                # y.append(data)
+                y.append(data)
         y = np.array(y)
+        y = y.reshape(len(cosmos), n_hod, -1)
+
+        # Additional processing step for kNNs: filter out noisy bins and flatten using fiducial cosmology
+        y_fid = y[0]
+
+        # Make a mask
+        mask1     = np.mean(y_fid, axis=0) > cdf_floor
+        mask2     = np.mean(y_fid, axis=0) < (1 - cdf_floor)
+        self.mask = np.logical_and(mask1, mask2)
+
+        # Apply it
+        y = y[:,:,self.mask]
+
+        # Make xarrays
         y = xarray.DataArray(
-            data = y.reshape(len(cosmos), n_hod, -1),
+            data = y,
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
@@ -160,7 +166,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         )
         x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape} (after bins filtering)')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -168,6 +174,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
                 'y': y,
             },
         )
+
         if add_covariance:
             cov_y = self.compress_covariance()
             cout = xarray.merge([cout, cov_y])
@@ -188,7 +195,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_training_set(self, save_fn: str = None):
         """
         Plot the training set for the observable.
@@ -206,7 +212,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
             ax.plot(data, color='gray', alpha=0.5, lw=0.1)
 
         ax.set_xlabel('bin index')
-        ax.set_ylabel('WST coefficient')
+        ax.set_ylabel('2D DD-kNN CDF value')
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches='tight')
@@ -215,10 +221,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
-        Plot multi-scale Minkowski functionals predictions against data.
+        Plot DD-kNN CDFs  predictions against data.
 
         Parameters
         ----------
@@ -240,11 +245,11 @@ class WaveletScatteringTransform(BaseObservableEMC):
         show_legend = False
 
         lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
-        lax[0].set_ylabel(r'$\textrm{WST coefficient}$', fontsize=15)
+        lax[0].set_ylabel(r'$\textrm{2D DD-kNN CDF value}$', fontsize=15)
 
         bin_idx = self.bin_idx.values
-        data = self.y
-        model = self.get_model_prediction(model_params)
+        data = self.y.squeeze()
+        model = self.get_model_prediction(model_params).squeeze()
 
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
@@ -255,7 +260,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
 
         for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
-        lax[1].set_ylabel(r'$\Delta \textrm{WST} / \sigma_\textrm{WST}$', fontsize=15)
+        lax[1].set_ylabel(r'$\Delta \textrm{DDkNN} / \sigma_\textrm{DDkNN}$', fontsize=15)
         lax[1].set_ylim(-4, 4)
 
         for ax in lax:
@@ -269,7 +274,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_covariance_set(self, save_fn: str = None):
         """
         Plot the covariance matrix for the observable.
@@ -293,7 +297,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         ax.plot(mean, color='k', lw=1.0)
 
         ax.set_xlabel('bin index')
-        ax.set_ylabel('WST coefficient')
+        ax.set_ylabel('2D DD-kNN value')
 
         cov = np.cov(self.covariance_y, rowvar=False)
         prec = np.linalg.inv(cov)

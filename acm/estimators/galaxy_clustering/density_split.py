@@ -1,8 +1,13 @@
-import numpy as np
-import logging
 import time
+import logging
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
 from pandas import qcut
+from pypower import CatalogFFTPower
+from pycorr import TwoPointCorrelationFunction
 from .base import BaseDensityMeshEstimator, BasePypowerMeshEstimator
+from acm.utils.plotting import set_plot_style
 
 
 class DensitySplit(BaseDensityMeshEstimator):
@@ -76,7 +81,6 @@ class DensitySplit(BaseDensityMeshEstimator):
         quantile_data_ccf : array_like
             Cross-correlation function between quantiles and data.
         """
-        from pycorr import TwoPointCorrelationFunction
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -123,7 +127,6 @@ class DensitySplit(BaseDensityMeshEstimator):
         quantile_acf : array_like
             Auto-correlation function of quantiles.
         """
-        from pycorr import TwoPointCorrelationFunction
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -166,7 +169,6 @@ class DensitySplit(BaseDensityMeshEstimator):
         quantile_data_power : array_like
             Cross-power spectrum between quantiles and data.
         """
-        from pypower import CatalogFFTPower
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -214,7 +216,6 @@ class DensitySplit(BaseDensityMeshEstimator):
         quantile_power : array_like
             Auto-power spectrum of quantiles.
         """
-        from pypower import CatalogFFTPower
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -237,11 +238,8 @@ class DensitySplit(BaseDensityMeshEstimator):
             self._quantile_power.append(result)
         return self._quantile_power
 
+    @set_plot_style
     def plot_quantiles(self, save_fn=None):
-        import matplotlib.pyplot as plt
-        import matplotlib
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         cmap = matplotlib.cm.get_cmap('coolwarm')
         colors = cmap(np.linspace(0.01, 0.99, 5))
@@ -262,10 +260,8 @@ class DensitySplit(BaseDensityMeshEstimator):
         if save_fn: plt.savefig(save_fn, bbox_inches='tight', dpi=300)
         return fig
 
+    @set_plot_style
     def plot_quantile_data_correlation(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
@@ -278,10 +274,8 @@ class DensitySplit(BaseDensityMeshEstimator):
         if save_fn: plt.savefig(save_fn, bbox_inches='tight', dpi=300)
         return fig
     
+    @set_plot_style
     def plot_quantile_correlation(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             s, multipoles = self._quantile_correlation[i](ells=(0, 2, 4), return_sep=True)
@@ -294,10 +288,8 @@ class DensitySplit(BaseDensityMeshEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_quantile_data_power(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             k, poles = self._quantile_data_power[i](ell=(0, 2, 4), return_k=True, complex=False)
@@ -310,10 +302,8 @@ class DensitySplit(BaseDensityMeshEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_quantile_power(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             k, poles = self._quantile_power[i](ell=(0, 2, 4), return_k=True, complex=False)
@@ -393,7 +383,6 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         quantile_data_ccf : array_like
             Cross-correlation function between quantiles and data.
         """
-        from pycorr import TwoPointCorrelationFunction
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -440,7 +429,6 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         quantile_acf : array_like
             Auto-correlation function of quantiles.
         """
-        from pycorr import TwoPointCorrelationFunction
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -482,7 +470,6 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         quantile_data_power : array_like
             Cross-power spectrum between quantiles and data.
         """
-        from pypower import CatalogFFTPower
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -530,7 +517,6 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         quantile_power : array_like
             Auto-power spectrum of quantiles.
         """
-        from pypower import CatalogFFTPower
         if self.has_randoms:
             if 'randoms_positions' not in kwargs:
                 raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
@@ -553,11 +539,8 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
             self._quantile_power.append(result)
         return self._quantile_power
 
+    @set_plot_style
     def plot_quantiles(self):
-        import matplotlib.pyplot as plt
-        import matplotlib
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         cmap = matplotlib.cm.get_cmap('coolwarm')
         colors = cmap(np.linspace(0.01, 0.99, 5))
@@ -578,10 +561,8 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_quantile_data_correlation(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
@@ -595,10 +576,8 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         plt.show()
         return fig
     
+    @set_plot_style
     def plot_quantile_correlation(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             s, multipoles = self._quantile_correlation[i](ells=(0, 2, 4), return_sep=True)
@@ -611,10 +590,8 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_quantile_data_power(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             k, poles = self._quantile_data_power[i](ell=(0, 2, 4), return_k=True, complex=False)
@@ -627,10 +604,8 @@ class PypowerMeshDensitySplit(BasePypowerMeshEstimator):
         plt.show()
         return fig
 
+    @set_plot_style
     def plot_quantile_power(self, ell=0, save_fn=None):
-        import matplotlib.pyplot as plt
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             k, poles = self._quantile_power[i](ell=(0, 2, 4), return_k=True, complex=False)

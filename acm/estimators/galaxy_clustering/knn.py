@@ -1,14 +1,7 @@
-import numpy as np
 import logging
+import numpy as np
 import scipy.spatial
-from functools import partial
-from multiprocessing import Pool
-from numba import njit, types, jit, prange
-
-#import ray
-#from fast_histogram import histogram2d
-#import pyfnntw
-
+from numba import njit, prange
 from .base import BaseEstimator
 
         
@@ -32,43 +25,34 @@ class KthNearestNeighbor(BaseEstimator):
 
         # If any value is < 0, don't use periodic boxes
         if np.any(periodic <= 0):
-            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize)
+            xtree                  = scipy.spatial.cKDTree(data, leafsize=leafsize)
+            boxsize_for_conversion = np.array([np.inf, np.inf, np.inf], dtype=np.float32)
         else:
-            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize, boxsize=periodic)
+            xtree                  = scipy.spatial.cKDTree(data, leafsize=leafsize, boxsize=periodic)
+            boxsize_for_conversion = periodic.astype(np.float32)
 
         # Query the tree (this is parallel)
         _, disi = xtree.query(query, k=k, workers=nthread)
 
-        # Conversion into 2D should be done separately
-        dis_trans, dis_par = convert_rppi(disi, data, query, k)
+        # Conversion into 2D should be done separately. Careful with boundary!
+        dis_trans, dis_par = convert_rppi(disi, data, query, k, boxsize_for_conversion)
+
         return dis_trans, dis_par
 
     def calc_cdf_hist(self, rs, pis, dis_t, dis_p):
         """
         2d histogram wrapper function
         """
-        cdfs = np.zeros((dis_t.shape[1], len(rs), len(pis)), dtype = np.float32)
+        # Edges of bins are passed
+        cdfs = np.zeros((dis_t.shape[1], len(rs)-1, len(pis)-1), dtype = np.float32)
 
-        # are the bins lin or log
-        rpbins = np.concatenate((np.zeros(1, dtype = np.float32), rs))
-        pibins = np.concatenate((np.zeros(1, dtype = np.float32), pis))
-        results = [self.calculate_single_cdf(ik, dis_t, dis_p, rpbins, pibins) for ik in range(dis_t.shape[1])]
-
-        for ik, cdf in results:
-            cdfs[ik] = cdf
+        # Compute each hist separately
+        for ik in range(dis_t.shape[1]):
+            h, _, _  = np.histogram2d(dis_t[:,ik], dis_p[:,ik], bins=(rps, pis))
+            cdf_ik   = np.cumsum(np.cumsum(h, axis=0), axis=1)
+            cdfs[ik] = cdf_ik / len(dis_t)
 
         return cdfs
-
-    def calculate_single_cdf(self, ik, dis_t, dis_p, rpbins, pibins):
-        """
-        tabulate pair distances into 2d histogram
-        """
-        # Do 2d histogram of obtained rp and pi
-        dist_hist2d_k, _, _ = np.histogram2d(dis_t[:,ik], dis_p[:,ik], bins=(rpbins, pibins))
-        dist_cdf2d_k = np.cumsum(np.cumsum(dist_hist2d_k, axis=0), axis=1)
-        # Normalization
-        cdf = dist_cdf2d_k / dist_cdf2d_k[-1, -1]
-        return (ik, cdf)
 
     def run_knn(self, rs, pis, xgal, xrand, kneighbors, periodic, nthread = 32, leafsize = 32):
         """
@@ -140,17 +124,42 @@ class KthNearestNeighbor(BaseEstimator):
 
 
 @njit(parallel = True)
-def convert_rppi(disi, xgal, xrand, k): 
+def convert_rppi(disi, xgal, xrand, k, L): 
     """
-    Convert 3d distances to transverse and line of sight
+    Convert indices of pairs to transverse and line of sight distances.
+    This function should be used if computations are performed for periodic box!
     """
+    
     dis_trans = -np.ones((len(xrand), len(k)), dtype = np.float32)
     dis_par = -np.ones((len(xrand), len(k)), dtype = np.float32)
-    for ik in prange(len(k)):
-        ineighs = disi[:, ik]
-        delta_pos = xgal[ineighs] - xrand
-        delta_trans = np.sqrt(delta_pos[:, 0]**2 + delta_pos[:, 1]**2)
-        delta_par = np.absolute(delta_pos[:, 2])
-        dis_trans[:, ik] = delta_trans          
-        dis_par[:, ik] = delta_par 
+    half_box = L/2
+
+    # prange over queries so all cores are used!
+    for ik in range(len(k)):
+        for i in prange(len(xrand)):
+            # Find right index
+            neighb_idx = disi[i,ik]
+
+            # Have to check periodicity separately for all components
+            dx = xgal[neighb_idx, 0] - xrand[i,0]
+            dy = xgal[neighb_idx, 1] - xrand[i,1]
+            dz = xgal[neighb_idx, 2] - xrand[i,2]
+
+            # Check manually. If L = inf, the check fails, no wrapping happens!
+            if np.abs(dx) > half_box[0]:
+                if dx > 0: dx -= L[0]
+                else:      dx += L[0]
+                
+            if np.abs(dy) > half_box[1]:
+                if dy > 0: dy -= L[1]
+                else:      dy += L[1]
+                
+            if np.abs(dz) > half_box[2]:
+                if dz > 0: dz -= L[2]
+                else:      dz += L[2]
+
+            # Compute the distances
+            dis_trans[i,ik] = np.sqrt(dx*dx + dy*dy)
+            dis_par[i,ik]   = np.abs(dz)
+
     return dis_trans, dis_par
