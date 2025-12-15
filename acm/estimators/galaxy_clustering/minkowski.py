@@ -1,6 +1,7 @@
-import numpy as np
-import logging
 import time
+import logging
+import numpy as np
+import matplotlib.pyplot as plt
 from pyrecon import RealMesh
 from .base import BasePyreconMeshEstimator
 from .src import minkowski as Mk
@@ -127,7 +128,6 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
         """
         Plot the Minkowski functionals
         """
-        import matplotlib.pyplot as plt
         fig = plt.figure(constrained_layout=False,figsize=[10,10])
         spec = fig.add_gridspec(ncols=2, nrows=2, hspace=0.2, wspace=0.3)
         if len(x)==0:
@@ -156,7 +156,6 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
         """
         Plot the 1,2,3th Minkowski functionals
         """
-        import matplotlib.pyplot as plt
         fig = plt.figure(constrained_layout=False,figsize=[15,4])
         spec = fig.add_gridspec(ncols=3, nrows=1, hspace=0.2, wspace=0.3)
         if len(x)==0:

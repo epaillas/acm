@@ -1,10 +1,9 @@
-# acm/estimators/galaxy_clustering/mst.py
-
-import numpy as np
 import logging
-import time
+import numpy as np
+import matplotlib.pyplot as plt
+import mistreeplus as mist # https://github.com/knaidoo29/mistreeplus
 from .base import BaseDensityMeshEstimator
-
+from acm.utils.plotting import set_plot_style
 
 class MinimumSpanningTree(BaseDensityMeshEstimator):
     """
@@ -42,9 +41,15 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
             The number of bins used for the MST distributions.
         """
         self.sigmaJ = sigmaJ
-        self.boxsize = boxsize
+        if np.isscalar(boxsize):
+            self.boxsize = np.array([boxsize, boxsize, boxsize])
+        else:
+            self.boxsize = boxsize
         self.Nthpoint = Nthpoint
-        self.origin = origin
+        if np.isscalar(origin):
+            self.origin = np.array([origin, origin, origin])
+        else:
+            self.origin = origin
         self.split = split
         self.iterations = iterations
         self.quartiles = quartiles
@@ -58,18 +63,13 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         x, y, z : array_like
             Coordinate positions.
         """
-        cond = np.where(x < 0.)[0]
-        x[cond] += self.boxsize
-        cond = np.where(x >= self.boxsize)[0]
-        x[cond] -= self.boxsize
-        cond = np.where(y < 0.)[0]
-        y[cond] += self.boxsize
-        cond = np.where(y >= self.boxsize)[0]
-        y[cond] -= self.boxsize
-        cond = np.where(z < 0.)[0]
-        z[cond] += self.boxsize
-        cond = np.where(z >= self.boxsize)[0]
-        z[cond] -= self.boxsize
+        
+        for i, dim in enumerate([x, y, z]):
+            cond = np.where(dim < 0.)[0]
+            dim[cond] += self.boxsize[i]
+            cond = np.where(dim >= self.boxsize[i])[0]
+            dim[cond] -= self.boxsize[i]
+            
         return x, y, z
     
     def _smooth(self, x, y, z, periodic=True):
@@ -88,7 +88,7 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
             x, y, z = self._periodic(x, y, z)
         return x, y, z
 
-    def _get_even_splits(length, N):
+    def _get_even_splits(self, length, N):
         """
         Finds the intervals to split any array into roughly N segments.
 
@@ -116,7 +116,7 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         split2 = splits[1:]
         return split1, split2
     
-    def get_percolation_statistics(self, data_pos):
+    def get_percolation_statistics(self, data_pos, useknn=True, k=20):
         """
         Computes the percolation statistics on the input galaxy data.
 
@@ -130,20 +130,17 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         mstdict : dict
             Dictionary containing the percolations statistics.
         """
-        # located here: https://github.com/knaidoo29/mistreeplus
-        import mistreeplus as mist
-
         x, y, z = data_pos[:,0], data_pos[:,1], data_pos[:,2]
         # remove origin
-        x -= self.origin
-        y -= self.origin
-        z -= self.origin
+        x, y, z = (data_pos[:,i] - self.origin[i] for i in range(3))
         # apply point-process smoothing
         if self.sigmaJ > 0.:
             x, y, z = self._smooth(x, y, z, periodic=True)
-
+        
         # Create subbox regions for segmenting the box.    
-        xedges = np.linspace(0., self.boxsize, self.split+1)
+        xedges = np.linspace(0., self.boxsize[0], self.split+1)
+        yedges = np.linspace(0., self.boxsize[1], self.split+1)
+        zedges = np.linspace(0., self.boxsize[2], self.split+1)
         ixs = np.arange(self.split)
         ixs, iys, izs = np.meshgrid(ixs, ixs, ixs, indexing='ij')
         ixs = ixs.flatten()
@@ -155,16 +152,22 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
             for j in range(0, len(ixs)):
                 
                 xmin, xmax = xedges[ixs[j]], xedges[ixs[j]+1]
-                ymin, ymax = xedges[iys[j]], xedges[iys[j]+1]
-                zmin, zmax = xedges[izs[j]], xedges[izs[j]+1]
+                ymin, ymax = yedges[iys[j]], yedges[iys[j]+1]
+                zmin, zmax = zedges[izs[j]], zedges[izs[j]+1]
                 
                 # create mask for only data-points within the subbox.
                 inbox = np.where((x >= xmin) & (x < xmax) & (y >= ymin) & (y < ymax) & (z >= zmin) & (z < zmax))[0]
 
-                # construct delaunay tesselation
-                del_graph = mist.graph.construct_del3D(x[inbox], y[inbox], z[inbox])
-                # delaunary -> minimum spanning tree
-                mst_graph = mist.mst.construct_mst(del_graph)
+                if useknn:
+                    # construct kNN tesselation
+                    _graph = mist.graph.construct_knn3D(x[inbox], y[inbox], z[inbox], k)
+                else:
+                    # construct delaunay tesselation
+                    _graph = mist.graph.construct_del3D(x[inbox], y[inbox], z[inbox])
+                
+                # graph -> minimum spanning tree
+                mst_graph = mist.mst.construct_mst(_graph)
+                
                 # convert from scipy sparse graph matrix to just edge index and weights (euclidean distance)
                 edge_idx, wei = mist.graph.graph2data(mst_graph)
                 # Get the number of nodes.
@@ -175,7 +178,7 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
                 adj_idx, adj_wei = mist.tree.get_adjacents(edge_idx, wei, Nnodes)
                 # the 1-point MST edge length distribution.
                 weiNpt = wei
-
+                
                 # sort the MST statistics to compute the mean in each quartile -- more efficient way of computing PDF/CDFs.
                 sortID = np.argsort(weiNpt)
                 split1, split2 = self._get_even_splits(len(weiNpt), self.quartiles)
@@ -206,7 +209,7 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
 
                     # sort the MST statistics to compute the mean in each quartile -- more efficient way of computing PDF/CDFs.
                     sortID = np.argsort(weiNpt)
-                    split1, split2 = self.get_even_splits(len(weiNpt), self.quartiles)
+                    split1, split2 = self._get_even_splits(len(weiNpt), self.quartiles)
 
                     # compute the N-point MST PDF
                     meanperbin = np.array([np.mean(weiNpt[sortID[split1[i]:split2[i]]]) for i in range(0, len(split1))])
@@ -220,20 +223,16 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
                     else:
                         mstdict['mst%ipt'%N] += meanperbin
                         mstdict['end%ipt'%N] += endperbin
-        # Normalise by iterations
-        mstdict['mst1pt'] /= self.iterations
+        
+        # Normalise by iterations and splits
+        mstdict['mst1pt'] /= self.iterations*len(ixs)
         for N in range(2, self.Nthpoint+1):
-            mstdict['mst%ipt'%N] /= self.iterations
-            mstdict['end%ipt'%N] /= self.iterations
-
-        # Normalize by the volume
-        mstdict['mst1pt'] /= self.boxsize**3
-        for N in range(2, self.Nthpoint+1):
-            mstdict['mst%ipt'%N] /= self.boxsize**3
-            mstdict['end%ipt'%N] /= self.boxsize**3
+            mstdict['mst%ipt'%N] /= self.iterations*len(ixs)
+            mstdict['end%ipt'%N] /= self.iterations*len(ixs)
         
         return mstdict
     
+    @set_plot_style
     def plot_percolation_statistics(self, mstdict, cmap='viridis', figsize=(10, 4), fname=None):
         """
         Plot the percolation statistics.
@@ -249,20 +248,16 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         fname : str, optional
             Optional to save the plot output.
         """
-        import matplotlib.pyplot as plt
-        import matplotlib
-        plt.rc('text', usetex=True)
-        plt.rc('font', family='serif')
         percentedge = np.linspace(0., 100., len(mstdict['mst1pt'])+1)
         percentmids = 0.5*(percentedge[1:] + percentedge[:-1])
-        colormap = matplotlib.cm.get_cmap(cmap)
+        colormap = plt.cm.get_cmap(cmap)
         plt.figure(figsize=figsize)
         plt.plot(percentmids, mstdict['mst1pt'], linestyle='-', color=colormap((1-1)/(10-1)))
         xticks = [50.]
         xlabel = ['%i'%1]
         for N in range(2, self.Nthpoint+1):
-            plt.plot(100*(N-1)+percentmids, mstdict['mst%ipt'%N], linestyle='-', linewidth=2., color=colormap((N-1)/(10-1)))
-            plt.plot(100*(N-1)+percentmids, mstdict['end%ipt'%N], linestyle='--', linewidth=2., color=colormap((N-1)/(10-1)))
+            plt.plot(100*(N-1)+percentmids, mstdict['mst%ipt'%N], linestyle='-', linewidth=2., color=colormap((N-1)/(self.Nthpoint-1)))
+            plt.plot(100*(N-1)+percentmids, mstdict['end%ipt'%N], linestyle='--', linewidth=2., color=colormap((N-1)/(self.Nthpoint-1)))
             plt.axvline(100*(N-1), color='k', linestyle=':')
             xticks.append(100.*N - 50.)
             xlabel.append('%i'%N)
