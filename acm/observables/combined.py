@@ -5,6 +5,9 @@ from pathlib import Path
 from contextlib import nullcontext
 from matplotlib.backends.backend_pdf import PdfPages
 from .base import Observable
+from acm.utils.covariance import check_covariance_matrix
+import logging
+
 
 
 class CombinedModel():
@@ -208,6 +211,9 @@ class CombinedObservable():
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        
+        
         return cov
 
     def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
@@ -236,8 +242,13 @@ class CombinedObservable():
         for observable in self.observables:
             cov_y = observable.get_emulator_covariance_matrix(prefactor=prefactor, method=method, diag=diag)
             covs.append(cov_y)
-        return linalg.block_diag(*covs)
-            
+        
+        cov = linalg.block_diag(*covs)
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="combined data covariance")
+        
+        return cov
     
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """

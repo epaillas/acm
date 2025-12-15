@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
+from acm.utils.xarray_data import dataset_from_dict
+from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
 from scipy.stats import median_abs_deviation, norm
 from acm.utils.xarray import dataset_from_dict
 from acm.utils.covariance import orthogonal_gk_mad_covariance
@@ -518,6 +520,10 @@ class Observable():
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} data covariance")
+        
         return cov
     
     def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
@@ -574,7 +580,13 @@ class Observable():
         else:
             raise ValueError(f"Unknown method '{method}' for emulator covariance matrix computation.")
         self.logger.info(f"Emulator covariance matrix computed using method '{method}' with diag={diag}.")
-        return prefactor * cov
+        
+        cov *= prefactor 
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} emulator covariance")
+        
+        return cov
 
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
