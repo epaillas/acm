@@ -4,11 +4,10 @@ from pathlib import Path
 from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
 from jaxpower import read
-from pycorr import TwoPointCorrelationFunction
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray import dataset_to_dict
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
+from acm.utils.xarray import dataset_to_dict, split_vars
 
 class GalaxyBispectrumMultipoles(BaseObservableEMC):
     """
@@ -32,7 +31,6 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         kmax: float = 0.285, 
         rebin: int = 3,
         ells: list = [0, 2],
-        overwrite_k: np.ndarray = None
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -71,9 +69,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         y = np.array(y)
         bin_idx = np.arange(len(k))
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
-        
-        cout = xarray.DataArray(
+        y = xarray.DataArray(
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -86,6 +82,10 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             },
             name = "covariance_y",
         )
+        
+        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
@@ -103,8 +103,9 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
         n_hod: int = 500,
-        phase_idx: int = 0,
-        seed_idx: int = 0,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict = None,
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -129,10 +130,14 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             Default is None.
         n_hod : int
             Number of HOD parameters to use. Default is 100.
-        phase_idx : int
-            TODO
-        seed_idx : int
-            TODO
+        phase : int, optional
+            Phase index to read the data from. Default is 0.
+        seed : int, optional
+            Seed index to read the data from. Default is 0.
+        test_filters : dict, optional
+            Dictionary of filters to split the dataset into training and test sets.
+            Keys are the dimension names and values are the values to filter on for the test set.
+            If None, no splitting is done. Default is None.
             
         Returns
         -------
@@ -146,8 +151,8 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         hods = {}
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/mesh3_spectrum_poles_c{cosmo_idx:03}_hod*.h5'
+            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/mesh3_spectrum_poles_c{cosmo_idx:03d}_hod*.h5'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
@@ -174,7 +179,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(hods=hods, cosmos=cosmos)
+        x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
@@ -185,8 +190,16 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_k=k)
+            cov_y = self.compress_covariance(rebin=rebin, ells=ells)
             cout = xarray.merge([cout, cov_y])
+            
+        if test_filters is not None:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)

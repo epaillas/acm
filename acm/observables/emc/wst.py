@@ -6,8 +6,9 @@ from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
 from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray import dataset_to_dict
 from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
+from acm.utils.xarray import dataset_to_dict, split_vars
 
 
 class WaveletScatteringTransform(BaseObservableEMC):
@@ -65,10 +66,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
             y.append(self.renorm_wst(data))
             # y.append(data)
         y = np.array(y)
-        
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
-        
-        cout = xarray.DataArray(
+                
+        y = xarray.DataArray(
             data = y.reshape(y.shape[0], -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -80,6 +79,10 @@ class WaveletScatteringTransform(BaseObservableEMC):
             },
             name = "covariance_y",
         )
+        
+        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
@@ -93,8 +96,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
         save_to: str = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
-        phase_idx: int = 0,
-        seed_idx: int = 0,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict = None
     ) -> dict:
         """
         Compress the data from raw measurement files.
@@ -111,10 +115,14 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Default is None.
         n_hod : int
             Number of HOD parameters to use. Default is 100.
-        phase_idx : int
-            TODO
-        seed_idx : int
-            TODO
+        phase : int, optional
+            Phase index to read the data from. Default is 0.
+        seed : int, optional
+            Seed index to read the data from. Default is 0.
+        test_filters : dict, optional
+            Dictionary of filters to split the dataset into training and test sets.
+            Keys are the dimension names and values are the values to filter on for the test set.
+            If None, no splitting is done. Default is None.
             
         Returns
         -------
@@ -127,8 +135,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/wst_c{cosmo_idx:03}_hod*.npy'
+            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/wst_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
@@ -150,7 +158,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(hods=hods, cosmos=cosmos)
+        x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
         self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
@@ -163,6 +171,14 @@ class WaveletScatteringTransform(BaseObservableEMC):
         if add_covariance:
             cov_y = self.compress_covariance()
             cout = xarray.merge([cout, cov_y])
+            
+        if test_filters is not None:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
@@ -172,6 +188,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         return cout
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_training_set(self, save_fn: str = None):
         """
         Plot the training set for the observable.
@@ -198,6 +215,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
         Plot multi-scale Minkowski functionals predictions against data.
@@ -251,6 +269,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_covariance_set(self, save_fn: str = None):
         """
         Plot the covariance matrix for the observable.
