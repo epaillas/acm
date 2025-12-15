@@ -2,12 +2,17 @@ import torch
 import xarray
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
 from acm.utils.xarray_data import dataset_from_dict
-from acm.utils.covariance import orthogonal_gk_mad_covariance
+from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
 from scipy.stats import median_abs_deviation, norm
+from acm.utils.xarray import dataset_from_dict
+from acm.utils.covariance import orthogonal_gk_mad_covariance
+from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
@@ -106,7 +111,7 @@ class Observable():
         try:
             self.model = self.load_model() 
         except Exception as e: # handle the case where the model checkpoint is not found
-            self.logger.warning(f"{e}, model will be undefined. If you are training a new model, this is expected.")
+            self.logger.warning(f"Model could not be loaded and will remain undefined. If you are training a new model, this is expected. Exception: {e}")
         
         # Set the filters
         self.select_filters = select_filters
@@ -143,6 +148,9 @@ class Observable():
             if name in self.select_indices_on:
                 data = self.apply_indices_selection(data)
             
+            # Drop NaN dimensions if marked in attributes
+            data = self.drop_nan_dimensions(data)
+            
             data = self.flatten_output(data, self.flat_output_dims)
         
             if self.squeeze_output:
@@ -152,6 +160,33 @@ class Observable():
                 data = data.values
             
         return data
+    
+    def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+        """
+        Drops dimensions that contain only NaN values in a DataArray.
+        Does nothing if no 'nan_dims' attribute is found.
+
+        Parameters
+        ----------
+        dataarray : xarray.DataArray
+            The DataArray to drop NaN dimensions from. Must contain a 'nan_dims' attribute listing dimensions to check.
+
+        Returns
+        -------
+        xarray.DataArray
+            The DataArray with NaN dimensions dropped.
+        """
+        if 'nan_dims' not in dataarray.attrs:
+            return dataarray
+        
+        for dim in dataarray.attrs['nan_dims']:
+            # Ignore if dimension not present (e.g., already squeezed or filtered out)
+            if dim not in dataarray.dims: 
+                continue
+            dataarray = dataarray.dropna(dim=dim, how='all')
+        if dataarray.size == 0:
+            self.logger.warning(f"All values dropped for {dataarray.name} due to NaN filters.")
+        return dataarray
 
     @staticmethod
     def stack_on_attribute(attribute: str|dict, dataarray: xarray.DataArray, **kwargs) -> xarray.DataArray:
@@ -362,7 +397,7 @@ class Observable():
         """
         Path to the checkpoint file of the model, constructed from the paths and the statistic name.
         """
-        return self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name'] # FIXME : Update this format later
+        return self.paths['model_dir'] + f'{self.stat_name}.ckpt'
    
     def load_model(self, checkpoint_fn: str = None) -> FCN:
         """
@@ -485,6 +520,10 @@ class Observable():
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} data covariance")
+        
         return cov
     
     def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
@@ -541,7 +580,13 @@ class Observable():
         else:
             raise ValueError(f"Unknown method '{method}' for emulator covariance matrix computation.")
         self.logger.info(f"Emulator covariance matrix computed using method '{method}' with diag={diag}.")
-        return prefactor * cov
+        
+        cov *= prefactor 
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} emulator covariance")
+        
+        return cov
 
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
@@ -580,3 +625,117 @@ class Observable():
         if isinstance(save_dir, str):
             return cout.as_posix() # Return as string if save_dir is a string
         return cout
+
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_observable(self, model_params: dict, save_fn: str = None, **kwargs) -> tuple:
+        """
+        Plot the observable with error bars and the model prediction, along with the residuals.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters for the prediction.
+        save_fn : str, optional
+            Filename to save the plot. If None, the plot is not saved.
+        **kwargs : dict
+            Additional arguments for the plot, such as height_ratios and show_legend.
+            The parameters volume_factor and prefactor are passed to get_covariance_matrix() 
+            to scale the covariance estimates.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+        height_ratios = kwargs.pop('height_ratios', [3, 1])
+        show_legend = kwargs.pop('show_legend', False)
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, ax = plt.subplots(len(height_ratios), sharex=True, sharey=False, gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        
+        ax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
+        ax[0].set_ylabel(r'${\rm X}$', fontsize=15)
+        
+        data = self.y
+        bin_idx = np.arange(len(data))
+        model = self.get_model_prediction(model_params)
+        
+        if len(data.shape) > 1:
+            self.logger.warning("Multiple samples found in the data. This might lead to unexpected plotting behavior.")
+        
+        volume_factor = kwargs.pop('volume_factor', 64)
+        prefactor = kwargs.pop('prefactor', 1)
+        cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+        error = np.sqrt(np.diag(cov))
+        
+        ax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', color=f'C0', elinewidth=1.0, capsize=None)
+        ax[0].plot(bin_idx, model, ls='-', color=f'C0')
+        ax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
+        
+        for offset in [-2, 2]: 
+            ax[1].axhline(offset, color='k', ls='--')
+            
+        ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+        ax[1].set_ylim(-4, 4)
+        
+        for a in ax:
+            a.grid(True)
+            a.tick_params(axis='both', labelsize=14)
+            
+        if show_legend: 
+            ax[0].legend(fontsize=15)
+        
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax
+    
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_emulator_residuals(self, save_fn: str = None, **kwargs) -> tuple:
+        """
+        Plot the emulator residuals.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+        **kwargs : dict
+            Additional arguments for the plot, such as figsize, and volume_factor and prefactor for covariance calculation.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+
+        volume_factor = kwargs.pop('volume_factor', 64)
+        prefactor = kwargs.pop('prefactor', 1)
+        data_cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+        data_err = np.sqrt(np.diag(data_cov))
+        residuals = self.emulator_covariance_y
+        
+        figsize = kwargs.pop('figsize', (4, 4))
+        fig, ax = plt.subplots(2, 1, figsize=figsize, sharex=True)
+
+        for res in residuals:
+            ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
+
+        # summary statistics of the emulator residuals
+        for method in ['mean', 'median', 'stdev']:
+            emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
+            emu_err = np.sqrt(np.diag(emu_cov))
+
+            ax[1].plot(emu_err / data_err, lw=1.0, label=method)
+
+        ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
+        ax[1].set_xlabel('bin index', fontsize=13)
+        ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
+        ax[1].set_ylabel(r'$\sigma_{\rm emulator} / \sigma_{\rm data}$', fontsize=13)
+        ax[1].legend(fontsize=8)
+        fig.tight_layout()
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax
