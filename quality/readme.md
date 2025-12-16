@@ -71,7 +71,7 @@ quality/pylint.conf
 ### Script for acm
 
 ```console
-acm_lint.bash
+acm_lint.sh
 ```
 
 The analysis results are displayed in the console and also saved in the `report_pylint.txt` file.
@@ -79,4 +79,10 @@ The analysis concludes with an overall score out of 10. It is recommended to pay
 
 ```console
 grep '\[E' report_pylint.txt
+```
+
+for a specific module
+
+```console
+grep 'acm/model/optimize' report_pylint.txt
 ```
