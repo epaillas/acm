@@ -300,3 +300,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, ax
+    
+# Alias
+tpcf = GalaxyCorrelationFunctionMultipoles
