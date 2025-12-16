@@ -6,11 +6,9 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
-from acm.utils.xarray_data import dataset_from_dict
-from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
 from scipy.stats import median_abs_deviation, norm
 from acm.utils.xarray import dataset_from_dict
-from acm.utils.covariance import orthogonal_gk_mad_covariance
+from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 

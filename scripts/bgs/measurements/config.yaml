@@ -1,0 +1,21 @@
+cosmologies: [0]
+phases: [0]
+seeds: [0]
+sim_type: base
+abacus_tracer: BGS
+redshift: 0.2
+n_hod: 100
+hod_dir: /pscratch/sd/s/sbouchar/acm/bgs/parameters/hod_params
+target_density: 8.5e-3
+target_density_sigma: 8.5e-6
+process_underdense: false
+add_rsd: true
+add_ap: true
+measurements: ['density', 'tpcf', 'density_split']
+gpu: false
+nthreads: 64
+save_dir: /pscratch/sd/s/sbouchar/acm/bgs/measurements
+save_galaxies: false
+overwrite: false
+log_level: INFO
+log_file: 

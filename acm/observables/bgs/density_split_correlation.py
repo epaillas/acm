@@ -311,7 +311,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, ax
-    
+
+
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
     Class for the application of the densitysplit cross-correlation statistic of the ACM pipeline to the BGS dataset.
@@ -328,3 +329,7 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     def __init__(self, **kwargs):
         super().__init__(stat_name='ds_xiqq', **kwargs)
         self.measurement_root = 'quantile_correlation'
+
+# Aliases
+ds_xiqq = DensitySplitQuantileCorrelationFunctionMultipoles
+ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
