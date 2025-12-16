@@ -5,9 +5,8 @@ from pathlib import Path
 from acm.observables import Observable
 from acm.utils import get_data_dirs
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.decorators import temporary_class_state
 from acm.utils.xarray import dataset_to_dict
-
+from acm.utils.decorators import temporary_class_state
 
 class BaseObservableBGS(Observable):
     """
@@ -31,7 +30,7 @@ class BaseObservableBGS(Observable):
         -------
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
-        """        
+        """
         # Get unfiltered values
         x_test = self._dataset.get('x_test', None)
         y_test = self._dataset.get('y_test', None)
