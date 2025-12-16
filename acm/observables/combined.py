@@ -212,8 +212,6 @@ class CombinedObservable():
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         
-        
-        
         return cov
 
     def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
