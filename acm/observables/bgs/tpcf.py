@@ -1,13 +1,13 @@
 import xarray
 import numpy as np
-from pathlib import Path
 import matplotlib.pyplot as plt
+from pathlib import Path
 from pycorr import TwoPointEstimator
-from .base import BaseObservableBGS
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 from acm.utils.xarray import dataset_to_dict, split_vars
+from .base import BaseObservableBGS
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     """
@@ -37,7 +37,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         cosmo_idx : int
             Index of the cosmology to use. Default is 0.
         hod_idx : int
-            Index of the HOD to use. Default is 96.
+            Index of the HOD to use. Default is 157.
         seed : int
             Seed index to use. Default is 0.
         los : list[str]
@@ -63,15 +63,12 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         
         y = []
         phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(small_dir.glob(f'c{cosmo_idx:03d}_ph*'))]
-        
         for phase in phases:
             fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
             fns = [fn_dir / f'{self.stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
             data = sum([TwoPointEstimator.load(fn).normalize() for fn in fns if fn.exists()])
             if data == 0:
-                # NOTE: This will crash the process later, but at least we log it
-                self.logger.warning(f'No measurement files found in {fn_dir}, skipping.')
-                continue
+                raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot compute covariance.')
             s, multipoles = data[::rebin](ells=ells, return_sep=True)
             y.append(multipoles)
         y = np.array(y)
@@ -133,7 +130,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         los : list[str]
             List of line-of-sight directions to use. Default is ['x', 'y', 'z'].
         rebin : int
-            Rebinning factor for the statistics. Default is 1.
+            Rebinning factor for the statistics. Default is 3.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2].
         cosmos : list
@@ -283,11 +280,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             ax[0].plot(s, model*s**2, ls='-', color=f'C{i}')
             ax[1].plot(s, (data - model) / error, ls='-', color=f'C{i}')
         
-            for offset in [-2, 2]: 
-                ax[1].axhline(offset, color='k', ls='--')
-            
-            ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
-            ax[1].set_ylim(-4, 4)
+        for offset in [-2, 2]: 
+            ax[1].axhline(offset, color='k', ls='--')
+        
+        ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+        ax[1].set_ylim(-4, 4)
         
         # Restore select_filters
         self.select_filters = default_select_filters

@@ -36,7 +36,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
         cosmo_idx : int
             Index of the cosmology to use. Default is 0.
         hod_idx : int
-            Index of the HOD to use. Default is 96.
+            Index of the HOD to use. Default is 157.
         seed : int
             Seed index to use. Default is 0.
         los : list[str]
@@ -72,9 +72,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
                 fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
-                    # NOTE: This will crash the process later, but at least we log it
-                    self.logger.warning(f'No measurement files found in {fn_dir} for quantile {q}, skipping.')
-                    continue
+                    raise FileNotFoundError(f'No measurement files found in {fn_dir} for quantile {q}, cannot compute covariance.')
                 data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in existing_fns])
                 s, multipoles = data[::rebin](ells=ells, return_sep=True)
                 y_quantiles.append(multipoles)
@@ -189,9 +187,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
                     fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                     data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in fns if fn.exists()])
                     if data == 0:
-                        # NOTE: This will crash the process later, but at least we log it
-                        self.logger.warning(f'No measurement files found in {fn_dir} for quantile {q}, skipping.')
-                        continue
+                        raise FileNotFoundError(f'No measurement files found in {fn_dir} for quantile {q}, cannot load data.')
                     s, multipoles = data[::rebin](ells=ells, return_sep=True)
                     y_quantiles.append(multipoles)
                 y.append(y_quantiles)
@@ -223,7 +219,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s, seed=seed, los=los, **kwargs)
+            cov_y = self.compress_covariance(rebin=rebin, ells=ells, quantiles=quantiles, overwrite_s=s, seed=seed, los=los, **kwargs)
             cout = xarray.merge([cout, cov_y])
         
         if test_filters is not None:
@@ -295,11 +291,11 @@ class DensitySplitBaseClass(BaseObservableBGS):
             ax[0].plot(s, model*s**2, ls='-', color=f'C{q}')
             ax[1].plot(s, (data - model) / error, ls='-', color=f'C{q}')
         
-            for offset in [-2, 2]: 
-                ax[1].axhline(offset, color='k', ls='--')
-            
-            ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
-            ax[1].set_ylim(-4, 4)
+        for offset in [-2, 2]: 
+            ax[1].axhline(offset, color='k', ls='--')
+        
+        ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+        ax[1].set_ylim(-4, 4)
         
         # Restore select_filters
         self.select_filters = default_select_filters
