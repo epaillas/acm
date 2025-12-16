@@ -205,6 +205,27 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     np.save(output_fn, smatavg)
     return wst.S  # Return the kymatio initialization for reuse
 
+def compute_mst(output_fn, positions, boxsize, Nthpoint=5, sigmaJ=3, split=1, quartiles=10):
+    """Computes the MST for the small abacus mocks."""
+    from acm.estimators.galaxy_clustering.mst import MinimumSpanningTree
+
+    halfbox = boxsize/2
+    
+    MST = MinimumSpanningTree(data_positions=positions, meshsize=128, boxsize=boxsize)
+    MST.setup(sigmaJ, boxsize, Nthpoint, origin=-halfbox, split=split, iterations=1, quartiles=quartiles)
+    mst_dict = MST.get_percolation_statistics(positions)
+
+    print(f'Saving {output_fn}')
+    np.savez(
+        output_fn,
+        mst1pt = mst_dict['mst1pt'],
+        mst2pt = mst_dict['mst2pt'], end2pt = mst_dict['end2pt'],
+        mst3pt = mst_dict['mst3pt'], end3pt = mst_dict['end3pt'],
+        mst4pt = mst_dict['mst4pt'], end4pt = mst_dict['end4pt'],
+        mst5pt = mst_dict['mst5pt'], end5pt = mst_dict['end5pt'],
+    )
+
+
 def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), cellsize=5, recon=False, los='z', **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
@@ -319,8 +340,8 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     # No need in randoms, positions are used as query
     # Measurement params, k is shifted by 1 compured to dr
     ks  = [2,3,4,5,6,7,8,9,10]
-    rps = np.logspace(-0.2, 1.8, 8)
-    pis = np.logspace(-0.3, 1.5, 5)
+    rps = np.logspace(-0.2, 1.8, 9)     # 9 edges -> 8 bins
+    pis = np.logspace(-0.3, 1.5, 6)     # 6 edges -> 5 bins
 
     # Convert to single precision
     positions = positions.astype(np.float32)
@@ -331,6 +352,14 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
 
     # And periodic wrap in single precision
     positions = np.mod(positions, boxsize)
+
+    # Swap axes of the box AND boxsize if want non-z LOS
+    if los=='x':
+        positions[:, [0, 2]] = positions[:, [2, 0]]
+        boxsize[[0, 2]] = boxsize[[2, 0]]
+    elif los == 'y':
+        positions[:, [1, 2]] = positions[:, [2, 1]]
+        boxsize[[1, 2]] = boxsize[[2, 1]]
 
     # Do the measurement
     knn  = KthNearestNeighbor()
@@ -407,7 +436,7 @@ if __name__ == '__main__':
             compute_dr_knn(output_fn, hod_positions, **box_args)
 
         if 'dd_knn' in args.todo_stats:
-            save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
+            save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/small/dd_knn/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = Path(save_dir) / f'dd_knn_ph{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, los='z')

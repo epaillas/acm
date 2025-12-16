@@ -1,5 +1,6 @@
-from functools import wraps
+import numpy as np
 import matplotlib.pyplot as plt
+from functools import wraps
 
 #%% Styling decorators
 def set_plot_style(func):
@@ -23,7 +24,7 @@ def plot_parameters_histogram(parameters: list, names: list[str], mapping: dict 
     names : list[str]
         List of parameter names to plot histograms for.
     mapping : dict, optional
-        Dictionary mapping parameter names to labels for the x-axis, by default None. If None, `parameter` names are used as labels.
+        Dictionary mapping parameter names to labels for the x-axis, by default None. If None, parameter names are used as labels.
     **kwargs
         Additional keyword arguments to pass to `plt.hist`.
         Can also include:
@@ -45,12 +46,13 @@ def plot_parameters_histogram(parameters: list, names: list[str], mapping: dict 
     colors = kwargs.pop('colors', [f'C{i}' for i in range(len(parameters))])
 
     fig, ax = plt.subplots(len(names), 1, figsize=figsize)
+    ax = np.atleast_1d(ax) # Ensure ax is always an array
     
     if labels is not None and len(labels) != len(parameters):
-            raise ValueError("Length of labels must match length of parameters")
+        raise ValueError("Length of labels must match length of parameters")
     for i, param in enumerate(names):
         for j, p in enumerate(parameters):
-            if labels:
+            if labels is not None:
                 ax[i].hist(p[param].flatten(), color=colors[j], label=labels[j], **kwargs)
             else:
                 ax[i].hist(p[param].flatten(), color=colors[j], **kwargs)
@@ -61,16 +63,16 @@ def plot_parameters_histogram(parameters: list, names: list[str], mapping: dict 
 
 def plot_parameters_triangle(parameters: list, names: list[str], mapping: dict = None, **kwargs) -> tuple:
     """
-    Plot a triangle scatter plot of specified parameters names.
+    Plot a triangle scatter plot of specified parameter names.
 
     Parameters
     ----------
     parameters : list
-        List of parameters parameter dicts or structured arrays with dtype column names associated with names.
+        List of parameter dicts or structured arrays with dtype column names associated with names.
     names : list[str]
         List of parameter names to include in the triangle plot.
     mapping : dict, optional
-        Dictionary mapping `parameter` names to labels for the axes, by default None. If None, `parameter` names are used as labels.
+        Dictionary mapping parameter names to labels for the axes, by default None. If None, parameter names are used as labels.
     **kwargs
         Additional keyword arguments to pass to `plt.scatter`.
         Can also include:
@@ -100,6 +102,7 @@ def plot_parameters_triangle(parameters: list, names: list[str], mapping: dict =
     s = kwargs.pop('s', 1)  # size of scatter points
     
     fig, axes = plt.subplots(len(names), len(names), figsize=figsize)
+    axes = np.atleast_2d(axes)  # Ensure axes is always 2D array
     
     for i, x_param in enumerate(names):
         for j, y_param in enumerate(names):

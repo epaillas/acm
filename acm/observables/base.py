@@ -2,6 +2,7 @@ import torch
 import xarray
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 import matplotlib.pyplot as plt
 from sunbird.emulators import FCN
@@ -109,7 +110,7 @@ class Observable():
         try:
             self.model = self.load_model() 
         except Exception as e: # handle the case where the model checkpoint is not found
-            self.logger.warning(f"Model will be undefined. If you are training a new model, this is expected behavior. Exception: {e}")
+            self.logger.warning(f"Model could not be loaded and will remain undefined. If you are training a new model, this is expected. Exception: {e}")
         
         # Set the filters
         self.select_filters = select_filters
@@ -518,6 +519,10 @@ class Observable():
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} data covariance")
+        
         return cov
     
     def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
@@ -574,7 +579,13 @@ class Observable():
         else:
             raise ValueError(f"Unknown method '{method}' for emulator covariance matrix computation.")
         self.logger.info(f"Emulator covariance matrix computed using method '{method}' with diag={diag}.")
-        return prefactor * cov
+        
+        cov *= prefactor 
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} emulator covariance")
+        
+        return cov
 
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
@@ -627,7 +638,9 @@ class Observable():
         save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
         **kwargs : dict
-            Additional arguments for the plot, such as height_ratios and show_legend, and volume_factor and prefactor for covariance calculation.
+            Additional arguments for the plot, such as height_ratios and show_legend.
+            The parameters volume_factor and prefactor are passed to get_covariance_matrix() 
+            to scale the covariance estimates.
 
         Returns
         -------

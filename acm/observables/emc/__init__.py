@@ -4,7 +4,7 @@ from .spectrum import GalaxyPowerSpectrumMultipoles
 from .bispectrum import GalaxyBispectrumMultipoles
 from .recon_spectrum import ReconstructedGalaxyPowerSpectrumMultipoles
 from .minkowski import MinkowskiFunctionals
-# from .dd_knn import DDkNN
+from .dd_knn import DDkNN
 from .density_split_correlation import DensitySplitGalaxyCorrelationFunctionMultipoles
 from .vide import VIDEVoidGalaxyCorrelationFunctionMultipoles
 from .wst import WaveletScatteringTransform

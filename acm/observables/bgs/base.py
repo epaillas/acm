@@ -14,7 +14,7 @@ class BaseObservableBGS(Observable):
     """
     def __init__(self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs):
         paths = kwargs.pop('paths', get_data_dirs('bgs'))
-        self.n_test = 600 # FIXME: Remove this on next file compression !
+        self.n_test = kwargs.pop('n_test', 6*100) # FIXME: Remove this on next file compression !
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
 
     def get_emulator_covariance_y(self, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
@@ -60,14 +60,14 @@ class BaseObservableBGS(Observable):
             prediction = prediction.values
             
         diff = y_test - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
-    
+        
         n_test = y_test.shape[0] # Indexing on n_test to prevent filtering issues later on
         y = self._dataset.y.unstack()
         shape = (n_test, ) + y.shape[len(y.attrs['sample']):]
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords = {
-                'n_test': range(n_test), 
+                'n_test': range(n_test),
                 **{k: y.coords[k] for k in y.dims if k in y.attrs['features']}
             },
             attrs = {
@@ -128,8 +128,15 @@ class BaseObservableBGS(Observable):
         if self.numpy_output:
             emulator_error = emulator_error.values
         return emulator_error
-
-    def get_hod_from_files(self, cosmo_idx: int, phase: int = 0, seed: int = 0, density_threshold: float = None, return_fn: bool = False) -> np.ndarray:
+    
+    def get_hod_from_files(
+        self, 
+        cosmo_idx: int, 
+        phase: int = 0, 
+        seed: int = 0, 
+        density_threshold: float = None, 
+        return_fn: bool = False
+    ) -> np.ndarray:
         """
         Get the existing HOD indexes from the mock folders for a given phase and seed.
 
@@ -194,7 +201,7 @@ class BaseObservableBGS(Observable):
             If None, it is determined from the first cosmology and restricted to that number for all cosmologies. 
             Defaults to None.
         **kwargs : dict
-            Additional arguments to pass to `get_raw_hod_idx`.
+            Additional arguments to pass to `get_hod_from_files`.
         
         Returns
         -------
@@ -219,7 +226,7 @@ class BaseObservableBGS(Observable):
             x_i = pd.read_csv(data_fn)
             x_names = list(x_i.columns)
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
-
+            
             # Get the HOD indexes from folder names (density filtering is optional)
             hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
             if n_hod is None:
@@ -265,8 +272,6 @@ class BaseObservableBGS(Observable):
         
         Parameters
         ----------
-        n_test : int|list
-            Number of test samples or list of indices of the test samples.
         save_to : str, optional
             Path of the directory where to save the emulator error file. If None, the emulator error file is not saved.
             Default is None.
@@ -285,7 +290,7 @@ class BaseObservableBGS(Observable):
                 'emulator_error': emulator_error,
             }
         )
-
+        
         if save_to:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{self.stat_name}.npy'

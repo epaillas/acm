@@ -281,6 +281,28 @@ def compute_minkowski(output_fn, positions, **attrs):
     print(f'Saving {output_fn}')
     np.save(output_fn, mfs3d)
 
+
+def compute_mst(output_fn, positions, boxsize, Nthpoint=5, sigmaJ=3, split=4, quartiles=10):
+    """Computes the MST for the small abacus mocks."""
+    from acm.estimators.galaxy_clustering.mst import MinimumSpanningTree
+
+    halfbox = boxsize/2
+    
+    MST = MinimumSpanningTree(data_positions=positions, meshsize=128, boxsize=boxsize)
+    MST.setup(sigmaJ, boxsize, Nthpoint, origin=-halfbox, split=split, iterations=1, quartiles=quartiles)
+    mst_dict = MST.get_percolation_statistics(positions)
+
+    print(f'Saving {output_fn}')
+    np.savez(
+        output_fn,
+        mst1pt = mst_dict['mst1pt'],
+        mst2pt = mst_dict['mst2pt'], end2pt = mst_dict['end2pt'],
+        mst3pt = mst_dict['mst3pt'], end3pt = mst_dict['end3pt'],
+        mst4pt = mst_dict['mst4pt'], end4pt = mst_dict['end4pt'],
+        mst5pt = mst_dict['mst5pt'], end5pt = mst_dict['end5pt'],
+    )
+
+
 def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), cellsize=5, recon=False, los='z', **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
@@ -392,11 +414,22 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
             boxsize = np.repeat(boxsize, 3)
     assert boxsize.shape==(3,)
 
+    positions = positions.astype(np.float32, copy=True)
+    if los == 'x':
+        # Swap X and Z (X becomes the new Z)
+        positions[:, [0, 2]] = positions[:, [2, 0]]
+        # Swap box dimensions too if non-cubic
+        boxsize[[0, 2]] = boxsize[[2, 0]]
+    elif los == 'y':
+        # Swap Y and Z
+        positions[:, [1, 2]] = positions[:, [2, 1]]
+        boxsize[[1, 2]] = boxsize[[2, 1]]
+
     # No need in randoms, positions are used as query
     # Measurement params, k is shifted by 1 compured to dr
     ks  = [2,3,4,5,6,7,8,9,10]
-    rps = np.logspace(-0.2, 1.8, 8)
-    pis = np.logspace(-0.3, 1.5, 5)
+    rps = np.logspace(-0.2, 1.8, 9)     # 9 edges -> 8 bins
+    pis = np.logspace(-0.3, 1.5, 6)     # 6 edges -> 5 bins
 
     # Convert to single precision
     positions = positions.astype(np.float32)
@@ -407,6 +440,14 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
 
     # And periodic wrap in single precision
     positions = np.mod(positions, boxsize)
+
+    # Swap axes of the box AND boxsize if want non-z LOS
+    if los=='x':
+        positions[:, [0, 2]] = positions[:, [2, 0]]
+        boxsize[[0, 2]] = boxsize[[2, 0]]
+    elif los == 'y':
+        positions[:, [1, 2]] = positions[:, [2, 1]]
+        boxsize[[1, 2]] = boxsize[[2, 1]]
 
     # Do the measurement
     knn  = KthNearestNeighbor()
@@ -424,6 +465,7 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     # Save
     print(f'Saving DD knns in {output_fn}')
     np.save(output_fn, cdfs)
+
 def compute_dt_voids(output_fn, positions, **attrs):
     """Compute the Delaunay Triangulation void size function using the ACM package."""
     from acm.estimators.galaxy_clustering.pydive import DTVoids
@@ -637,7 +679,7 @@ if __name__ == '__main__':
                         compute_dr_knn(output_fn, hod_positions, boxsize, los='z')
                     
                     if 'dd_knn' in args.todo_stats:
-                        save_dir = '/pscratch/sd/p/pd2487/knn_measurements/'
+                        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/dd_knn/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = Path(save_dir) / f'dd_knn_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
