@@ -8,6 +8,9 @@ def get_fixed_params(cosmo_model: str, hod_model: str, priors: dict) -> list:
     """
     Return a list of fixed parameter names based on the cosmological and HOD models.
     This function checks which parameters are free in the specified models.
+    Each parameter should be separated by a dash '-' in the model strings.
+    Fixed parameters can be specified by appending 'fixed-' before the parameter name in the model string.
+    Fixed parameters must be added at the end of the model string *after* all free parameters.
     
     Parameters
     ----------
@@ -17,8 +20,14 @@ def get_fixed_params(cosmo_model: str, hod_model: str, priors: dict) -> list:
         The HOD model string containing keywords (e.g., 'base', 'AB', 'CB', etc.).
     priors : dict
         A dictionary of all parameter priors.
+        
+    Returns
+    -------
+    fixed : list
+        A list of fixed parameter names.
     """
     free = []
+    
     # cosmology
     if 'base' in cosmo_model:
         free += ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s']
@@ -30,8 +39,7 @@ def get_fixed_params(cosmo_model: str, hod_model: str, priors: dict) -> list:
         free += ['N_ur']
     if 'nrun' in cosmo_model:
         free += ['nrun']
-    if 'fixed-ns' in cosmo_model:
-        free.remove('n_s')
+    
     # HOD
     if 'base' in hod_model:
         free += ['logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa']
@@ -41,8 +49,14 @@ def get_fixed_params(cosmo_model: str, hod_model: str, priors: dict) -> list:
         free += ["A_cen", "A_sat"]
     if 'VB' in hod_model:
         free += ['alpha_c', 'alpha_s']
-    if '_s' in hod_model or '-s' in hod_model:
+    if '-s' in hod_model: # Not _s or s as other params have _s in their name (e.g., sigma, alpha_s)
         free += ['s']
+    
+    for param in [*cosmo_model.split('fixed-'), *hod_model.split('fixed-')]:
+        param = param.strip('-') # to handle leading/trailing dashes
+        if param in free:
+            free.remove(param)
+    
     fixed = [par for par in priors.keys() if par not in free]
     return fixed
 
