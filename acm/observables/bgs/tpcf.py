@@ -175,9 +175,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
                 fns = [fn_dir / f'{self.stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
-                    # NOTE: This will crash the process later, but at least we log it
-                    self.logger.warning(f'No measurement files found in {fn_dir}, skipping.')
-                    continue
+                    raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot load data.')
                 data = sum([TwoPointEstimator.load(fn).normalize() for fn in existing_fns])
                 s, multipoles = data[::rebin](ells=ells, return_sep=True)
                 y.append(multipoles)
