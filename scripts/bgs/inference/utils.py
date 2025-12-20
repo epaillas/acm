@@ -96,12 +96,14 @@ def get_observable(
         slice_filters_map = {}
         
     observables = []
+    _select_filters = kwargs.pop('select_filters', {})
+    _slice_filters = kwargs.pop('slice_filters', {})
     for observable_name in observable_names:
         cls = get_class_from_module(module, observable_name)
         
-        select_filters = kwargs.pop('select_filters', {})
-        slice_filters = kwargs.pop('slice_filters', {})
-
+        # Prevent modifying the original kwargs
+        select_filters = _select_filters.copy()
+        slice_filters = _slice_filters.copy()
         select_filters.update(select_filters_map.get(observable_name, {}))
         slice_filters.update(slice_filters_map.get(observable_name, {}))
         kwargs['select_filters'] = select_filters

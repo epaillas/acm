@@ -282,7 +282,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
         
         s = self.s.values
         for i, q in enumerate(quantiles):
-            self.select_filters.update({'ells':0, 'quantiles': q})
+            self.select_filters.update({'ells': ell, 'quantiles': q})
             data = self.y
             model = self.get_model_prediction(model_params)
             cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)

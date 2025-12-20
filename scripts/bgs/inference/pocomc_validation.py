@@ -9,8 +9,8 @@ from sunbird.inference.pocomc import PocoMCSampler
 from sunbird.inference.priors import get_priors, Bouchard25
 from acm import setup_logging
 from acm.utils.covariance import get_covariance_correction, check_covariance_matrix
-from utils import get_observable, save_and_plot
-from secondgen_bgs import get_secondgen_data
+from .utils import get_observable, save_and_plot
+from .secondgen_bgs import get_secondgen_data
 
 logger = logging.getLogger(__file__.split('/')[-1])
 
@@ -160,6 +160,8 @@ def fit_pocomc(
         A dictionary of parameter labels.
     fixed_param_names : list[str]
         A list of names of parameters to be held fixed during sampling.
+    fit_type : str, optional
+        Type of mock to fit: 'validation' or 'secondgen'. Defaults to 'validation'.
     add_cov_emu : bool, optional
         Whether to add emulator covariance to the total covariance matrix. Defaults to False.
     cov_emu_method : str, optional
@@ -174,7 +176,7 @@ def fit_pocomc(
     sampler : PocoMCSampler
         The configured PocoMCSampler instance after sampling.
     """
-    theory_model, x_names = get_observable_model(observable, )
+    theory_model, x_names = get_observable_model(observable)
     
     covariances = []
     if fit_type == 'validation':

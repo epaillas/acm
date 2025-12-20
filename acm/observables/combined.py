@@ -227,7 +227,7 @@ class CombinedObservable():
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         
-        check_covariance_matrix(cov, name="combined data covariance")
+        check_covariance_matrix(cov, name="combined data covariance", **kwargs)
         
         return cov
 
