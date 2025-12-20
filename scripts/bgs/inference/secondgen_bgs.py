@@ -21,7 +21,7 @@ def compress_secondgen_x(
     z: float = 0.2,
     cosmo: int = 0,
     Mr_cut: float = -20,
-    sigma_to_log: bool = True,
+    sigma_to_log10: bool = True,
 ) -> xarray.DataArray:
     """
     Compress second-generation cosmology and HOD parameters into a DataArray.
@@ -36,6 +36,8 @@ def compress_secondgen_x(
         Cosmology index. Defaults to 0
     Mr_cut : float, optional
         Magnitude cut for the sample. Defaults to -20
+    sigma_to_log10 : bool, optional
+        Whether to convert the 'sigma' parameter to its logarithm base 10. Defaults to True.
         
     Returns
     -------
@@ -53,7 +55,7 @@ def compress_secondgen_x(
     parameters = list(all_params.keys()) # Ordered to follow the BGS order
     values = np.array([eval_str(all_params[name]) for name in parameters])
     
-    if sigma_to_log:
+    if sigma_to_log10:
         sigma_idx = parameters.index('sigma')
         values[sigma_idx] = np.log10(values[sigma_idx])
         logger.info(f'Converted sigma to log10(sigma): {values[sigma_idx]}')
@@ -283,7 +285,7 @@ def compress_secondgen(stat_name: str, **kwargs):
         raise ValueError(f"Unknown statistic name: {stat_name}")
     return dataset
 
-def check_datasets_compatibility(*observables) -> bool:
+def check_datasets_compatibility(*observables) -> None:
     """
     Check if multiple observables are compatible for combination.
     Compatibility is defined as having the same features shapes for y, the same number of parameters for x, and the same covariance shape.
@@ -292,11 +294,6 @@ def check_datasets_compatibility(*observables) -> bool:
     ----------
     *observables : Observable
         List of observable objects to check for compatibility.
-        
-    Returns
-    -------
-    bool
-        True if all observables are compatible, False otherwise.
         
     Raises
     ------
@@ -315,7 +312,6 @@ def check_datasets_compatibility(*observables) -> bool:
         if cov_ref.shape != cov_obs.shape:
             raise ValueError(f'Incompatible covariance shapes: {cov_ref.shape} vs {cov_obs.shape}')
         # Check the y features dimensions are the same HOW ?
-    return True
 
 def get_secondgen_data(observable, return_obs: bool = False, **kwargs) -> tuple: 
     """
