@@ -9,8 +9,8 @@ from sunbird.inference.pocomc import PocoMCSampler
 from sunbird.inference.priors import get_priors, Bouchard25
 from acm import setup_logging
 from acm.utils.covariance import get_covariance_correction, check_covariance_matrix
-from .utils import get_observable, save_and_plot
-from .secondgen_bgs import get_secondgen_data
+from utils import get_observable, save_and_plot
+from secondgen_bgs import get_secondgen_data
 
 logger = logging.getLogger(__file__.split('/')[-1])
 
