@@ -9,8 +9,8 @@
 #SBATCH --time 00:10:00
 
 #SBATCH --job-name bgs_small
-#SBATCH --output /global/homes/s/sbouchar/Output_jobs/bgs_measurements/%A.%x_%a.out
-#SBATCH --error /global/homes/s/sbouchar/Output_jobs/bgs_measurements/%A.%x_%a.err
+#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs_measurements/%A.%x_%a.out
+#SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs_measurements/%A.%x_%a.err
 
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh test
