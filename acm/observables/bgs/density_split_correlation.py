@@ -183,8 +183,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
             
             for fn_dir in hod_fns:
                 y_quantiles = []
+                fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                 for q in quantiles:
-                    fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                     data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in fns if fn.exists()])
                     if data == 0:
                         raise FileNotFoundError(f'No measurement files found in {fn_dir} for quantile {q}, cannot load data.')
