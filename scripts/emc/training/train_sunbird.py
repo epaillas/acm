@@ -102,12 +102,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     paths = {
-        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/', # Loads x, y can also contain covariance_y
+        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+        'param_dir': None
     }
 
     observable = Observable(stat_name=args.statistic, paths=paths, numpy_output=True, flat_output_dims=2)
 
-    model_dir = f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{observable}/'
+    model_dir = f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/{observable}/'
     TrainFCN(
         observable=observable,
         learning_rate=1.e-3,

@@ -1,6 +1,7 @@
 from sunbird.inference.pocomc import PocoMCSampler
 from sunbird.inference import priors as sunbird_priors
 from sunbird.cosmology.model_params import get_model_params
+from sunbird.inference.samples import Chain
 
 import acm.observables.emc as emc
 from acm.observables import CombinedObservable
@@ -94,8 +95,9 @@ def get_filters(observable_name):
 def get_observable(observable_names):
     """Get the observable class by name."""
     paths = {
-        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/',
-        'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
+        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+        'param_dir': None
     }
     if isinstance(observable_names, str):
         observable_names = [observable_names]
@@ -193,13 +195,13 @@ def save_and_plot(sampler, observable):
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     """Save the chain data and plots to the specified directory."""
-    sampler.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,
-                        markers=sampler.markers, title_limit=1)
-    sampler.plot_trace(save_fn=save_dir / f'chain_{statistics}_trace.pdf', thin=128)
     sampler.save_chain(save_fn=save_dir / f'chain_{statistics}.npy', metadata={'markers': sampler.markers, 'zeff': 0.5})
     sampler.save_table(save_fn=save_dir / f'chain_{statistics}_stats.txt')
-    observable.plot_observable(model_params=sampler.bestfit, save_fn=save_dir / f'chain_{statistics}_bestfit.pdf')
-
+    chain = Chain.load(save_dir / f'chain_{statistics}.npy')
+    chain.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,
+                        markers=sampler.markers, title_limit=1)
+    chain.plot_trace(save_fn=save_dir / f'chain_{statistics}_trace.pdf', thin=128)
+    observable.plot_observable(model_params=chain.bestfit, save_fn=save_dir / f'chain_{statistics}_bestfit.pdf')
 
 
 if __name__ == "__main__":
@@ -217,7 +219,7 @@ if __name__ == "__main__":
     parser.add_argument('--cov_emu_method', type=str, default='median', help='Method to compute the emulator covariance.')
     parser.add_argument('--cov_emu_diag', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
     parser.add_argument('--cov_correction', type=str, default='percival', help='Covariance correction method to use.')
-    parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/debug',)
+    parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/debug')
 
     args = parser.parse_args()
     setup_logging()
