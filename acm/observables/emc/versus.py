@@ -14,20 +14,14 @@ from pycorr import TwoPointCorrelationFunction
 class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
     """
     Class for the Emulator Mock Challenge's VERSUS void size function.
-.
+    
     """
     def __init__(self, **kwargs):
         if not hasattr(self, "recon"):
             raise ValueError("Subclass must define a class attribute 'recon'")
         self.label = ("recon_" if self.recon else "") + 'vsf'
+        self.filedir = ("recon_" if self.recon else "") + 'spherical_voids'
         super().__init__(stat_name=f'versus_{self.label}', n_test=6*100, **kwargs)
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
     
     def compress_covariance(
         self,
@@ -47,8 +41,7 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
-        # Directories
-        base_dir = Path(self.paths['measurements_dir']) / 'small' / 'spherical_voids'
+        base_dir = Path(self.paths['measurements_dir']) / 'small' / self.filedir
         data_fns = list(base_dir.glob(f'sv_{self.label}_ph*.npy')) # NOTE: File name format hardcoded !
         
         y = []
@@ -113,7 +106,7 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/spherical_voids/')
+        base_dir = Path(self.paths['measurements_dir']) / 'base' / self.filedir
 
         y = []
         hods = {}
@@ -240,7 +233,6 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
             gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
         fig.subplots_adjust(hspace=0.1)
-        show_legend = True
         
         lax[0].set_ylabel(r'$n_{\rm void}\,[h^3{\rm Mpc}^{-3}]$')
         lax[-1].set_xlabel(r'$R_{\rm void}\, [h^{-1}{\rm Mpc}]$')
@@ -251,20 +243,18 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))
-
         lax[0].errorbar(rv, data, error, marker='o', ms=4, ls='', 
-            color=f'C{i}', elinewidth=1.0, capsize=None)
-        lax[0].plot(rv, model, ls='-', color=f'C{i}')
-        lax[1].plot(rv, (data - model) / error, ls='-', color=f'C{i}')
+            color='C0', elinewidth=1.0, capsize=None)
+        lax[0].plot(rv, model, ls='-', color='C0')
+        lax[1].plot(rv, (data - model) / error, ls='-', color='C0')
 
-        for offset in [-2, 2]: lax[i + 1].axhline(offset, color='k', ls='--')
+        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
         lax[1].set_ylabel(r'$\Delta n_{\rm void} / \sigma_{ n_{\rm void} }$', fontsize=15)
         lax[1].set_ylim(-4, 4)
 
         for ax in lax:
             ax.grid(True)
             ax.tick_params(axis='both', labelsize=14)
-        if show_legend: lax[0].legend(fontsize=15)
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
@@ -283,15 +273,9 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         if not hasattr(self, "recon"):
             raise ValueError("Subclass must define a class attribute 'recon'")
         self.label = ("recon_" if self.recon else "") + self.corr_type
+        self.filedir = ("recon_" if self.recon else "") + 'spherical_voids'
         super().__init__(stat_name=f'versus_{self.label}', 
                         n_test=6*100, **kwargs)
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
     
     def compress_covariance(
         self,
@@ -307,6 +291,8 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         save_to : str
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
+        rebin : int
+            Rebinning factor for the statistics. Default is 1.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2].
             
@@ -315,13 +301,12 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
-        # Directories
-        base_dir = Path(self.paths['measurements_dir']) / 'small' / 'spherical_voids'
-        data_fns = list(base_dir.glob('sv_{self.label}_ph*.npy')) # NOTE: File name format hardcoded !
+        base_dir = Path(self.paths['measurements_dir']) / 'small' / self.filedir
+        data_fns = list(base_dir.glob(f'sv_{self.label}_ph*.npy')) # NOTE: File name format hardcoded !
         
         y = []
         for data_fn in data_fns:
-            data = TwoPointCorrelationFunction.load(data_fn)[:-1:rebin]
+            data = TwoPointCorrelationFunction.load(data_fn)#[:-1:rebin]
             s, multipoles = data(ells=ells, return_sep=True) 
             y.append(np.concatenate(multipoles))
         y = np.array(y)
@@ -354,6 +339,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         save_to: str = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
+        rebin: int = 1,
         ells: list = [0, 2],
         phase_idx: int = 0,
         seed_idx: int = 0,
@@ -373,6 +359,8 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             Default is None.
         n_hod : int
             Number of HOD parameters to use. Default is 100.
+        rebin : int
+            Rebinning factor for the statistics. Default is 1.
         ells : list
             List of multipoles to compute the statistics for. Default is [0, 2].
         phase_idx : int
@@ -386,7 +374,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/spherical_voids/')
+        base_dir = Path(self.paths['measurements_dir']) / 'base' / self.filedir
 
         y = []
         hods = {}
@@ -395,10 +383,11 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             handle = f'c{cosmo_idx:03}_ph000/seed0/sv_{self.label}_c{cosmo_idx:03}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             for filename in filenames:
-                data = np.load(filename, allow_pickle=True)
-                rv, vsf = data
-                y.append(vsf)
+                data = TwoPointCorrelationFunction.load(filename)#[::rebin]
+                s, multipoles = data(ells=ells, return_sep=True) 
+                y.append(np.concatenate(multipoles))
             hods[cosmo_idx] = self.get_raw_hod_idx(cosmo_idx)[:n_hod]
+        
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
@@ -450,11 +439,11 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         s = self.s.values
 
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
-
-        for ell in ells:
+        self.select_filters = {}
+        for (l,ell) in enumerate(ells):
             self.select_filters.update({'ells': ell})
             for data in self.y:
-                lax[ell//2].plot(s, data, color=f'C{sb}', alpha=0.5, lw=0.1)
+                lax[ell//2].plot(s, data, color='C0', alpha=0.5, lw=0.1)
             lax[ell//2].set_ylabel(rf'$\xi_{ell}(s)$')
         lax[-1].set_xlabel(r'$s [h^{-1}{\rm Mpc}]$')
 
@@ -483,7 +472,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         for ell in ells:
             self.select_filters.update({'ells': ell})
             for data in self.covariance_y:
-                lax[ell//2].plot(s, data, color=f'C{sb}', alpha=0.5, lw=0.1)
+                lax[ell//2].plot(s, data, color='C0', alpha=0.5, lw=0.1)
             lax[ell//2].set_ylabel(rf'$\xi_{ell}(s)$')
         lax[-1].set_xlabel(r'$s [h^{-1}{\rm Mpc}]$')
 
@@ -533,7 +522,6 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             
             cov = self.get_covariance_matrix(volume_factor=64)
             error = np.sqrt(np.diag(cov))
-
             lax[0].errorbar(s, data, error, marker='o', ms=4, ls='', 
                 color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
             lax[0].plot(s, model, ls='-', color=f'C{i}')
@@ -557,21 +545,68 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
     recon = False
 
+    @property
+    def checkpoint_fn(self) -> str:
+        """
+        Override checkpoint_fn to point to the correct checkpoint file.
+        """
+        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_vsf/last.ckpt'
+
+
 class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
     recon = True
+
+    @property
+    def checkpoint_fn(self) -> str:
+        """
+        Override checkpoint_fn to point to the correct checkpoint file.
+        """
+        return 'none'
+
 
 class VERSUSVoidGalaxyCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivg'
     recon = False
 
+    @property
+    def checkpoint_fn(self) -> str:
+        """
+        Override checkpoint_fn to point to the correct checkpoint file.
+        """
+        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivg/last.ckpt'
+
+
 class VERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivv'
     recon = False
+
+    @property
+    def checkpoint_fn(self) -> str:
+        """
+        Override checkpoint_fn to point to the correct checkpoint file.
+        """
+        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivv/last.ckpt'
+
 
 class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivg'
     recon = True 
 
+    @property
+    def checkpoint_fn(self) -> str:
+        """
+        Override checkpoint_fn to point to the correct checkpoint file.
+        """
+        return 'none'
+        
+
 class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivv'
     recon = True 
+
+    @property
+    def checkpoint_fn(self) -> str:
+        """
+        Override checkpoint_fn to point to the correct checkpoint file.
+        """
+        return 'none'
