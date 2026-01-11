@@ -28,6 +28,7 @@ class DDkNN(BaseObservableEMC):
     
     def compress_covariance(
         self,
+        cdf_floor: float = 0.05,
         save_to: str = None,
     ) -> xarray.DataArray:
         """
@@ -35,6 +36,8 @@ class DDkNN(BaseObservableEMC):
         
         Parameters
         ----------
+        cdf_floor: float
+            Filter out CDF bins that have values > cdf_floor or < 1 - cdf_floor
         save_to : str
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
@@ -53,15 +56,18 @@ class DDkNN(BaseObservableEMC):
             data = np.load(data_fn, allow_pickle=True)
             y.append(data)
         y = np.array(y)
+        self.logger.info(f'Loaded covariance data with shape: {y.shape}')
 
         # Additional step: use the mask obtained from big boxes to filter out noisy bins
         # Check that mask is present in the class (compress_data() should have been called for that)
-        if not hasattr(self, 'mask'):
-            raise AttributeError('To determine covariance of kNNs, compress_data() should be called first')
-        y = y.reshape(y.shape[0], -1)
+        #if not hasattr(self, 'mask'):
+        #    raise AttributeError('To determine covariance of kNNs, compress_data() should be called first')
+        mask1     = np.mean(y, axis=0) > cdf_floor
+        mask2     = np.mean(y, axis=0) < (1 - cdf_floor)
+        self.mask = np.logical_and(mask1, mask2)
         y = y[:,self.mask]
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        self.logger.info(f'Cov data shape after filtering: {y.shape}')
         
         cout = xarray.DataArray(
             data = y,
@@ -137,22 +143,18 @@ class DDkNN(BaseObservableEMC):
                 data = np.load(filename, allow_pickle=True)
                 y.append(data)
         y = np.array(y)
-        y = y.reshape(len(cosmos), n_hod, -1)
 
-        # Additional processing step for kNNs: filter out noisy bins and flatten using fiducial cosmology
-        y_fid = y[0]
-
-        # Make a mask
-        mask1     = np.mean(y_fid, axis=0) > cdf_floor
-        mask2     = np.mean(y_fid, axis=0) < (1 - cdf_floor)
-        self.mask = np.logical_and(mask1, mask2)
-
-        # Apply it
-        y = y[:,:,self.mask]
+        # Need covariance for filtering
+        if add_covariance:
+            cov_y = self.compress_covariance(cdf_floor=cdf_floor)
+            y = y[:,self.mask]      # the mask exists only if cov is compressed too!
+        else:
+            y = y.reshape((len(y), -1,))        # Just flatten if no mask is present
+            print("WARNING! kNNs require cov data do perform filtering! Cov data is not included in this compression!")
 
         # Make xarrays
         y = xarray.DataArray(
-            data = y,
+            data = y.reshape(len(cosmos), n_hod, -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
@@ -166,7 +168,7 @@ class DDkNN(BaseObservableEMC):
         )
         x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape} (after bins filtering)')
+        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -175,10 +177,10 @@ class DDkNN(BaseObservableEMC):
             },
         )
 
+        # Append covariance if requested
         if add_covariance:
-            cov_y = self.compress_covariance()
             cout = xarray.merge([cout, cov_y])
-            
+
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
                 v_in.name = v_in.name + '_test'
