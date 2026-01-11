@@ -42,13 +42,15 @@ class KthNearestNeighbor(BaseEstimator):
     def calc_cdf_hist(self, rs, pis, dis_t, dis_p):
         """
         2d histogram wrapper function
+
+        Note: rs and pis should have shape (len(k), num_bins)
         """
         # Edges of bins are passed
-        cdfs = np.zeros((dis_t.shape[1], len(rs)-1, len(pis)-1), dtype = np.float32)
+        cdfs = np.zeros((dis_t.shape[1], rs.shape[1]-1, pis.shape[1]-1), dtype = np.float32)
 
         # Compute each hist separately
         for ik in range(dis_t.shape[1]):
-            h, _, _  = np.histogram2d(dis_t[:,ik], dis_p[:,ik], bins=(rps, pis))
+            h, _, _  = np.histogram2d(dis_t[:,ik], dis_p[:,ik], bins=(rs[ik], pis[ik]))
             cdf_ik   = np.cumsum(np.cumsum(h, axis=0), axis=1)
             cdfs[ik] = cdf_ik / len(dis_t)
 
@@ -61,15 +63,17 @@ class KthNearestNeighbor(BaseEstimator):
         Parameters
         ----------
         rs : array_like
-            transverse radii to evaluate knns at.
+            transverse radii to evaluate knns at. Can be a 1D array or a 2D array of shape (len(k), num_bins) to
+            specify separate binning for separate ks.
         pis : array_like
-            line of sight radii to evaluate knns at.
+            line of sight radii to evaluate knns at. Can be a 1D array or a 2D array of shape (len(k), num_bins) to
+            specify separate binning for separate ks.
         xgal : array_like, (N, 3)
             positions of galaxies
         xrand : array_like, (N, 3)
             positiions of query points, feed uniform randoms if RD, feed xgal if DD
         kneighbors : int 
-            the largest k to evaluate, default 1
+            a list of ints, for which ks to evaluate cdfs
         nthread : int
             number of threads, default 32 
         periodic : list or np.ndarray of shape (3,) with periodic boxsizes along each axis.
@@ -116,6 +120,18 @@ class KthNearestNeighbor(BaseEstimator):
                         )            
 
         assert dis_t.shape == dis_p.shape
+
+        # A bit of care about rs and pis bins. If (len(k), N) arrays are provided,
+        # use them (binning for each k individually). If not, turn them into this shape
+        assert len(rs.shape)==len(pis.shape)
+
+        if len(rs.shape)==2:
+            assert rs.shape[0]==pis.shape[0]
+        elif len(rs.shape)==1:
+            rs  = np.stack([rs for i in range(len(k))], axis=0)
+            pis = np.stack([pis for i in range(len(k))], axis=0)
+        else:
+            raise ValueError
 
         # tabulate the pairs into knn histograms
         knns_out = self.calc_cdf_hist(rs, pis, dis_t, dis_p)

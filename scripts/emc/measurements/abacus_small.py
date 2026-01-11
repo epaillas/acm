@@ -270,7 +270,7 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     print(f"Saving spherical vv-ACF to {output_fn['xivv']}")
     xivv.save(output_fn['xivv'])
 
-
+'''
 def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
     """Compute data-random knn CDFs using the ACM package"""
     from acm.estimators.galaxy_clustering.knn import KthNearestNeighbor
@@ -323,6 +323,7 @@ def compute_dr_knn(output_fn, positions, boxsize, los='z', **attrs):
     # Save
     print(f'Saving DR knns in {output_fn}')
     np.save(output_fn, cdfs)
+'''
 
 def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     """Compute data-data knn CDFs using the ACM package"""
@@ -338,10 +339,10 @@ def compute_dd_knn(output_fn, positions, boxsize, los='z', **attrs):
     assert boxsize.shape==(3,)
 
     # No need in randoms, positions are used as query
-    # Measurement params, k is shifted by 1 compured to dr
-    ks  = [2,3,4,5,6,7,8,9,10]
-    rps = np.logspace(-0.2, 1.8, 9)     # 9 edges -> 8 bins
-    pis = np.logspace(-0.3, 1.5, 6)     # 6 edges -> 5 bins
+    # Measurement params, k is shifted by 1 compured to DR case
+    ks = np.array([1,2,3,4,5,6,7,8,9]) + 1          # +1 for DD purposes. Reusing ks from original papers
+    rps = [np.logspace(np.log10(0.5), np.log10(21.21), 9) for _ in range(len(ks))]  # Max distance scale of this analysis: 30Mpc/h
+    pis = [np.logspace(np.log10(0.5), np.log10(21.21), 6) for _ in range(len(ks))]  # same bins for all k's
 
     # Convert to single precision
     positions = positions.astype(np.float32)
@@ -428,12 +429,12 @@ if __name__ == '__main__':
             with create_sharding_mesh() as sharding_mesh:
                 compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
-        if 'dr_knn' in args.todo_stats:
-            save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
-            output_fn = Path(save_dir) / f'dr_knn_ph{phase_idx:03}.npy'
-            box_args = dict(boxsize=boxsize, los='z')
-            compute_dr_knn(output_fn, hod_positions, **box_args)
+        #if 'dr_knn' in args.todo_stats:
+        #    save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
+        #    Path(save_dir).mkdir(parents=True, exist_ok=True)
+        #    output_fn = Path(save_dir) / f'dr_knn_ph{phase_idx:03}.npy'
+        #    box_args = dict(boxsize=boxsize, los='z')
+        #    compute_dr_knn(output_fn, hod_positions, **box_args)
 
         if 'dd_knn' in args.todo_stats:
             save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/small/dd_knn/'
