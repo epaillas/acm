@@ -311,8 +311,9 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     sv = SphericalVoids(data_positions=positions, cellsize=cellsize, 
                         reconstruct='rsd' if recon else None, 
                         recon_args={'f': 0.76, 'bias': 2., 'los': los, 'smoothing_radius': 10.},
+                        use_wisdom=True,
                         **attrs)
-    sv.run_voidfinding(radii, threads=32, use_wisdom=True)
+    sv.run_voidfinding(radii, threads=32)
     
     # position and radius
     print(f"Saving spherical void positions and radii to {output_fn['void']}")
