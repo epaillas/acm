@@ -3,7 +3,7 @@ Identify outliers in measurements using sigma clipping.
 Note that this requires all the HOD folders to have all their measurements computed for the expected mocks (otherwise the compression functions will crash).
 
 Usage:
-    python outliers.py --sim_type small --measurements tpcf ds_xiqg ds_xigg --ells 0 2 --seed 0 --sigma 6.0 --log_level info
+    python outliers.py --sim_type small -md /pscratch/sd/s/sbouchar/acm/bgs-20/measurements -pd /pscratch/sd/s/sbouchar/acm/bgs-20/parameters/cosmo+hod_params --measurements tpcf ds_xiqg ds_xiqq --ells 0 2 --seed 0 --sigma 6.0 --log_level info
 """
 
 import logging
@@ -14,14 +14,14 @@ from astropy.stats import sigma_clip
 from acm.utils.modules import get_class_from_module
 from acm.utils.logging import setup_logging
 
-def get_covariance(cls, **kwargs):
+def get_covariance(obs, **kwargs):
     """
     Compresses the covariance of the given statistic.
     
     Parameters
     ----------
-    cls
-        Class of the observable to load the data for.
+    obs
+        Observable class to load the data for.
     **kwargs
         Additional keyword arguments to pass to `compress_covariance`
         
@@ -32,20 +32,19 @@ def get_covariance(cls, **kwargs):
     cov: np.ndarray
         Covariance array, of shape (n_sample, n_features)
     """
-    obs = cls() # Instantiate the observable class
     data = obs.compress_covariance(**kwargs)
     phases = data.phase_idx.values
     cov = obs.flatten_output(data.covariance_y, flat_output_dims=2).values # to 2D numpy array
     return phases, cov
 
-def get_y(cls, **kwargs):
+def get_y(obs, **kwargs):
     """
     Compresses the measurements of the given statistic.
      
     Parameters
     ----------
-    cls
-        Class of the observable to load the data for.
+    obs
+        Observable class to load the data for.
     **kwargs
         Additional keyword arguments to pass to `compress_data`
         
@@ -56,7 +55,6 @@ def get_y(cls, **kwargs):
     y: np.ndarray
         Data array, of shape (n_sample, n_features)
     """    
-    obs = cls()
     data = obs.compress_data(**kwargs)
     y = obs.flatten_output(data.y, flat_output_dims=2).values # to 2D numpy array
     
@@ -105,11 +103,13 @@ def get_outliers(data: np.ndarray, index: np.ndarray = None, **kwargs):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Identify outliers in TPCF measurements using sigma clipping.")
     parser.add_argument('--module', type=str, default='acm.observables.bgs', help='Base module path for observables')
+    parser.add_argument('--measurements_dir', '-md', type=str, default=None, required=True, help='Directory containing measurement files')
+    parser.add_argument('--param_dir', '-pd', type=str, default=None, required=True, help='Directory containing HOD parameter files')
     parser.add_argument('--sim_type', type=str, choices=['small', 'base'], default='small', help='Type of simulation to analyze.')
     parser.add_argument('--ells', type=int, nargs='+', default=[0, 2], help='Multipoles to consider.')
     parser.add_argument('--seed', type=int, default=0, help='Seed number for measurements.')
     parser.add_argument('--sigma', type=float, default=6.0, help='Sigma threshold for clipping.')
-    parser.add_argument('--measurements', type=str, nargs='+', choices=['tpcf', 'ds_xiqg', 'ds_xigg'], default='tpcf', help='Type of measurements to analyze.')
+    parser.add_argument('--measurements', type=str, nargs='+', default='tpcf', help='Type of measurements to analyze.')
     parser.add_argument('--save', action='store_true', help='Whether to save the outlier results to a file.')
     parser.add_argument('--log_level', type=str, default='warning', help='Set logging level (e.g., DEBUG, INFO)')
     args = parser.parse_args()
@@ -125,18 +125,29 @@ if __name__ == "__main__":
     logger.info(f'Using multipoles: {ells}')
     logger.info(f'Using sigma clipping threshold: {sigma}')
     
+    paths = dict(
+        measurements_dir = args.measurements_dir,
+        param_dir = args.param_dir
+    )
+    
     for stat_name in args.measurements:
         cls = get_class_from_module(args.module, stat_name)
+        obs = cls(paths=paths) # Instantiate the observable class
         
         if sim_type == 'small':
-            index, data = get_covariance(cls, ells=ells)
+            index, data = get_covariance(obs, ells=ells)
         elif sim_type == 'base':
-            index, data = get_y(cls, ells=ells)
+            index, data = get_y(obs, ells=ells)
         else: 
             raise ValueError(f"sim_type must be one of ['base', 'small']")
         
         outliers = get_outliers(data, index, sigma=sigma, axis=0)
         n_outliers = len(outliers)
+        
+        if n_outliers > 0:
+            print(f'Found {n_outliers} {stat_name} outliers at indices:', *outliers, sep='\n')
+        else: 
+            print(f'Found no {stat_name} outliers')
         
         if args.save and n_outliers > 0:
             outlier_dir = Path('outliers')
@@ -144,8 +155,3 @@ if __name__ == "__main__":
             outlier_fn = outlier_dir / f'{stat_name}_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
             np.save(outlier_fn, outliers)
             logger.info(f'Saved {n_outliers} {stat_name} outliers to {outlier_fn}')
-        
-        if n_outliers > 0:
-            print(f'Found {n_outliers} {stat_name} outliers at indices:', *outliers, sep='\n')
-        else: 
-            print(f'Found no {stat_name} outliers')
