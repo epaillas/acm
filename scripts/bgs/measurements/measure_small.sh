@@ -23,7 +23,7 @@ PHASE_LIST=({3000..3005} 3007 3009 {3011..3017} {3019..3023} 3025 {3028..3035} {
 ID=$((SLURM_ARRAY_TASK_ID)) # ID of the phase to be used, starting from 0
 PHASE=${PHASE_LIST[$ID]} # Phase to be used
 
-LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/measurements/logs/small/log_small_c000_ph%03d_seed0.log" ${PHASE})
+LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/small/log_small_c000_ph%03d_seed0.log" ${PHASE})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements/
 python measure_box.py --config config.yaml --gpu --sim_type small --hods 157 --phases ${PHASE} --log_file "${LOGFILE}"

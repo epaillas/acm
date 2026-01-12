@@ -93,8 +93,8 @@ if __name__ == '__main__':
 # Usage
 """
 python /global/homes/s/sbouchar/acm/scripts/bgs/training/train_model.py \
-    --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs/input_data \
-    --checkpoint_dir /pscratch/sd/s/sbouchar/acm/bgs/trained_models/sigma_clipped/study \
+    --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs-20/input_data \
+    --checkpoint_dir /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/sigma_clipped/study \
     --transform arcsinh \
     --log_level info \
     --statistics tpcf
