@@ -14,7 +14,7 @@ from pycorr import TwoPointEstimator
 from acm.utils.modules import get_class_from_module
 from acm.utils.logging import setup_logging
  
-def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: int = 1, **kwargs):
+def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: int = 1, Mr: float = -20, **kwargs):
     """
     Load reference measurements from the specified directory.
     
@@ -23,11 +23,13 @@ def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: 
     dir : str | Path
         Directory containing the measurement files.
     phase : int
-        Phase index to load.
+        Phase index to load. Defaults to 0.
     los : list
-        List of line-of-sight directions to sum on.
+        List of line-of-sight directions to sum on. Defaults to ['x', 'y', 'z'].
     rebin : int
-        Rebinning factor to apply to the measurements.
+        Rebinning factor to apply to the measurements. Defaults to 1 (no rebinning).
+    Mr : float
+        Magnitude threshold for the measurements (defines a subdirectory in the path). Defaults to -20.
     **kwargs
         Additional keyword arguments to pass to the TwoPointEstimator call.
         
@@ -38,8 +40,7 @@ def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: 
         If return_sep is True, returns (separations, multipoles), else returns multipoles only.
     """
     # TODO: Find a way to not encode path structure this strictly ? (how?)
-    # TODO: add Mr as an argument ?
-    dir = Path(dir) / f'AbacusSummit_base_c000_ph{phase:03d}' / 'measurements' / 'Mr-20' 
+    dir = Path(dir) / f'AbacusSummit_base_c000_ph{phase:03d}' / 'measurements' / f'Mr{Mr}' 
     fns = [dir / f'tpcf_los_{l}.npy' for l in los]
     cf = sum([TwoPointEstimator.load(fn).normalize() for fn in fns])
     cout = cf[::rebin](**kwargs)
