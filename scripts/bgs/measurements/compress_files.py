@@ -2,7 +2,7 @@
 Compress measurement files for BGS observables.
 
 Usage:
-    python compress_files.py --measurements tpcf ds_xigg ds_xiqg --output /pscratch/sd/s/sbouchar/acm/bgs/input_data/ --log_level INFO    
+    python compress_files.py --measurements tpcf ds_xigg ds_xiqg --output /pscratch/sd/s/sbouchar/acm/bgs-20/input_data/ --log_level INFO    
 """
 import logging
 import argparse
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--module', type=str, default='acm.observables.bgs', help='Base module path for observables')
     parser.add_argument('--measurements', type=str, nargs='+', help='List of measurements to process')
-    parser.add_argument('--output', type=str, default='/pscratch/sd/s/sbouchar/acm/bgs/input_data/', help='Output directory for compressed files') # TODO: Change default
+    parser.add_argument('--output', type=str, default='/pscratch/sd/s/sbouchar/acm/bgs-20/input_data/', help='Output directory for compressed files') # TODO: Change default
     parser.add_argument('--add_covariance', action='store_true', help='Whether to add covariance to the compressed files')
     args = parser.parse_args()
     

@@ -9,4 +9,4 @@ cov_emu_method: median
 cov_correction: percival
 cosmo_idx: 0
 hod_idx: 0
-save_dir: /pscratch/sd/s/sbouchar/acm/bgs/chains/
+save_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/chains/

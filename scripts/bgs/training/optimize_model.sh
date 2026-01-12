@@ -16,9 +16,9 @@
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
 
 python /global/homes/s/sbouchar/acm/scripts/bgs/training/optimize_model.py \
-    --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs/input_data \
-    --study_dir /pscratch/sd/s/sbouchar/acm/bgs/trained_models/sigma_clipped/study \
-    --save_dir /pscratch/sd/s/sbouchar/acm/bgs/trained_models/sigma_clipped \
+    --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs-20/input_data \
+    --study_dir /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/sigma_clipped/study \
+    --save_dir /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/sigma_clipped \
     --n_trials 100 \
     --transform arcsinh \
     --same_n_hidden \
