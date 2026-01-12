@@ -294,7 +294,7 @@ if __name__ == '__main__':
     )
     
     if fit_type == 'validation':
-        save_dir = Path(args.save_dir) / fit_type / f'c{args.cosmo_idx:03d}_h{args.hod_idx:03d}' / f'cosmo-{cosmo_model}_hod-{hod_model}'
+        save_dir = Path(args.save_dir) / fit_type / f'c{args.cosmo_idx:03d}_hod{args.hod_idx:03d}' / f'cosmo-{cosmo_model}_hod-{hod_model}'
     else:
         save_dir = Path(args.save_dir) / fit_type / f'cosmo-{cosmo_model}_hod-{hod_model}' # No indices for usual mocks fits
     
