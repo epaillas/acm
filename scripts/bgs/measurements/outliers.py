@@ -27,15 +27,24 @@ def get_covariance(obs, **kwargs):
         
     Returns
     -------
-    phases: np.ndarray
-        List of phase indexes associated to each mock.
+    index: np.ndarray
+        List of cosmologies, phases, seeds and HOD indexes associated to each mock. Shape (n_samples, 4)
     cov: np.ndarray
         Covariance array, of shape (n_sample, n_features)
     """
     data = obs.compress_covariance(**kwargs)
-    phases = data.phase_idx.values
     cov = obs.flatten_output(data.covariance_y, flat_output_dims=2).values # to 2D numpy array
-    return phases, cov
+    
+    phases = data.phase_idx.values
+    cosmo_idx = kwargs.get('cosmo_idx', 0)
+    hod_idx = kwargs.get('hod_idx', 157)
+    seed = kwargs.get('seed', 0)
+    index = []
+    for phase in phases:
+            index.append([cosmo_idx, phase, seed, hod_idx])
+    index = np.asarray(index)
+
+    return index, cov
 
 def get_y(obs, **kwargs):
     """
@@ -50,8 +59,8 @@ def get_y(obs, **kwargs):
         
     Returns
     -------
-    index: np.ndarray[tuple]
-        List of cosmologies & phases indexes associated to each mock.
+    index: np.ndarray
+        List of cosmologies, phases, seeds and HOD indexes associated to each mock. Shape (n_samples, 4)
     y: np.ndarray
         Data array, of shape (n_sample, n_features)
     """    
@@ -60,18 +69,15 @@ def get_y(obs, **kwargs):
     
     # Get the indexes as tuples of (cosmo, hod)
     cosmologies = data.cosmo_idx.values
+    phase = kwargs.get('phase', 0)
+    seed = kwargs.get('seed', 0)
     index = []
     for cosmo_idx in cosmologies:
-        hod_kwargs = dict(
-            phase = kwargs.get('phase', 0),
-            seed = kwargs.get('seed', 0),
-            density_threshold=kwargs.get('density_threshold', None)
-        )
+        hod_kwargs = dict(phase = phase, seed = seed, density_threshold=kwargs.get('density_threshold', None))
         hods = obs.get_hod_from_files(cosmo_idx, **hod_kwargs)
         for hod in hods:
-            index.append( (cosmo_idx, hod) )
-    dtype = np.dtype([('cosmo_idx', int), ('hod', int)])
-    index = np.array(index, dtype=dtype)
+            index.append([cosmo_idx, phase, seed, hod])
+    index = np.asarray(index)
     return index, y
 
 def get_outliers(data: np.ndarray, index: np.ndarray = None, **kwargs):
@@ -96,7 +102,7 @@ def get_outliers(data: np.ndarray, index: np.ndarray = None, **kwargs):
         index = np.arange(len(data))
         
     clipped_data = sigma_clip(data, masked=True, **kwargs)
-    mask = clipped_data.mask.any(axis=1)  # True for outlier samples
+    mask = clipped_data.mask.any(axis=1) # True for outlier samples
     return index[mask]
 
 
@@ -130,6 +136,8 @@ if __name__ == "__main__":
         param_dir = args.param_dir
     )
     
+    outliers_dict_all = {} # To store outliers for all statistics if saving
+    
     for stat_name in args.measurements:
         cls = get_class_from_module(args.module, stat_name)
         obs = cls(paths=paths) # Instantiate the observable class
@@ -149,9 +157,32 @@ if __name__ == "__main__":
         else: 
             print(f'Found no {stat_name} outliers')
         
-        if args.save and n_outliers > 0:
+        if args.save and n_outliers > 0: 
+            # Structure outliers into a nested dictionary
+            outliers_dict = {}
+            cosmo_idx = outliers[:,0]
+            for cosmo in np.unique(cosmo_idx):
+                phase_mask = outliers[:,0] == cosmo
+                phases = outliers[phase_mask, 1]
+                for phase in np.unique(phases):
+                    seed_mask = phases == phase
+                    seeds = outliers[phase_mask][seed_mask, 2]
+                    for seed in np.unique(seeds):
+                        hod_mask = seeds == seed
+                        hods = outliers[phase_mask][seed_mask][hod_mask, 3]
+                        outliers_dict.setdefault(str(cosmo), {}).setdefault(str(phase), {}).setdefault(str(seed), []).extend(hods.tolist())
+                        
+                        # Also update the all-statistics dictionary
+                        outliers_dict_all.setdefault(stat_name, {}).setdefault(str(cosmo), {}).setdefault(str(phase), {}).setdefault(str(seed), []).extend(hods.tolist())
+                        outliers_dict_all[stat_name][str(cosmo)][str(phase)][str(seed)] = list(set(outliers_dict_all[stat_name][str(cosmo)][str(phase)][str(seed)])) # Unique HODs indexes only
+                        
             outlier_dir = Path('outliers')
             outlier_dir.mkdir(exist_ok=True)
+            
             outlier_fn = outlier_dir / f'{stat_name}_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
-            np.save(outlier_fn, outliers)
+            np.save(outlier_fn, outliers_dict)
             logger.info(f'Saved {n_outliers} {stat_name} outliers to {outlier_fn}')
+            
+            outlier_fn_all = outlier_dir / f'all_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
+            np.save(outlier_fn_all, outliers_dict_all)
+            logger.info(f'Saved all outliers to {outlier_fn_all}')
