@@ -7,7 +7,7 @@ redshift: 0.2
 n_hod: 100
 hod_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/parameters/hod_params
 target_density: 8.5e-3
-target_density_sigma: 8.5e-6
+target_density_sigma: 8.2e-6
 process_underdense: false
 add_rsd: true
 add_ap: true
