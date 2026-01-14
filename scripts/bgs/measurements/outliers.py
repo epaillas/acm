@@ -116,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=0, help='Seed number for measurements.')
     parser.add_argument('--sigma', type=float, default=6.0, help='Sigma threshold for clipping.')
     parser.add_argument('--measurements', type=str, nargs='+', default='tpcf', help='Type of measurements to analyze.')
-    parser.add_argument('--save', action='store_true', help='Whether to save the outlier results to a file.')
+    parser.add_argument('--save_dir', type=str, help='Directory to save the outlier results to a file.')
     parser.add_argument('--log_level', type=str, default='warning', help='Set logging level (e.g., DEBUG, INFO)')
     args = parser.parse_args()
     
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         else: 
             print(f'Found no {stat_name} outliers')
         
-        if args.save and n_outliers > 0: 
+        if args.save_dir and n_outliers > 0: 
             # Structure outliers into a nested dictionary
             outliers_dict = {}
             cosmo_idx = outliers[:,0]
@@ -176,7 +176,7 @@ if __name__ == "__main__":
                         outliers_dict_all.setdefault(stat_name, {}).setdefault(str(cosmo), {}).setdefault(str(phase), {}).setdefault(str(seed), []).extend(hods.tolist())
                         outliers_dict_all[stat_name][str(cosmo)][str(phase)][str(seed)] = list(set(outliers_dict_all[stat_name][str(cosmo)][str(phase)][str(seed)])) # Unique HODs indexes only
                         
-            outlier_dir = Path('outliers')
+            outlier_dir = Path(args.save_dir)
             outlier_dir.mkdir(exist_ok=True)
             
             outlier_fn = outlier_dir / f'{stat_name}_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
