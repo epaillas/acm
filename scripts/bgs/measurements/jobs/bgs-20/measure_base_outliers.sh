@@ -28,6 +28,6 @@ LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/outliers/
 OUTLIERS='/global/homes/s/sbouchar/acm-repo/scripts/bgs/measurements/outliers/all_outliers_simtype-base_ells-02_sigma-10.0.npy'
 
 cd /global/homes/s/sbouchar/acm-repo/scripts/bgs/measurements
-python measure_box.py --config jobs/config_bgs-20.yaml --gpu --cosmologies ${COSMO} --log_file "${LOGFILE}" --measurements tpcf density_split --overwrite --parameters_override "${OUTLIERS}"
+python measure_box.py --config jobs/bgs-20/config.yaml --gpu --cosmologies ${COSMO} --log_file "${LOGFILE}" --measurements tpcf density_split --overwrite --parameters_override "${OUTLIERS}"
 
 # Launch with : sbatch --array=0-84 ...
