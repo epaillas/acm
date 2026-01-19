@@ -18,7 +18,7 @@ LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='lightcone')
 from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
 import warnings
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+# warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 class BaseLightconeCatalog(ABC):
