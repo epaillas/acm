@@ -42,7 +42,7 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
             max_order=self.max_order,
             sigma_0=self.sigma_0,
         )
-
+        self.logger.info(f'Initialized Kymatio in {time.time() - t0:.2f} s.')
 
     def run(self, delta_query=None):
         """
