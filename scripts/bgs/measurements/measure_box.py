@@ -354,6 +354,7 @@ if __name__ == "__main__":
     parser.add_argument('-n', '--n_hod', type=int, default=100, help='Number of HODs to run per cosmology, phase and seed.')
     parser.add_argument('--hod_start', type=int, default=None, help='Starting index for HODs to process (for resuming interrupted runs).')
     parser.add_argument('--hod_dir', type=str, help='Directory containing the HOD catalogs.')
+    parser.add_argument('--parameters_override', type=str, default=None, help='Path to a specific .npy file containing a dictionary of HOD indexes for each cosmo, phase and seed. Will override any other parameter selection if provided.')
     parser.add_argument('-nz', '--target_density', type=float, default=1e-2, help='Target density for the tracer in h^3 Mpc^-3.')
     parser.add_argument('-ns', '--target_density_sigma', type=float, default=1e-5, help='Allowed sigma around the target density in h^3 Mpc^-3.')
     parser.add_argument('--process_underdense', action='store_true', help='Whether to process HODs that are underdense compared to the target density.')
@@ -377,6 +378,10 @@ if __name__ == "__main__":
     - 'power_spectrum': Compute and save the power spectrum (in (k, mu) bins).
     - 'density_split_power': Compute and save the density split power spectra (cross-power and auto-power).
     You can specify multiple measurements by providing a list, e.g., --measurements density tpcf power_spectrum density_split_power
+    
+    The parameters_override parameter allows to specify a custom set of indexes. If provided, it will override any other HOD selection parameters.
+    It expects a .npy file containing a dictionary with keys following the structure: 
+    dict['cosmo_idx']['phase_idx']['seed'] = [hod_idx1, hod_idx2, ...]
     """
     
     args = parser.parse_args()
@@ -422,11 +427,22 @@ if __name__ == "__main__":
     # Setup logging
     setup_logging(level=args.log_level, filename=args.log_file)
     logger = logging.getLogger(__file__.split('/')[-1])
+    
+    # Parameters lists override
+    if args.parameters_override is not None:
+        parameters_override = np.load(args.parameters_override, allow_pickle=True).item()
+        cosmologies = list(map(int, parameters_override.keys()))
+        logger.info(f'Using parameters override from {args.parameters_override}. Cosmologies to process: {cosmologies}')
 
     for cosmo_idx in cosmologies:
+        if args.parameters_override is not None:
+            phases = list(map(int, parameters_override.get(str(cosmo_idx), {}).keys())) # list of integers
+            logger.info(f'Using phases from parameters override for cosmology {cosmo_idx}: {phases}')
+        
+        # Get the indexes of the HODs to process
         hod_file = np.genfromtxt(Path(hod_dir) / f'Bouchard25_c{cosmo_idx:03d}.csv', delimiter=',', names=True)
         hod_params = list(hod_file.dtype.names)
-        hods = range(len(hod_file)) if args.hods is None else args.hods # Get the indexes of the HODs to process
+        hods = range(len(hod_file)) if args.hods is None else args.hods 
         if args.hod_start is not None:
             hods = [h for h in hods if h >= args.hod_start]
         if len(hods) == 0:
@@ -434,6 +450,10 @@ if __name__ == "__main__":
             continue
         
         for phase_idx in phases:
+            if args.parameters_override is not None:
+                seeds = list(map(int, parameters_override.get(str(cosmo_idx), {}).get(str(phase_idx), {}).keys())) # list of integers
+                logger.info(f'Using seeds from parameters override for cosmology {cosmo_idx}, phase {phase_idx}: {seeds}')
+                
             logger.info(f"Processing c{cosmo_idx:03d}_ph{phase_idx:03d}")
             
             abacus = BoxHOD(
@@ -446,6 +466,11 @@ if __name__ == "__main__":
             )
             
             for seed in seeds:
+                
+                if args.parameters_override is not None:
+                    hods = parameters_override.get(str(cosmo_idx), {}).get(str(phase_idx), {}).get(str(seed), []) 
+                    logger.info(f'Using HODs from parameters override for cosmology {cosmo_idx}, phase {phase_idx}, seed {seed}: {hods}')
+                    
                 N = 1
                 for hod_idx in hods:
                     if N > n_hod: continue
@@ -533,7 +558,7 @@ if __name__ == "__main__":
                             else:
                                 # NOTE : hardcoded settings for simplification
                                 kwargs = dict(
-                                    edges = (np.arange(0, 31, 1), np.linspace(-1, 1, 120)),
+                                    edges = (np.arange(0, 151, 1), np.linspace(-1, 1, 120)), # FIXME: Set s_max back to 31 when done testing
                                     cellsize = 5.0,
                                     smoothing_radius = 10.0,
                                     nquantiles = 5,
@@ -595,5 +620,3 @@ if __name__ == "__main__":
                                     gpu = gpu,
                                 )
                                 compute_density_split_power(positions, **kwargs)
-
-# TODO : check if looping over los one time is faster than looping over los for each observable

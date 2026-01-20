@@ -183,8 +183,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
             
             for fn_dir in hod_fns:
                 y_quantiles = []
+                fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                 for q in quantiles:
-                    fns = [fn_dir / f'{self.measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                     data = sum([np.load(fn, allow_pickle=True)[q].normalize() for fn in fns if fn.exists()])
                     if data == 0:
                         raise FileNotFoundError(f'No measurement files found in {fn_dir} for quantile {q}, cannot load data.')
@@ -239,7 +239,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
     
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None, quantiles: list = [0, 1, 3, 4], **kwargs) -> tuple:
+    def plot_observable(self, model_params: dict, save_fn: str = None, quantiles: list = [0, 1, 3, 4], ell: int = 0, **kwargs) -> tuple:
         """
         Plot the observable with error bars and the model prediction, along with the residuals.
 
@@ -249,6 +249,10 @@ class DensitySplitBaseClass(BaseObservableBGS):
             Dictionary of model parameters for the prediction.
         save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
+        quantiles : list, optional
+            List of quantiles to plot. Defaults to [0, 1, 3, 4].
+        ell : int, optional
+            Multipole moment to plot. Defaults to 0.
         **kwargs : dict
             Additional arguments for the plot, such as height_ratios and show_legend, and volume_factor and prefactor for covariance calculation.
 
@@ -278,7 +282,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
         
         s = self.s.values
         for i, q in enumerate(quantiles):
-            self.select_filters.update({'quantiles': q})
+            self.select_filters.update({'ells': ell, 'quantiles': q})
             data = self.y
             model = self.get_model_prediction(model_params)
             cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
