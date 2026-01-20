@@ -226,6 +226,8 @@ if __name__ == '__main__':
     parser.add_argument('--config', type=str, default=None, help='Path to a configuration file (YAML format). Command line arguments override config file settings.')
     parser.add_argument('--dump_config', action='store_true', help='Dump the current configuration and exit.')
     parser.add_argument('--module', type=str, default='acm.observables.bgs', help='Base module path for observables')
+    parser.add_argument('--data_dir', type=str, default=None, help='Directory where the observable compressed data is stored.')
+    parser.add_argument('--model_dir', type=str, default=None, help='Directory where the emulatir is stored.')
     parser.add_argument('--statistics', nargs='+', help='List of statistics to use, e.g. GalaxyPowerSpectrumMultipoles')
     parser.add_argument('-t', '--fit_type', type=str, default='validation', help='Type of mock to fit: validation or secondgen.')
     parser.add_argument('-ce', '--add_cov_emu', action='store_true', help='Whether to add emulator covariance or not.')
@@ -266,6 +268,12 @@ if __name__ == '__main__':
     identifier = args.identifier
     fit_type = args.fit_type
     
+    # Observable paths
+    paths = dict(
+        data_dir = args.data_dir,
+        model_dir = args.model_dir,
+    )
+    
     logger.info(f'Running inference for cosmo model: {cosmo_model}, hod model: {hod_model}')
     
     priors, ranges, labels = get_priors(hod_class=Bouchard25)
@@ -274,6 +282,7 @@ if __name__ == '__main__':
     observable = get_observable(
         statistics, 
         module=module, 
+        paths=paths,
         select_filters_map=select_filters_map,
         numpy_output=True, 
         squeeze_output=True,
