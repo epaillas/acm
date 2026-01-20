@@ -142,15 +142,15 @@ class Observable():
 
         # Apply reshaping if name is a data_var
         if name in self._dataset.data_vars:
-                
-            if name in self.select_indices_on:
-                data = self.apply_indices_selection(data)
             
             # Drop NaN dimensions if marked in attributes
             data = self.drop_nan_dimensions(data)
             
             data = self.flatten_output(data, self.flat_output_dims)
         
+            if name in self.select_indices_on:
+                data = self.apply_indices_selection(data)
+                
             if self.squeeze_output:
                 data = data.squeeze()
                 
@@ -284,8 +284,8 @@ class Observable():
 
     def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
-        Apply the indices selection on a given DataArray.
-        Should be called after filters are applied and before flattening.
+        Apply the indices selection on the last dimension of a given DataArray.
+        Should be called after filters are applied and after flattening the DataArray.
         Does nothing if select_indices is None.
 
         Parameters
@@ -301,18 +301,9 @@ class Observable():
         if self.select_indices is None:
             return dataarray
         
-        dataarray = self.stack_on_attribute('features', dataarray)
-        # Warn if filters are applied to features dimensions
-        if self.select_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.select_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
-        if self.slice_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.slice_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
+        dim_name = dataarray.dims[-1]
 
-        return dataarray.isel(features=self.select_indices)
+        return dataarray.isel({dim_name: self.select_indices})
 
     def get_coordinate_list(self, name: str) -> list:
         """
@@ -355,9 +346,9 @@ class Observable():
         if hasattr(self._dataset, 'emulator_error'):
             data = self._dataset.emulator_error
             data = self.apply_filters(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if 'emulator_error' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -377,9 +368,9 @@ class Observable():
         if hasattr(self._dataset, 'emulator_covariance_y'):
             data = self._dataset.emulator_covariance_y
             data = self.apply_filters(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if 'emulator_covariance_y' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -490,8 +481,8 @@ class Observable():
             return pred
         
         pred = self.apply_filters(pred)
-        pred = self.apply_indices_selection(pred)
         pred = self.flatten_output(pred, self.flat_output_dims)
+        pred = self.apply_indices_selection(pred)
         
         if self.squeeze_output:
             pred = pred.squeeze()
