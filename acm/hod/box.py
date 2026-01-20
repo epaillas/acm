@@ -1,7 +1,6 @@
 import os
 import yaml
 import logging
-import warnings
 import numpy as np
 from pathlib import Path
 from astropy.io import fits
@@ -9,8 +8,6 @@ from astropy.table import Table
 from abacusnbody.hod import abacus_hod
 from cosmoprimo.fiducial import DESI, AbacusSummit
 from acm.utils.paths import get_Abacus_dirs
-
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
