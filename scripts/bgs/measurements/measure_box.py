@@ -467,7 +467,7 @@ if __name__ == "__main__":
             
             for seed in seeds:
                 
-                if parameters_override is not None:
+                if args.parameters_override is not None:
                     hods = parameters_override.get(str(cosmo_idx), {}).get(str(phase_idx), {}).get(str(seed), []) 
                     logger.info(f'Using HODs from parameters override for cosmology {cosmo_idx}, phase {phase_idx}, seed {seed}: {hods}')
                     
