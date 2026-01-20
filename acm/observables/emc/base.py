@@ -282,12 +282,18 @@ class BaseObservableEMC(Observable):
         cosmo_file = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv' 
         hod_file = '/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy'
         
+        cosmo_param_names = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld']
+        cosmo_params_mapping = {'alpha_s': 'nrun'}
         cosmo_params = load_abacus_cosmologies(
             cosmo_file, 
             cosmologies = cosmos, 
-            parameters = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld'], 
-            mapping={'alpha_s': 'nrun'},
+            parameters = cosmo_param_names, 
+            mapping=cosmo_params_mapping,
         )
+        # Enforce parameters ordering after mapping
+        x_cosmo_names = cosmo_param_names.copy()
+        for key, value in cosmo_params_mapping.items():
+            x_cosmo_names[x_cosmo_names.index(key)] = value
         hod_params = np.load(hod_file, allow_pickle=True).item()
         
         x = []
@@ -299,8 +305,7 @@ class BaseObservableEMC(Observable):
             
             # Cosmo parameters
             x_cosmo = cosmo_params[f'c{cosmo_idx:03}']
-            x_cosmo_names = list(x_cosmo.keys())
-            x_cosmo = np.array([x_cosmo[param] for param in x_cosmo_names])
+            x_cosmo = np.array([x_cosmo[param] for param in x_cosmo_names]) # Enforce parameters ordering after mapping
             x_cosmo = np.repeat(x_cosmo.reshape(1, -1), x_hod.shape[0], axis=0)
             
             # Full parameters

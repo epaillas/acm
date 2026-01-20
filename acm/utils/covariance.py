@@ -242,6 +242,7 @@ def check_covariance_matrix(
     rtol: float = 1e-5,
     atol: float = 1e-8,
     precision_threshold: float = 10,
+    raise_warnings: bool = True,
 ) -> bool:
     """
     Perform sanity checks on a covariance matrix and raise warnings if checks fail.
@@ -280,33 +281,36 @@ def check_covariance_matrix(
     
     # Check if matrix is 2D
     if matrix.ndim != 2:
-        warnings.warn(
-            f"{name} matrix is not 2-dimensional (shape: {matrix.shape}). "
-            "This may cause issues in likelihood analysis.",
-            UserWarning,
-            stacklevel=2
-        )
+        if raise_warnings:
+            warnings.warn(
+                f"{name} matrix is not 2-dimensional (shape: {matrix.shape}). "
+                "This may cause issues in likelihood analysis.",
+                UserWarning,
+                stacklevel=2
+            )
         return False  # Can't proceed with other checks
     
     # Check if matrix is square
     if matrix.shape[0] != matrix.shape[1]:
-        warnings.warn(
-            f"{name} matrix is not square (shape: {matrix.shape}). "
-            "Covariance matrices must be square.",
-            UserWarning,
-            stacklevel=2
-        )
+        if raise_warnings:
+            warnings.warn(
+                f"{name} matrix is not square (shape: {matrix.shape}). "
+                "Covariance matrices must be square.",
+                UserWarning,
+                stacklevel=2
+            )
         return False  # Can't proceed with other checks
     
     # Check if matrix is symmetric
     if not check_symmetric(matrix, rtol=rtol, atol=atol):
-        warnings.warn(
-            f"{name} matrix is not symmetric. "
-            "Covariance matrices should be symmetric. "
-            "This may indicate numerical issues or incorrect computation.",
-            UserWarning,
-            stacklevel=2
-        )
+        if raise_warnings:
+            warnings.warn(
+                f"{name} matrix is not symmetric. "
+                "Covariance matrices should be symmetric. "
+                "This may indicate numerical issues or incorrect computation.",
+                UserWarning,
+                stacklevel=2
+            )
         all_passed = False
     
     # Check if matrix is positive-definite
@@ -316,35 +320,38 @@ def check_covariance_matrix(
         n_negative = np.sum(eigenvalues < 0)
         min_eigenvalue = np.min(eigenvalues)
         
-        warnings.warn(
-            f"{name} matrix is not positive-definite. "
-            f"Found {n_negative} negative eigenvalue(s), minimum eigenvalue: {min_eigenvalue:.6e}. "
-            "This will cause issues when inverting the matrix in likelihood analysis. "
-            "Consider checking the mock realizations or increasing the number of samples.",
-            UserWarning,
-            stacklevel=2
-        )
+        if raise_warnings:
+            warnings.warn(
+                f"{name} matrix is not positive-definite. "
+                f"Found {n_negative} negative eigenvalue(s), minimum eigenvalue: {min_eigenvalue:.6e}. "
+                "This will cause issues when inverting the matrix in likelihood analysis. "
+                "Consider checking the mock realizations or increasing the number of samples.",
+                UserWarning,
+                stacklevel=2
+            )
         all_passed = False
     
     # Check condition number
     cond_status = check_condition_number(matrix, precision_threshold=precision_threshold)
     if cond_status == 0:
-        warnings.warn(
-            f"{name} matrix is singular (ill-conditioned). "
-            "This will cause issues when inverting the matrix in likelihood analysis. "
-            "Using the diagonal covariance only may be a temporary workaround.",
-            UserWarning,
-            stacklevel=2
-        )
+        if raise_warnings:
+            warnings.warn(
+                f"{name} matrix is singular (ill-conditioned). "
+                "This will cause issues when inverting the matrix in likelihood analysis. "
+                "Using the diagonal covariance only may be a temporary workaround.",
+                UserWarning,
+                stacklevel=2
+            )
         all_passed = False
     elif cond_status == 2:
-        warnings.warn(
-            f"{name} matrix is ill-conditioned. "
-            "This may lead to unreliable results when inverting the matrix in likelihood analysis. "
-            "Using the diagonal covariance only may be a temporary workaround.",
-            UserWarning,
-            stacklevel=2
-        )
+        if raise_warnings:
+            warnings.warn(
+                f"{name} matrix is ill-conditioned. "
+                "This may lead to unreliable results when inverting the matrix in likelihood analysis. "
+                "Using the diagonal covariance only may be a temporary workaround.",
+                UserWarning,
+                stacklevel=2
+            )
         all_passed = False
     
     return all_passed
