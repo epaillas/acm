@@ -142,14 +142,14 @@ class Observable():
 
         # Apply reshaping if name is a data_var
         if name in self._dataset.data_vars:
-                
-            if name in self.select_indices_on:
-                data = self.apply_indices_selection(data)
             
             # Drop NaN dimensions if marked in attributes
             data = self.drop_nan_dimensions(data)
             
             data = self.flatten_output(data, self.flat_output_dims)
+
+            if name in self.select_indices_on:
+                data = self.apply_indices_selection(data)
         
             if self.squeeze_output:
                 data = data.squeeze()
@@ -272,6 +272,9 @@ class Observable():
         xarray.DataArray
             The flattened DataArray.
         """
+        if flat_output_dims == 2 and set(dataarray.dims) == {"sample", "features"} and dataarray.ndim == 2:
+            return dataarray.transpose("sample", "features")
+
         dataarray = dataarray.unstack()
         if flat_output_dims == 2:
             dataarray = cls.stack_on_attribute('sample', dataarray)
@@ -300,17 +303,10 @@ class Observable():
         """
         if self.select_indices is None:
             return dataarray
-        
-        dataarray = self.stack_on_attribute('features', dataarray)
-        # Warn if filters are applied to features dimensions
-        if self.select_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.select_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
-        if self.slice_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.slice_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
+
+        if "features" not in dataarray.dims:
+            # fallback: stack if needed
+            dataarray = self.stack_on_attribute("features", dataarray)
 
         return dataarray.isel(features=self.select_indices)
 
