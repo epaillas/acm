@@ -89,9 +89,9 @@ class BaseObservableEMC(Observable):
             return emulator_covariance_y
         
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
-        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
@@ -213,8 +213,8 @@ class BaseObservableEMC(Observable):
             return pred
         
         pred = self.apply_filters(pred)
-        pred = self.flatten_output(pred, self.flat_output_dims)
         pred = self.apply_indices_selection(pred)
+        pred = self.flatten_output(pred, self.flat_output_dims)
         
         if self.squeeze_output:
             pred = pred.squeeze()
