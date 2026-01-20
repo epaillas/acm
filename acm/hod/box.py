@@ -10,7 +10,7 @@ from astropy.table import Table
 import logging
 import warnings
 import sys
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
+# warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 from acm.utils.paths import get_Abacus_dirs
