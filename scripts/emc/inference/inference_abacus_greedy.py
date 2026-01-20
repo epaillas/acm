@@ -131,7 +131,6 @@ def get_data_model_cov(observable):
     data_y = observable.y
     logger.info(f'Loaded data_x with shape: {data_x.shape}')
     logger.info(f'Loaded data_y with shape {data_y.shape}')
-    print(data_x_names)
 
     # load the covariance matrix, including emulator error and Percival correction
     cov = observable.get_covariance_matrix(volume_factor=64)
@@ -165,36 +164,31 @@ def fit_abacus(observable):
 
     data_x, data_x_names, data_y, cov, model = get_data_model_cov(observable)
 
-    logger.info(f'data_x shape: {data_x.shape}')
-    logger.info(f'data_y shape: {data_y.shape}')
-    logger.info(f'cov shape: {cov.shape}')
+    precision_matrix = np.linalg.inv(cov)
 
+    # a dictionary containing the values of the parameters we want to fix
+    fixed_params = {key: data_x[data_x_names.index(key)] for key in fixed_param_names}
 
-    # precision_matrix = np.linalg.inv(cov)
+    # a 'markers' dictionary containing the true values of the parameters
+    markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
+    cosmo = fiducial.AbacusSummit(args.cosmo_idx)
+    markers.update({'Omega_m': cosmo['Omega_m'], 'h': cosmo['h']})
 
-    # # a dictionary containing the values of the parameters we want to fix
-    # fixed_params = {key: data_x[data_x_names.index(key)] for key in fixed_param_names}
+    # sample the posterior
+    sampler = PocoMCSampler(
+        observation=data_y,
+        precision_matrix=precision_matrix,
+        theory_model=model,
+        fixed_parameters=fixed_params,
+        priors=priors,
+        ranges=ranges,
+        labels=labels,
+        ellipsoid=True,
+        markers=markers,
+    )
+    sampler(vectorize=True, n_total=4096)
 
-    # # a 'markers' dictionary containing the true values of the parameters
-    # markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
-    # cosmo = fiducial.AbacusSummit(args.cosmo_idx)
-    # markers.update({'Omega_m': cosmo['Omega_m'], 'h': cosmo['h']})
-
-    # # sample the posterior
-    # sampler = PocoMCSampler(
-    #     observation=data_y,
-    #     precision_matrix=precision_matrix,
-    #     theory_model=model,
-    #     fixed_parameters=fixed_params,
-    #     priors=priors,
-    #     ranges=ranges,
-    #     labels=labels,
-    #     ellipsoid=True,
-    #     markers=markers,
-    # )
-    # sampler(vectorize=True, n_total=4096)
-
-    # return sampler
+    return sampler
 
 def save_and_plot(sampler, observable):
     """
@@ -202,7 +196,7 @@ def save_and_plot(sampler, observable):
     This function saves the chain data, plots the triangle and trace plots,
     and plots the best-fit model against the data.
     """
-    statistics = observable.stat_name
+    statistics = "+".join(observable.stat_name)
     if args.identifier is not None: statistics += f'_{args.identifier}'
     save_dir = Path(args.save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/cosmo-{cosmo_model}_hod-{hod_model}/'
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -214,7 +208,7 @@ def save_and_plot(sampler, observable):
     chain.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,
                         markers=sampler.markers, title_limit=1)
     chain.plot_trace(save_fn=save_dir / f'chain_{statistics}_trace.pdf', thin=128)
-    observable.plot_observable(model_params=chain.bestfit, save_fn=save_dir / f'chain_{statistics}_bestfit.pdf')
+    # observable.plot_observable(model_params=chain.bestfit, save_fn=save_dir / f'chain_{statistics}_bestfit.pdf')
 
 
 if __name__ == "__main__":
@@ -249,9 +243,8 @@ if __name__ == "__main__":
     # load selected bins from the greedy search
     selected_bins = np.load(args.greedy_fn, allow_pickle=True).item()
     logger.info(f'Loading greedy bins from: {args.greedy_fn}')
-    logger.info(f'Selected bins: {selected_bins}')
 
     statistics = selected_bins.keys()
     observable = get_observable(statistics)
     sampler = fit_abacus(observable)
-    # save_and_plot(sampler, observable)
+    save_and_plot(sampler, observable)
