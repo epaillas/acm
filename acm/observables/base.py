@@ -107,7 +107,7 @@ class Observable():
         if model is None:
             try:
                 if checkpoint_fn is not None:
-                    self.logger.warning("The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
+                    self.logger.warning("DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
                     checkpoint_fn = Path(checkpoint_fn)
                 else:
                     checkpoint_fn = Path(paths['model_dir']) / f'{stat_name}.ckpt'
