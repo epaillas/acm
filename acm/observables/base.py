@@ -207,20 +207,30 @@ class Observable():
         """
         Load an Observable object from a file.
         """
+        # TODO
         raise NotImplementedError("Loading from file is not implemented yet.")
     
     def save(self, filename: str):
         """
         Saves the Observable object to a file.
         """
+        # TODO
         raise NotImplementedError("Saving to file is not implemented yet.")
     
-    def __str__(self):
+    def __repr__(self):
         """
-        Returns a string representation of the object (statistic names and slice filters).
+        Returns a string representation of the Observable object.
         """
-        # TODO : improve this and __repr__ later ?
-        return str(self.get_save_handle())
+        r = f"<{type(self).__name__}>"
+        for key, value in self.__dict__.items():
+            if key == "logger":
+                continue
+            if key == "_dataset":
+                key = "dataset"
+            r += f"\n  {key}: {repr(value)},"
+        if r.endswith(','):
+            r = r[:-1]
+        return r
 
     def __getattr__(self, name):
         """
