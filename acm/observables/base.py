@@ -66,7 +66,7 @@ class Observable():
             Paths to the compressed Observable directories and model checkpoint.
             If dataset or model is None, they will be loaded from the provided paths. Defaults to None.
         checkpoint_fn : Path | str, optional
-            Legacy parameter for the model checkpoint file path. Use `paths['model_dir']` instead. Defaults to None.
+            Legacy parameter for the model checkpoint file path. Use `paths['model_dir']/stat_name.ckpt` instead. Defaults to None.
             
         Raises
         ------
@@ -112,7 +112,7 @@ class Observable():
                 else:
                     checkpoint_fn = Path(paths['model_dir']) / f'{stat_name}.ckpt'
                 model = self.load_model(checkpoint_fn)
-            except Exception as e:
+            except (FileNotFoundError, OSError, RuntimeError, KeyError, ValueError) as e:
                 self.logger.warning(f"Could not load model from checkpoint: {e}")
         
         self.model = model
@@ -172,7 +172,7 @@ class Observable():
         return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
     
     @classmethod
-    def load_model(cls, checkpoint_fn: Path | str = None) -> FCN:
+    def load_model(cls, checkpoint_fn: Path | str) -> FCN:
         """
         Trained theory model loaded from checkpoint.
         
@@ -210,9 +210,8 @@ class Observable():
         for key, value in self.__dict__.items():
             if key == "logger":
                 continue
-            if key == "_dataset":
-                key = "dataset"
-            r += f"\n  {key}: {repr(value)},"
+            display_key = "dataset" if key == "_dataset" else key
+            r += f"\n  {display_key}: {repr(value)},"
         if r.endswith(','):
             r = r[:-1]
         return r
@@ -454,7 +453,7 @@ class Observable():
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_error'):
-            return getattr(self, 'get_emulator_error')()
+            return self.get_emulator_error()
         else:
             raise NotImplementedError("No emulator error found. Please provide an error_dir or implement the get_emulator_error method.")
     
@@ -476,7 +475,7 @@ class Observable():
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_covariance_y'):
-            return getattr(self, 'get_emulator_covariance_y')()
+            return self.get_emulator_covariance_y()
         else:
             raise NotImplementedError("No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method.")
     
