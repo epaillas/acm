@@ -25,7 +25,8 @@ class Observable():
     def __init__(
         self,
         stat_name: str,
-        paths: dict = None,
+        dataset: xarray.Dataset = None,
+        model: FCN = None,
         select_filters: dict = None,
         slice_filters: dict = None,
         select_indices: list = None,
@@ -33,15 +34,18 @@ class Observable():
         flat_output_dims: int = None,
         squeeze_output: bool = False,
         numpy_output: bool = False,
+        paths: dict = None,
+        checkpoint_fn: Path | str = None,
     ):
         """
         Parameters
         ----------
         stat_name: str
-            Name of the statistic to load. Also the name of the file containing the data.
-        paths: dict, optional
-            Paths to the compressed Observable files or models.
-            If None, the internal dataset will be None. Defaults to None.
+            Name or identifier of the statistic to load. It is also the name of the loaded files if applicable.
+        dataset : xarray.Dataset, optional
+            The xarray Dataset containing the data variables and coordinates.
+        model : FCN, optional
+            Trained theory model. If None, the model attribute of the class remains undefined. Defaults to None.
         select_filters : dict, optional
             Filters to select values in coordinates. Defaults to None.
         slice_filters : dict, optional
@@ -58,16 +62,16 @@ class Observable():
             If True, the output will be squeezed to remove single-dimensional entries. Defaults to False.
         numpy_output : bool, optional
             If True, the output will be converted to a numpy array. Defaults to False.
-        
-        Paths
-        -----
-        The data is expected to be in paths[key]/stat_name.npy, in which an xarray DataSet is stored.
-        The possible keys are:
-            - 'data_dir': directory containing the data (x, y)
-            - 'covariance_dir': directory containing the covariance of the data (covariance_y)
-            - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
-            - 'model_dir': directory containing the trained model (model.pth)
-            - 'checkpoint_name': name of the checkpoint file (default: 'model.pth')
+        paths : dict, optional
+            Paths to the compressed Observable directories and model checkpoint.
+            If dataset or model is None, they will be loaded from the provided paths. Defaults to None.
+        checkpoint_fn : Path | str, optional
+            Legacy parameter for the model checkpoint file path. Use `paths['model_dir']` instead. Defaults to None.
+            
+        Raises
+        ------
+        ValueError
+            If dataset is not provided and paths is None.
 
         Example
         -------
@@ -78,38 +82,42 @@ class Observable():
 
 
         will return the summary statistics for `0 < sep < 0.5` and multipoles 0 and 2
+        
+        Paths
+        -----
+        The data is expected to be in `paths[key]/stat_name.npy`, in which an xarray DataSet is stored.
+        The possible keys are:
+            - 'data_dir': directory containing the data (x, y)
+            - 'covariance_dir': directory containing the covariance of the data (covariance_y)
+            - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
+            - 'model_dir': directory containing the trained model checkpoint (`stat_name`.ckpt)
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         
         self.stat_name = stat_name
-        self.paths = paths if paths else {} # Ensure dict behavior
-        self.flat_output_dims = flat_output_dims
         self.numpy_output = numpy_output
         self.squeeze_output = squeeze_output
-
-        # Try to read the paths with data inside
-        datasets = []
-        for key in ['data_dir', 'covariance_dir', 'error_dir']:
-            if key not in self.paths:
-                continue
-            path = Path(self.paths[key]) / f"{self.stat_name}.npy"
+        self.flat_output_dims = flat_output_dims
         
-            if path.exists():
-                datasets.append(dataset_from_dict(np.load(path, allow_pickle=True).item()))
-                self.logger.info(f"Loaded {key} from {path}")
+        if dataset is None:
+            if paths is None:
+                raise ValueError("If dataset is not provided, paths must be provided to load the dataset.")
+            dataset = self.load_dataset_from_files(stat_name, paths)
         
-        if len(datasets) == 0:
-            self.logger.warning("No datasets found within provided paths.")
-            self._dataset = None
-        else:
-            self._dataset = xarray.merge(datasets)
-            self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
+        if model is None:
+            try:
+                if checkpoint_fn is not None:
+                    self.logger.warning("The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
+                    checkpoint_fn = Path(checkpoint_fn)
+                else:
+                    checkpoint_fn = Path(paths['model_dir']) / f'{stat_name}.ckpt'
+                model = self.load_model(checkpoint_fn)
+            except Exception as e:
+                self.logger.warning(f"Could not load model from checkpoint: {e}")
         
-        # Load the model
-        try:
-            self.model = self.load_model() 
-        except Exception as e: # handle the case where the model checkpoint is not found
-            self.logger.warning(f"Model could not be loaded and will remain undefined. If you are training a new model, this is expected. Exception: {e}")
+        self.model = model
+        self._dataset = dataset
+        self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
         
         # Set the filters
         self.select_filters = select_filters
@@ -117,15 +125,102 @@ class Observable():
         self.select_indices = select_indices
         self.select_indices_on = select_indices_on if select_indices_on else [] # Ensure list behavior
         
-        if self.select_indices and (self.select_filters or self.slice_filters):
-            self.logger.warning("Indice selection and filters used at the same time. Check what you filter, you might not get the result you expect!")
-
+        # Store paths for reference
+        self.paths = paths if paths else {} # Ensure dict behavior
+        
+    @classmethod
+    def load_dataset_from_files(cls, stat_name: str, paths: dict) -> xarray.Dataset:
+        """
+        Load the dataset from the provided paths.
+        
+        Parameters
+        ----------
+        stat_name: str
+            Name or identifier of the statistic to load.
+        paths: dict
+            Paths to the compressed Observable directories.
+            Keys can include 'data_dir', 'covariance_dir', 'error_dir'.
+            Extra keys are ignored. Files are expected to be in `paths[key]/stat_name.npy`.
+            
+        Returns
+        -------
+        xarray.Dataset
+            The loaded xarray DataSet.
+            
+        Raises
+        ------
+        FileNotFoundError
+            If no datasets are found for the given statistic name in the provided paths.
+        """
+        logger = logging.getLogger(cls.__name__)
+        
+        # Try to read the paths with data inside
+        datasets = []
+        for key in ['data_dir', 'covariance_dir', 'error_dir']:
+            if key not in paths:
+                continue
+            path = Path(paths[key]) / f"{stat_name}.npy"
+        
+            if path.exists():
+                datasets.append(dataset_from_dict(np.load(path, allow_pickle=True).item()))
+                logger.info(f"Loaded {key} from {path}")
+        
+        if len(datasets) == 0:
+            raise FileNotFoundError(f"No datasets found for statistic '{stat_name}' in provided paths.")
+        
+        _dataset = xarray.merge(datasets)
+        return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
+    
+    @classmethod
+    def load_model(cls, checkpoint_fn: Path | str = None) -> FCN:
+        """
+        Trained theory model loaded from checkpoint.
+        
+        Parameters
+        ----------
+        checkpoint_fn : Path | str
+            Path to the model checkpoint file. See `sunbird.emulators.FCN.load_from_checkpoint`.
+        
+        Returns
+        -------
+        FCN
+            The loaded FCN model.
+        """
+        logger = logging.getLogger(cls.__name__)
+        
+        # Register the classes as safe globals if torch.serialization.add_safe_globals exists
+        if SAFE_CLASSES:
+            try:
+                torch.serialization.add_safe_globals(SAFE_CLASSES)
+            except AttributeError:
+                # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
+                logger.debug("torch.serialization.add_safe_globals not available, skipping safe globals registration")
+        
+        # Load the model
+        logger.info(f"Loading model from {checkpoint_fn}")
+        model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
+        model.eval().to('cpu')
+        return model
+    
+    @classmethod
+    def load(cls, filename: str):
+        """
+        Load an Observable object from a file.
+        """
+        raise NotImplementedError("Loading from file is not implemented yet.")
+    
+    def save(self, filename: str):
+        """
+        Saves the Observable object to a file.
+        """
+        raise NotImplementedError("Saving to file is not implemented yet.")
+    
     def __str__(self):
         """
         Returns a string representation of the object (statistic names and slice filters).
         """
         # TODO : improve this and __repr__ later ?
-        return self.get_save_handle()
+        return str(self.get_save_handle())
 
     def __getattr__(self, name):
         """
@@ -328,7 +423,7 @@ class Observable():
         list
             The list of values of the specified coordinate.
         """
-        coordinate_list = self.coords[name].values.tolist()
+        coordinate_list = self.coords[name].values.tolist() # pyright: ignore[reportAttributeAccessIssue] (DataArray.coords type is a DataArray object)
         
         if not isinstance(coordinate_list, list):
             coordinate_list = [coordinate_list]
@@ -364,7 +459,7 @@ class Observable():
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_error'):
-            return self.get_emulator_error()
+            return getattr(self, 'get_emulator_error')()
         else:
             raise NotImplementedError("No emulator error found. Please provide an error_dir or implement the get_emulator_error method.")
     
@@ -386,37 +481,9 @@ class Observable():
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_covariance_y'):
-            return self.get_emulator_covariance_y()
+            return getattr(self, 'get_emulator_covariance_y')()
         else:
             raise NotImplementedError("No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method.")
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Path to the checkpoint file of the model, constructed from the paths and the statistic name.
-        """
-        return self.paths['model_dir'] + f'{self.stat_name}.ckpt'
-   
-    def load_model(self, checkpoint_fn: str = None) -> FCN:
-        """
-        Trained theory model loaded from checkpoint.
-        """
-        if checkpoint_fn is None:
-            checkpoint_fn = self.checkpoint_fn
-        
-        # Register the classes as safe globals if torch.serialization.add_safe_globals exists
-        if SAFE_CLASSES:
-            try:
-                torch.serialization.add_safe_globals(SAFE_CLASSES)
-            except AttributeError:
-                # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
-                self.logger.debug("torch.serialization.add_safe_globals not available, skipping safe globals registration")
-        
-        # Load the model
-        self.logger.info(f"Loading model from {checkpoint_fn}")
-        model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
-        model.eval().to('cpu')
-        return model
     
     def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False):
         """
