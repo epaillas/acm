@@ -116,9 +116,6 @@ class Observable():
         self.slice_filters = slice_filters
         self.select_indices = select_indices
         self.select_indices_on = select_indices_on if select_indices_on else [] # Ensure list behavior
-        
-        if self.select_indices and (self.select_filters or self.slice_filters):
-            self.logger.warning("Indice selection and filters used at the same time. Check what you filter, you might not get the result you expect!")
 
     def __str__(self):
         """
@@ -306,7 +303,19 @@ class Observable():
             return dataarray
         
         dim_name = dataarray.dims[-1]
-
+        
+        # Warn if select_indices is applied on a dimension that is also filtered
+        for f_str in ['select_filters', 'slice_filters']:
+            f = getattr(self, f_str, None)
+            if f is not None:
+                features_filters = [k for k in dataarray.attrs['features'] if k in f.keys()]
+                if dim_name in features_filters:
+                    self.logger.warning(f"select_indices is applied on a dimension ({dim_name}) that is also filtered with {f_str}. This might lead to unexpected results.")
+                elif dim_name == 'features' and len(features_filters) > 0:
+                    self.logger.warning(f"select_indices is applied on 'features' dimension while {f_str} are also applied on features. This might lead to unexpected results.")
+                elif dim_name == 'dims':
+                    self.logger.warning(f"select_indices is applied while {f_str} are also applied. This might lead to unexpected results.")
+                    
         return dataarray.isel({dim_name: self.select_indices})
 
     def get_coordinate_list(self, name: str) -> list:
