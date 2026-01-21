@@ -223,7 +223,7 @@ class DensitySplit(BaseDensityMeshEstimator):
 
         data = ParticleField(data_positions, attrs=self.mattrs, exchange=True, backend='jax')
         data_mesh = data.paint(**kw, out='real')
-        data_mesh = data_mesh / data_mesh.mean() - 1.
+        data_mesh = data_mesh - data_mesh.mean()
 
         self._quantile_data_power = []
         for i, quantile_positions in enumerate(self.quantiles):
@@ -234,7 +234,7 @@ class DensitySplit(BaseDensityMeshEstimator):
             norm = compute_box2_normalization(quantile, data, bin=bin)
 
             quantile_mesh = quantile.paint(**kw, out='real')
-            quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+            quantile_mesh = quantile_mesh - quantile_mesh.mean()
 
             spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, data_mesh, bin=bin, los=los)
             spectrum = spectrum.clone(norm=norm)
@@ -311,7 +311,8 @@ class DensitySplit(BaseDensityMeshEstimator):
             num_shotnoise = compute_fkp2_shotnoise(quantile, bin=bin)
 
             quantile_mesh = quantile.paint(**kw, out='real')
-            quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+            # quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+            quantile_mesh = quantile_mesh - quantile_mesh.mean()
 
             spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, bin=bin, los=los)
             spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
