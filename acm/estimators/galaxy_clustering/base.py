@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import jax
 from jax import numpy as jnp
 from pyrecon import RealMesh
 from pypower import CatalogMesh
@@ -44,8 +45,9 @@ class BaseDensityMeshEstimator(BaseEstimator):
             self.logger.info(f'Box center: {self.boxcenter}')
             self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float = None, randoms_threshold_value: float = 0.01,
-        randoms_threshold_method: str = 'noise', randoms_threshold_replacement: float = 0.0):
+    def set_density_contrast(self, resampler: str='cic', compensate=False, interlacing=0, halo_add: int=0,
+        smoothing_radius: float = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise',
+        randoms_threshold_replacement: float = 0.0):
         def _2r(mesh):
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
