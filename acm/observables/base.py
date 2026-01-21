@@ -202,21 +202,6 @@ class Observable():
         model.eval().to('cpu')
         return model
     
-    @classmethod
-    def load(cls, filename: str):
-        """
-        Load an Observable object from a file.
-        """
-        # TODO
-        raise NotImplementedError("Loading from file is not implemented yet.")
-    
-    def save(self, filename: str):
-        """
-        Saves the Observable object to a file.
-        """
-        # TODO
-        raise NotImplementedError("Saving to file is not implemented yet.")
-    
     def __repr__(self):
         """
         Returns a string representation of the Observable object.
