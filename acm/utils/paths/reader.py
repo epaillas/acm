@@ -1,65 +1,47 @@
 import yaml
 from pathlib import Path
+from acm.utils.decorators import require_nersc
 
-def get_Abacus_dirs(tracer:str, simtype:str = None) -> dict:
+@require_nersc(enabled=True)
+def resolve_yaml_path(filename: str, *keys: str):
     """
-    Get the Abacus Dark Matter Catalogs paths for a given tracer from the Abacus.yaml file.
+    Reads a .yaml file and parses the arguments as nested keys to return the corresponding value.
 
     Parameters
     ----------
-    tracer : str
-        The tracer for which to get the paths (e.g., 'BGS', 'LRG').
-    simtype : str, optional
-        The type of simulation (e.g., 'box', 'lightcone'). 
-        If provided, it will only return paths for that simulation type.
-
+    filename : str
+        The path to the .yaml file to read. Relative paths will be resolved as relative to the script's location, 
+        with a fallback to the acm.utils.paths directory.
+    *keys : str
+        Nested keys to traverse the YAML structure.
+    
     Returns
     -------
-    dict
-        A dictionary containing the paths for the specified tracer.
-
+    Any
+        The resolved value corresponding to the nested keys provided in *keys.
+    
     Raises
     ------
+    FileNotFoundError
+        If the specified YAML file does not exist.
     ValueError
-        If the tracer is not found in the Abacus.yaml file or if no paths are available for the specified simulation type.
+        If the provided keys do not lead to a valid value in the YAML structure.
     """
     here = Path(__file__).parent
-
-    with open(here / 'Abacus.yaml', 'r') as file:
-        abacus_dirs = yaml.safe_load(file)
-        tracer_dict = abacus_dirs.get(tracer, {})
-        if not tracer_dict:
-            raise ValueError(f"No paths found for tracer '{tracer}' in Abacus.yaml")
-        if simtype:
-            tracer_dict = tracer_dict.get(simtype, {})
-            if not tracer_dict:
-                raise ValueError(f"No paths found for tracer '{tracer}' with simulation type '{simtype}' in Abacus.yaml")
-    return tracer_dict
+    fn = Path(filename) # Assert absolute or relative to cwd
     
-def get_data_dirs(project: str) -> dict:
-    """
-    Get the data directories for a given project from the data.yaml file.
+    if not fn.exists():
+        fn = here / filename # Relative to this script
+        
+    if not fn.exists():
+        raise FileNotFoundError(f"YAML file not found: {filename}")
 
-    Parameters
-    ----------
-    project : str
-        The project name for which to get the paths (e.g., 'emc', 'bgs').
+    with open(fn, 'r') as file:
+        data = yaml.safe_load(file)
+        
+        for key in keys:
+            if not isinstance(data, dict) or key not in data:
+                raise KeyError(f"Invalid YAML key path: {' -> '.join(keys)}")
+            data = data.get(key)
 
-    Returns
-    -------
-    dict
-        A dictionary containing the paths for the specified project.
-
-    Raises
-    ------
-    ValueError
-        If the project is not found in the data.yaml file or if no paths are available for the specified project.
-    """
-    here = Path(__file__).parent
-    
-    with open(here / 'data.yaml', 'r') as file:
-        data_dirs = yaml.safe_load(file)
-        project_dirs = data_dirs.get(project, {})
-        if not project_dirs:
-            raise ValueError(f"No paths found for project '{project}' in data_dirs.yaml")
-    return project_dirs
+    return data

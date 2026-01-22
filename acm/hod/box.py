@@ -7,9 +7,9 @@ from astropy.io import fits
 from astropy.table import Table
 from abacusnbody.hod import abacus_hod
 from cosmoprimo.fiducial import DESI, AbacusSummit
-from acm.utils.paths import get_Abacus_dirs
+from acm.utils.paths import resolve_yaml_path
 
-LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
+LRG_Abacus_DM = resolve_yaml_path('Abacus.yaml', 'LRG', 'box')
 
 class BoxHOD:
     """
