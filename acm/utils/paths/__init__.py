@@ -1,1 +1,1 @@
-from .reader import resolve_yaml_path
+from .reader import lookup_registry_path, list_registry_files
