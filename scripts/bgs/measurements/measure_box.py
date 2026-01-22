@@ -28,7 +28,7 @@ from pypower import CatalogFFTPower
 
 from acm.hod import BoxHOD
 from acm.utils.logging import setup_logging
-from acm.utils.paths import get_Abacus_dirs
+from acm.utils.paths import resolve_yaml_path
 from acm.estimators.galaxy_clustering.density_split import DensitySplit
 
 #%% Box loading functions
@@ -349,7 +349,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--seeds', type=int, nargs='+', help='List of seeds to process.')
     parser.add_argument('--hods', type=int, nargs='+', default=None, help='List of HOD indices to process. If None, processes all HODs in the catalog file.')
     parser.add_argument('-t', '--sim_type', type=str, default='base', help='Simulation type (e.g., base, small).')
-    parser.add_argument('--abacus_tracer', type=str, default='BGS', help='Tracer type for Abacus catalogs loading (e.g., BGS, LRG), see `acm.utils.paths.get_Abacus_dirs`.') # NOTE: Should be temporary ?
+    parser.add_argument('--abacus_tracer', type=str, default='BGS', help='Tracer type for Abacus catalogs loading (e.g., BGS, LRG), see `acm.utils.paths.resolve_yaml_path`.') # NOTE: Should be temporary ?
     parser.add_argument('-z', '--redshift', type=float, default=0.2, help='Redshift of the simulations to load.')
     parser.add_argument('-n', '--n_hod', type=int, default=100, help='Number of HODs to run per cosmology, phase and seed.')
     parser.add_argument('--hod_start', type=int, default=None, help='Starting index for HODs to process (for resuming interrupted runs).')
@@ -462,7 +462,7 @@ if __name__ == "__main__":
                 phase_idx = phase_idx,
                 sim_type = sim_type,
                 redshift = redshift,
-                DM_DICT = get_Abacus_dirs(tracer=abacus_tracer, simtype='box'), # TODO : Maybe change this if using Hanyu's profile version (no need for BGS-specific catalog ?)
+                DM_DICT = resolve_yaml_path('Abacus.yaml', abacus_tracer, 'box'), # TODO : Maybe change this if using Hanyu's profile version (no need for BGS-specific catalog ?)
             )
             
             for seed in seeds:

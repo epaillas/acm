@@ -17,7 +17,7 @@ from desitarget.targetmask import desi_mask, obsconditions
 
 from .box import BoxHOD
 from .footprint import *
-from acm.utils.paths import get_Abacus_dirs
+from acm.utils.paths import resolve_yaml_path
 
 # Optional imports with better error handling
 try:
@@ -29,7 +29,7 @@ except ImportError:
     build_healpix_map = None
     HAS_REGRESSIS = False
 
-LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
+LRG_Abacus_DM = resolve_yaml_path('Abacus.yaml', 'LRG', 'box')
 
 # Valid DESI photometric regions
 # N = North, DN = Dark North, DS = Dark South, SNGC = South NGC, SSGC = South SGC

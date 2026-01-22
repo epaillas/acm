@@ -11,8 +11,8 @@ from .cutsky import CutskyHOD, CutskyRandoms
 from mockfactory import RandomCutskyCatalog
 from mockfactory.utils import radecbox_area
 
-from acm.utils.paths import get_Abacus_dirs
-LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='lightcone')
+from acm.utils.paths import resolve_yaml_path
+LRG_Abacus_DM = resolve_yaml_path('Abacus.yaml', 'LRG', 'lightcone')
 
 from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
