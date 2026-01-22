@@ -4,7 +4,7 @@ from typing import Callable, Any
 from acm.utils.decorators import require_nersc
 
 @require_nersc(enabled=True)
-def resolve_yaml_path(
+def lookup_registry_path(
     filename: str, 
     *keys: str,
     loader: Callable = yaml.safe_load,
@@ -48,12 +48,12 @@ def resolve_yaml_path(
 
     return data
 
-def list_path_files(
+def list_registry_files(
     ext: tuple[str, ...] = (".yaml", ".yml"),
     recursive: bool = False,
 ) -> list[str]:
     """
-    Lists all available paths files shipped with this package
+    Lists all available registry files shipped with this package
 
     Returns
     -------
