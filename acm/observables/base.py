@@ -116,9 +116,6 @@ class Observable():
         self.slice_filters = slice_filters
         self.select_indices = select_indices
         self.select_indices_on = select_indices_on if select_indices_on else [] # Ensure list behavior
-        
-        if self.select_indices and (self.select_filters or self.slice_filters):
-            self.logger.warning("Indice selection and filters used at the same time. Check what you filter, you might not get the result you expect!")
 
     def __str__(self):
         """
@@ -142,15 +139,15 @@ class Observable():
 
         # Apply reshaping if name is a data_var
         if name in self._dataset.data_vars:
-                
-            if name in self.select_indices_on:
-                data = self.apply_indices_selection(data)
             
             # Drop NaN dimensions if marked in attributes
             data = self.drop_nan_dimensions(data)
             
             data = self.flatten_output(data, self.flat_output_dims)
         
+            if name in self.select_indices_on:
+                data = self.apply_indices_selection(data)
+                
             if self.squeeze_output:
                 data = data.squeeze()
                 
@@ -251,7 +248,7 @@ class Observable():
         return dataarray
 
     @classmethod
-    def flatten_output(cls, dataarray: xarray.DataArray, flat_output_dims: int) -> xarray.DataArray:
+    def flatten_output(cls, dataarray: xarray.DataArray, flat_output_dims: int, unstack: bool = True) -> xarray.DataArray:
         """
         Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
         containing the list of dimensions to stack on.
@@ -266,13 +263,17 @@ class Observable():
             The DataArray to flatten.
         flat_output_dims : int
             Number of dimensions to flatten the output on (1 or 2).
+        unstack : bool
+            If True (recommended), unstack the DataArray before flattening. Setting this to False can
+            lead to unexpected behavior if the DataArray is already stacked. Defaults to True.
 
         Returns
         -------
         xarray.DataArray
             The flattened DataArray.
         """
-        dataarray = dataarray.unstack()
+        if unstack:
+            dataarray = dataarray.unstack()
         if flat_output_dims == 2:
             dataarray = cls.stack_on_attribute('sample', dataarray)
             dataarray = cls.stack_on_attribute('features', dataarray)
@@ -284,8 +285,8 @@ class Observable():
 
     def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
-        Apply the indices selection on a given DataArray.
-        Should be called after filters are applied and before flattening.
+        Apply the indices selection on the last dimension of a given DataArray.
+        Should be called after filters are applied and after flattening the DataArray.
         Does nothing if select_indices is None.
 
         Parameters
@@ -301,18 +302,21 @@ class Observable():
         if self.select_indices is None:
             return dataarray
         
-        dataarray = self.stack_on_attribute('features', dataarray)
-        # Warn if filters are applied to features dimensions
-        if self.select_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.select_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
-        if self.slice_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.slice_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
-
-        return dataarray.isel(features=self.select_indices)
+        dim_name = dataarray.dims[-1]
+        
+        # Warn if select_indices is applied on a dimension that is also filtered
+        for f_str in ['select_filters', 'slice_filters']:
+            f = getattr(self, f_str, None)
+            if f is not None:
+                features_filters = [k for k in dataarray.attrs['features'] if k in f.keys()]
+                if dim_name in features_filters:
+                    self.logger.warning(f"select_indices is applied on a dimension ({dim_name}) that is also filtered with {f_str}. This might lead to unexpected results.")
+                elif dim_name == 'features' and len(features_filters) > 0:
+                    self.logger.warning(f"select_indices is applied on 'features' dimension while {f_str} are also applied on features. This might lead to unexpected results.")
+                elif dim_name == 'dims':
+                    self.logger.warning(f"select_indices is applied while {f_str} are also applied. This might lead to unexpected results.")
+                    
+        return dataarray.isel({dim_name: self.select_indices})
 
     def get_coordinate_list(self, name: str) -> list:
         """
@@ -355,9 +359,9 @@ class Observable():
         if hasattr(self._dataset, 'emulator_error'):
             data = self._dataset.emulator_error
             data = self.apply_filters(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if 'emulator_error' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -377,9 +381,9 @@ class Observable():
         if hasattr(self._dataset, 'emulator_covariance_y'):
             data = self._dataset.emulator_covariance_y
             data = self.apply_filters(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if 'emulator_covariance_y' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
@@ -490,8 +494,8 @@ class Observable():
             return pred
         
         pred = self.apply_filters(pred)
-        pred = self.apply_indices_selection(pred)
         pred = self.flatten_output(pred, self.flat_output_dims)
+        pred = self.apply_indices_selection(pred)
         
         if self.squeeze_output:
             pred = pred.squeeze()
@@ -499,6 +503,7 @@ class Observable():
             pred = pred.values
         return pred
     
+    @temporary_class_state(numpy_output=False)
     def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1, **kwargs) -> np.ndarray:
         """
         Covariance matrix for the statistic. 
@@ -518,16 +523,14 @@ class Observable():
         np.ndarray
             The combined data covariance matrix.
         """   
-        cov_y = self.covariance_y
+        cov_y = self.covariance_y # Filtered and flattened DataArray
         
-        # Ensure 2D shape of the covariance array
-        if isinstance(cov_y, xarray.DataArray):
-            cov_y = self.flatten_output(cov_y, flat_output_dims=2) # Force 2D flattening for covariance
-        elif len(cov_y.shape) > 2:
-            self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
-            cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
-        elif len(cov_y.shape) < 2:
-            self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
+        # Selection of indices on 1D array prevents reshaping or forces NaN values in covariance matrix
+        if self.select_indices is not None and self.flat_output_dims == 1:
+            raise NotImplementedError("Covariance matrix computation with select_indices and flat_output_dims=1 cannot be computed.")
+        
+        cov_y = self.flatten_output(cov_y, flat_output_dims=2, unstack=False) # No unstacking to avoid NaN
+        cov_y = cov_y.values
         
         prefactor = prefactor / volume_factor
         
@@ -538,6 +541,7 @@ class Observable():
         
         return cov
     
+    @temporary_class_state(numpy_output=False)
     def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, **kwargs) -> np.ndarray:
         """
         Covariance matrix of the emulator residuals.
@@ -560,17 +564,15 @@ class Observable():
         np.ndarray
             The emulator covariance matrix.
         """
-        cov_y = self.emulator_covariance_y
+        cov_y = self.emulator_covariance_y # Filtered and flattened DataArray
         
-        # Ensure 2D shape of the covariance array
-        if isinstance(cov_y, xarray.DataArray):
-            cov_y = self.flatten_output(cov_y, flat_output_dims=2).values  # Force 2D flattening for covariance
-        elif len(cov_y.shape) > 2:
-            self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
-            cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
-        elif len(cov_y.shape) < 2:
-            self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
-
+        # Selection of indices on 1D array prevents reshaping or forces NaN values in covariance matrix
+        if self.select_indices is not None and self.flat_output_dims == 1:
+            raise NotImplementedError("Covariance matrix computation with select_indices and flat_output_dims=1 cannot be computed.")
+        
+        cov_y = self.flatten_output(cov_y, flat_output_dims=2, unstack=False) # No unstacking to avoid NaN
+        cov_y = cov_y.values
+        
         if method == 'median':
             if diag:
                 mad = median_abs_deviation(cov_y, axis=0)
