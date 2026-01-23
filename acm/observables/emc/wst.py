@@ -17,16 +17,10 @@ class WaveletScatteringTransform(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='wst', n_test=6*186, **kwargs)
+        # checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/wst/last-v25.ckpt'
+        checkpoint_fn = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/best/wst/last-v5.ckpt'
+        super().__init__(stat_name='wst', n_test=6*186, checkpoint_fn=checkpoint_fn, **kwargs)
     
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        # return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
-        return f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/best/wst/last-v5.ckpt'
-
     def renorm_wst(self, inpt):
         s0 = inpt[0]
         s12 =  inpt[1:].reshape(15,5)
