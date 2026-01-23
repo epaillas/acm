@@ -258,6 +258,6 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
     Class for the Emulator's Mock Challenge density-split auto-correlation function multipoles.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='ds_xiqq', **kwargs)
+    def __init__(self, n_test=6*212, **kwargs):
+        super().__init__(stat_name='ds_xiqq', n_test=n_test, **kwargs)
         self.measurement_root = 'dsc_xiqq'
