@@ -42,12 +42,14 @@ class BaseObservableBGS(Observable):
                 idx_test = range(n_test) if isinstance(n_test, int) else n_test
                 x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
                 y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
+                self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
             else:
                 raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
         
-        # Flatten on 2D for indexing
-        x_test = self.flatten_output(x_test, flat_output_dims=2)
-        y_test = self.flatten_output(y_test, flat_output_dims=2)
+        # Flatten on 2D for indexing 
+        # unstack=False because it's either already unstacked or 2D - avoids NaN issues
+        x_test = self.flatten_output(x_test, flat_output_dims=2, unstack=False)
+        y_test = self.flatten_output(y_test, flat_output_dims=2, unstack=False)
         
         prediction = self.get_model_prediction(x_test, nofilters=True) # Unfiltered prediction !
         
