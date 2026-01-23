@@ -81,7 +81,6 @@ def compute_spectrum(output_fn, positions, ells=(0, 2, 4), los='z', **attrs):
         print(f'Saving to {output_fn}')
         spectrum.write(output_fn)
 
-<<<<<<< HEAD
 def compute_spectrum_acm(output_fn, ells=(0, 2, 4), los='z', **attrs):
     """Compute the power spectrum of a set of positions using the ACM package."""
     from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
@@ -96,9 +95,6 @@ def compute_spectrum_acm(output_fn, ells=(0, 2, 4), los='z', **attrs):
         print(f'Power spectrum (ACM) done in {t1 - t0:.2f} s.')
 
 def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', **attrs):
-=======
-def compute_bispectrum(output_fn, positions, basis='scoccimarro', los='z', bin=None, **attrs):
->>>>>>> a0ba7bf99fcb4f79adb92172c2e8b462c20cb733
     from jaxpower import (ParticleField, FKPField, compute_fkp3_normalization, compute_fkp3_shotnoise, BinMesh3SpectrumPoles, get_mesh_attrs, compute_mesh3_spectrum, MeshAttrs)
     t0 = time.time()
     mattrs = MeshAttrs(**attrs)
@@ -230,28 +226,22 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
 
-<<<<<<< HEAD
     if do_correlation:
         ccf = ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True)
         acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
+        print(f'Saving {output_fn["xiqg"]}')
         np.save(output_fn['xiqg'], ccf)
+        print(f'Saving {output_fn["xiqq"]}')
         np.save(output_fn['xiqq'], acf)
     if do_power:
         pkqg = ds.quantile_data_power(positions, edges={'step': 0.001}, ells=ells, los=los)
         print(f'Saving {output_fn["pkqg"]}')
-        np.save(output_fn['pkqg'], pkqg)
         pkqq = ds.quantile_power(edges={'step': 0.001}, ells=ells, los=los)
         print(f'Saving {output_fn["pkqq"]}')
-        np.save(output_fn['pkqq'], pkqq)
-=======
-    ccf = ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True)
-    acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
-
-    np.save(output_fn['xiqg'], ccf)
-    print(f'Saving {output_fn["xiqg"]}')
-    np.save(output_fn['xiqq'], acf)
-    print(f'Saving {output_fn["xiqq"]}')
->>>>>>> a0ba7bf99fcb4f79adb92172c2e8b462c20cb733
+        for i in range(5):
+            pkqg[i].write(Path(str(output_fn[f'pkqg']).replace('poles', f'poles_q{i}')))
+            pkqq[i].write(Path(str(output_fn[f'pkqq']).replace('poles', f'poles_q{i}')))
+            
 
 def compute_wst(output_fn, positions, init=None, **attrs):
     """Compute the wavelet scattering transform using the ACM package."""
@@ -520,7 +510,6 @@ if __name__ == '__main__':
     args = get_cli_args()
 
     is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.todo_stats)
-    print(f'Is distributed: {is_distributed}')
     if is_distributed:
         os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
         import jax
@@ -640,15 +629,16 @@ if __name__ == '__main__':
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=3.9)
-                        compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
+                        compute_density_split(output_fn, hod_positions, smoothing_radius=10,
+                            do_correlation=True, do_power=False, **box_args)
 
                     if 'density_split_power' in args.todo_stats:
                         save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base_debug/density_split/'
                         save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
                         Path(save_dir).mkdir(parents=True, exist_ok=True)
                         output_fn = {
-                            'pkqg': Path(save_dir) / f'dsc_pkqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
-                            'pkqq': Path(save_dir) / f'dsc_pkqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
+                            'pkqg': Path(save_dir) / f'dsc_pkqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5',
+                            'pkqq': Path(save_dir) / f'dsc_pkqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5',
                         }
                         if output_fn['pkqg'].exists() and output_fn['pkqq'].exists():
                             print(f'Skipping {output_fn["pkqg"]} and {output_fn["pkqq"]}, already exists.')
