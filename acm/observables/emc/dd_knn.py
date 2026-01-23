@@ -14,15 +14,9 @@ class DDkNN(BaseObservableEMC):
     Class for the Emulator's Mock Challenge 2D DD-kNN statistic
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='dd_knn', n_test=6*100, **kwargs)
+        checkpoint_fn = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/dd_knn/last.ckpt'
+        super().__init__(stat_name='dd_knn', n_test=6*100, checkpoint_fn=checkpoint_fn, **kwargs)
     
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/dd_knn/last.ckpt'
-
     def make_mask(self, train_y):
         pass
     

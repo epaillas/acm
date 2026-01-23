@@ -12,14 +12,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='tpcf', **kwargs)
-    
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
+        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
+        super().__init__(stat_name='tpcf', checkpoint_fn=checkpoint_fn, **kwargs)
     
     def compress_covariance(self, save_to: str = None, rebin: int = 4, ells: list = [0, 2, 4], overwrite_s: np.ndarray = None) -> xarray.DataArray:
         """
