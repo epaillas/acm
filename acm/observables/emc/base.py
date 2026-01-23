@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 from acm.observables import Observable
-from acm.utils import get_data_dirs
+from acm.utils import lookup_registry_path
 from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
@@ -19,8 +19,11 @@ class BaseObservableEMC(Observable):
         if phase_correction and hasattr(self, 'compute_phase_correction'):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
-            
-        paths = kwargs.pop('paths', get_data_dirs('emc')) 
+        
+        paths = kwargs.pop('paths', None)
+        if paths is None:
+            paths = lookup_registry_path('projects.yaml', 'emc')
+        
         self.n_test = kwargs.pop('n_test', 6*500) # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 
