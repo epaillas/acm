@@ -17,14 +17,8 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     function multipoles observable.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='vide_ccf', n_test=6*100, **kwargs)
-    
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/vide_ccf/last.ckpt'
+        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/vide_ccf/last.ckpt'
+        super().__init__(stat_name='vide_ccf', n_test=6*100, checkpoint_fn=checkpoint_fn, **kwargs)
     
     def compress_covariance(
         self,

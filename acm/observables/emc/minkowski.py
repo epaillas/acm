@@ -16,14 +16,8 @@ class MinkowskiFunctionals(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='minkowski', **kwargs)
-    
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/minkowski/last.ckpt'
+        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/minkowski/last.ckpt'
+        super().__init__(stat_name='minkowski', checkpoint_fn=checkpoint_fn, **kwargs)
     
     def compress_covariance(
         self,
