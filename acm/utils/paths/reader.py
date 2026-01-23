@@ -15,8 +15,9 @@ def lookup_registry_path(
     Parameters
     ----------
     filename : str
-        The path to the file to read. Relative paths will be resolved as relative to the script's location, 
-        with a fallback to the acm.utils.paths directory.
+        The path to the file to read. Relative paths will be resolved as relative to the current working 
+        directory; if the file is not found there, they are resolved relative to the directory of the 
+        ``acm.utils.paths`` package.  
     *keys : str
         Nested keys to traverse the file structure.
     
