@@ -81,9 +81,9 @@ class BaseObservableBGS(Observable):
             return emulator_covariance_y
         
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
-        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
@@ -120,9 +120,9 @@ class BaseObservableBGS(Observable):
             name = 'emulator_error',
         )
         emulator_error = self.apply_filters(emulator_error)
+        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if 'emulator_error' in self.select_indices_on:
             emulator_error = self.apply_indices_selection(emulator_error)
-        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if self.squeeze_output:
             emulator_error = emulator_error.squeeze()
         if self.numpy_output:
