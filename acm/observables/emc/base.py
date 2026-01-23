@@ -19,8 +19,11 @@ class BaseObservableEMC(Observable):
         if phase_correction and hasattr(self, 'compute_phase_correction'):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
-            
-        paths = kwargs.pop('paths', lookup_registry_path('emc')) 
+        
+        paths = kwargs.pop('paths', None)
+        if paths is None:
+            paths = lookup_registry_path('projects.yaml', 'emc')
+        
         self.n_test = kwargs.pop('n_test', 6*500) # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 

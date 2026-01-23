@@ -27,9 +27,7 @@ def lookup_registry_path(
     
     Raises
     ------
-    FileNotFoundError
-        If the specified file does not exist.
-    ValueError
+    KeyError
         If the provided keys do not lead to a valid value in the structure.
     """
     here = Path(__file__).parent
@@ -43,7 +41,7 @@ def lookup_registry_path(
         
         for key in keys:
             if not isinstance(data, dict) or key not in data:
-                raise KeyError(f"Invalid YAML key path: {' -> '.join(keys)}")
+                raise KeyError(f"Invalid key path: {' -> '.join(keys)}")
             data = data.get(key)
 
     return data

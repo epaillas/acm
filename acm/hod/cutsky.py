@@ -29,7 +29,6 @@ except ImportError:
     build_healpix_map = None
     HAS_REGRESSIS = False
 
-LRG_Abacus_DM = lookup_registry_path('Abacus.yaml', 'LRG', 'box')
 
 # Valid DESI photometric regions
 # N = North, DN = Dark North, DS = Dark South, SNGC = South NGC, SSGC = South SGC
@@ -293,10 +292,10 @@ class CutskyHOD(BaseCutskyCatalog):
         phase_idx: int = 0,
         zranges: list[list[float]] = [[0.4, 0.6]],
         snapshots: list[float] = [0.5],
-        DM_DICT: dict = LRG_Abacus_DM,
         load_existing_hod: bool = False,
         sim_type: str = 'base',
-        tracer: str = 'LRG'
+        tracer: str = 'LRG',
+        DM_DICT: dict = None,
     ):
         """
         Initialize the CutskyHOD class. This checks the HOD parameters and 
@@ -320,9 +319,6 @@ class CutskyHOD(BaseCutskyCatalog):
         snapshots : list[float], optional
             List of snapshots (redshifts) to use for building each redshift range
             specified in `zranges`.
-        DM_DICT : dict, optional
-            Dictionary containing the DM fields for the HOD sampling.
-            Defaults to LRG_Abacus_DM, which is defined in utils.paths.
         load_existing_hod : bool, optional
             Flag to allow loading an existing HOD catalog in the `sample_hod` method.
             When True, prevents the Dark Matter catalog from being loaded and allows
@@ -332,6 +328,10 @@ class CutskyHOD(BaseCutskyCatalog):
             Type of simulation to use for the HOD sampling. Defaults to 'base' (2 Gpc/h).
         tracer : str, optional
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
+        DM_DICT : dict, optional
+            Dictionary containing the DM fields for the HOD sampling.
+            If None, defaults to a value read from `acm.utils.paths` on NERSC systems.
+            Defaults to None.
         """
         super().__init__()
         self.logger = logging.getLogger('CutskyHOD')
@@ -353,6 +353,8 @@ class CutskyHOD(BaseCutskyCatalog):
             self.cosmo = AbacusSummit(self.cosmo_idx)
             self.logger.info('Load existing hod instead of generating new ones.')
         else:
+            if DM_DICT is None:
+                DM_DICT = lookup_registry_path('Abacus.yaml', self.tracer, 'box')
             self.setup_hod(DM_DICT=DM_DICT)
         self.keys_cutsky = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']
 

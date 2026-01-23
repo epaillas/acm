@@ -9,7 +9,6 @@ from abacusnbody.hod import abacus_hod
 from cosmoprimo.fiducial import DESI, AbacusSummit
 from acm.utils.paths import lookup_registry_path
 
-LRG_Abacus_DM = lookup_registry_path('Abacus.yaml', 'LRG', 'box')
 
 class BoxHOD:
     """
@@ -32,7 +31,7 @@ class BoxHOD:
         phase_idx: int = 0,
         sim_type: str = 'base',
         redshift: float = 0.5,
-        DM_DICT: dict = LRG_Abacus_DM
+        DM_DICT: dict = None,
     ):
         """
         Initialize the BoxHOD class.
@@ -53,7 +52,9 @@ class BoxHOD:
         redshift : float, optional
             Redshift value. Default is 0.5.
         DM_DICT : dict, optional
-            Dictionary containing dark matter information. Default is the LRG_Abacus_DM dictionary for boxes from `acm.data.paths`.
+            Dictionary containing dark matter information. 
+            If None, defaults to a value read from `acm.utils.paths` on NERSC systems.
+            Defaults to None.
             
         Raises
         ------
@@ -69,8 +70,10 @@ class BoxHOD:
         self.redshift = redshift
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
-            config_file = Path(config_dir) /  'box.yaml'
+            config_file = Path(config_dir) / 'box.yaml'
         config = yaml.safe_load(open(config_file))
+        if DM_DICT is None:
+            DM_DICT = lookup_registry_path('Abacus.yaml', 'LRG', 'box')
         self.setup(config, DM_DICT)
         self.check_params(varied_params)
 
