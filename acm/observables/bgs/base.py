@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from acm.observables import Observable
-from acm.utils import get_data_dirs
+from acm.utils import lookup_registry_path
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
 from acm.utils.decorators import temporary_class_state
@@ -13,7 +13,10 @@ class BaseObservableBGS(Observable):
     Base class for the application of the ACM pipeline to the BGS dataset.
     """
     def __init__(self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs):
-        paths = kwargs.pop('paths', get_data_dirs('bgs'))
+        paths = kwargs.pop('paths', None)
+        if paths is None:
+            paths = lookup_registry_path('projects.yaml', 'bgs', 'Mr-20')
+        
         self.n_test = kwargs.pop('n_test', 6*100) # FIXME: Remove this on next file compression !
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
 
