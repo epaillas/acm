@@ -99,23 +99,26 @@ class Observable():
         self.squeeze_output = squeeze_output
         self.flat_output_dims = flat_output_dims
         
+        # Load dataset if not provided
         if dataset is None:
             if paths is None:
                 raise ValueError("If dataset is not provided, paths must be provided to load the dataset.")
             dataset = self.load_dataset_from_files(stat_name, paths)
         
-        if model is None:
+        if model is not None:
+            self.model = model
+        # Try to load model if not provided
+        elif paths is not None and 'model_dir' in paths:
             try:
                 if checkpoint_fn is not None:
                     self.logger.warning("DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
                     checkpoint_fn = Path(checkpoint_fn)
                 else:
                     checkpoint_fn = Path(paths['model_dir']) / f'{stat_name}.ckpt'
-                model = self.load_model(checkpoint_fn)
+                self.model = self.load_model(checkpoint_fn)
             except (FileNotFoundError, OSError, RuntimeError, KeyError, ValueError) as e:
                 self.logger.warning(f"Could not load model from checkpoint: {e}")
         
-        self.model = model
         self._dataset = dataset
         self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
         
@@ -453,7 +456,7 @@ class Observable():
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_error'):
-            return self.get_emulator_error()
+            return self.get_emulator_error() # pyright: ignore[reportCallIssue]
         else:
             raise NotImplementedError("No emulator error found. Please provide an error_dir or implement the get_emulator_error method.")
     
@@ -475,7 +478,7 @@ class Observable():
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_covariance_y'):
-            return self.get_emulator_covariance_y()
+            return self.get_emulator_covariance_y() # pyright: ignore[reportCallIssue]
         else:
             raise NotImplementedError("No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method.")
     
