@@ -17,14 +17,8 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     function multipoles.
     """
     def __init__(self, **kwargs):
-        super().__init__(stat_name='recon_spectrum', **kwargs)
-    
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/recon_spectrum/last-v4.ckpt'
+        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/recon_spectrum/last-v4.ckpt'
+        super().__init__(stat_name='recon_spectrum', checkpoint_fn=checkpoint_fn, **kwargs)
     
     def compress_covariance(
         self,
