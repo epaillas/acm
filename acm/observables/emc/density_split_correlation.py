@@ -273,9 +273,8 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
     """
     Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles.
     """
-    def __init__(self, n_test=6*200, **kwargs):
-        checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/ds_xiqg/last.ckpt'
-        super().__init__(stat_name='ds_xiqg', n_test=n_test, checkpoint_fn=checkpoint_fn, **kwargs)
+    def __init__(self, stat_name='ds_xiqg', n_test=6*200, **kwargs):
+        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
         
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.DataArray:
@@ -293,8 +292,8 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
     Class for the Emulator's Mock Challenge density-split auto-correlation function multipoles.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='ds_xiqq', **kwargs)
+    def __init__(self, stat_name='ds_xiqq', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
         
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.DataArray:

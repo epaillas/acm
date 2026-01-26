@@ -11,9 +11,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, **kwargs):
-        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt'
-        super().__init__(stat_name='tpcf', checkpoint_fn=checkpoint_fn, **kwargs)
+    def __init__(self, stat_name='tpcf', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
     
     @classmethod
     def compress_covariance(
@@ -152,7 +151,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         logger = cls.get_logger()
         
         base_dir = paths['measurements_dir'] + f'base/{stat_name}/'
-        # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
         
         y = []
         for cosmo_idx in cosmos:
@@ -227,7 +225,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         from pycorr import TwoPointCorrelationFunction
         
         base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
-        # base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/' # Old FIXME : remove it later
         
         multipoles_mean = []
         for phase in range(25): # NOTE: Hardcoded !
