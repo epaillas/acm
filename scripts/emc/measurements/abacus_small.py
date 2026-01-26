@@ -469,6 +469,9 @@ if __name__ == '__main__':
             save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/recon_spectrum/'
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = Path(save_dir) / f'mesh2_recon_spectrum_poles_ph{phase_idx:03}.h5'
+            if output_fn.exists():
+                print(f'{output_fn} already exists, skipping.')
+                continue
             box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
                 compute_recon_spectrum(output_fn, hod_positions, **box_args)

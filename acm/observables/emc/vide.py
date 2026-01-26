@@ -123,11 +123,6 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         rv = data['rv']
         n_stacked_bins = 4
 
-        # get hod indices
-        hods = {}
-        for cosmo_idx in cosmos:
-            hods[cosmo_idx] = self.get_raw_hod_idx(cosmo_idx)[:n_hod]
-
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, n_stacked_bins, len(ells), -1),
             coords = {
@@ -407,11 +402,6 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         data = np.load(filename, allow_pickle=True)
         y = data['y']
         rv = data['s']
-
-        # get hod indices
-        hods = {}
-        for cosmo_idx in cosmos:
-            hods[cosmo_idx] = self.get_raw_hod_idx(cosmo_idx)[:n_hod]
 
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, -1),

@@ -33,6 +33,7 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         """
         Initialize the kymatio scattering transform.
         """
+        t0 = time.time()
         self.logger.info('Initializing WaveletScatteringTransform.')
         self.logger.info(f'J={self.J}, L={self.L}, sigma_0={self.sigma_0}, max_order={self.max_order}')
         self.S = HarmonicScattering3D(
