@@ -1,65 +1,69 @@
 import yaml
 from pathlib import Path
+from typing import Callable, Any
+from acm.utils.decorators import require_nersc
 
-def get_Abacus_dirs(tracer:str, simtype:str = None) -> dict:
+@require_nersc(enabled=True)
+def lookup_registry_path(
+    filename: str, 
+    *keys: str,
+    loader: Callable = yaml.safe_load,
+) -> Any:
     """
-    Get the Abacus Dark Matter Catalogs paths for a given tracer from the Abacus.yaml file.
+    Reads a file and parses the arguments as nested keys to return the corresponding value.
 
     Parameters
     ----------
-    tracer : str
-        The tracer for which to get the paths (e.g., 'BGS', 'LRG').
-    simtype : str, optional
-        The type of simulation (e.g., 'box', 'lightcone'). 
-        If provided, it will only return paths for that simulation type.
+    filename : str
+        The path to the file to read. Relative paths will be resolved as relative to the current working 
+        directory; if the file is not found there, they are resolved relative to the directory of the 
+        ``acm.utils.paths`` package.  
+    *keys : str
+        Nested keys to traverse the file structure.
+    
+    Returns
+    -------
+    Any
+        The resolved value corresponding to the nested keys provided in *keys.
+    
+    Raises
+    ------
+    KeyError
+        If the provided keys do not lead to a valid value in the structure.
+    """
+    here = Path(__file__).parent
+    fn = Path(filename) # Assert absolute or relative to cwd
+    
+    if not fn.exists():
+        fn = here / filename # Relative to this script's directory
+
+    with open(fn, 'r') as file:
+        data = loader(file)
+        
+        for key in keys:
+            if not isinstance(data, dict) or key not in data:
+                raise KeyError(f"Invalid key path: {' -> '.join(keys)}")
+            data = data.get(key)
+
+    return data
+
+def list_registry_files(
+    ext: tuple[str, ...] = (".yaml", ".yml"),
+    recursive: bool = False,
+) -> list[str]:
+    """
+    Lists all available registry files shipped with this package
 
     Returns
     -------
-    dict
-        A dictionary containing the paths for the specified tracer.
-
-    Raises
-    ------
-    ValueError
-        If the tracer is not found in the Abacus.yaml file or if no paths are available for the specified simulation type.
+    list[str]
+        A list of filenames available in the specified directory.
     """
-    here = Path(__file__).parent
-
-    with open(here / 'Abacus.yaml', 'r') as file:
-        abacus_dirs = yaml.safe_load(file)
-        tracer_dict = abacus_dirs.get(tracer, {})
-        if not tracer_dict:
-            raise ValueError(f"No paths found for tracer '{tracer}' in Abacus.yaml")
-        if simtype:
-            tracer_dict = tracer_dict.get(simtype, {})
-            if not tracer_dict:
-                raise ValueError(f"No paths found for tracer '{tracer}' with simulation type '{simtype}' in Abacus.yaml")
-    return tracer_dict
+    base_dir = Path(__file__).parent
+    patterns = [f"**/*{e}" if recursive else f"*{e}" for e in ext]
+    files = []
     
-def get_data_dirs(project: str) -> dict:
-    """
-    Get the data directories for a given project from the data.yaml file.
-
-    Parameters
-    ----------
-    project : str
-        The project name for which to get the paths (e.g., 'emc', 'bgs').
-
-    Returns
-    -------
-    dict
-        A dictionary containing the paths for the specified project.
-
-    Raises
-    ------
-    ValueError
-        If the project is not found in the data.yaml file or if no paths are available for the specified project.
-    """
-    here = Path(__file__).parent
+    for pattern in patterns:
+        files.extend([f.name for f in base_dir.glob(pattern)])
     
-    with open(here / 'data.yaml', 'r') as file:
-        data_dirs = yaml.safe_load(file)
-        project_dirs = data_dirs.get(project, {})
-        if not project_dirs:
-            raise ValueError(f"No paths found for project '{project}' in data_dirs.yaml")
-    return project_dirs
+    return files
