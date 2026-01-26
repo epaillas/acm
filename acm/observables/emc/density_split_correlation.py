@@ -274,20 +274,20 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
     Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles.
     """
     def __init__(self, n_test=6*200, **kwargs):
-        super().__init__(stat_name='ds_xiqg', n_test=n_test, **kwargs)
+        checkpoint_fn = f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/ds_xiqg/last.ckpt'
+        super().__init__(stat_name='ds_xiqg', n_test=n_test, checkpoint_fn=checkpoint_fn, **kwargs)
+        
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqg')
+        kwargs['stat_name'] = kwargs.get('stat_name', 'ds_xiqg')
+        return super().compress_covariance(**kwargs)
     
     @classmethod
-    def compress_data(cls, **kwargs):
-        kwargs['stat_name'] = kwargs.pop('stat_name', 'ds_xiqg')
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqg')
+        kwargs['stat_name'] = kwargs.pop('stat_name', 'ds_xiqg')
         return super().compress_data(**kwargs)
-    
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last.ckpt'
     
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
@@ -295,9 +295,15 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='ds_xiqq', **kwargs)
+        
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqq')
+        kwargs['stat_name'] = kwargs.get('stat_name', 'ds_xiqq')
+        return super().compress_covariance(**kwargs)
     
     @classmethod
-    def compress_data(cls, **kwargs):
-        kwargs['stat_name'] = kwargs.pop('stat_name', 'ds_xiqq')
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqq')
+        kwargs['stat_name'] = kwargs.pop('stat_name', 'ds_xiqq')
         return super().compress_data(**kwargs)
