@@ -5,6 +5,7 @@ import cloudpickle as cp
 import numpy as np
 import time
 import glob
+import jax
 from acm.utils.catalogs_safety_checks import check_catalog
 from acm.utils.default import cosmo_list
 import gc
@@ -249,32 +250,20 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    # generate random positions within the box
-    # nrand = 20 * len(positions)
-    # seed for reproducibility
-    # np.random.seed(42)
-    # randoms = np.random.rand(nrand, 3) * attrs['boxsize'] + attrs['boxcenter'] - attrs['boxsize'] / 2.0
-    # print(randoms.min(), randoms.max())
-
-    # we now switch to a larger box size which will be fixed for all simulations
-    # boxsize = np.array([2300.0, 2300.0, 2300.0])
-    # attrs = get_box_args(boxsize, cellsize=10)
-
-    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/init/')
+    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/init/')
     meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
-    init_fn = init_dir / f'wst_init_meshsize{meshsize_str}.npy'
+    init_fn = init_dir / f'meshsize{meshsize_str}_J{wst_args["J"]}_L{wst_args["L"]}_sigma{wst_args["sigma"]}.npy'
     if init_fn.exists() and init is None:
-        print(f'Loading WST initialization from {init_fn}')
+        print(f'Loading WST initialization from {init_fn}', flush=True)
         with open(init_fn, 'rb') as f:
             init = cp.load(f)
 
-    # wst = WaveletScatteringTransform(data_positions=positions, randoms_positions=randoms, init_kymatio=init, **attrs)
     wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
 
-    print(f'Saving WST coefficients to {output_fn}')
+    print(f'Saving WST coefficients to {output_fn}', flush=True)
     np.save(output_fn, smatavg)
 
     if not init_fn.exists():
@@ -509,9 +498,9 @@ if __name__ == '__main__':
 
     args = get_cli_args()
 
-    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.todo_stats)
+    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum', 'wst'] for td in args.todo_stats)
     if is_distributed:
-        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
+        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.95'
         import jax
         jax.distributed.initialize()
     from jax import config
@@ -528,6 +517,7 @@ if __name__ == '__main__':
 
     redshift = 0.5
     jitted_compute_mesh3_spectrum = None
+    wst_init = None
 
     for cosmo_idx in cosmo_list[args.start_cosmo : args.start_cosmo + args.n_cosmo]:
         bspec_bin = None
@@ -661,17 +651,41 @@ if __name__ == '__main__':
                         compute_minkowski(output_fn, hod_positions, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/ip0.8/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
-                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                        if output_fn.exists():
-                            logger.info(f'Skipping {output_fn}, already exists.')
-                            continue
-                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        # boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
-                        box_args = get_box_args(boxsize, cellsize=10)
-                        wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
+                        # save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/ip0.8/'
+                        # save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                        # Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        # output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        # if output_fn.exists():
+                        #     logger.info(f'Skipping {output_fn}, already exists.')
+                        #     continue
+                        # hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        # # boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
+                        # box_args = get_box_args(boxsize, cellsize=10)
+                        # wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
+
+                        for wst_args in [
+                            {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
+                            # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 80},
+                            # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
+                        ]:
+                            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/'
+                            save_dir += f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
+                            save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
+                            Path(save_dir).mkdir(parents=True, exist_ok=True)
+                            output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                            if output_fn.exists():
+                                logger.info(f'Skipping {output_fn}, already exists.')
+                                continue
+                            hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                            box_args = dict(boxsize=boxsize, meshsize=np.repeat(wst_args['meshsize'], 3))
+                            wst_args.pop('meshsize')
+                            try:
+                                wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
+                            except Exception as e:
+                                logger.info(f'WST computation failed with error: {e}, retrying after clearing caches...')
+                                jax.clear_caches()
+                                gc.collect()
+                                wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
 
                     if 'spherical_voids' in args.todo_stats:
                         save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/spherical_voids/'
