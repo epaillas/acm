@@ -223,33 +223,37 @@ class BaseObservableEMC(Observable):
             pred = pred.values
         return pred
 
-    def get_hod_from_files(self, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
+    @classmethod
+    def get_hod_from_files(cls, paths: dict, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
         """
-        Get the HOD indexes from the statistic files for a given phase and seed.
+        Get the HOD indexes from the raw HOD files.
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+            Expects a key 'hod_dir' pointing to the HOD files directory.
         cosmo_idx : int
             Cosmology index to read the HOD indexes from.
         phase : int, optional
             Phase index to read the HOD indexes from. Defaults to 0.
         seed : int, optional
             Seed index to read the HOD indexes from. Defaults to 0.
-        statistic : str, optional
-            Statistic to read the HOD indexes from. Defaults to 'density'.
 
         Returns
         -------
         np.ndarray
             Array of HOD indexes.
         """
-        data_dir = self.paths['hod_dir']
+        data_dir = paths['hod_dir']
         data_dir = Path(data_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
         hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))]
         return np.array(hod_idx)
-        
+    
+    @classmethod
     def compress_x(
-        self,  
+        cls,  
+        paths: dict,
         cosmos: list = cosmo_list,
         n_hod: int = None,
         **kwargs
@@ -259,6 +263,8 @@ class BaseObservableEMC(Observable):
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
         cosmos : list, optional
             List of cosmologies to get from the files. The default is None, which means all cosmologies.
         n_hod : int, optional
@@ -279,6 +285,8 @@ class BaseObservableEMC(Observable):
             If the number of HODs for a cosmology is lower than the expected number, 
             as the compression requires all cosmologies to have the same number of HODs.
         """
+        logger = cls.get_logger()
+        
         # NOTE: Hardcoded paths :/
         cosmo_file = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv' 
         hod_file = '/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy'
@@ -312,15 +320,15 @@ class BaseObservableEMC(Observable):
             # Full parameters
             x_i = np.concatenate([x_cosmo, x_hod], axis=1)
             
-            hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
+            hod_idx = cls.get_hod_from_files(paths, cosmo_idx, **kwargs)
             if n_hod is None:
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
-                self.logger.info(f'Number of HODs determined from c{cosmo_idx:03d}: {n_hod}')
+                logger.info(f'Number of HODs determined from c{cosmo_idx:03d}: {n_hod}')
             
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
                 hod_idx = hod_idx[:n_hod] # Restrict to the expected number of HODs
-                self.logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
+                logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
             elif len(hod_idx) < n_hod:
                 raise ValueError(f'Number of HODs for c{cosmo_idx:03d} is lower than expected ({len(hod_idx)} < {n_hod}). Cannot proceed with compression.')
             
