@@ -92,7 +92,7 @@ class Observable():
             - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
             - 'model_dir': directory containing the trained model checkpoint (`stat_name`.ckpt)
         """
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = self.get_logger()
         
         self.stat_name = stat_name
         self.numpy_output = numpy_output
@@ -204,6 +204,18 @@ class Observable():
         model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
         model.eval().to('cpu')
         return model
+    
+    @classmethod
+    def get_logger(cls) -> logging.Logger:
+        """
+        Returns the logger for the class.
+
+        Returns
+        -------
+        logging.Logger
+            The logger for the class.
+        """
+        return logging.getLogger(cls.__name__)
     
     def __repr__(self):
         """
