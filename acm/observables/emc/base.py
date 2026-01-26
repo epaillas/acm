@@ -24,6 +24,16 @@ class BaseObservableEMC(Observable):
         if paths is None:
             paths = lookup_registry_path('projects.yaml', 'emc')
         
+        # Get checkpoint_fn from registry if not provided
+        stat_name = kwargs.get('stat_name') # Required for super() anyways
+        model = kwargs.get('model', None)
+        paths = kwargs.get('paths', None)
+        if model is None and paths is not None and 'model_dir' not in paths and 'checkpoint_fn' not in kwargs:
+            try:
+                kwargs['checkpoint_fn'] = lookup_registry_path('projects.yaml', 'emc', 'checkpoint_fn', stat_name)
+            except KeyError:
+                pass # Ignore this step if no checkpoint is found for this stat_name (this will cause the model to not exist, but that's fine)
+        
         self.n_test = kwargs.pop('n_test', 6*500) # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 
@@ -268,6 +278,7 @@ class BaseObservableEMC(Observable):
         ----------
         paths : dict
             Dictionary containing the paths to the data directories.
+            Can be set to None to use the default paths from the NERSC registry.
         cosmos : list, optional
             List of cosmologies to get from the files. The default is None, which means all cosmologies.
         n_hod : int, optional
@@ -290,9 +301,11 @@ class BaseObservableEMC(Observable):
         """
         logger = cls.get_logger()
         
-        # NOTE: Hardcoded paths :/
-        cosmo_file = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv' 
-        hod_file = '/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy'
+        if paths is None:
+            paths = lookup_registry_path('projects.yaml', 'emc')
+        
+        cosmo_file = paths['cosmo_file']  #'/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
+        hod_file = paths['hod_file']    #'/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy'
         
         cosmo_param_names = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld']
         cosmo_params_mapping = {'alpha_s': 'nrun'}

@@ -14,9 +14,8 @@ class MinimumSpanningTree(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge Minimum Spanning Tree.
     """
-    def __init__(self, **kwargs):
-        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/mst/last-v25.ckpt'
-        super().__init__(stat_name='mst', n_test=6*500, checkpoint_fn=checkpoint_fn, **kwargs)
+    def __init__(self, stat_name='mst', n_test=6*500, **kwargs):
+        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
     @classmethod
     def compress_covariance(

@@ -15,9 +15,8 @@ class MinkowskiFunctionals(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, **kwargs):
-        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/minkowski/last.ckpt'
-        super().__init__(stat_name='minkowski', checkpoint_fn=checkpoint_fn, **kwargs)
+    def __init__(self, stat_name='minkowski', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
     
     @classmethod
     def compress_covariance(
