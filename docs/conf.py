@@ -42,22 +42,7 @@ exclude_patterns = ['_build']
 
 # -- Autodoc configuration ---------------------------------------------------
 # Mock imports that can't be resolved during documentation build
-autodoc_mock_imports = [
-    'sunbird',
-    'torch',
-    'getdist',
-    'kymatio',
-    'pyrecon',
-    'pypower',
-    'PolyBin3D',
-    'ray',
-    'fast_histogram',
-    'pyfnntw',
-    'acm.estimators.galaxy_clustering.src', # To avoid c-compiled modules
-    'abacusnbody',
-    'cosmoprimo',
-    'mockfactory',
-]# 'pycorr', 'Corrfunc', ]
+autodoc_mock_imports = []
 
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
