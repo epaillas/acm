@@ -21,5 +21,5 @@ paths = {
     'param_dir': None
 }
 
-observable = getattr(emc, statistic)(paths=paths)
-observable.compress_data(save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod)
+observable = getattr(emc, statistic)
+observable.compress_data(paths=paths, save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod)
