@@ -16,12 +16,14 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     Class for the Emulator's Mock Challenge VIDE void-galaxy correlation
     function multipoles observable.
     """
-    def __init__(self, **kwargs):
-        checkpoint_fn = '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/vide_ccf/last.ckpt'
-        super().__init__(stat_name='vide_ccf', n_test=6*100, checkpoint_fn=checkpoint_fn, **kwargs)
+    def __init__(self, stat_name='vide_ccf', n_test=6*100, **kwargs):
+        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
+    @classmethod
     def compress_covariance(
-        self,
+        cls,
+        paths: dict,
+        stat_name: str = 'vide_ccf',
         save_to: str = None,
         ells: list = [0, 2, 4],
     ) -> xarray.DataArray:
@@ -30,10 +32,17 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         
         Parameters
         ----------
-        save_to : str
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
-        ells : list
+        ells : list, optional
             List of multipoles to compute the statistics for. Default is [0, 2, 4].
             
         Returns
@@ -41,6 +50,8 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
+        logger = cls.get_logger()
+        
         measurements_dir = '/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/'
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
@@ -66,18 +77,21 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             name = "covariance_y",
         )
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
 
+    @classmethod
     def compress_data(
-        self, 
+        cls, 
+        paths: dict,
+        stat_name: str = 'vide_ccf',
         add_covariance: bool = False,
         save_to: str = None,
         cosmos: list = cosmo_list,
@@ -90,17 +104,24 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         
         Parameters
         ----------
-        add_covariance : bool
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        add_covariance : bool, optional
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        cosmos : list
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
-        n_hod : int
+        n_hod : int, optional
             Number of HOD parameters to use. Default is 100.
-        ells : list
+        ells : list, optional
             List of multipoles to compute the statistics for. Default is [0, 2, 4].
         test_filters : dict, optional
             Dictionary of filters to split the dataset into training and test sets.
@@ -113,6 +134,8 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
+        logger = cls.get_logger()
+        
         measurements_dir = '/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/'
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
@@ -138,9 +161,9 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
+        x = cls.compress_x(paths=paths, cosmos=cosmos, n_hod=n_hod)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -149,7 +172,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(ells=ells)
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, ells=ells)
             cout = xarray.merge([cout, cov_y])
             
         if test_filters is not None:
@@ -162,9 +185,9 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
 
     @set_plot_style
@@ -300,18 +323,14 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge VIDE void size function observable.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='vide_vsf', n_test=6*100, **kwargs)
+    def __init__(self, stat_name='vide_vsf', n_test=6*100, **kwargs):
+        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/vide_vsf/last.ckpt'
-    
+    @classmethod
     def compress_covariance(
-        self,
+        cls,
+        paths: dict,
+        stat_name: str = 'vide_vsf',
         save_to: str = None,
     ) -> xarray.DataArray:
         """
@@ -319,7 +338,14 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         
         Parameters
         ----------
-        save_to : str
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
             
@@ -328,6 +354,8 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
+        logger = cls.get_logger()
+        
         measurements_dir = '/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/'
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
@@ -350,18 +378,21 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             name = "covariance_y",
         )
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
 
+    @classmethod
     def compress_data(
-        self, 
+        cls, 
+        paths: dict,
+        stat_name: str = 'vide_vsf',
         add_covariance: bool = False,
         save_to: str = None,
         cosmos: list = cosmo_list,
@@ -373,15 +404,22 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
         add_covariance : bool
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        cosmos : list
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
-        n_hod : int
+        n_hod : int, optional
             Number of HOD parameters to use. Default is 100.
         test_filters : dict, optional
             Dictionary of filters to split the dataset into training and test sets.
@@ -394,6 +432,8 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
+        logger = cls.get_logger()
+        
         measurements_dir = '/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/'
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
@@ -416,9 +456,9 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod)
+        x = cls.compress_x(paths=paths, cosmos=cosmos, n_hod=n_hod)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -427,7 +467,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance()
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, cosmos=cosmos, n_hod=n_hod)
             cout = xarray.merge([cout, cov_y])
             
         if test_filters is not None:
@@ -440,9 +480,9 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
 
     @set_plot_style
