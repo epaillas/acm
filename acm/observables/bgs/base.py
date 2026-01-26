@@ -134,8 +134,10 @@ class BaseObservableBGS(Observable):
             emulator_error = emulator_error.values
         return emulator_error
     
+    @classmethod
     def get_hod_from_files(
-        self, 
+        cls,
+        paths: dict, 
         cosmo_idx: int, 
         phase: int = 0, 
         seed: int = 0, 
@@ -147,6 +149,8 @@ class BaseObservableBGS(Observable):
 
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
         cosmo_idx : int
             Cosmology index to read the HOD indexes from.
         phase : int, optional
@@ -169,7 +173,7 @@ class BaseObservableBGS(Observable):
         `measurements_dir/base/c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/hod{hod:03}/` 
         and only non-empty HOD directories are considered.
         """
-        measurements_dir = self.paths['measurements_dir']
+        measurements_dir = paths['measurements_dir']
         stat_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
         hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(stat_dir.glob('hod*')) if any(fn.iterdir())] # Only keep non-empty directories numbers, sorted
         
@@ -188,8 +192,10 @@ class BaseObservableBGS(Observable):
             return np.array(fn_list)
         return np.array(hod_idx)
     
+    @classmethod
     def compress_x(
-        self, 
+        cls, 
+        paths: dict,
         cosmos: list = cosmo_list, 
         n_hod: int = None,
         **kwargs
@@ -199,6 +205,8 @@ class BaseObservableBGS(Observable):
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
         cosmos : list, optional
             List of cosmologies to get from the files. Defaults to cosmo_list.
         n_hod : int, optional
@@ -223,7 +231,9 @@ class BaseObservableBGS(Observable):
         -----
         The parameters are read from the `param_dir/AbacusSummit_c{cosmo_idx:03}.csv` files.
         """
-        param_dir = self.paths['param_dir']
+        logger = cls.get_logger()
+        
+        param_dir = paths['param_dir']
         
         x = []
         for cosmo_idx in cosmos:
@@ -233,15 +243,15 @@ class BaseObservableBGS(Observable):
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
             
             # Get the HOD indexes from folder names (density filtering is optional)
-            hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
+            hod_idx = cls.get_hod_from_files(paths=paths, cosmo_idx=cosmo_idx, **kwargs)
             if n_hod is None:
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
-                self.logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
+                logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
             
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
                 hod_idx = hod_idx[:n_hod] # Restrict to the expected number of HODs
-                self.logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
+                logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
             elif len(hod_idx) < n_hod:
                 raise ValueError(f'Number of HODs for c{cosmo_idx:03d} is lower than expected ({len(hod_idx)} < {n_hod}). Cannot proceed with compression.')
             
