@@ -1,6 +1,5 @@
 from  abc import ABC
 import os
-import yaml
 import numpy as np
 from pathlib import Path
 
@@ -12,14 +11,10 @@ from .cutsky import CutskyHOD, CutskyRandoms
 from mockfactory import RandomCutskyCatalog
 from mockfactory.utils import radecbox_area
 
-from acm.utils.paths import get_Abacus_dirs
-LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='lightcone')
+from acm.utils.paths import lookup_registry_path
 
 from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
-import warnings
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
-
 
 class BaseLightconeCatalog(ABC):
     """
@@ -191,11 +186,17 @@ class BaseLightconeCatalog(ABC):
         
 class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
     def __init__(
-        self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
-        phase_idx: int = 0, zrange: list = [0.4, 0.8],
-        DM_DICT: dict = LRG_Abacus_DM, load_existing_hod: bool = False,
-        sim_type: str = 'base', tracer: str = 'LRG',
-        ):
+        self, 
+        varied_params, 
+        config_file: str = None, 
+        cosmo_idx: int = 0, 
+        phase_idx: int = 0, 
+        zrange: list = [0.4, 0.8],
+        load_existing_hod: bool = False,
+        sim_type: str = 'base', 
+        tracer: str = 'LRG',
+        DM_DICT: dict = None, 
+    ):
         """
         Initialize the CutskyHOD class. This checks the HOD parameters and 
         loads the relevant simulation data that will be used to sample the
@@ -215,9 +216,6 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         zrange : list, optional
             List containing the redshift range for which to build the lightcone catalog.
             Should contain two elements: [zmin, zmax].
-        DM_DICT : dict, optional
-            Dictionary containing the DM fields for the HOD sampling.
-            Defaults to LRG_Abacus_DM, which is defined in utils.paths.
         load_existing_hod : bool, optional 
             If True, load an existing HOD catalog instead of generating a new one
             (useful for quick debugging). Defaults to False.
@@ -227,6 +225,10 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             TODO: huge not yet supported with BoxHOD
         tracer : str, optional
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
+        DM_DICT : dict, optional
+            Dictionary containing the DM fields for the HOD sampling.
+            If None, defaults to a value read from `acm.utils.paths` on NERSC systems.
+            Defaults to None.
         """
         BaseLightconeCatalog.__init__(self)
         self.logger = logging.getLogger('LightconeHOD')
@@ -241,6 +243,8 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
             self.config_file = Path(config_dir) /  'lightcone.yaml'
+        if DM_DICT is None:
+            DM_DICT = lookup_registry_path('Abacus.yaml', tracer, 'lightcone')
         self.setup_hod(DM_DICT)
         self.monte_carlo_sampling_count = 10000
         self.keys_lightcone = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']

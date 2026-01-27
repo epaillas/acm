@@ -18,8 +18,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         super().__init__(stat_name='tpcf', **kwargs)
         
     #%% Compressed files creation
+    @classmethod
     def compress_covariance(
-        self, 
+        cls,
+        paths: dict,
+        stat_name: str = 'tpcf', 
         cosmo_idx: int = 0,
         hod_idx: int = 157,
         seed: int = 0,
@@ -34,22 +37,29 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         
         Parameters
         ----------
-        cosmo_idx : int
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to use. 
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        cosmo_idx : int, optional
             Index of the cosmology to use. Default is 0.
-        hod_idx : int
+        hod_idx : int, optional
             Index of the HOD to use. Default is 157.
-        seed : int
+        seed : int, optional
             Seed index to use. Default is 0.
-        los : list[str]
+        los : list[str], optional
             List of line-of-sight directions to use. Default is ['x', 'y', 'z'].
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
-        rebin : int
+        rebin : int, optional
             Rebinning factor for the statistics. Default is 1.
-        ells : list
+        ells : list, optional
             List of multipoles to compute the statistics for. Default is [0, 2].
-        overwrite_s : np.ndarray
+        overwrite_s : np.ndarray, optional
             If not None, overwrite the final separation values with this array. 
             This is primarily useful to ensure consistency between the covariance and the data dims.
             Default is None.
@@ -59,13 +69,15 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         xarray.DataArray
             Covariance array. 
         """
-        small_dir = Path(self.paths['measurements_dir']) / 'small' 
+        logger = cls.get_logger()
+        
+        small_dir = Path(paths['measurements_dir']) / 'small' 
         
         y = []
         phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(small_dir.glob(f'c{cosmo_idx:03d}_ph*'))]
         for phase in phases:
             fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
-            fns = [fn_dir / f'{self.stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+            fns = [fn_dir / f'{stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
             data = sum([TwoPointEstimator.load(fn).normalize() for fn in fns if fn.exists()])
             if data == 0:
                 raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot compute covariance.')
@@ -88,18 +100,21 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             name = "covariance_y",
         )
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
     
+    @classmethod
     def compress_data(
-        self, 
+        cls,
+        paths: dict,
+        stat_name: str = 'tpcf', 
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
@@ -118,22 +133,29 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to use. 
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name.
         phase : int, optional
             Phase index to read the data from. Default is 0.
         seed : int, optional
             Seed index to read the data from. Default is 0.
-        add_covariance : bool
+        add_covariance : bool, optional
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        los : list[str]
+        los : list[str], optional
             List of line-of-sight directions to use. Default is ['x', 'y', 'z'].
-        rebin : int
+        rebin : int, optional
             Rebinning factor for the statistics. Default is 3.
-        ells : list
+        ells : list, optional
             List of multipoles to compute the statistics for. Default is [0, 2].
-        cosmos : list
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is cosmo_list.
         n_hod : int, optional
@@ -157,14 +179,17 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        x = self.compress_x(cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod)
+        logger = cls.get_logger()
+        
+        x = cls.compress_x(paths=paths, cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod)
         n_hod = len(x.hod_idx) # Edge case if n_hod was None
         
         y = []
         for cosmo_idx in cosmos:
             # Get the HODs folders available for this cosmology
-            hod_fns = self.get_hod_from_files(
-                cosmo_idx, 
+            hod_fns = cls.get_hod_from_files(
+                paths=paths, 
+                cosmo_idx=cosmo_idx, 
                 phase=phase, 
                 seed=seed, 
                 density_threshold=density_threshold,
@@ -172,12 +197,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             )[:n_hod] # Restrict to n_hod if needed
             
             for fn_dir in hod_fns:
-                fns = [fn_dir / f'{self.stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+                fns = [fn_dir / f'{stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
-                    # NOTE: This will crash the process later, but at least we log it
-                    self.logger.warning(f'No measurement files found in {fn_dir}, skipping.')
-                    continue
+                    raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot load data.')
                 data = sum([TwoPointEstimator.load(fn).normalize() for fn in existing_fns])
                 s, multipoles = data[::rebin](ells=ells, return_sep=True)
                 y.append(multipoles)
@@ -199,7 +222,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             name = 'y',
         )
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
 
         cout = xarray.Dataset(
             data_vars = {
@@ -208,7 +231,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(rebin=rebin, ells=ells, overwrite_s=s, seed=seed, los=los, **kwargs)
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, rebin=rebin, ells=ells, overwrite_s=s, seed=seed, los=los, **kwargs)
             cout = xarray.merge([cout, cov_y])
             
         if test_filters is not None:
@@ -221,9 +244,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
     
     @set_plot_style

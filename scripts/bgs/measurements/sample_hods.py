@@ -1,12 +1,11 @@
 import argparse
-# from sunbird.inference.priors import Yuan23
-from acm.observables.bgs.priors import Bouchard25
+from sunbird.inference.priors import Bouchard25
 from acm.hod.parameters import HODLatinHypercube
 from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list
 
 # Default parameters
-filename = '/pscratch/sd/s/sbouchar/acm/bgs/parameters/cosmo_params/AbacusSummit.csv'
+filename = '/pscratch/sd/s/sbouchar/acm/bgs-20/parameters/cosmo_params/AbacusSummit.csv'
 parameters = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld']
 order = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'nrun', 'N_ur', 'w0_fld', 'wa_fld', 'logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
 

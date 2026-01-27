@@ -14,7 +14,7 @@ from pycorr import TwoPointEstimator
 from acm.utils.modules import get_class_from_module
 from acm.utils.logging import setup_logging
  
-def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: int = 1, **kwargs):
+def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: int = 1, Mr: float = -20, **kwargs):
     """
     Load reference measurements from the specified directory.
     
@@ -23,11 +23,13 @@ def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: 
     dir : str | Path
         Directory containing the measurement files.
     phase : int
-        Phase index to load.
+        Phase index to load. Defaults to 0.
     los : list
-        List of line-of-sight directions to sum on.
+        List of line-of-sight directions to sum on. Defaults to ['x', 'y', 'z'].
     rebin : int
-        Rebinning factor to apply to the measurements.
+        Rebinning factor to apply to the measurements. Defaults to 1 (no rebinning).
+    Mr : float
+        Magnitude threshold for the measurements (defines a subdirectory in the path). Defaults to -20.
     **kwargs
         Additional keyword arguments to pass to the TwoPointEstimator call.
         
@@ -38,14 +40,13 @@ def load_ref(dir: str|Path, phase: int = 0, los: list = ['x', 'y', 'z'], rebin: 
         If return_sep is True, returns (separations, multipoles), else returns multipoles only.
     """
     # TODO: Find a way to not encode path structure this strictly ? (how?)
-    # TODO: add Mr as an argument ?
-    dir = Path(dir) / f'AbacusSummit_base_c000_ph{phase:03d}' / 'measurements' / 'Mr-20' 
+    dir = Path(dir) / f'AbacusSummit_base_c000_ph{phase:03d}' / 'measurements' / f'Mr{Mr}' 
     fns = [dir / f'tpcf_los_{l}.npy' for l in los]
     cf = sum([TwoPointEstimator.load(fn).normalize() for fn in fns])
     cout = cf[::rebin](**kwargs)
     return cout
 
-def load_covariance(dir: str|Path, n_phases: int = 25, **kwargs):
+def load_covariance(dir: str|Path, n_phases: int = 25, Mr: float = -20, **kwargs):
     """
     Load the covariance matrix from the specified directory.
     Calls load_ref for each phase and computes the covariance.
@@ -56,6 +57,8 @@ def load_covariance(dir: str|Path, n_phases: int = 25, **kwargs):
         Directory containing the measurement files.
     n_phases : int
         Number of phases to load.
+    Mr : float
+        Magnitude threshold for the measurements (defines a subdirectory in the path). Defaults to -20.
     **kwargs
         Additional keyword arguments to pass to the load_ref call (return_sep will be enforced to False).
     
@@ -65,7 +68,7 @@ def load_covariance(dir: str|Path, n_phases: int = 25, **kwargs):
         Covariance matrix computed from the loaded measurements.
     """
     kwargs['return_sep'] = False # Ensure we only get the data arrays
-    cfs = [load_ref(dir, phase=phase, **kwargs) for phase in range(n_phases)]
+    cfs = [load_ref(dir, phase=phase, Mr=Mr, **kwargs) for phase in range(n_phases)]
     cov = np.cov([cf.flatten() for cf in cfs], rowvar=False)
     return cov
 
@@ -103,7 +106,10 @@ def plot_best_fit(s, ref_poles, best_poles, ells, hod):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Find best-fit HOD based on chi-squared statistic.')
     parser.add_argument('--module', type=str, default='acm.observables.bgs', help='Base module path for observables')
+    parser.add_argument('--measurements_dir', '-md', type=str, default=None, required=True, help='Directory containing measurement files')
+    parser.add_argument('--param_dir', '-pd', type=str, default=None, required=True, help='Directory containing HOD parameter files')
     parser.add_argument('--cosmology', '-c', type=int, default=0, help='Cosmology index to find the fit for (default: 0)')
+    parser.add_argument('--Mr', type=float, default=-20, help='Magnitude threshold for the measurements (default: -20)')
     parser.add_argument('--ells', '-e', type=int, nargs='+', default=[0], help='Multipole moments to consider (default: 0)')
     parser.add_argument('--ndof', '-n', type=int, help='Calculate chi-squared per degree of freedom')
     parser.add_argument('--diag', '-d', action='store_true', help='Use diagonal covariance matrix only')
@@ -120,9 +126,14 @@ if __name__ == "__main__":
 
     cf_kwargs = dict(ells=ells, rebin=1) # Enforce no rebinning as we fit the CFs
     
+    paths = dict(
+        measurements_dir = args.measurements_dir,
+        param_dir = args.param_dir
+    )
+    
     # Load compressed measurements for the specified cosmology
     cls = get_class_from_module(args.module, 'tpcf')
-    obs = cls()
+    obs = cls(paths=paths)
     data = obs.compress_data(cosmos=[args.cosmology], **cf_kwargs)
     y = obs.flatten_output(data.y, flat_output_dims=2).values # to 2D numpy array
     hods = obs.get_hod_from_files(cosmo_idx=args.cosmology)
@@ -130,8 +141,8 @@ if __name__ == "__main__":
     
     # Load reference measurement and covariance
     ref_dir = '/pscratch/sd/s/sbouchar/SecondGen/CubicBox/BGS/z0.200'
-    ref_poles = load_ref(ref_dir, **cf_kwargs)
-    cov = load_covariance(ref_dir, **cf_kwargs)
+    ref_poles = load_ref(ref_dir, Mr=args.Mr, **cf_kwargs)
+    cov = load_covariance(ref_dir, Mr=args.Mr, **cf_kwargs)
     if args.diag:
         cov = np.diag(np.diag(cov)) # Use diagonal covariance only
     
