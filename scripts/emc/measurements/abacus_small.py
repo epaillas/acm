@@ -205,7 +205,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     np.save(output_fn, smatavg)
     return wst.S  # Return the kymatio initialization for reuse
 
-def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), cellsize=5, recon=False, los='z', **attrs):
+def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 50, 2), cellsize=5, recon=False, los='z', **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
     from pycorr import TwoPointCorrelationFunction
@@ -215,15 +215,20 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
                         recon_args={'f': 0.76, 'bias': 2., 'los': los, 'smoothing_radius': 10.},
                         use_wisdom=True,
                         **attrs)
-    sv.run_voidfinding(radii, threads=32)
+    sv.run_voidfinding(radii, void_overlap=True, void_resizing=False, threads=32)
 
+    # remove initial radius bin as this contains voids at all larger radii
+    mask = sv.radius < sv.input_radii[0]
+    void_rad = sv.radius[mask]
+    void_pos = sv.position[mask]
+    
     # position and radius
     print(f"Saving spherical void positions and radii to {output_fn['void']}")
-    np.save(output_fn['void'], np.c_[sv.void_position, sv.void_radius])
+    np.save(output_fn['void'], np.c_[void_pos, void_rad])
 
     # comoving number density of voids
-    n_v = np.vstack([sorted(radii, reverse=True),
-                    sv.void_count / np.prod(attrs['boxsize'])])
+    n_v = np.vstack([sv.input_radii[1:],
+                    sv.counts[1:] / np.prod(attrs['boxsize'])])  
     print(f"Saving spherical VSF to {output_fn['vsf']}")
     np.save(output_fn['vsf'], n_v)
 
@@ -232,10 +237,10 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     redges = np.hstack([np.arange(3, 80, 4), np.arange(83, 150, 7)])
     xivg = TwoPointCorrelationFunction(
         'smu', edges=(redges, muedges), 
-        data_positions1=sv.void_position, data_positions2=positions,
+        data_positions1=void_pos, data_positions2=positions,
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
         compute_sepsavg=False, position_type='pos', los=los,
-    )
+    )   
     print(f"Saving spherical vg-CCF to {output_fn['xivg']}")
     xivg.save(output_fn['xivg'])
 
@@ -243,10 +248,10 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     redges = np.hstack([35, np.arange(40, 80, 2), np.arange(81, 150, 8)])
     xivv = TwoPointCorrelationFunction(
         'smu', edges=(redges, muedges), 
-        data_positions1=sv.void_position,
+        data_positions1=void_pos,
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
         compute_sepsavg=False, position_type='pos', los=los,
-    )
+    )   
     print(f"Saving spherical vv-ACF to {output_fn['xivv']}")
     xivv.save(output_fn['xivv'])
 
