@@ -1,1 +1,1 @@
-from .reader import get_Abacus_dirs, get_data_dirs
+from .reader import lookup_registry_path, list_registry_files
