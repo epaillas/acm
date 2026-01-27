@@ -3,10 +3,13 @@ from kymatio.jax import HarmonicScattering3D
 import numpy as np
 import logging
 import time
-from .base import BaseDensityMeshEstimator
+from .base import BaseEstimator
+
+import warnings
+warnings.filterwarnings('ignore')
 
 
-class WaveletScatteringTransform(BaseDensityMeshEstimator):
+class WaveletScatteringTransform(BaseEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
@@ -15,6 +18,7 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         self.logger = logging.getLogger('WaveletScatteringTransform')
         self.logger.info('Initializing WaveletScatteringTransform.')
         super().__init__(**kwargs)
+        self.logger.info(f'Using {self.backend.__class__.__name__} backend.')
 
         self.J_3d = J_3d
         self.L_3d = L_3d
@@ -22,26 +26,28 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         self.integral_powers = integral_powers
         self.max_order = 2
 
-        self.query_positions = self.get_query_positions(method='lattice')
+        self.query_positions = self.backend.get_query_positions(method='lattice')
 
         if init_kymatio is not None:
             self.logger.info(f'Pre-loading Kymatio initialization.')
             self.S = init_kymatio
         else:
             self.init_kymatio()
-
+        
     def init_kymatio(self):
         """
         Initialize the kymatio scattering transform.
         """
+        t0 = time.time()
         self.S = HarmonicScattering3D(
             J=self.J_3d,
             L=self.L_3d,
-            shape=self.meshsize,
+            shape=self.backend.meshsize,
             max_order=self.max_order,
             sigma_0=self.sigma_0,
         )
         self.logger.info(f'Initialized Kymatio in {time.time() - t0:.2f} s.')
+
 
     def run(self, delta_query=None):
         """
@@ -54,15 +60,15 @@ class WaveletScatteringTransform(BaseDensityMeshEstimator):
         """
         t0 = time.time()
         if delta_query is not None:
-            self.delta_query = delta_query.reshape(self.meshsize)
+            self.delta_query = delta_query.reshape(self.backend.meshsize)
         else:
-            self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.meshsize)
+            self.delta_query = self.read_density_contrast(self.query_positions)
         smat_orders_12 = self.S(self.delta_query)
         smat = np.absolute(smat_orders_12[:, :, 0])
         s0 = np.sum(np.absolute(self.delta_query)**self.integral_powers[0])
         smatavg = smat.flatten()
         self.smatavg = np.hstack((s0, smatavg))
-        self.smatavg /= np.prod(self.meshsize)
+        self.smatavg /= np.prod(self.backend.meshsize)
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
         return self.smatavg
 
