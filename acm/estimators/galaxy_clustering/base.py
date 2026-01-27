@@ -13,13 +13,7 @@ class BaseEstimator:
     def __init__(self, backend='jaxpower', **kwargs):
         self.backend_name = backend
         self.backend = _BACKENDS[backend](**kwargs)
-
-    def set_density_contrast(self, **kwargs):
-        """
-        Set the density contrast on the rectangular mesh
-        """
-        self.backend.set_density_contrast(**kwargs)
-
+        
     def read_density_contrast(self, positions, resampler='cic'):
         """
         Get the density contrast at the input positions.
@@ -35,7 +29,24 @@ z
             Density contrast at the input positions.
         """
         if self.backend.name == 'jaxpower':
-            return self.backend.delta_mesh.read(positions, resampler=resampler).reshape(self.backend.meshsize)
+            return self.backend.delta_mesh.read(positions, resampler=resampler)
         elif self.backend.name == 'pypower':
-            return self.backend.delta_mesh.readout(positions, resampler=resampler).reshape(self.backend.meshsize)
+            offset = self.boxcenter - self.boxsize/2.
+            return self.backend.delta_mesh.readout(positions - offset, resampler=resampler)
+
+    def __getattr__(self, name):
+        """
+        Delegate attribute access to the backend.
+
+        Parameters
+        ----------
+        name : str
+            Attribute name.
+
+        Returns
+        -------
+        attribute : any
+            Attribute from the backend.
+        """
+        return self.backend.__getattribute__(name)
         
