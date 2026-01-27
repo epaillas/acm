@@ -1,0 +1,12 @@
+module: acm.observables.bgs
+statistics: ['tpcf']
+fit_type: secondgen
+cosmo_model: base
+hod_model: base-VB-AB-CB-s
+add_cov_emu: true
+cov_emu_diag: true
+cov_emu_method: median
+cov_correction: percival
+cosmo_idx: 0
+hod_idx: 0
+save_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/chains/

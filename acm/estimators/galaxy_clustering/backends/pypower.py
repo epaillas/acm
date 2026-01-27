@@ -66,7 +66,6 @@ class PypowerBackend:
             shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
         else:
             sum_data = np.sum(data_mesh)
-            print(np.min(data_mesh), np.max(data_mesh), np.mean(data_mesh))
             delta_mesh = data_mesh/np.mean(data_mesh) - 1
         self.data_mesh = data_mesh
         self.size_data = int(sum_data)

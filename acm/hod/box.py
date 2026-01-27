@@ -1,19 +1,14 @@
 import os
-from pathlib import Path
 import yaml
+import logging
 import numpy as np
-from abacusnbody.hod import abacus_hod
-from cosmoprimo.fiducial import DESI, AbacusSummit
-import mockfactory
+from pathlib import Path
 from astropy.io import fits
 from astropy.table import Table
-import logging
-import warnings
-import sys
-warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
-
-
+from abacusnbody.hod import abacus_hod
+from cosmoprimo.fiducial import DESI, AbacusSummit
 from acm.utils.paths import get_Abacus_dirs
+
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
 class BoxHOD:

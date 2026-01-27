@@ -1,13 +1,11 @@
 from abc import ABC
 import logging
-import warnings
-
-import numpy as np
 import fitsio
+import numpy as np
 import healpy as hp
-from scipy.interpolate import InterpolatedUnivariateSpline
-from astropy.table import Table
 from astropy.io import fits
+from astropy.table import Table
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 # cosmodesi/acm
 import mockfactory
@@ -31,7 +29,6 @@ except ImportError:
     build_healpix_map = None
     HAS_REGRESSIS = False
 
-warnings.filterwarnings("ignore", category=np.exceptions.VisibleDeprecationWarning)
 LRG_Abacus_DM = get_Abacus_dirs(tracer='LRG', simtype='box')
 
 # Valid DESI photometric regions

@@ -1,9 +1,3 @@
-from jaxpower import MeshAttrs, ParticleField, FKPField, ComplexMeshField, RealMeshField, get_mesh_attrs
-from jax import numpy as jnp
-import jax
-import numpy as np
-import time
-
 from .backends import JaxpowerBackend, PypowerBackend
 
 
@@ -29,7 +23,7 @@ class BaseEstimator:
     def read_density_contrast(self, positions, resampler='cic'):
         """
         Get the density contrast at the input positions.
-
+z
         Parameters
         ----------
         positions : array_like

@@ -1,9 +1,11 @@
+import logging
 import numpy as np
+from scipy import linalg
 from pathlib import Path
 from contextlib import nullcontext
 from matplotlib.backends.backend_pdf import PdfPages
-from scipy import linalg
 from .base import Observable
+from acm.utils.covariance import check_covariance_matrix
 import logging
 
 
@@ -200,18 +202,36 @@ class CombinedObservable():
         self,
         volume_factor: float = 64, 
         prefactor: float = 1,
+        **kwargs
     ) -> np.ndarray:
         """
         Covariance matrix for the statistic. 
         The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
+        
+        Parameters
+        ----------
+        volume_factor : float
+            Volume correction factor for the boxes. Default is 64.
+        prefactor : float
+            Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival).
+        **kwargs : dict
+            Additional arguments for the covariance matrix checker.
+            
+        Returns
+        -------
+        np.ndarray
+            The combined data covariance matrix.
         """   
         cov_y = self.covariance_y
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        check_covariance_matrix(cov, name="combined data covariance", **kwargs)
+        
         return cov
 
-    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
+    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, **kwargs) -> np.ndarray:
         """
         Covariance matrix of the emulator residuals for a combination of multiple summary statistics.
         The matrix is block-diagonal, with each block corresponding to the covariance matrix of each
@@ -227,6 +247,8 @@ class CombinedObservable():
             or standard deviation ('stdev'). Defaults to 'median'.
         diag : bool
             If True, only the diagonal of the covariance matrix is computed. Defaults to False.
+        **kwargs : dict
+            Additional arguments for the covariance matrix checker.
 
         Returns
         -------
@@ -237,8 +259,13 @@ class CombinedObservable():
         for observable in self.observables:
             cov_y = observable.get_emulator_covariance_matrix(prefactor=prefactor, method=method, diag=diag)
             covs.append(cov_y)
-        return linalg.block_diag(*covs)
-            
+        
+        cov = linalg.block_diag(*covs)
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="combined emulator covariance", **kwargs)
+        
+        return cov
     
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
