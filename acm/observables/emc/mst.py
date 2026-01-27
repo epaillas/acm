@@ -6,7 +6,7 @@ from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
 from jaxpower import read
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray_data import dataset_to_dict
+from acm.utils.xarray import dataset_to_dict
 from acm.utils.plotting import set_plot_style
 
 
@@ -14,18 +14,14 @@ class MinimumSpanningTree(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge Minimum Spanning Tree.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='mst', n_test=6*500, **kwargs)
+    def __init__(self, stat_name='mst', n_test=6*500, **kwargs):
+        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
-    
+    @classmethod
     def compress_covariance(
-        self,
+        cls,
+        paths: dict,
+        stat_name: str = 'mst',
         save_to: str = None,
     ) -> xarray.DataArray:
         """
@@ -33,7 +29,14 @@ class MinimumSpanningTree(BaseObservableEMC):
         
         Parameters
         ----------
-        save_to : str
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
             
@@ -42,6 +45,8 @@ class MinimumSpanningTree(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
+        logger = cls.get_logger()
+        
         # Directories
         base_dir = Path('/pscratch/sd/k/knaidoo/ACM/MockChallenge/data_v2')
         data_fns = sorted(base_dir.glob('covariance_c000_ph*_seed0_hod000_smooth_3.0.npz'))
@@ -56,7 +61,7 @@ class MinimumSpanningTree(BaseObservableEMC):
             y.append(_y)
         y = np.array(y)
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.DataArray(
             data = y.reshape(y.shape[0], -1),
@@ -75,12 +80,14 @@ class MinimumSpanningTree(BaseObservableEMC):
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
         
-
+    @classmethod
     def compress_data(
-        self, 
+        cls, 
+        paths: dict,
+        stat_name: str = 'mst',
         add_covariance: bool = False,
         save_to: str = None,
         cosmos: list = cosmo_list,
@@ -93,20 +100,27 @@ class MinimumSpanningTree(BaseObservableEMC):
         
         Parameters
         ----------
-        add_covariance : bool
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        add_covariance : bool, optional
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        cosmos : list
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
-        n_hod : int
+        n_hod : int, optional
             Number of HOD parameters to use. Default is 100.
-        phase_idx : int
-            TODO
-        seed_idx : int
-            TODO
+        phase_idx : int, optional
+            Phase index to read the data from. Default is 0.
+        seed_idx : int, optional
+            Seed to read the data from. Default is 0.
             
         Returns
         -------
@@ -114,16 +128,18 @@ class MinimumSpanningTree(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
+        logger = cls.get_logger()
+        
         base_dir = Path('/pscratch/sd/k/knaidoo/ACM/MockChallenge/data_v2')
 
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'emulator_c{cosmo_idx:03}_ph000_seed0_hod*_smooth_3.0.npz'
+            logger.info(f'Compressing c{cosmo_idx:03}')
+            handle = f'emulator_c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}_hod*_smooth_3.0.npz'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1].split('_smooth_3.0')[0]) for f in filenames]
-            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
+            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
                 _y = np.concatenate(
@@ -148,9 +164,9 @@ class MinimumSpanningTree(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(hods=hods, cosmos=cosmos)
+        x = cls.compress_x(paths=paths, hods=hods, cosmos=cosmos)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -159,14 +175,14 @@ class MinimumSpanningTree(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance()
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
             cout = xarray.merge([cout, cov_y])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
 
 

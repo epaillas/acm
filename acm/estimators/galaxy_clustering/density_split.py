@@ -159,7 +159,7 @@ class DensitySplit(BaseEstimator):
         return self._quantile_correlation
 
     def quantile_data_power(self, data_positions, edges={'step': 0.001}, ells=(0, 2, 4),
-        los='z', resampler='cic', interlacing=3, compensate=True, **kwargs):
+        los='z', resampler='tsc', interlacing=0, compensate=True, **kwargs):
         """
         Compute the cross-power spectrum between the data and the density field quantiles.
 
@@ -219,29 +219,32 @@ class DensitySplit(BaseEstimator):
             ells=ells,
         )
 
+        kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing)
+
+        data = ParticleField(data_positions, attrs=self.mattrs, exchange=True, backend='jax')
+        data_mesh = data.paint(**kw, out='real')
+        data_mesh = data_mesh - data_mesh.mean()
+
         self._quantile_data_power = []
-        for i, quantile in enumerate(self.quantiles):
+        for i, quantile_positions in enumerate(self.quantiles):
             t0 = time.time()
-            quantile_mesh = ParticleField(
-                quantile, attrs=self.mattrs, exchange=True, backend='jax'
-            )
 
-            norm = compute_box2_normalization(quantile_mesh, self.data_mesh, bin=bin)
-            num_shotnoise = compute_fkp2_shotnoise(quantile_mesh, self.data_mesh, bin=bin)
+            quantile = ParticleField(quantile_positions, attrs=self.mattrs, exchange=True, backend='jax')
 
-            kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing)
-            quantile_mesh = quantile_mesh.paint(**kw, out='real')
-            quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+            norm = compute_box2_normalization(quantile, data, bin=bin)
 
-            spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, self.delta_mesh, bin=bin, los=los)
-            spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
+            quantile_mesh = quantile.paint(**kw, out='real')
+            quantile_mesh = quantile_mesh - quantile_mesh.mean()
+
+            spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, data_mesh, bin=bin, los=los)
+            spectrum = spectrum.clone(norm=norm)
 
             self._quantile_data_power.append(spectrum)
             self.logger.info(f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s.")
         return self._quantile_data_power
 
     def quantile_power(self, edges={'step': 0.001}, ells=(0, 2, 4),
-        los='z', resampler='cic', interlacing=3, compensate=True, **kwargs):
+        los='z', resampler='tsc', interlacing=0, compensate=True, **kwargs):
         """
         Compute the auto-power spectrum of the density field quantiles.
 
@@ -295,19 +298,21 @@ class DensitySplit(BaseEstimator):
             ells=ells,
         )
 
+        kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing)
+
         self._quantile_power = []
-        for i, quantile in enumerate(self.quantiles):
+        for i, quantile_positions in enumerate(self.quantiles):
             t0 = time.time()
-            quantile_mesh = ParticleField(
-                quantile, attrs=self.mattrs, exchange=True, backend='jax'
+            quantile = ParticleField(
+                quantile_positions, attrs=self.mattrs, exchange=True, backend='jax'
             )
 
-            norm = compute_box2_normalization(quantile_mesh, bin=bin)
-            num_shotnoise = compute_fkp2_shotnoise(quantile_mesh, bin=bin)
+            norm = compute_box2_normalization(quantile, bin=bin)
+            num_shotnoise = compute_fkp2_shotnoise(quantile, bin=bin)
 
-            kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing)
-            quantile_mesh = quantile_mesh.paint(**kw, out='real')
-            quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+            quantile_mesh = quantile.paint(**kw, out='real')
+            # quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
+            quantile_mesh = quantile_mesh - quantile_mesh.mean()
 
             spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, bin=bin, los=los)
             spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
