@@ -72,8 +72,8 @@ class PypowerBackend:
             delta_mesh[~mask] = 0.0
             shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
         else:
-            sum_data = np.sum(data_mesh)
-            delta_mesh = data_mesh/np.mean(data_mesh) - 1
+            self.mean = data_mesh.mean()
+            delta_mesh = data_mesh / self.mean - 1
         self.data_mesh = data_mesh
         self.delta_mesh = delta_mesh
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')

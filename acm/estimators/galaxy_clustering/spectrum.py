@@ -6,10 +6,10 @@ from jaxpower import (
 )
 import jax
 import logging
-from .base import BaseDensityMeshEstimator
+from .base import BaseEstimator
 
 
-class PowerSpectrumMultipoles(BaseDensityMeshEstimator):
+class PowerSpectrumMultipoles(BaseEstimator):
     """
     Calculate the power spectrum multipoles using jaxpower.
     https://github.com/adematti/jax-power/
@@ -17,6 +17,9 @@ class PowerSpectrumMultipoles(BaseDensityMeshEstimator):
     
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
+        if 'backend' in kwargs:
+            if kwargs['backend'] != 'jaxpower':
+                raise ValueError("PowerSpectrumMultipoles only supports the 'jaxpower' backend.")
         super().__init__(**kwargs)
 
         self.jitted_compute_mesh2_spectrum = jax.jit(
@@ -31,13 +34,19 @@ class PowerSpectrumMultipoles(BaseDensityMeshEstimator):
             edges=edges,
             ells=ells,
         )
-
         norm = compute_box2_normalization(self.data_mesh, bin=self.bin)
         num_shotnoise = compute_fkp2_shotnoise(self.data_mesh, bin=self.bin)
-        spectrum = self.jitted_compute_mesh2_spectrum(self.delta_mesh, bin=self.bin, los=los)
+        spectrum = self.jitted_compute_mesh2_spectrum(self.delta_mesh * self.mean, bin=self.bin, los=los)
         self.spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
         if save_fn and jax.process_index() == 0:
             self.logger.info(f'Saving power spectrum to {save_fn}')
             self.spectrum.write(save_fn)
         return self.spectrum
+    
+    def get_multipoles(self, kmin=None, kmax=None, rebin=1):
+        spectrum = self.spectrum.select(k=slice(0, None, rebin))
+        poles = [spectrum.get(ell) for ell in spectrum.ells]
+        k = poles[0].coords('k')
+        poles = [pole.value() for pole in poles]
+        return k, poles
