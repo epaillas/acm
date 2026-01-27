@@ -575,7 +575,7 @@ class CutskyHOD(BaseCutskyCatalog):
             Tuple containing positions and velocities of the sampled galaxies.
         """
         # No BGS in AbacusHOD so we use LRG
-        tracer = 'LRG' if self.tracer != 'BGS' else self.tracer
+        tracer = 'LRG' if self.tracer == 'BGS' else self.tracer
         hod_dict = ball.run(
             hod_params,
             seed=seed,

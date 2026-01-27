@@ -74,7 +74,11 @@ class BoxHOD:
         self.redshift = redshift
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
-            config_file = Path(config_dir) /  'box.yaml'
+            if tracer == 'LRG':
+                config_file = Path(config_dir) /  'box.yaml'
+            else:
+                box_yaml_file = 'box_' + tracer + '.yaml'
+                config_file = Path(config_dir) / box_yaml_file
         config = yaml.safe_load(open(config_file))
         if DM_DICT is None:
             DM_DICT = get_Abacus_dirs(tracer=tracer, simtype='box')
