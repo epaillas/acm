@@ -1,5 +1,6 @@
 import time
 import numpy as np
+import jax
 from jax import numpy as jnp
 from pyrecon import RealMesh
 from pypower import CatalogMesh
@@ -24,7 +25,8 @@ class BaseDensityMeshEstimator(BaseEstimator):
         if set(kwargs.keys()).issubset(set(MeshAttrs.__dataclass_fields__.keys())): 
             self.mattrs = MeshAttrs(**kwargs) 
         else:
-            self.logger.info('Inferring mesh attributes from data and randoms positions.')  
+            if jax.process_index() == 0:
+                self.logger.info('Inferring mesh attributes from data and randoms positions.')  
             pos = [p for p in [data_positions, randoms_positions] if p is not None] # get_mesh_attrs raises an error if randoms_positions is None
             self.mattrs = get_mesh_attrs(*pos, **kwargs)
             
@@ -38,12 +40,14 @@ class BaseDensityMeshEstimator(BaseEstimator):
         self.boxcenter = self.mattrs.boxcenter
         self.meshsize = self.mattrs.meshsize
         self.cellsize = self.mattrs.cellsize
-        self.logger.info(f'Box size: {self.boxsize}')
-        self.logger.info(f'Box center: {self.boxcenter}')
-        self.logger.info(f'Box meshsize: {self.meshsize}')
+        if jax.process_index() == 0:
+            self.logger.info(f'Box size: {self.boxsize}')
+            self.logger.info(f'Box center: {self.boxcenter}')
+            self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def set_density_contrast(self, resampler: str='cic', halo_add: int=0, smoothing_radius: float = None, randoms_threshold_value: float = 0.01,
-        randoms_threshold_method: str = 'noise', randoms_threshold_replacement: float = 0.0):
+    def set_density_contrast(self, resampler: str='cic', compensate=False, interlacing=0, halo_add: int=0,
+        smoothing_radius: float = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise',
+        randoms_threshold_replacement: float = 0.0):
         def _2r(mesh):
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
@@ -55,17 +59,18 @@ class BaseDensityMeshEstimator(BaseEstimator):
             return mesh
 
         t0 = time.time()
-        kw = dict(resampler=resampler, compensate=False, interlacing=0, halo_add=halo_add)
-        data_mesh = self.data_mesh.paint(**kw, out='complex')
+        kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing, halo_add=halo_add)
+        data_mesh = self.data_mesh.paint(**kw, out='real')
         if self.has_randoms:
-            randoms_mesh = self.randoms_mesh.paint(**kw, out='complex')
+            randoms_mesh = self.randoms_mesh.paint(**kw, out='real')
             threshold_randoms = self._get_threshold_randoms(self.randoms_mesh, threshold_value=randoms_threshold_value, threshold_method=randoms_threshold_method)
         else:
             threshold_randoms, randoms_mesh = None, None
 
         kernel = 1.
         if smoothing_radius is not None:
-            self.logger.info(f'Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.')
+            if jax.process_index() == 0:
+                self.logger.info(f'Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.')
             kernel = self.kernel_gaussian(self.mattrs, smoothing_radius=smoothing_radius)
             data_mesh = (_2c(data_mesh) * kernel).c2r()
             if randoms_mesh is not None:
@@ -86,8 +91,10 @@ class BaseDensityMeshEstimator(BaseEstimator):
                     )
                 )
         else:
-            self.delta_mesh = data_mesh / data_mesh.mean() - 1.
-        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
+            self.mean = data_mesh.mean()
+            self.delta_mesh = data_mesh / self.mean - 1.
+        if jax.process_index() == 0:
+            self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
     def _get_threshold_randoms(self, randoms, threshold_value: float = 0.01, threshold_method: str = 'noise'):

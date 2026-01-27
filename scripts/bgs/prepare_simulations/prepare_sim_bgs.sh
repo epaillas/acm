@@ -8,8 +8,8 @@
 #SBATCH --time 02:30:00
 
 #SBATCH --job-name prepare_sim
-#SBATCH --output /global/homes/s/sbouchar/Output_jobs/prepare_sim/base/%A.%x_%a.out
-#SBATCH --error /global/homes/s/sbouchar/Output_jobs/prepare_sim/base/%A.%x_%a.err
+#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/prepare_sim/base/%A.%x_%a.out
+#SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/prepare_sim/base/%A.%x_%a.err
 
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main

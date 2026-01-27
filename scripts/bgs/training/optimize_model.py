@@ -3,8 +3,8 @@ import logging
 import argparse
 from pathlib import Path
 from astropy.stats import sigma_clip
+from sunbird.emulators.optimise import study_fcn
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
-from acm.model.optimize import StudyFCN
 from acm.observables import Observable
 from acm.utils.logging import setup_logging
 
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             lhc_y = lhc_y[~mask]
             logger.info(f'Removed {mask.sum()} outliers from training data using sigma={args.sigma} clipping')
         
-        StudyFCN(
+        study_fcn(
             n_trials=args.n_trials,
             same_n_hidden=args.same_n_hidden,
             study_fn=study_fn,
