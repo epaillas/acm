@@ -13,8 +13,9 @@ class BaseObservableBGS(Observable):
     Base class for the application of the ACM pipeline to the BGS dataset.
     """
     def __init__(self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs):
+        dataset = kwargs.get('dataset', None)
         paths = kwargs.pop('paths', None)
-        if paths is None:
+        if dataset is None and paths is None:
             paths = lookup_registry_path('projects.yaml', 'bgs', 'Mr-20')
         
         self.n_test = kwargs.pop('n_test', 6*100) # FIXME: Remove this on next file compression !
