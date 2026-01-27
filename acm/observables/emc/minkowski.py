@@ -15,18 +15,14 @@ class MinkowskiFunctionals(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='minkowski', **kwargs)
+    def __init__(self, stat_name='minkowski', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
     
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/minkowski/last.ckpt'
-    
+    @classmethod
     def compress_covariance(
-        self,
+        cls,
+        paths: dict,
+        stat_name: str = 'minkowski',
         save_to: str = None,
     ) -> xarray.DataArray:
         """
@@ -34,7 +30,14 @@ class MinkowskiFunctionals(BaseObservableEMC):
         
         Parameters
         ----------
-        save_to : str
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
             
@@ -43,8 +46,10 @@ class MinkowskiFunctionals(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
+        logger = cls.get_logger()
+        
         # Directories
-        base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
+        base_dir = Path(paths['measurements_dir']) / 'small' / stat_name
         data_fns = list(base_dir.glob('minkowski_ph*.npy')) # NOTE: File name format hardcoded !
 
         threshold_index = np.load(
@@ -54,7 +59,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
 
         y = []
         for filename in data_fns:
-            self.logger.info(f'Compressing {filename}')
+            logger.info(f'Compressing {filename}')
             data = np.load(filename, allow_pickle=True).item()
             mf = []
             for i in [5, 7, 10, 15]:
@@ -77,18 +82,21 @@ class MinkowskiFunctionals(BaseObservableEMC):
             name = "covariance_y",
         )
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        logger.info(f'Loaded covariance with shape: {y.shape}')
         
         cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
 
+    @classmethod
     def compress_data(
-        self, 
+        cls, 
+        paths: dict,
+        stat_name: str = 'minkowski',
         add_covariance: bool = False,
         save_to: str = None,
         cosmos: list = cosmo_list,
@@ -102,15 +110,22 @@ class MinkowskiFunctionals(BaseObservableEMC):
         
         Parameters
         ----------
-        add_covariance : bool
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        add_covariance : bool, optional
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        cosmos : list
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
-        n_hod : int
+        n_hod : int, optional
             Number of HOD parameters to use. Default is 100.
         phase : int, optional
             Phase index to read the data from. Default is 0.
@@ -127,7 +142,9 @@ class MinkowskiFunctionals(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/{self.stat_name}/')
+        logger = cls.get_logger()
+        
+        base_dir = Path(paths['measurements_dir'],  f'base/{stat_name}/')
         
         threshold_index = np.load(
             '/pscratch/sd/e/epaillas/emc/Threshold_index_for_MFs_with_Rg5_7_10_15.npy',
@@ -138,11 +155,11 @@ class MinkowskiFunctionals(BaseObservableEMC):
         hods = {}
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
-            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            logger.info(f'Compressing c{cosmo_idx:03d}')
             handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/minkowski_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
-            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
+            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True).item()
                 mf = []
@@ -166,9 +183,9 @@ class MinkowskiFunctionals(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
+        x = cls.compress_x(paths=paths, cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -177,7 +194,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance()
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
             cout = xarray.merge([cout, cov_y])
             
         if test_filters is not None:
@@ -190,9 +207,9 @@ class MinkowskiFunctionals(BaseObservableEMC):
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
     
     @set_plot_style
