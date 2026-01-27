@@ -6,13 +6,18 @@ import logging
 
 
 class PypowerBackend:
-    def __init__(self, **kwargs):
+    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
         self.logger = logging.getLogger('PypowerBackend')
         self.name = 'pypower'
         if 'meshsize' in kwargs:
             kwargs['nmesh'] = kwargs.pop('meshsize')
-        self.mesh = CatalogMesh(**kwargs, interlacing=0, resampler='cic', position_type='pos')
+        self.mesh = CatalogMesh(
+            data_positions=data_positions, data_weights=data_weights,
+            randoms_positions=randoms_positions, randoms_weights=randoms_weights,
+            interlacing=0, resampler='cic', position_type='pos', **kwargs,
+        )
         
+        self.size_data = len(data_positions)
         self.meshsize = self.mesh.nmesh
         self.cellsize = self.mesh.boxsize / self.mesh.nmesh
         self.boxsize = self.mesh.boxsize
@@ -48,15 +53,17 @@ class PypowerBackend:
         t0 = time.time()
         data_mesh = self.mesh.to_mesh(field='data', compensate=compensate)
         if smoothing_radius:
+            self.logger.info(f'Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.')
             data_mesh = data_mesh.r2c().apply(
             getattr(self, filter_shape)(r=smoothing_radius))
             data_mesh = data_mesh.c2r()
         if self.has_randoms:
             randoms_mesh = self.mesh.to_mesh(field='data-normalized_randoms',
                 compensate=compensate)
-            randoms_mesh = randoms_mesh.r2c().apply(
-                getattr(self, filter_shape)(r=smoothing_radius))
-            randoms_mesh = randoms_mesh.c2r()
+            if smoothing_radius:
+                randoms_mesh = randoms_mesh.r2c().apply(
+                    getattr(self, filter_shape)(r=smoothing_radius))
+                randoms_mesh = randoms_mesh.c2r()
             sum_data, sum_randoms = np.sum(data_mesh.value), np.sum(randoms_mesh.value)
             alpha = sum_data / sum_randoms
             delta_mesh = data_mesh - alpha * randoms_mesh
@@ -68,7 +75,6 @@ class PypowerBackend:
             sum_data = np.sum(data_mesh)
             delta_mesh = data_mesh/np.mean(data_mesh) - 1
         self.data_mesh = data_mesh
-        self.size_data = int(sum_data)
         self.delta_mesh = delta_mesh
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
         return self.delta_mesh

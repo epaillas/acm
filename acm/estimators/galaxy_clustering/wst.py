@@ -27,7 +27,7 @@ class WaveletScatteringTransform(BaseEstimator):
         self.q = q
         self.max_order = 2
 
-        self.query_positions = self.backend.get_query_positions(method='lattice')
+        self.query_positions = self.get_query_positions(method='lattice')
 
         if init_kymatio is not None:
             self.logger.info(f'Pre-loading Kymatio initialization.')
@@ -45,7 +45,7 @@ class WaveletScatteringTransform(BaseEstimator):
         self.S = HarmonicScattering3D(
             J=self.J,
             L=self.L,
-            shape=self.backend.meshsize,
+            shape=self.meshsize,
             max_order=self.max_order,
             sigma_0=self.sigma_0,
         )
@@ -63,15 +63,15 @@ class WaveletScatteringTransform(BaseEstimator):
         """
         t0 = time.time()
         if delta_query is not None:
-            self.delta_query = delta_query.reshape(self.backend.meshsize)
+            self.delta_query = delta_query.reshape(self.meshsize)
         else:
-            self.delta_query = self.read_density_contrast(self.query_positions)
+            self.delta_query = self.read_density_contrast(self.query_positions).reshape(self.meshsize)
         smat_orders_12 = self.S(self.delta_query)
         smat = np.absolute(smat_orders_12[:, :, 0])
         s0 = np.sum(np.absolute(self.delta_query) ** self.q)
         smatavg = smat.flatten()
         self.smatavg = np.hstack((s0, smatavg))
-        self.smatavg /= np.prod(self.backend.meshsize)
+        self.smatavg /= np.prod(self.meshsize)
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
         return self.smatavg
 
