@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 from acm.observables import Observable
-from acm.utils import get_data_dirs
+from acm.utils import lookup_registry_path
 from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
@@ -19,8 +19,21 @@ class BaseObservableEMC(Observable):
         if phase_correction and hasattr(self, 'compute_phase_correction'):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
-            
-        paths = kwargs.pop('paths', get_data_dirs('emc')) 
+        
+        paths = kwargs.pop('paths', None)
+        if paths is None:
+            paths = lookup_registry_path('projects.yaml', 'emc')
+        
+        # Get checkpoint_fn from registry if not provided
+        stat_name = kwargs.get('stat_name') # Required for super() anyways
+        model = kwargs.get('model', None)
+        paths = kwargs.get('paths', None)
+        if model is None and paths is not None and 'model_dir' not in paths and 'checkpoint_fn' not in kwargs:
+            try:
+                kwargs['checkpoint_fn'] = lookup_registry_path('projects.yaml', 'emc', 'checkpoint_fn', stat_name)
+            except KeyError:
+                pass # Ignore this step if no checkpoint is found for this stat_name (this will cause the model to not exist, but that's fine)
+        
         self.n_test = kwargs.pop('n_test', 6*500) # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 
@@ -49,13 +62,14 @@ class BaseObservableEMC(Observable):
                 idx_test = range(n_test) if isinstance(n_test, int) else n_test
                 x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
                 y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
-                self.logger.warning('n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
+                self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
             else:
                 raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
         
-        # Flatten on 2D for indexing
-        x_test = self.flatten_output(x_test, flat_output_dims=2)
-        y_test = self.flatten_output(y_test, flat_output_dims=2)
+        # Flatten on 2D for indexing 
+        # unstack=False because it's either already unstacked or 2D - avoids NaN issues
+        x_test = self.flatten_output(x_test, flat_output_dims=2, unstack=False)
+        y_test = self.flatten_output(y_test, flat_output_dims=2, unstack=False)
         
         prediction = self.get_model_prediction(x_test, nofilters=True) # Unfiltered prediction !
         
@@ -89,9 +103,9 @@ class BaseObservableEMC(Observable):
             return emulator_covariance_y
         
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
-        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
@@ -128,9 +142,9 @@ class BaseObservableEMC(Observable):
             name = 'emulator_error',
         )
         emulator_error = self.apply_filters(emulator_error)
+        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if 'emulator_error' in self.select_indices_on:
             emulator_error = self.apply_indices_selection(emulator_error)
-        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if self.squeeze_output:
             emulator_error = emulator_error.squeeze()
         if self.numpy_output:
@@ -213,8 +227,8 @@ class BaseObservableEMC(Observable):
             return pred
         
         pred = self.apply_filters(pred)
-        pred = self.apply_indices_selection(pred)
         pred = self.flatten_output(pred, self.flat_output_dims)
+        pred = self.apply_indices_selection(pred)
         
         if self.squeeze_output:
             pred = pred.squeeze()
@@ -222,33 +236,37 @@ class BaseObservableEMC(Observable):
             pred = pred.values
         return pred
 
-    def get_hod_from_files(self, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
+    @classmethod
+    def get_hod_from_files(cls, paths: dict, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
         """
-        Get the HOD indexes from the statistic files for a given phase and seed.
+        Get the HOD indexes from the raw HOD files.
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+            Expects a key 'hod_dir' pointing to the HOD files directory.
         cosmo_idx : int
             Cosmology index to read the HOD indexes from.
         phase : int, optional
             Phase index to read the HOD indexes from. Defaults to 0.
         seed : int, optional
             Seed index to read the HOD indexes from. Defaults to 0.
-        statistic : str, optional
-            Statistic to read the HOD indexes from. Defaults to 'density'.
 
         Returns
         -------
         np.ndarray
             Array of HOD indexes.
         """
-        data_dir = self.paths['hod_dir']
+        data_dir = paths['hod_dir']
         data_dir = Path(data_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
         hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))]
         return np.array(hod_idx)
-        
+    
+    @classmethod
     def compress_x(
-        self,  
+        cls,  
+        paths: dict,
         cosmos: list = cosmo_list,
         n_hod: int = None,
         **kwargs
@@ -258,6 +276,9 @@ class BaseObservableEMC(Observable):
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+            Can be set to None to use the default paths from the NERSC registry.
         cosmos : list, optional
             List of cosmologies to get from the files. The default is None, which means all cosmologies.
         n_hod : int, optional
@@ -278,9 +299,13 @@ class BaseObservableEMC(Observable):
             If the number of HODs for a cosmology is lower than the expected number, 
             as the compression requires all cosmologies to have the same number of HODs.
         """
-        # NOTE: Hardcoded paths :/
-        cosmo_file = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv' 
-        hod_file = '/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy'
+        logger = cls.get_logger()
+        
+        if paths is None:
+            paths = lookup_registry_path('projects.yaml', 'emc')
+        
+        cosmo_file = paths['cosmo_file']  #'/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
+        hod_file = paths['hod_file']    #'/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy'
         
         cosmo_param_names = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld']
         cosmo_params_mapping = {'alpha_s': 'nrun'}
@@ -311,15 +336,15 @@ class BaseObservableEMC(Observable):
             # Full parameters
             x_i = np.concatenate([x_cosmo, x_hod], axis=1)
             
-            hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
+            hod_idx = cls.get_hod_from_files(paths, cosmo_idx, **kwargs)
             if n_hod is None:
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
-                self.logger.info(f'Number of HODs determined from c{cosmo_idx:03d}: {n_hod}')
+                logger.info(f'Number of HODs determined from c{cosmo_idx:03d}: {n_hod}')
             
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
                 hod_idx = hod_idx[:n_hod] # Restrict to the expected number of HODs
-                self.logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
+                logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
             elif len(hod_idx) < n_hod:
                 raise ValueError(f'Number of HODs for c{cosmo_idx:03d} is lower than expected ({len(hod_idx)} < {n_hod}). Cannot proceed with compression.')
             

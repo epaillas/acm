@@ -575,69 +575,39 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
 class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
     recon = False
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_vsf/last.ckpt'
+    
+    def __init__(self, **kwargs):
+        checkpoint_fn = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_vsf/last.ckpt'
+        super().__init__(checkpoint_fn=checkpoint_fn, **kwargs)
 
 
 class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
     recon = True
 
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
-
 
 class VERSUSVoidGalaxyCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivg'
     recon = False
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivg/last.ckpt'
+    
+    def __init__(self, **kwargs):
+        checkpoint_fn = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivg/last.ckpt'
+        super().__init__(checkpoint_fn=checkpoint_fn, **kwargs)
 
 
 class VERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivv'
     recon = False
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivv/last.ckpt'
+    
+    def __init__(self, **kwargs):
+        checkpoint_fn = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivv/last.ckpt'
+        super().__init__(checkpoint_fn=checkpoint_fn, **kwargs)
 
 
 class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivg'
-    recon = True 
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
+    recon = True
         
 
 class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
     corr_type = 'xivv'
-    recon = True 
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
+    recon = True
