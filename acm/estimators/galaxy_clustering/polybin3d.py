@@ -1,7 +1,7 @@
-from .base import BaseDensityMeshEstimator
-from PolyBin3D import PolyBin3D, PSpec, BSpec
-import logging
 import time
+import logging
+from PolyBin3D import PolyBin3D, PSpec, BSpec
+from .base import BaseDensityMeshEstimator
 
 class PolyBinEstimator(BaseDensityMeshEstimator):
     """

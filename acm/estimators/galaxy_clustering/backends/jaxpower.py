@@ -73,7 +73,6 @@ class JaxpowerBackend:
                 self.delta_mesh = self.delta_mesh.clone(value=jnp.where(randoms_mesh.value > threshold_randoms, self.delta_mesh.value / (alpha * randoms_mesh.value), 0.))
         else:
             self.mean = data_mesh.mean()
-            print(data_mesh.min(), data_mesh.max(), self.mean)
             self.delta_mesh = data_mesh / self.mean - 1.
         if jax.process_index() == 0:
             self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
