@@ -1,9 +1,10 @@
-from .backends import JaxpowerBackend, PypowerBackend
+from .backends import JaxpowerBackend, PypowerBackend, PyreconBackend
 
 
 _BACKENDS = {
     "jaxpower": JaxpowerBackend,
     "pypower": PypowerBackend,
+    "pyrecon": PyreconBackend,
 }
 
 class BaseEstimator:
@@ -33,6 +34,10 @@ z
         elif self.backend.name == 'pypower':
             offset = self.boxcenter - self.boxsize/2.
             return self.backend.delta_mesh.readout(positions - offset, resampler=resampler)
+        elif self.backend.name == 'pyrecon':
+            if resampler != 'cic':
+                raise NotImplementedError('Pyrecon backend only supports CIC resampling.')
+            return self.backend.delta_mesh.read_cic(positions)
 
     def __getattr__(self, name):
         """
