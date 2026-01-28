@@ -72,7 +72,7 @@ class PypowerBackend:
             delta_mesh[~mask] = 0.0
             shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
         else:
-            self.mean = data_mesh.mean()
+            self.mean = np.mean(data_mesh)
             delta_mesh = data_mesh / self.mean - 1
         self.data_mesh = data_mesh
         self.delta_mesh = delta_mesh
