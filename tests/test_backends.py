@@ -40,7 +40,7 @@ def test_wst():
     box_args = get_box_args(boxsize, cellsize=100)
     coeffs = []
     deltas = []
-    for backend in ['jaxpower', 'pypower']:
+    for backend in ['pyrecon', 'jaxpower', 'pypower', ]:
         box_args = get_box_args(boxsize, cellsize=100)
         wst = WaveletScatteringTransform(data_positions=positions, backend=backend, **box_args)
         wst.set_density_contrast()
@@ -51,8 +51,8 @@ def test_wst():
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(4, 3))
-    for coeff, backend in zip(coeffs, ['jaxpower', 'pypower']):
-        ls = '-' if backend == 'jaxpower' else '--'
+    for coeff, backend in zip(coeffs, ['jaxpower', 'pypower', 'pyrecon']):
+        ls = '-' if backend == 'jaxpower' else ('--' if backend == 'pypower' else ':')
         ax.plot(coeff, label=backend, ls=ls)
     ax.set_xlabel('bin index')
     ax.set_ylabel('WST coefficient')
@@ -60,7 +60,7 @@ def test_wst():
     plt.savefig('wst_backend_comparison.png', bbox_inches='tight', dpi=300)
 
     fig, ax = plt.subplots(figsize=(4, 3))
-    for delta, backend in zip(deltas, ['jaxpower', 'pypower']):
+    for delta, backend in zip(deltas, ['jaxpower', 'pypower', 'pyrecon']):
         ls = '-' if backend == 'jaxpower' else '--'
         ax.hist(delta.flatten(), bins=50, density=True, histtype='step', label=backend, ls=ls)
     ax.set_xlabel('Density contrast')
@@ -75,7 +75,7 @@ def test_density_split():
     edges = (sedges, muedges)
     poles = []
     deltas = []
-    for backend in ['jaxpower', 'pypower']:
+    for backend in ['jaxpower', 'pypower', 'pyrecon']:
         ds = DensitySplit(data_positions=positions, backend=backend, **box_args)
         ds.set_density_contrast(smoothing_radius=10)
         ds.set_quantiles(nquantiles=5, query_method='randoms')
@@ -96,8 +96,8 @@ def test_density_split():
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(4, 3))
     for i in range(5):
-        for pole, backend in zip(poles, ['jaxpower', 'pypower']):
-            ls = '-' if backend == 'jaxpower' else '--'
+        for pole, backend in zip(poles, ['jaxpower', 'pypower', 'pyrecon']):
+            ls = '-' if backend == 'jaxpower' else ('--' if backend == 'pypower' else ':')
             ax.plot(s, s ** 2 * pole[i][0], label=f'Q{i+1} {backend}', ls=ls)
     ax.set_xlabel('s [Mpc/h]')
     ax.set_ylabel(r'$\xi_0(s)$')
@@ -105,8 +105,8 @@ def test_density_split():
     plt.savefig('ds_backend_comparison_xi0.png', bbox_inches='tight', dpi=300)
 
     fig, ax = plt.subplots(figsize=(4, 3))
-    for delta, backend in zip(deltas, ['jaxpower', 'pypower']):
-        ls = '-' if backend == 'jaxpower' else '--'
+    for delta, backend in zip(deltas, ['jaxpower', 'pypower', 'pyrecon']):
+        ls = '-' if backend == 'jaxpower' else ('--' if backend == 'pypower' else ':')
         ax.hist(delta.flatten(), bins=50, density=True, histtype='step', label=backend, ls=ls)
     ax.set_xlabel('Density contrast')
     ax.set_ylabel('PDF')
@@ -117,7 +117,7 @@ def test_density_split():
 
 setup_logging()
 
-hod_fn = get_hod_fns(cosmo=1, phase=0, redshift=0.5)[0]
+hod_fn = get_hod_fns(cosmo=0, phase=0, redshift=0.5)[0]
 positions, boxsize = get_hod_positions(hod_fn, los='z')
 
 test_density_split()
