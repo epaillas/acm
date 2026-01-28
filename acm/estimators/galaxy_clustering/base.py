@@ -1,19 +1,22 @@
-from .backends import JaxpowerBackend, PypowerBackend, PyreconBackend
-
-
-_BACKENDS = {
-    "jaxpower": JaxpowerBackend,
-    "pypower": PypowerBackend,
-    "pyrecon": PyreconBackend,
-}
-
 class BaseEstimator:
     """
     Base estimator class.
     """
     def __init__(self, backend='jaxpower', **kwargs):
         self.backend_name = backend
-        self.backend = _BACKENDS[backend](**kwargs)
+        
+        # Lazy import of backend classes to avoid forcing installation of all backends
+        if backend == 'jaxpower':
+            from .backends.jaxpower import JaxpowerBackend
+            self.backend = JaxpowerBackend(**kwargs)
+        elif backend == 'pypower':
+            from .backends.pypower import PypowerBackend
+            self.backend = PypowerBackend(**kwargs)
+        elif backend == 'pyrecon':
+            from .backends.pyrecon import PyreconBackend
+            self.backend = PyreconBackend(**kwargs)
+        else:
+            raise ValueError(f"Unknown backend '{backend}'. Available backends: 'jaxpower', 'pypower', 'pyrecon'")
         
     def read_density_contrast(self, positions, resampler='cic'):
         """
