@@ -28,7 +28,6 @@ class BaseObservableEMC(Observable):
         # Get checkpoint_fn from registry if not provided
         stat_name = kwargs.get('stat_name') # Required for super() anyways
         model = kwargs.get('model', None)
-        paths = kwargs.get('paths', None)
         if model is None and paths is not None and 'model_dir' not in paths and 'checkpoint_fn' not in kwargs:
             try:
                 kwargs['checkpoint_fn'] = lookup_registry_path('projects.yaml', 'emc', 'checkpoint_fn', stat_name)
