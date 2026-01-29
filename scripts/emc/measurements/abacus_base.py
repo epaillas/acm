@@ -24,6 +24,11 @@ def get_cli_args():
     parser.add_argument("--start_seed", type=int, default=0)
     parser.add_argument("--n_seed", type=int, default=1)
     parser.add_argument('--todo_stats', nargs='+', default=['spectrum'])
+    parser.add_argument(
+        '--save_dir',
+        type=str,
+        default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/'
+    )
 
     args = parser.parse_args()
     return args
@@ -31,6 +36,42 @@ def get_cli_args():
 def get_box_args(boxsize, cellsize):
     meshsize = (boxsize / cellsize).astype(int)
     return dict(boxsize=boxsize, boxcenter=0.0, meshsize=meshsize)
+
+def get_save_dir(base_save_dir, stat_name, cosmo_idx, phase_idx, seed_idx, extra_path=None, version='v1.2'):
+    """
+    Construct the save directory path for a given statistic.
+    
+    Parameters
+    ----------
+    base_save_dir : str or Path
+        Base directory for saving measurements.
+    stat_name : str
+        Name of the statistic (e.g., 'wst', 'spectrum', 'spherical_voids').
+    cosmo_idx : int
+        Cosmology index.
+    phase_idx : int
+        Phase index.
+    seed_idx : int
+        Seed index.
+    extra_path : str, optional
+        Additional path component to insert before cosmo/phase/seed (e.g., for WST configs).
+    version : str, optional
+        Version string (default: 'v1.2').
+    
+    Returns
+    -------
+    Path
+        Complete save directory path.
+    """
+    stat_path = f'{version}/abacus/base/{stat_name}/'
+    
+    if extra_path is not None:
+        save_dir = Path(base_save_dir, stat_path, extra_path, f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/')
+    else:
+        save_dir = Path(base_save_dir, stat_path, f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/')
+    
+    save_dir.mkdir(parents=True, exist_ok=True)
+    return save_dir
 
 def get_hod_fns(cosmo=0, phase=0, redshift=0.8):
     """
@@ -258,7 +299,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
         with open(init_fn, 'rb') as f:
             init = cp.load(f)
 
-    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
+    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, backend='pypower', **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
@@ -498,7 +539,7 @@ if __name__ == '__main__':
 
     args = get_cli_args()
 
-    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum', 'wst'] for td in args.todo_stats)
+    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.todo_stats)
     if is_distributed:
         os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.95'
         import jax
@@ -521,7 +562,6 @@ if __name__ == '__main__':
 
     for cosmo_idx in cosmo_list[args.start_cosmo : args.start_cosmo + args.n_cosmo]:
         bspec_bin = None
-        wst_init = None
         for phase_idx in phases:
             for seed_idx in seeds:
                 hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
@@ -533,9 +573,7 @@ if __name__ == '__main__':
                     hod_idx = hod_fn.split('.fits')[0].split('hod')[-1]
 
                     if 'spectrum' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base_debug/spectrum/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'spectrum', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'mesh2_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
@@ -543,9 +581,7 @@ if __name__ == '__main__':
                             compute_spectrum(output_fn, hod_positions, **box_args)
 
                     if 'recon_spectrum' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/recon_spectrum/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'recon_spectrum', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'mesh2_recon_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
@@ -554,9 +590,7 @@ if __name__ == '__main__':
                             compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
                     if 'bispectrum' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/bispectrum/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'bispectrum', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'mesh3_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
@@ -574,9 +608,7 @@ if __name__ == '__main__':
                                     gc.collect()
 
                     if 'tpcf' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/tpcf/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'tpcf', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
@@ -586,9 +618,7 @@ if __name__ == '__main__':
                         compute_tpcf_smu(output_fn, hod_positions, **box_args)
 
                     if 'tpcf_rppi' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/projected_tpcf/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'projected_tpcf', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'tpcf_rppi_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
@@ -598,18 +628,14 @@ if __name__ == '__main__':
                         compute_tpcf_rppi(output_fn, hod_positions, **box_args)
 
                     if 'recon_tpcf_smu' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/recon_tpcf_smu/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'recon_tpcf_smu', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'recon_tpcf_smu_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
                         compute_recon_tpcf_smu(output_fn, hod_positions, **box_args)
 
                     if 'density_split_correlation' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/density_split/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'density_split', cosmo_idx, phase_idx, seed_idx)
                         output_fn = {
                             'xiqg': Path(save_dir) / f'dsc_xiqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
                             'xiqq': Path(save_dir) / f'dsc_xiqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
@@ -623,9 +649,7 @@ if __name__ == '__main__':
                             do_correlation=True, do_power=False, **box_args)
 
                     if 'density_split_power' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base_debug/density_split/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'density_split', cosmo_idx, phase_idx, seed_idx)
                         output_fn = {
                             'pkqg': Path(save_dir) / f'dsc_pkqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5',
                             'pkqq': Path(save_dir) / f'dsc_pkqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5',
@@ -639,9 +663,7 @@ if __name__ == '__main__':
                             do_correlation=False, do_power=True, **box_args)
 
                     if 'minkowski' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/minkowski/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'minkowski', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'minkowski_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
@@ -651,46 +673,24 @@ if __name__ == '__main__':
                         compute_minkowski(output_fn, hod_positions, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        # save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/adaptive/ip0.8/'
-                        # save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        # Path(save_dir).mkdir(parents=True, exist_ok=True)
-                        # output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                        # if output_fn.exists():
-                        #     logger.info(f'Skipping {output_fn}, already exists.')
-                        #     continue
-                        # hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        # # boxsize = np.array([2200, 2200, 2200])  # Use a fixed boxsize for WST
-                        # box_args = get_box_args(boxsize, cellsize=10)
-                        # wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args)
-
                         for wst_args in [
                             {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
                             # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 80},
                             # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
                         ]:
-                            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/'
-                            save_dir += f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
-                            save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                            Path(save_dir).mkdir(parents=True, exist_ok=True)
+                            wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
+                            save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config)
                             output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                             if output_fn.exists():
                                 logger.info(f'Skipping {output_fn}, already exists.')
                                 continue
                             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                            box_args = dict(boxsize=boxsize, meshsize=np.repeat(wst_args['meshsize'], 3))
+                            box_args = dict(boxsize=boxsize, meshsize=np.repeat(wst_args['meshsize'], 3), boxcenter=0.0)
                             wst_args.pop('meshsize')
-                            try:
-                                wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
-                            except Exception as e:
-                                logger.info(f'WST computation failed with error: {e}, retrying after clearing caches...')
-                                jax.clear_caches()
-                                gc.collect()
-                                wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
+                            wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
 
                     if 'spherical_voids' in args.todo_stats:
-                        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/spherical_voids/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'spherical_voids', cosmo_idx, phase_idx, seed_idx)
                         label = f'c{cosmo_idx:03}_hod{hod_idx:03}' 
                         output_fn = {
                             'void': Path(save_dir) / f'sv_void_{label}.npy',
@@ -706,9 +706,7 @@ if __name__ == '__main__':
                         compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
 
                     if 'recon_spherical_voids' in args.todo_stats:
-                        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/recon_spherical_voids/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'recon_spherical_voids', cosmo_idx, phase_idx, seed_idx)
                         label = f'c{cosmo_idx:03}_hod{hod_idx:03}' 
                         output_fn = {
                             'void': Path(save_dir) / f'sv_recon_void_{label}.npy',
@@ -732,17 +730,13 @@ if __name__ == '__main__':
                     #    compute_dr_knn(output_fn, hod_positions, boxsize, los='z')
                     
                     if 'dd_knn' in args.todo_stats:
-                        save_dir = '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/base/dd_knn/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'dd_knn', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'dd_knn_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dd_knn(output_fn, hod_positions, boxsize, los='z')
 
                     if 'dt_voids' in args.todo_stats:
-                        save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/dt_voids/'
-                        save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                        Path(save_dir).mkdir(parents=True, exist_ok=True)
+                        save_dir = get_save_dir(args.save_dir, 'dt_voids', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'dt_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dt_voids(output_fn, hod_positions)

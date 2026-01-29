@@ -345,8 +345,12 @@ def get_secondgen_data(observable, return_obs: bool = False, **kwargs) -> tuple:
     observables = []
     for stat_name in stat_names:
         target_obs = observable[stat_name] # Get the specific observable
+        
+        dataset = compress_secondgen(stat_name, **kwargs)
+        
         tmp_obs = Observable(
             stat_name = stat_name,
+            dataset = dataset,
             select_filters = target_obs.select_filters,
             slice_filters = target_obs.slice_filters,
             select_indices = target_obs.select_indices,
@@ -355,10 +359,7 @@ def get_secondgen_data(observable, return_obs: bool = False, **kwargs) -> tuple:
             squeeze_output = target_obs.squeeze_output,
             numpy_output = target_obs.numpy_output,
         ) # match the configuration of the target observable
-        
-        dataset = compress_secondgen(stat_name, **kwargs)
-        tmp_obs._dataset = dataset # Assign the dataset directly
-        
+                
         check_datasets_compatibility(target_obs, tmp_obs)
         logger.info(f'Loaded compatible second-generation data for statistic: {stat_name}')
         observables.append(tmp_obs)
