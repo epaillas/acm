@@ -1,0 +1,20 @@
+# Simulation parameters
+sim_params:
+  sim_name: AbacusSummit_base_c000_ph000                                    # which simulation                                  
+  sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus                           # where is the simulation
+  subsample_dir: /pscratch/sd/s/sbouchar/summit_subsamples/boxes/base/      # where to output subsample data
+  z_mock: 0.2                                                               # which redshift slice
+  cleaned_halos: True                                                       # load cleaned halos?
+
+prepare_sim:
+  Nparallel_load: 14                                                        # number of processes. peak memory usage will increase by this factor.
+  Nthread_per_load: 'auto'                                                  # number of threads per process (auto uses the affinity mask)
+
+# HOD parameters
+HOD_params:
+  want_ranks: True                                                          # want to implement satellite profile flexiblities?
+  want_AB: True                                                             # are you planning on implementing assembly bias (AB)?
+  tracer_flags:                                                             # which tracer do we want?
+      LRG: True
+      ELG: False
+      QSO: False

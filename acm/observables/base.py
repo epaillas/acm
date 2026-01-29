@@ -2,12 +2,15 @@ import torch
 import xarray
 import logging
 import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
-from acm.utils.xarray_data import dataset_from_dict
-from acm.utils.covariance import orthogonal_gk_mad_covariance
 from scipy.stats import median_abs_deviation, norm
+from acm.utils.xarray import dataset_from_dict
+from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
+from acm.utils.plotting import set_plot_style
+from acm.utils.decorators import temporary_class_state
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
@@ -22,7 +25,8 @@ class Observable():
     def __init__(
         self,
         stat_name: str,
-        paths: dict = None,
+        dataset: xarray.Dataset = None,
+        model: FCN = None,
         select_filters: dict = None,
         slice_filters: dict = None,
         select_indices: list = None,
@@ -30,15 +34,18 @@ class Observable():
         flat_output_dims: int = None,
         squeeze_output: bool = False,
         numpy_output: bool = False,
+        paths: dict = None,
+        checkpoint_fn: Path | str = None,
     ):
         """
         Parameters
         ----------
         stat_name: str
-            Name of the statistic to load. Also the name of the file containing the data.
-        paths: dict, optional
-            Paths to the compressed Observable files or models.
-            If None, the internal dataset will be None. Defaults to None.
+            Name or identifier of the statistic to load. It is also the name of the loaded files if applicable.
+        dataset : xarray.Dataset, optional
+            The xarray Dataset containing the data variables and coordinates.
+        model : FCN, optional
+            Trained theory model. If None, the model attribute of the class remains undefined. Defaults to None.
         select_filters : dict, optional
             Filters to select values in coordinates. Defaults to None.
         slice_filters : dict, optional
@@ -55,58 +62,65 @@ class Observable():
             If True, the output will be squeezed to remove single-dimensional entries. Defaults to False.
         numpy_output : bool, optional
             If True, the output will be converted to a numpy array. Defaults to False.
-        
-        Paths
-        -----
-        The data is expected to be in paths[key]/stat_name.npy, in which an xarray DataSet is stored.
-        The possible keys are:
-            - 'data_dir': directory containing the data (x, y)
-            - 'covariance_dir': directory containing the covariance of the data (covariance_y)
-            - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
-            - 'model_dir': directory containing the trained model (model.pth)
-            - 'checkpoint_name': name of the checkpoint file (default: 'model.pth')
+        paths : dict, optional
+            Paths to the compressed Observable directories and model checkpoint.
+            If dataset or model is None, they will be loaded from the provided paths. Defaults to None.
+        checkpoint_fn : Path | str, optional
+            Legacy parameter for the model checkpoint file path. Use `paths['model_dir']/stat_name.ckpt` instead. Defaults to None.
+            
+        Raises
+        ------
+        ValueError
+            If dataset is not provided and paths is None.
 
         Example
         -------
         ::
         
             slice_filters = {'sep': (0, 0.5),} 
-            select_filters = {'multipoles': [0, 2],}
+            select_filters = {'ells': [0, 2],}
 
 
         will return the summary statistics for `0 < sep < 0.5` and multipoles 0 and 2
+        
+        Paths
+        -----
+        The data is expected to be in `paths[key]/stat_name.npy`, in which an xarray DataSet is stored.
+        The possible keys are:
+            - 'data_dir': directory containing the data (x, y)
+            - 'covariance_dir': directory containing the covariance of the data (covariance_y)
+            - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
+            - 'model_dir': directory containing the trained model checkpoint (`stat_name`.ckpt)
         """
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = self.get_logger()
         
         self.stat_name = stat_name
-        self.paths = paths if paths else {} # Ensure dict behavior
-        self.flat_output_dims = flat_output_dims
         self.numpy_output = numpy_output
         self.squeeze_output = squeeze_output
-
-        # Try to read the paths with data inside
-        datasets = []
-        for key in ['data_dir', 'covariance_dir', 'error_dir']:
-            if key not in self.paths:
-                continue
-            path = Path(self.paths[key]) / f"{self.stat_name}.npy"
+        self.flat_output_dims = flat_output_dims
         
-            if path.exists():
-                datasets.append(dataset_from_dict(np.load(path, allow_pickle=True).item()))
-                self.logger.info(f"Loaded {key} from {path}")
+        # Load dataset if not provided
+        if dataset is None:
+            if paths is None:
+                raise ValueError("If dataset is not provided, paths must be provided to load the dataset.")
+            dataset = self.load_dataset_from_files(stat_name, paths)
         
-        if len(datasets) == 0:
-            self.logger.warning("No datasets found within provided paths.")
-            self._dataset = None
-        else:
-            self._dataset = xarray.merge(datasets)
-            self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
+        if model is not None:
+            self.model = model
+        # Try to load model if not provided
+        elif paths is not None and 'model_dir' in paths:
+            try:
+                if checkpoint_fn is not None:
+                    self.logger.warning("DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
+                    checkpoint_fn = Path(checkpoint_fn)
+                else:
+                    checkpoint_fn = Path(paths['model_dir']) / f'{stat_name}.ckpt'
+                self.model = self.load_model(checkpoint_fn)
+            except (FileNotFoundError, OSError, RuntimeError, KeyError, ValueError) as e:
+                self.logger.warning(f"Could not load model from checkpoint: {e}")
         
-        # Load the model
-        try:
-            self.model = self.load_model() 
-        except Exception as e: # handle the case where the model checkpoint is not found
-            self.logger.warning(f"{e}, model will be undefined. If you are training a new model, this is expected.")
+        self._dataset = dataset
+        self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
         
         # Set the filters
         self.select_filters = select_filters
@@ -114,15 +128,108 @@ class Observable():
         self.select_indices = select_indices
         self.select_indices_on = select_indices_on if select_indices_on else [] # Ensure list behavior
         
-        if self.select_indices and (self.select_filters or self.slice_filters):
-            self.logger.warning("Indice selection and filters used at the same time. Check what you filter, you might not get the result you expect!")
+        # Store paths for reference
+        self.paths = paths if paths else {} # Ensure dict behavior
+        
+    @classmethod
+    def load_dataset_from_files(cls, stat_name: str, paths: dict) -> xarray.Dataset:
+        """
+        Load the dataset from the provided paths.
+        
+        Parameters
+        ----------
+        stat_name: str
+            Name or identifier of the statistic to load.
+        paths: dict
+            Paths to the compressed Observable directories.
+            Keys can include 'data_dir', 'covariance_dir', 'error_dir'.
+            Extra keys are ignored. Files are expected to be in `paths[key]/stat_name.npy`.
+            
+        Returns
+        -------
+        xarray.Dataset
+            The loaded xarray DataSet.
+            
+        Raises
+        ------
+        FileNotFoundError
+            If no datasets are found for the given statistic name in the provided paths.
+        """
+        logger = logging.getLogger(cls.__name__)
+        
+        # Try to read the paths with data inside
+        datasets = []
+        for key in ['data_dir', 'covariance_dir', 'error_dir']:
+            if key not in paths:
+                continue
+            path = Path(paths[key]) / f"{stat_name}.npy"
+        
+            if path.exists():
+                datasets.append(dataset_from_dict(np.load(path, allow_pickle=True).item()))
+                logger.info(f"Loaded {key} from {path}")
+        
+        if len(datasets) == 0:
+            raise FileNotFoundError(f"No datasets found for statistic '{stat_name}' in provided paths.")
+        
+        _dataset = xarray.merge(datasets)
+        return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
+    
+    @classmethod
+    def load_model(cls, checkpoint_fn: Path | str) -> FCN:
+        """
+        Trained theory model loaded from checkpoint.
+        
+        Parameters
+        ----------
+        checkpoint_fn : Path | str
+            Path to the model checkpoint file. See `sunbird.emulators.FCN.load_from_checkpoint`.
+        
+        Returns
+        -------
+        FCN
+            The loaded FCN model.
+        """
+        logger = logging.getLogger(cls.__name__)
+        
+        # Register the classes as safe globals if torch.serialization.add_safe_globals exists
+        if SAFE_CLASSES:
+            try:
+                torch.serialization.add_safe_globals(SAFE_CLASSES)
+            except AttributeError:
+                # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
+                logger.debug("torch.serialization.add_safe_globals not available, skipping safe globals registration")
+        
+        # Load the model
+        logger.info(f"Loading model from {checkpoint_fn}")
+        model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
+        model.eval().to('cpu')
+        return model
+    
+    @classmethod
+    def get_logger(cls) -> logging.Logger:
+        """
+        Returns the logger for the class.
 
-    def __str__(self):
+        Returns
+        -------
+        logging.Logger
+            The logger for the class.
         """
-        Returns a string representation of the object (statistic names and slice filters).
+        return logging.getLogger(cls.__name__)
+    
+    def __repr__(self):
         """
-        # TODO : improve this and __repr__ later ?
-        return self.get_save_handle()
+        Returns a string representation of the Observable object.
+        """
+        r = f"<{type(self).__name__}>"
+        for key, value in self.__dict__.items():
+            if key == "logger":
+                continue
+            display_key = "dataset" if key == "_dataset" else key
+            r += f"\n  {display_key}: {repr(value)},"
+        if r.endswith(','):
+            r = r[:-1]
+        return r
 
     def __getattr__(self, name):
         """
@@ -139,12 +246,15 @@ class Observable():
 
         # Apply reshaping if name is a data_var
         if name in self._dataset.data_vars:
-                
-            if name in self.select_indices_on:
-                data = self.apply_indices_selection(data)
+            
+            # Drop NaN dimensions if marked in attributes
+            data = self.drop_nan_dimensions(data)
             
             data = self.flatten_output(data, self.flat_output_dims)
         
+            if name in self.select_indices_on:
+                data = self.apply_indices_selection(data)
+                
             if self.squeeze_output:
                 data = data.squeeze()
                 
@@ -152,6 +262,33 @@ class Observable():
                 data = data.values
             
         return data
+    
+    def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+        """
+        Drops dimensions that contain only NaN values in a DataArray.
+        Does nothing if no 'nan_dims' attribute is found.
+
+        Parameters
+        ----------
+        dataarray : xarray.DataArray
+            The DataArray to drop NaN dimensions from. Must contain a 'nan_dims' attribute listing dimensions to check.
+
+        Returns
+        -------
+        xarray.DataArray
+            The DataArray with NaN dimensions dropped.
+        """
+        if 'nan_dims' not in dataarray.attrs:
+            return dataarray
+        
+        for dim in dataarray.attrs['nan_dims']:
+            # Ignore if dimension not present (e.g., already squeezed or filtered out)
+            if dim not in dataarray.dims: 
+                continue
+            dataarray = dataarray.dropna(dim=dim, how='all')
+        if dataarray.size == 0:
+            self.logger.warning(f"All values dropped for {dataarray.name} due to NaN filters.")
+        return dataarray
 
     @staticmethod
     def stack_on_attribute(attribute: str|dict, dataarray: xarray.DataArray, **kwargs) -> xarray.DataArray:
@@ -218,7 +355,7 @@ class Observable():
         return dataarray
 
     @classmethod
-    def flatten_output(cls, dataarray: xarray.DataArray, flat_output_dims: int) -> xarray.DataArray:
+    def flatten_output(cls, dataarray: xarray.DataArray, flat_output_dims: int, unstack: bool = True) -> xarray.DataArray:
         """
         Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
         containing the list of dimensions to stack on.
@@ -233,13 +370,17 @@ class Observable():
             The DataArray to flatten.
         flat_output_dims : int
             Number of dimensions to flatten the output on (1 or 2).
+        unstack : bool
+            If True (recommended), unstack the DataArray before flattening. Setting this to False can
+            lead to unexpected behavior if the DataArray is already stacked. Defaults to True.
 
         Returns
         -------
         xarray.DataArray
             The flattened DataArray.
         """
-        dataarray = dataarray.unstack()
+        if unstack:
+            dataarray = dataarray.unstack()
         if flat_output_dims == 2:
             dataarray = cls.stack_on_attribute('sample', dataarray)
             dataarray = cls.stack_on_attribute('features', dataarray)
@@ -251,8 +392,8 @@ class Observable():
 
     def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
-        Apply the indices selection on a given DataArray.
-        Should be called after filters are applied and before flattening.
+        Apply the indices selection on the last dimension of a given DataArray.
+        Should be called after filters are applied and after flattening the DataArray.
         Does nothing if select_indices is None.
 
         Parameters
@@ -268,18 +409,21 @@ class Observable():
         if self.select_indices is None:
             return dataarray
         
-        dataarray = self.stack_on_attribute('features', dataarray)
-        # Warn if filters are applied to features dimensions
-        if self.select_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.select_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
-        if self.slice_filters:
-            features_filters = [k for k in dataarray.attrs['features'] if k in self.slice_filters.keys()]
-            if any(features_filters):
-                self.logger.warning("Filters applied to features dimensions: {}".format(features_filters))
-
-        return dataarray.isel(features=self.select_indices)
+        dim_name = dataarray.dims[-1]
+        
+        # Warn if select_indices is applied on a dimension that is also filtered
+        for f_str in ['select_filters', 'slice_filters']:
+            f = getattr(self, f_str, None)
+            if f is not None:
+                features_filters = [k for k in dataarray.attrs['features'] if k in f.keys()]
+                if dim_name in features_filters:
+                    self.logger.warning(f"select_indices is applied on a dimension ({dim_name}) that is also filtered with {f_str}. This might lead to unexpected results.")
+                elif dim_name == 'features' and len(features_filters) > 0:
+                    self.logger.warning(f"select_indices is applied on 'features' dimension while {f_str} are also applied on features. This might lead to unexpected results.")
+                elif dim_name == 'dims':
+                    self.logger.warning(f"select_indices is applied while {f_str} are also applied. This might lead to unexpected results.")
+                    
+        return dataarray.isel({dim_name: self.select_indices})
 
     def get_coordinate_list(self, name: str) -> list:
         """
@@ -295,7 +439,7 @@ class Observable():
         list
             The list of values of the specified coordinate.
         """
-        coordinate_list = self.coords[name].values.tolist()
+        coordinate_list = self.coords[name].values.tolist() # pyright: ignore[reportAttributeAccessIssue] (DataArray.coords type is a DataArray object)
         
         if not isinstance(coordinate_list, list):
             coordinate_list = [coordinate_list]
@@ -322,16 +466,16 @@ class Observable():
         if hasattr(self._dataset, 'emulator_error'):
             data = self._dataset.emulator_error
             data = self.apply_filters(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if 'emulator_error' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_error'):
-            return self.get_emulator_error()
+            return self.get_emulator_error() # pyright: ignore[reportCallIssue]
         else:
             raise NotImplementedError("No emulator error found. Please provide an error_dir or implement the get_emulator_error method.")
     
@@ -344,46 +488,18 @@ class Observable():
         if hasattr(self._dataset, 'emulator_covariance_y'):
             data = self._dataset.emulator_covariance_y
             data = self.apply_filters(data)
+            data = self.flatten_output(data, self.flat_output_dims)
             if 'emulator_covariance_y' in self.select_indices_on:
                 data = self.apply_indices_selection(data)
-            data = self.flatten_output(data, self.flat_output_dims)
             if self.squeeze_output:
                 data = data.squeeze()
             if self.numpy_output:
                 data = data.values
             return data
         elif hasattr(self, 'get_emulator_covariance_y'):
-            return self.get_emulator_covariance_y()
+            return self.get_emulator_covariance_y() # pyright: ignore[reportCallIssue]
         else:
             raise NotImplementedError("No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method.")
-
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Path to the checkpoint file of the model, constructed from the paths and the statistic name.
-        """
-        return self.paths['model_dir'] + f'{self.stat_name}/' + self.paths['checkpoint_name'] # FIXME : Update this format later
-   
-    def load_model(self, checkpoint_fn: str = None) -> FCN:
-        """
-        Trained theory model.
-        """
-        if checkpoint_fn is None:
-            checkpoint_fn = self.checkpoint_fn
-        
-        # Register the classes as safe globals if torch.serialization.add_safe_globals exists
-        if SAFE_CLASSES:
-            try:
-                torch.serialization.add_safe_globals(SAFE_CLASSES)
-            except AttributeError:
-                # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
-                self.logger.debug("torch.serialization.add_safe_globals not available, skipping safe globals registration")
-        
-        # Load the model
-        self.logger.info(f"Loading model from {checkpoint_fn}")
-        model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
-        model.eval().to('cpu')
-        return model
     
     def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False):
         """
@@ -457,8 +573,8 @@ class Observable():
             return pred
         
         pred = self.apply_filters(pred)
-        pred = self.apply_indices_selection(pred)
         pred = self.flatten_output(pred, self.flat_output_dims)
+        pred = self.apply_indices_selection(pred)
         
         if self.squeeze_output:
             pred = pred.squeeze()
@@ -466,28 +582,46 @@ class Observable():
             pred = pred.values
         return pred
     
-    def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1) -> np.ndarray:
+    @temporary_class_state(numpy_output=False)
+    def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1, **kwargs) -> np.ndarray:
         """
         Covariance matrix for the statistic. 
         The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
-        """   
-        cov_y = self.covariance_y
         
-        # Ensure 2D shape of the covariance array
-        if isinstance(cov_y, xarray.DataArray):
-            cov_y = self.flatten_output(cov_y, flat_output_dims=2) # Force 2D flattening for covariance
-        elif len(cov_y.shape) > 2:
-            self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
-            cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
-        elif len(cov_y.shape) < 2:
-            self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
+        Parameters
+        ----------
+        volume_factor : float
+            Volume correction factor for the boxes. Default is 64.
+        prefactor : float
+            Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival).
+        **kwargs : dict
+            Additional arguments for the covariance matrix checker.
+            
+        Returns
+        -------
+        np.ndarray
+            The combined data covariance matrix.
+        """   
+        cov_y = self.covariance_y # Filtered and flattened DataArray
+        
+        # Selection of indices on 1D array prevents reshaping or forces NaN values in covariance matrix
+        if self.select_indices is not None and self.flat_output_dims == 1:
+            raise NotImplementedError("Covariance matrix computation with select_indices and flat_output_dims=1 cannot be computed.")
+        
+        cov_y = self.flatten_output(cov_y, flat_output_dims=2, unstack=False) # No unstacking to avoid NaN
+        cov_y = cov_y.values
         
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} data covariance", **kwargs)
+        
         return cov
     
-    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False) -> np.ndarray:
+    @temporary_class_state(numpy_output=False)
+    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, **kwargs) -> np.ndarray:
         """
         Covariance matrix of the emulator residuals.
 
@@ -501,23 +635,23 @@ class Observable():
             or standard deviation ('stdev'). Defaults to 'median'.
         diag : bool
             If True, only the diagonal of the covariance matrix is computed. Defaults to False.
+        **kwargs : dict
+            Additional arguments for the covariance matrix checker.
 
         Returns
         -------
         np.ndarray
             The emulator covariance matrix.
         """
-        cov_y = self.emulator_covariance_y
+        cov_y = self.emulator_covariance_y # Filtered and flattened DataArray
         
-        # Ensure 2D shape of the covariance array
-        if isinstance(cov_y, xarray.DataArray):
-            cov_y = self.flatten_output(cov_y, flat_output_dims=2).values  # Force 2D flattening for covariance
-        elif len(cov_y.shape) > 2:
-            self.logger.warning("Covariance array has more than 2 dimensions, reshaping to 2D assuming first dimension is the sample dimension.")
-            cov_y = cov_y.reshape(cov_y.shape[0], -1) # Expect first dimension to be the sample dimension
-        elif len(cov_y.shape) < 2:
-            self.logger.error("Covariance array has less than 2 dimensions, covariance matrix computation might return some unexpected results.")
-
+        # Selection of indices on 1D array prevents reshaping or forces NaN values in covariance matrix
+        if self.select_indices is not None and self.flat_output_dims == 1:
+            raise NotImplementedError("Covariance matrix computation with select_indices and flat_output_dims=1 cannot be computed.")
+        
+        cov_y = self.flatten_output(cov_y, flat_output_dims=2, unstack=False) # No unstacking to avoid NaN
+        cov_y = cov_y.values
+        
         if method == 'median':
             if diag:
                 mad = median_abs_deviation(cov_y, axis=0)
@@ -541,7 +675,13 @@ class Observable():
         else:
             raise ValueError(f"Unknown method '{method}' for emulator covariance matrix computation.")
         self.logger.info(f"Emulator covariance matrix computed using method '{method}' with diag={diag}.")
-        return prefactor * cov
+        
+        cov *= prefactor 
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name=f"{self.stat_name} emulator covariance", **kwargs)
+        
+        return cov
 
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
@@ -580,3 +720,117 @@ class Observable():
         if isinstance(save_dir, str):
             return cout.as_posix() # Return as string if save_dir is a string
         return cout
+
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_observable(self, model_params: dict, save_fn: str = None, **kwargs) -> tuple:
+        """
+        Plot the observable with error bars and the model prediction, along with the residuals.
+
+        Parameters
+        ----------
+        model_params : dict
+            Dictionary of model parameters for the prediction.
+        save_fn : str, optional
+            Filename to save the plot. If None, the plot is not saved.
+        **kwargs : dict
+            Additional arguments for the plot, such as height_ratios and show_legend.
+            The parameters volume_factor and prefactor are passed to get_covariance_matrix() 
+            to scale the covariance estimates.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+        height_ratios = kwargs.pop('height_ratios', [3, 1])
+        show_legend = kwargs.pop('show_legend', False)
+        figsize = (6, 1.5 * sum(height_ratios))
+        fig, ax = plt.subplots(len(height_ratios), sharex=True, sharey=False, gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
+        fig.subplots_adjust(hspace=0.1)
+        
+        ax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
+        ax[0].set_ylabel(r'${\rm X}$', fontsize=15)
+        
+        data = self.y
+        bin_idx = np.arange(len(data))
+        model = self.get_model_prediction(model_params)
+        
+        if len(data.shape) > 1:
+            self.logger.warning("Multiple samples found in the data. This might lead to unexpected plotting behavior.")
+        
+        volume_factor = kwargs.pop('volume_factor', 64)
+        prefactor = kwargs.pop('prefactor', 1)
+        cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+        error = np.sqrt(np.diag(cov))
+        
+        ax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', color=f'C0', elinewidth=1.0, capsize=None)
+        ax[0].plot(bin_idx, model, ls='-', color=f'C0')
+        ax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
+        
+        for offset in [-2, 2]: 
+            ax[1].axhline(offset, color='k', ls='--')
+            
+        ax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
+        ax[1].set_ylim(-4, 4)
+        
+        for a in ax:
+            a.grid(True)
+            a.tick_params(axis='both', labelsize=14)
+            
+        if show_legend: 
+            ax[0].legend(fontsize=15)
+        
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax
+    
+    @set_plot_style
+    @temporary_class_state(flat_output_dims=2, numpy_output=False)
+    def plot_emulator_residuals(self, save_fn: str = None, **kwargs) -> tuple:
+        """
+        Plot the emulator residuals.
+        
+        Parameters
+        ----------
+        save_fn : str
+            Filename to save the plot. If None, the plot is not saved.
+        **kwargs : dict
+            Additional arguments for the plot, such as figsize, and volume_factor and prefactor for covariance calculation.
+
+        Returns
+        -------
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
+        """
+
+        volume_factor = kwargs.pop('volume_factor', 64)
+        prefactor = kwargs.pop('prefactor', 1)
+        data_cov = self.get_covariance_matrix(volume_factor=volume_factor, prefactor=prefactor)
+        data_err = np.sqrt(np.diag(data_cov))
+        residuals = self.emulator_covariance_y
+        
+        figsize = kwargs.pop('figsize', (4, 4))
+        fig, ax = plt.subplots(2, 1, figsize=figsize, sharex=True)
+
+        for res in residuals:
+            ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
+
+        # summary statistics of the emulator residuals
+        for method in ['mean', 'median', 'stdev']:
+            emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
+            emu_err = np.sqrt(np.diag(emu_cov))
+
+            ax[1].plot(emu_err / data_err, lw=1.0, label=method)
+
+        ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
+        ax[1].set_xlabel('bin index', fontsize=13)
+        ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
+        ax[1].set_ylabel(r'$\sigma_{\rm emulator} / \sigma_{\rm data}$', fontsize=13)
+        ax[1].legend(fontsize=8)
+        fig.tight_layout()
+        if save_fn is not None:
+            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
+            self.logger.info(f'Saving plot to {save_fn}')
+        return fig, ax

@@ -9,15 +9,18 @@ def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
     Plot the model prediction for a given observable and cosmology/HOD index.
     """
     paths = {
-        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/',
-        'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
+        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+        'param_dir': None
     }
     observable = getattr(emc, observable_name, None)(
         paths=paths,
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
+        numpy_output=True,
+        squeeze_output=True,
     )
     save_fn = Path(save_dir) / f'{observable.stat_name}_model.png'
-    model_params = observable.x[0]
+    model_params = observable.x
     observable.plot_observable(model_params=model_params, save_fn=save_fn)
 
 def plot_emulator_residuals(observable_name):
@@ -25,8 +28,9 @@ def plot_emulator_residuals(observable_name):
     Plot the emulator residuals for a given observable.
     """
     paths = {
-        'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/',
-        'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
+        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+        'param_dir': None
     }
     observable = getattr(emc, observable_name, None)(
         paths=paths, select_filters={},
