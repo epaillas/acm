@@ -33,6 +33,7 @@ class BoxHOD:
         sim_type: str = 'base',
         redshift: float = 0.5,
         DM_DICT: dict = None,
+        DM_DICT_simtype: str = None,
     ):
         """
         Initialize the BoxHOD class.
@@ -59,6 +60,9 @@ class BoxHOD:
         DM_DICT : dict, optional
             Dictionary containing dark matter information. Defaults to None, which 
             together with the user-specified tracer maps to a value in utils.paths.
+        DM_DICT_simtype : str, optional
+            The simtype paramter used by get_Abacus_dirs, either 'box' or 
+            'lightcone'. Defaults to 'box' if None
             
         Raises
         ------
@@ -81,7 +85,9 @@ class BoxHOD:
                 config_file = Path(config_dir) / box_yaml_file
         config = yaml.safe_load(open(config_file))
         if DM_DICT is None:
-            DM_DICT = get_Abacus_dirs(tracer=tracer, simtype='box')
+            if DM_DICT_simtype is None:
+                DM_DICT_simtype = 'box'
+            DM_DICT = get_Abacus_dirs(tracer=tracer, simtype=DM_DICT_simtype)
         self.setup(config, DM_DICT)
         # AbacusHOD doesn't work with BGS, so after loading the BGS subsample files,
         # we use tracer = LRG for subsequent steps
