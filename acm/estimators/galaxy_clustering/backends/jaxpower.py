@@ -7,7 +7,63 @@ import logging
 
 
 class JaxpowerBackend:
+    """Backend using jaxpower for galaxy clustering measurements.
+    
+    This backend uses the jaxpower package to create mesh fields from galaxy
+    catalogs and compute density contrasts using JAX for GPU acceleration.
+    Supports both data-only and data+randoms configurations for FKP-style
+    estimators.
+    
+    Attributes
+    ----------
+    name : str
+        Backend name identifier ('jaxpower').
+    mattrs : MeshAttrs
+        Mesh attributes object containing box properties.
+    data_mesh : ParticleField
+        JAX particle field for data.
+    randoms_mesh : ParticleField or None
+        JAX particle field for randoms, if provided.
+    has_randoms : bool
+        Whether random catalog is present.
+    size_data : int
+        Number of data points.
+    boxsize : array_like
+        Size of the simulation box.
+    boxcenter : array_like
+        Center coordinates of the box.
+    meshsize : array_like
+        Number of mesh cells in each dimension.
+    cellsize : array_like
+        Size of each mesh cell.
+    delta_mesh : RealMeshField or ComplexMeshField
+        Density contrast field (set by set_density_contrast).
+    """
     def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
+        """Initialize the jaxpower backend.
+        
+        Parameters
+        ----------
+        data_positions : array_like, shape (N, 3)
+            Positions of data galaxies.
+        data_weights : array_like, shape (N,), optional
+            Weights for data galaxies.
+        randoms_positions : array_like, shape (M, 3), optional
+            Positions of random catalog.
+        randoms_weights : array_like, shape (M,), optional
+            Weights for randoms.
+        **kwargs : dict
+            Additional keyword arguments for mesh attributes.
+            If all kwargs match MeshAttrs fields, they're used directly.
+            Otherwise, mesh attributes are inferred from positions.
+            Common options include:
+            - boxsize : float or array_like
+                Size of the box.
+            - boxcenter : float or array_like
+                Center of the box.
+            - meshsize : int or array_like
+                Number of mesh cells per dimension.
+        """
         self.logger = logging.getLogger('JaxpowerBackend')
         self.name = 'jaxpower'
         # Set mesh attributes directly if passed, otherwise infer from positions
@@ -35,6 +91,35 @@ class JaxpowerBackend:
             self.logger.info(f'Box meshsize: {self.meshsize}')
 
     def set_density_contrast(self, resampler: str='cic', interlacing=False, compensate=False, halo_add: int=0, smoothing_radius: float = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
+        """Compute the density contrast field.
+        
+        Paints particles to a mesh and computes the density contrast using
+        either data only or data+randoms (FKP method). Optionally applies
+        Gaussian smoothing.
+        
+        Parameters
+        ----------
+        resampler : str, default='cic'
+            Resampling scheme for painting particles to mesh.
+            Options: 'ngp', 'cic', 'tcs', 'pcs'.
+        interlacing : bool, default=False
+            Whether to use interlacing to reduce aliasing.
+        compensate : bool, default=False
+            Whether to apply compensation for the window function.
+        halo_add : int, default=0
+            Number of halo cells to add around the mesh.
+        smoothing_radius : float, optional
+            Gaussian smoothing scale in Mpc/h. If None, no smoothing is applied.
+        randoms_threshold_value : float, default=0.01
+            Threshold value for randoms field to avoid division by zero.
+        randoms_threshold_method : str, default='noise'
+            Method to compute randoms threshold. Options: 'noise' or 'mean'.
+            
+        Returns
+        -------
+        delta_mesh : RealMeshField or ComplexMeshField
+            Density contrast field.
+        """
         def _2r(mesh):
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
@@ -79,6 +164,24 @@ class JaxpowerBackend:
         return self.delta_mesh
 
     def _get_threshold_randoms(self, randoms, threshold_value: float = 0.01, threshold_method: str = 'noise'):
+        """Compute threshold for randoms field to avoid division by zero.
+        
+        Parameters
+        ----------
+        randoms : ParticleField
+            Random particle field.
+        threshold_value : float, default=0.01
+            Threshold multiplier.
+        threshold_method : str, default='noise'
+            Method to compute threshold. Options:
+            - 'noise': threshold based on shot noise
+            - 'mean': threshold based on mean density
+            
+        Returns
+        -------
+        float
+            Threshold value for randoms field.
+        """
         assert threshold_method in ['noise', 'mean'], "threshold_method must be one of ['noise', 'mean']"
 
         if threshold_method == 'noise':
@@ -88,23 +191,27 @@ class JaxpowerBackend:
         return threshold_randoms
 
     def get_query_positions(self, method='randoms', nquery=None, seed=42):
-        """
-        Get query positions to sample the density PDF, either using random points within the
-        density mesh, or the positions at the center of each mesh cell.
+        """Generate query positions to sample the density PDF.
+        
+        Creates either a regular lattice of points at mesh cell centers or
+        random points within the density mesh for sampling the density field.
 
         Parameters        
         ----------
-        method : str, optional
-            Method to generate query points. Options are 'lattice' or 'randoms'.
+        method : str, default='randoms'
+            Method to generate query points. Options:
+            - 'lattice': Regular grid at mesh cell centers
+            - 'randoms': Uniformly distributed random points
         nquery : int, optional
-            Number of query points used when method is 'randoms'.
-        seed : int, optional
-            Seed for random number generator.
+            Number of query points when method is 'randoms'.
+            Default is 5 times the number of data points.
+        seed : int, default=42
+            Random seed for reproducibility.
 
         Returns
         -------
-        query_positions : array_like
-            Query positions.
+        query_positions : ndarray, shape (nquery, 3)
+            Query positions as float32 array.
         """
         t0 = time.time()
         boxcenter = self.boxcenter
@@ -124,4 +231,18 @@ class JaxpowerBackend:
         return coords.astype(np.float32)
 
     def kernel_gaussian(self, mattrs: MeshAttrs, smoothing_radius=10.):
+        """Generate Gaussian smoothing kernel in Fourier space.
+        
+        Parameters
+        ----------
+        mattrs : MeshAttrs
+            Mesh attributes object.
+        smoothing_radius : float, default=10.
+            Smoothing scale in Mpc/h.
+            
+        Returns
+        -------
+        array_like
+            Gaussian kernel in Fourier space.
+        """
         return jnp.exp(- 0.5 * sum((kk * smoothing_radius)**2 for kk in mattrs.kcoords(sparse=True)))

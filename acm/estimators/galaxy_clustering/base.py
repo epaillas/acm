@@ -26,10 +26,12 @@ z
         ----------
         positions : array_like
             Input positions.
+        resampler : str, optional
+            Resampling scheme. Default is 'cic'.
 
         Returns
         -------
-        delta_query : array_like
+        delta : array_like
             Density contrast at the input positions.
         """
         if self.backend.name == 'jaxpower':
