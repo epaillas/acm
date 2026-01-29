@@ -5,7 +5,65 @@ import logging
 
 
 class PyreconBackend:
+    """Backend using pyrecon for galaxy clustering measurements.
+    
+    This backend uses the pyrecon package to create mesh fields from galaxy
+    catalogs and compute density contrasts. It supports both data-only and
+    data+randoms configurations and provides methods for assigning particles
+    to meshes incrementally.
+    
+    Attributes
+    ----------
+    name : str
+        Backend name identifier ('pyrecon').
+    boxsize : ndarray
+        Size of the simulation box in each dimension.
+    boxcenter : ndarray
+        Center coordinates of the box.
+    meshsize : ndarray
+        Number of mesh cells in each dimension.
+    cellsize : ndarray
+        Size of each mesh cell.
+    data_mesh : RealMesh
+        Pyrecon mesh object for data.
+    randoms_mesh : RealMesh or None
+        Pyrecon mesh object for randoms, if provided.
+    size_data : int
+        Number of data points assigned to the mesh.
+    delta_mesh : RealMesh
+        Density contrast field (set by set_density_contrast).
+    ran_min : float
+        Minimum randoms threshold value (set by set_density_contrast).
+    """
     def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
+        """Initialize the pyrecon backend.
+        
+        Parameters
+        ----------
+        data_positions : array_like, shape (N, 3)
+            Positions of data galaxies.
+        data_weights : array_like, shape (N,), optional
+            Weights for data galaxies.
+        randoms_positions : array_like, shape (M, 3), optional
+            Positions of random catalog.
+        randoms_weights : array_like, shape (M,), optional
+            Weights for randoms.
+        **kwargs : dict
+            Additional keyword arguments for mesh configuration.
+            Required:
+            - boxsize : float or array_like
+                Size of the box.
+            - meshsize : int or array_like
+                Number of mesh cells per dimension.
+            Optional:
+            - boxcenter : float or array_like, default=0.0
+                Center of the box.
+                
+        Raises
+        ------
+        ValueError
+            If boxsize or meshsize are not provided.
+        """
         self.logger = logging.getLogger('PyreconBackend')
         self.name = 'pyrecon'
         
@@ -60,20 +118,22 @@ class PyreconBackend:
         self.logger.info(f'Box meshsize: {self.meshsize}')
 
     def assign_data(self, positions, weights=None, wrap=True, clear_previous=True):
-        """
-        Assign data to the mesh.
+        """Assign data particles to the mesh.
+        
+        Uses Cloud-in-Cell (CIC) interpolation to paint particles onto the mesh.
 
         Parameters
         ----------
-        positions : array_like
+        positions : array_like, shape (N, 3)
             Positions of the data points.
-        weights : array_like, optional
+        weights : array_like, shape (N,), optional
             Weights of the data points. If not provided, all points are 
-            assumed to have the same weight.
-        wrap : bool, optional
+            assumed to have unit weight.
+        wrap : bool, default=True
             Wrap the data points around the box, assuming periodic boundaries.
-        clear_previous : bool, optional
-            Clear previous data.
+        clear_previous : bool, default=True
+            Clear previous data before assignment. If False, particles are
+            added to existing mesh values.
         """
         if clear_previous:
             self.data_mesh.value = None
@@ -83,17 +143,19 @@ class PyreconBackend:
         self.size_data += len(positions)
 
     def assign_randoms(self, positions, weights=None, wrap=True):
-        """
-        Assign randoms to the mesh.
+        """Assign random particles to the mesh.
+        
+        Uses Cloud-in-Cell (CIC) interpolation to paint random particles onto
+        the randoms mesh.
 
         Parameters
         ----------
-        positions : array_like
+        positions : array_like, shape (N, 3)
             Positions of the random points.
-        weights : array_like, optional
+        weights : array_like, shape (N,), optional
             Weights of the random points. If not provided, all points are 
-            assumed to have the same weight.
-        wrap : bool, optional
+            assumed to have unit weight.
+        wrap : bool, default=True
             Wrap the random points around the box, assuming periodic boundaries.
         """
         if self.randoms_mesh is None:
@@ -105,27 +167,44 @@ class PyreconBackend:
 
     @property
     def has_randoms(self):
+        """Check if the backend has randoms.
+        
+        Returns
+        -------
+        bool
+            True if random catalog is present and has been assigned to mesh,
+            False otherwise.
+        """
         return self.randoms_mesh is not None and self.randoms_mesh.value is not None
 
     def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False):
-        """
-        Set the density contrast.
+        """Compute the density contrast field.
+        
+        Computes the density contrast using data mesh and optionally randoms
+        mesh (FKP method). Optionally applies Gaussian smoothing using FFTW.
 
         Parameters
         ----------
         smoothing_radius : float, optional
-            Smoothing radius in Mpc/h.
-        check : bool, optional
-            Check if there are enough randoms.
-        ran_min : float, optional
-            Minimum randoms threshold (as fraction of mean).
-        save_wisdom : bool, optional
-            Save FFTW wisdom for future use.
+            Gaussian smoothing scale in Mpc/h. If None, no smoothing is applied.
+        check : bool, default=False
+            Check if there are enough randoms in the mesh to avoid
+            numerical issues.
+        ran_min : float, default=0.01
+            Minimum randoms threshold as fraction of mean randoms density.
+            Cells with randoms below this threshold are set to zero.
+        save_wisdom : bool, default=False
+            Save FFTW wisdom to disk for faster future FFTs.
             
         Returns
         -------
         delta_mesh : RealMesh
-            Density contrast.
+            Density contrast field.
+            
+        Raises
+        ------
+        ValueError
+            If check=True and very few randoms are found.
         """
         t0 = time.time()
         
@@ -158,22 +237,26 @@ class PyreconBackend:
         return self.delta_mesh
 
     def get_query_positions(self, method='randoms', nquery=None, seed=42):
-        """
-        Get query positions to sample the density PDF, either using random points within a mesh,
-        or the positions at the center of each mesh cell.
+        """Generate query positions to sample the density PDF.
+        
+        Creates either a regular lattice of points at mesh cell centers or
+        random points within the mesh for sampling the density field.
 
         Parameters        
         ----------
-        method : str, optional
-            Method to generate query points. Options are 'lattice' or 'randoms'.
+        method : str, default='randoms'
+            Method to generate query points. Options:
+            - 'lattice': Regular grid at mesh cell centers
+            - 'randoms': Uniformly distributed random points
         nquery : int, optional
-            Number of query points used when method is 'randoms'.
-        seed : int, optional
-            Seed for random number generator.
+            Number of query points when method is 'randoms'.
+            Default is 5 times the number of data points.
+        seed : int, default=42
+            Random seed for reproducibility.
 
         Returns
         -------
-        query_positions : array_like
+        query_positions : ndarray, shape (nquery, 3)
             Query positions.
         """
         boxcenter = self.boxcenter

@@ -6,7 +6,56 @@ import logging
 
 
 class PypowerBackend:
+    """Backend using pypower for galaxy clustering measurements.
+    
+    This backend uses the pypower package to create mesh fields from galaxy
+    catalogs and compute density contrasts. It supports both data-only and
+    data+randoms configurations for FKP-style estimators.
+    
+    Attributes
+    ----------
+    name : str
+        Backend name identifier ('pypower').
+    mesh : CatalogMesh
+        Pypower mesh object containing data and optional randoms.
+    size_data : int
+        Number of data points.
+    meshsize : array_like
+        Number of mesh cells in each dimension.
+    cellsize : array_like
+        Size of each mesh cell.
+    boxsize : array_like
+        Size of the simulation box.
+    boxcenter : array_like
+        Center coordinates of the box.
+    delta_mesh : array_like
+        Density contrast field (set by set_density_contrast).
+    data_mesh : array_like
+        Data mesh field (set by set_density_contrast).
+    """
     def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
+        """Initialize the pypower backend.
+        
+        Parameters
+        ----------
+        data_positions : array_like, shape (N, 3)
+            Positions of data galaxies.
+        data_weights : array_like, shape (N,), optional
+            Weights for data galaxies.
+        randoms_positions : array_like, shape (M, 3), optional
+            Positions of random catalog.
+        randoms_weights : array_like, shape (M,), optional
+            Weights for randoms.
+        **kwargs : dict
+            Additional keyword arguments passed to CatalogMesh.
+            Common options include:
+            - boxsize : float or array_like
+                Size of the box.
+            - boxcenter : float or array_like
+                Center of the box.
+            - meshsize or nmesh : int or array_like
+                Number of mesh cells per dimension.
+        """
         self.logger = logging.getLogger('PypowerBackend')
         self.name = 'pypower'
         if 'meshsize' in kwargs:
@@ -28,27 +77,35 @@ class PypowerBackend:
 
     @property
     def has_randoms(self):
+        """Check if the backend has randoms.
+        
+        Returns
+        -------
+        bool
+            True if random catalog is present, False otherwise.
+        """
         return self.mesh.with_randoms
 
     def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian'):
-        """
-        Set the density contrast.
+        """Compute the density contrast field.
+        
+        Paints data (and optionally randoms) to a mesh and computes the density
+        contrast. For data+randoms, uses the FKP method. Optionally applies
+        smoothing with a specified filter.
 
         Parameters
         ----------
         smoothing_radius : float, optional
-            Smoothing radius.
-        check : bool, optional
-            Check if there are enough randoms.
-        ran_min : float, optional
-            Minimum randoms.
-        nquery_factor : int, optional
-            Factor to multiply the number of data points to get the number of query points.
+            Smoothing scale in Mpc/h. If provided, applies smoothing filter.
+        compensate : bool, default=False
+            Whether to compensate for the mass assignment window function.
+        filter_shape : str, default='Gaussian'
+            Shape of the smoothing filter. Options: 'Gaussian' or 'TopHat'.
             
         Returns
         -------
         delta_mesh : array_like
-            Density contrast.
+            Density contrast field.
         """
         t0 = time.time()
         data_mesh = self.mesh.to_mesh(field='data', compensate=compensate)
@@ -80,24 +137,26 @@ class PypowerBackend:
         return self.delta_mesh
 
     def get_query_positions(self, method='randoms', nquery=None, seed=42):
-        """
-        Get query positions to sample the density PDF, either using random points within a mesh,
-        or the positions at the center of each mesh cell.
+        """Generate query positions to sample the density PDF.
+        
+        Creates either a regular lattice of points at mesh cell centers or
+        random points within the mesh for sampling the density field.
 
         Parameters        
         ----------
-        mesh : RealMesh
-            Mesh.
-        method : str, optional
-            Method to generate query points. Options are 'lattice' or 'randoms'.
+        method : str, default='randoms'
+            Method to generate query points. Options:
+            - 'lattice': Regular grid at mesh cell centers
+            - 'randoms': Uniformly distributed random points
         nquery : int, optional
-            Number of query points used when method is 'randoms'.
-        seed : int, optional
-            Seed for random number generator.
+            Number of query points when method is 'randoms'.
+            Default is 5 times the number of data points.
+        seed : int, default=42
+            Random seed for reproducibility.
 
         Returns
         -------
-        query_positions : array_like
+        query_positions : ndarray, shape (nquery, 3)
             Query positions.
         """
         boxcenter = self.boxcenter
@@ -124,18 +183,41 @@ class PypowerBackend:
             return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
 
     class TopHat(object):
-        '''Top-hat filter in Fourier space
-        adapted from https://github.com/bccp/nbodykit/
+        """Top-hat filter in Fourier space.
+        
+        Implements a top-hat filter that can be applied to mesh fields in
+        Fourier space. Adapted from https://github.com/bccp/nbodykit/.
 
         Parameters
         ----------
         r : float
-            the radius of the top-hat filter
-        '''
+            The radius of the top-hat filter in Mpc/h.
+        """
         def __init__(self, r):
+            """Initialize the TopHat filter.
+            
+            Parameters
+            ----------
+            r : float
+                The radius of the top-hat filter in Mpc/h.
+            """
             self.r = r
 
         def __call__(self, k, v):
+            """Apply the top-hat filter.
+            
+            Parameters
+            ----------
+            k : tuple of arrays
+                Wavenumber components.
+            v : array_like
+                Field values in Fourier space.
+                
+            Returns
+            -------
+            array_like
+                Filtered field values.
+            """
             r = self.r
             k = sum(ki ** 2 for ki in k) ** 0.5
             kr = k * r
@@ -146,17 +228,41 @@ class PypowerBackend:
 
 
     class Gaussian(object):
-        '''Gaussian filter in Fourier space
+        """Gaussian filter in Fourier space.
+        
+        Implements a Gaussian smoothing filter that can be applied to mesh
+        fields in Fourier space.
 
         Parameters
         ----------
         r : float
-            the radius of the Gaussian filter
-        '''
+            The smoothing scale (radius) of the Gaussian filter in Mpc/h.
+        """
         def __init__(self, r):
+            """Initialize the Gaussian filter.
+            
+            Parameters
+            ----------
+            r : float
+                The smoothing scale of the Gaussian filter in Mpc/h.
+            """
             self.r = r
 
         def __call__(self, k, v):
+            """Apply the Gaussian filter.
+            
+            Parameters
+            ----------
+            k : tuple of arrays
+                Wavenumber components.
+            v : array_like
+                Field values in Fourier space.
+                
+            Returns
+            -------
+            array_like
+                Filtered field values.
+            """
             r = self.r
             k2 = sum(ki ** 2 for ki in k)
             return np.exp(- 0.5 * k2 * r**2) * v
