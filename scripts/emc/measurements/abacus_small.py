@@ -33,6 +33,28 @@ def get_box_args(boxsize, cellsize):
     meshsize = (boxsize / cellsize).astype(int)
     return dict(boxsize=boxsize, boxcenter=0.0, meshsize=meshsize)
 
+def get_save_dir(base_save_dir, stat_name, version='v1.2'):
+    """
+    Construct the save directory path for a given statistic in small mocks.
+    
+    Parameters
+    ----------
+    base_save_dir : str or Path
+        Base directory for saving measurements.
+    stat_name : str
+        Name of the statistic (e.g., 'wst', 'spectrum', 'spherical_voids').
+    version : str, optional
+        Version string (default: 'v1.2').
+    
+    Returns
+    -------
+    Path
+        Complete save directory path.
+    """
+    save_dir = Path(base_save_dir, f'{version}/abacus/small/{stat_name}/')
+    save_dir.mkdir(parents=True, exist_ok=True)
+    return save_dir
+
 def get_hod_fn(phase=0, redshift=0.5):
     """
     Get the list of HOD file names for a given cosmology,
@@ -478,25 +500,22 @@ if __name__ == '__main__':
         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
 
         if 'spectrum' in args.todo_stats:
-            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/spectrum/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
-            output_fn = Path(save_dir) / f'mesh2_spectrum_poles_ph{phase_idx:03}.h5'
+            save_dir = get_save_dir(args.save_dir, 'spectrum')
+            output_fn = save_dir / f'mesh2_spectrum_poles_ph{phase_idx:03}.h5'
             box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
                 compute_spectrum(output_fn, hod_positions, **box_args)
 
         if 'recon_spectrum' in args.todo_stats:
-            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/recon_spectrum/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
-            output_fn = Path(save_dir) / f'mesh2_recon_spectrum_poles_ph{phase_idx:03}.h5'
+            save_dir = get_save_dir(args.save_dir, 'recon_spectrum')
+            output_fn = save_dir / f'mesh2_recon_spectrum_poles_ph{phase_idx:03}.h5'
             box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
                 compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
         if 'bispectrum' in args.todo_stats:
-            save_dir = '/pscratch/sd/e/epaillas/emc/v1.2/abacus/small/bispectrum/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
-            output_fn = Path(save_dir) / f'mesh3_spectrum_poles_ph{phase_idx:03}.h5'
+            save_dir = get_save_dir(args.save_dir, 'bispectrum')
+            output_fn = save_dir / f'mesh3_spectrum_poles_ph{phase_idx:03}.h5'
             if output_fn.exists():
                 print(f'{output_fn} already exists, skipping.')
                 continue
@@ -512,8 +531,8 @@ if __name__ == '__main__':
         #    compute_dr_knn(output_fn, hod_positions, **box_args)
 
         if 'dd_knn' in args.todo_stats:
-            save_dir = Path(args.save_dir) / 'v1.2/abacus/small/dd_knn/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            save_dir = get_save_dir(args.save_dir, 'dd_knn')
+
             output_fn = Path(save_dir) / f'dd_knn_ph{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, los='z')
             compute_dd_knn(output_fn, hod_positions, **box_args)            
@@ -524,9 +543,9 @@ if __name__ == '__main__':
                 {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 20},
                 # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 100},
             ]:
-                save_dir = Path(args.save_dir) / 'v1.2/abacus/small/wst/'
-                save_dir = Path(save_dir) / f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
-                Path(save_dir).mkdir(parents=True, exist_ok=True)
+                wst_base_dir = get_save_dir(args.save_dir, 'wst')
+                save_dir = wst_base_dir / f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
+                save_dir.mkdir(parents=True, exist_ok=True)
                 output_fn = Path(save_dir) / f'wst_ph{phase_idx:03}.npy'
                 if output_fn.exists():
                     logger.info(f'Skipping {output_fn}, already exists.')
@@ -538,8 +557,7 @@ if __name__ == '__main__':
 
         if 'spherical_voids' in args.todo_stats:
             
-            save_dir = Path(args.save_dir) / 'v1.2/abacus/small/spherical_voids/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            save_dir = get_save_dir(args.save_dir, 'spherical_voids')
             output_fn = {
                 'void': Path(save_dir) / f'sv_void_ph{phase_idx:03}.npy',
                 'vsf' : Path(save_dir) / f'sv_vsf_ph{phase_idx:03}.npy',
@@ -551,8 +569,7 @@ if __name__ == '__main__':
             compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
 
         if 'recon_spherical_voids' in args.todo_stats:
-            save_dir = Path(args.save_dir) / 'v1.2/abacus/small/recon_spherical_voids/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            save_dir = get_save_dir(args.save_dir, 'recon_spherical_voids')
             output_fn = {
                 'void': Path(save_dir) / f'sv_recon_void_ph{phase_idx:03}.npy',
                 'vsf' : Path(save_dir) / f'sv_recon_vsf_ph{phase_idx:03}.npy',
@@ -571,15 +588,14 @@ if __name__ == '__main__':
             compute_tpcf_smu(output_fn, hod_positions, **box_args)
 
         if 'tpcf_rppi' in args.todo_stats:
-            save_dir = Path(args.save_dir) / 'v1.2/abacus/small/projected_tpcf/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            save_dir = get_save_dir(args.save_dir, 'projected_tpcf')
+
             output_fn = Path(save_dir) / f'tpcf_rppi_ph{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
             compute_tpcf_rppi(output_fn, hod_positions, **box_args)
 
         if 'density_split' in args.todo_stats:
-            save_dir = Path(args.save_dir) / 'v1.2/abacus/small/density_split/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            save_dir = get_save_dir(args.save_dir, 'density_split')
             output_fn = {
                 'xiqg': Path(save_dir) / f'dsc_xiqg_poles_ph{phase_idx:03}.npy',
                 'xiqq': Path(save_dir) / f'dsc_xiqq_poles_ph{phase_idx:03}.npy'
@@ -589,8 +605,8 @@ if __name__ == '__main__':
             compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
 
         if 'minkowski' in args.todo_stats:
-            save_dir = Path(args.save_dir) / 'v1.2/abacus/small/minkowski/'
-            Path(save_dir).mkdir(parents=True, exist_ok=True)
+            save_dir = get_save_dir(args.save_dir, 'minkowski')
+
             output_fn = Path(save_dir) / f'minkowski_ph{phase_idx:03}.npy'
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
             box_args = get_box_args(boxsize, cellsize=3.9)
