@@ -527,6 +527,11 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         self.balls = []
         for zsnap in self.snapshots:
+            """
+            # For debugging, replace with the below code for
+            # a fast runtime (also need to update self.sample_hod)
+            self.balls += [0] 
+            """
             ball = BoxHOD(
                 varied_params=self.varied_params,
                 tracer = tracer,
@@ -679,6 +684,12 @@ class CutskyHOD(BaseCutskyCatalog):
                 box_positions, box_velocities = self.load_hod(mock_path=existing_hod_path)
             else:
                 ball  = self.balls[i]
+                """
+                # For debugging, replace with the below code for
+                # a fast runtime  (also need to update self.setup_hod)
+                box_positions = 2000*np.random.rand(3,100000).T-1000
+                box_velocities = 10*np.random.rand(3,100000).T-5
+                """
                 box_positions, box_velocities = self._sample_hod(
                     ball,
                     hod_params,
@@ -1017,9 +1028,9 @@ class CutskyHOD(BaseCutskyCatalog):
             select_targets = np.ones_like(redshift, dtype = bool)
 
             if zrange[0] != self.zranges[0][0]:
-                select_targets *= (redshift > zrange[0] ) 
+                select_targets *= (redshift >= zrange[0] ) 
             if zrange[1] != self.zranges[-1][1]:
-                select_targets *= (redshift < zrange[1] ) 
+                select_targets *= (redshift <= zrange[1] ) 
             
             combined_raw_nbar[select_targets] = raw_nbar
 
