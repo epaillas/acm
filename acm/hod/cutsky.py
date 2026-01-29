@@ -493,6 +493,7 @@ class CutskyHOD(BaseCutskyCatalog):
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
         """
         super().__init__()
+        self.DM_DICT_simtype = 'box'
         self.logger = logging.getLogger('CutskyHOD')
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
@@ -534,7 +535,8 @@ class CutskyHOD(BaseCutskyCatalog):
                 redshift=zsnap,
                 cosmo_idx=self.cosmo_idx,
                 phase_idx=self.phase_idx,
-                config_file=self.config_file
+                config_file=self.config_file,
+                DM_DICT_simtype=self.DM_DICT_simtype
             )
             self.balls += [ball]
         self.cosmo = AbacusSummit(self.cosmo_idx)
