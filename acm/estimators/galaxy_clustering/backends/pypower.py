@@ -1,8 +1,10 @@
 from pypower import CatalogMesh
 import numpy as np
+import numpy.typing as npt
 import jax.numpy as jnp
 import time
 import logging
+from typing import Optional, Any
 
 
 class PypowerBackend:
@@ -33,7 +35,7 @@ class PypowerBackend:
     data_mesh : array_like
         Data mesh field (set by set_density_contrast).
     """
-    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
+    def __init__(self, data_positions: npt.NDArray, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
         """Initialize the pypower backend.
         
         Parameters
@@ -76,7 +78,7 @@ class PypowerBackend:
         self.logger.info(f'Box meshsize: {self.meshsize}')
 
     @property
-    def has_randoms(self):
+    def has_randoms(self) -> bool:
         """Check if the backend has randoms.
         
         Returns
@@ -86,7 +88,7 @@ class PypowerBackend:
         """
         return self.mesh.with_randoms
 
-    def set_density_contrast(self, smoothing_radius=None, compensate=False, filter_shape='Gaussian'):
+    def set_density_contrast(self, smoothing_radius: Optional[float] = None, compensate: bool = False, filter_shape: str = 'Gaussian') -> npt.NDArray:
         """Compute the density contrast field.
         
         Paints data (and optionally randoms) to a mesh and computes the density
@@ -136,7 +138,7 @@ class PypowerBackend:
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
         return self.delta_mesh
 
-    def get_query_positions(self, method='randoms', nquery=None, seed=42):
+    def get_query_positions(self, method: str = 'randoms', nquery: Optional[int] = None, seed: int = 42) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
         
         Creates either a regular lattice of points at mesh cell centers or
@@ -193,7 +195,7 @@ class PypowerBackend:
         r : float
             The radius of the top-hat filter in Mpc/h.
         """
-        def __init__(self, r):
+        def __init__(self, r: float) -> None:
             """Initialize the TopHat filter.
             
             Parameters
@@ -203,7 +205,7 @@ class PypowerBackend:
             """
             self.r = r
 
-        def __call__(self, k, v):
+        def __call__(self, k: tuple, v: npt.NDArray) -> npt.NDArray:
             """Apply the top-hat filter.
             
             Parameters
@@ -238,7 +240,7 @@ class PypowerBackend:
         r : float
             The smoothing scale (radius) of the Gaussian filter in Mpc/h.
         """
-        def __init__(self, r):
+        def __init__(self, r: float) -> None:
             """Initialize the Gaussian filter.
             
             Parameters
@@ -248,7 +250,7 @@ class PypowerBackend:
             """
             self.r = r
 
-        def __call__(self, k, v):
+        def __call__(self, k: tuple, v: npt.NDArray) -> npt.NDArray:
             """Apply the Gaussian filter.
             
             Parameters

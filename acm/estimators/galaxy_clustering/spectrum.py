@@ -6,6 +6,7 @@ from jaxpower import (
 )
 import jax
 import logging
+from typing import Any, Optional, Union
 from .base import BaseEstimator
 
 
@@ -15,7 +16,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
     https://github.com/adematti/jax-power/
     """
     
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         self.logger = logging.getLogger(__name__)
         kwargs.setdefault('backend', 'jaxpower')
         super().__init__(**kwargs)
@@ -29,7 +30,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
             donate_argnums=[0]
         )
 
-    def compute_spectrum(self, edges={'step': 0.001}, ells=(0, 2, 4), los='z', save_fn=None):
+    def compute_spectrum(self, edges: dict = {'step': 0.001}, ells: tuple = (0, 2, 4), los: str = 'z', save_fn: Optional[str] = None):
         self.bin = BinMesh2SpectrumPoles(
             self.mattrs,
             edges=edges,
@@ -45,7 +46,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
             self.spectrum.write(save_fn)
         return self.spectrum
     
-    def get_multipoles(self, kmin=None, kmax=None, rebin=1):
+    def get_multipoles(self, kmin: Optional[float] = None, kmax: Optional[float] = None, rebin: int = 1):
         spectrum = self.spectrum.select(k=slice(0, None, rebin))
         poles = [spectrum.get(ell) for ell in spectrum.ells]
         k = poles[0].coords('k')

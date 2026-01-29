@@ -1,7 +1,9 @@
 from pyrecon import RealMesh
 import numpy as np
+import numpy.typing as npt
 import time
 import logging
+from typing import Optional, Any
 
 
 class PyreconBackend:
@@ -35,7 +37,7 @@ class PyreconBackend:
     ran_min : float
         Minimum randoms threshold value (set by set_density_contrast).
     """
-    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
+    def __init__(self, data_positions: Optional[npt.NDArray] = None, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
         """Initialize the pyrecon backend.
         
         Parameters
@@ -117,7 +119,7 @@ class PyreconBackend:
         self.logger.info(f'Box center: {self.boxcenter}')
         self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def assign_data(self, positions, weights=None, wrap=True, clear_previous=True):
+    def assign_data(self, positions: npt.NDArray, weights: Optional[npt.NDArray] = None, wrap: bool = True, clear_previous: bool = True) -> None:
         """Assign data particles to the mesh.
         
         Uses Cloud-in-Cell (CIC) interpolation to paint particles onto the mesh.
@@ -142,7 +144,7 @@ class PyreconBackend:
         self.data_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
         self.size_data += len(positions)
 
-    def assign_randoms(self, positions, weights=None, wrap=True):
+    def assign_randoms(self, positions: npt.NDArray, weights: Optional[npt.NDArray] = None, wrap: bool = True) -> None:
         """Assign random particles to the mesh.
         
         Uses Cloud-in-Cell (CIC) interpolation to paint random particles onto
@@ -166,7 +168,7 @@ class PyreconBackend:
         self._size_randoms += len(positions)
 
     @property
-    def has_randoms(self):
+    def has_randoms(self) -> bool:
         """Check if the backend has randoms.
         
         Returns
@@ -177,7 +179,7 @@ class PyreconBackend:
         """
         return self.randoms_mesh is not None and self.randoms_mesh.value is not None
 
-    def set_density_contrast(self, smoothing_radius=None, check=False, ran_min=0.01, save_wisdom=False):
+    def set_density_contrast(self, smoothing_radius: Optional[float] = None, check: bool = False, ran_min: float = 0.01, save_wisdom: bool = False) -> RealMesh:
         """Compute the density contrast field.
         
         Computes the density contrast using data mesh and optionally randoms
@@ -236,7 +238,7 @@ class PyreconBackend:
         self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
         return self.delta_mesh
 
-    def get_query_positions(self, method='randoms', nquery=None, seed=42):
+    def get_query_positions(self, method: str = 'randoms', nquery: Optional[int] = None, seed: int = 42) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
         
         Creates either a regular lattice of points at mesh cell centers or

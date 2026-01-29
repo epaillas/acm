@@ -2,8 +2,10 @@ from jaxpower import MeshAttrs, ParticleField, FKPField, ComplexMeshField, RealM
 from jax import numpy as jnp
 import jax
 import numpy as np
+import numpy.typing as npt
 import time
 import logging
+from typing import Optional, Any, Union
 
 
 class JaxpowerBackend:
@@ -39,7 +41,7 @@ class JaxpowerBackend:
     delta_mesh : RealMeshField or ComplexMeshField
         Density contrast field (set by set_density_contrast).
     """
-    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
+    def __init__(self, data_positions: npt.NDArray, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
         """Initialize the jaxpower backend.
         
         Parameters
@@ -90,7 +92,7 @@ class JaxpowerBackend:
             self.logger.info(f'Box center: {self.boxcenter}')
             self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def set_density_contrast(self, resampler: str='cic', interlacing=False, compensate=False, halo_add: int=0, smoothing_radius: float = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise'):
+    def set_density_contrast(self, resampler: str = 'cic', interlacing: bool = False, compensate: bool = False, halo_add: int = 0, smoothing_radius: Optional[float] = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise') -> Union[RealMeshField, ComplexMeshField]:
         """Compute the density contrast field.
         
         Paints particles to a mesh and computes the density contrast using
@@ -163,7 +165,7 @@ class JaxpowerBackend:
             self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
-    def _get_threshold_randoms(self, randoms, threshold_value: float = 0.01, threshold_method: str = 'noise'):
+    def _get_threshold_randoms(self, randoms: ParticleField, threshold_value: float = 0.01, threshold_method: str = 'noise') -> float:
         """Compute threshold for randoms field to avoid division by zero.
         
         Parameters
@@ -190,7 +192,7 @@ class JaxpowerBackend:
             threshold_randoms = threshold_value * randoms.sum() / randoms.size
         return threshold_randoms
 
-    def get_query_positions(self, method='randoms', nquery=None, seed=42):
+    def get_query_positions(self, method: str = 'randoms', nquery: Optional[int] = None, seed: int = 42) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
         
         Creates either a regular lattice of points at mesh cell centers or
@@ -230,7 +232,7 @@ class JaxpowerBackend:
             self.logger.info(f'Generated random query points in {time.time() - t0:.2f} s.')
         return coords.astype(np.float32)
 
-    def kernel_gaussian(self, mattrs: MeshAttrs, smoothing_radius=10.):
+    def kernel_gaussian(self, mattrs: MeshAttrs, smoothing_radius: float = 10.) -> jnp.ndarray:
         """Generate Gaussian smoothing kernel in Fourier space.
         
         Parameters
