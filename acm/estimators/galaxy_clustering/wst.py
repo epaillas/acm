@@ -1,8 +1,10 @@
 import time
 import logging
 import numpy as np
+import numpy.typing as npt
 import matplotlib.pyplot as plt
 from kymatio.jax import HarmonicScattering3D
+from typing import Any, Optional
 
 from acm.utils.plotting import set_plot_style
 from .base import BaseEstimator
@@ -15,7 +17,7 @@ class WaveletScatteringTransform(BaseEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
-    def __init__(self, J=4, L=4, q=0.8, sigma=0.8, init_kymatio=None, **kwargs):
+    def __init__(self, J: int = 4, L: int = 4, q: float = 0.8, sigma: float = 0.8, init_kymatio: Optional[Any] = None, **kwargs: Any) -> None:
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
         super().__init__(**kwargs)
@@ -34,7 +36,7 @@ class WaveletScatteringTransform(BaseEstimator):
         else:
             self.init_kymatio()
         
-    def init_kymatio(self):
+    def init_kymatio(self) -> None:
         """
         Initialize the kymatio scattering transform.
         """
@@ -51,7 +53,7 @@ class WaveletScatteringTransform(BaseEstimator):
         self.logger.info(f'Initialized Kymatio in {time.time() - t0:.2f} s.')
 
 
-    def run(self, delta_query=None):
+    def run(self, delta_query: Optional[npt.NDArray] = None) -> npt.NDArray:
         """
         Run the wavelet scattering transform.
 
@@ -75,7 +77,7 @@ class WaveletScatteringTransform(BaseEstimator):
         return self.smatavg
 
     @set_plot_style
-    def plot_coefficients(self, save_fn=None):
+    def plot_coefficients(self, save_fn: Optional[str] = None):
         """
         Plot the wavelet scattering transform coefficients.
         """

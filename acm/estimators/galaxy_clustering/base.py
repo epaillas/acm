@@ -1,8 +1,12 @@
+from typing import Any
+import numpy.typing as npt
+
+
 class BaseEstimator:
     """
     Base estimator class.
     """
-    def __init__(self, backend='jaxpower', **kwargs):
+    def __init__(self, backend: str = 'jaxpower', **kwargs: Any) -> None:
         self.backend_name = backend
         
         # Lazy import of backend classes to avoid forcing installation of all backends
@@ -21,7 +25,7 @@ class BaseEstimator:
         else:
             raise ValueError(f"Unknown backend '{backend}'. Available backends: 'jaxpower', 'pypower', 'pyrecon'")
         
-    def read_density_contrast(self, positions, resampler='cic'):
+    def read_density_contrast(self, positions: npt.NDArray, resampler: str = 'cic') -> npt.NDArray:
         """
         Get the density contrast at the input positions.
 z
@@ -47,7 +51,7 @@ z
                 raise NotImplementedError('Pyrecon backend only supports CIC resampling.')
             return self.backend.delta_mesh.read_cic(positions)
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """
         Delegate attribute access to the backend.
 
