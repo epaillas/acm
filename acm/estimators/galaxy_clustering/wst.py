@@ -8,7 +8,7 @@ from acm.utils.plotting import set_plot_style
 from .base import BaseEstimator
 
 import warnings
-warnings.filterwarnings('ignore')
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
 class WaveletScatteringTransform(BaseEstimator):
