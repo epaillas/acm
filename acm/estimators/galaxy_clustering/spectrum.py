@@ -17,10 +17,11 @@ class PowerSpectrumMultipoles(BaseEstimator):
     
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
-        if 'backend' in kwargs:
-            if kwargs['backend'] != 'jaxpower':
-                raise ValueError("PowerSpectrumMultipoles only supports the 'jaxpower' backend.")
+        kwargs.setdefault('backend', 'jaxpower')
         super().__init__(**kwargs)
+        
+        if not isinstance(self.backend, self._JaxpowerBackend):
+            raise ValueError("PowerSpectrumMultipoles only supports the 'jaxpower' backend.")
 
         self.jitted_compute_mesh2_spectrum = jax.jit(
             compute_mesh2_spectrum,
