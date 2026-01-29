@@ -133,7 +133,6 @@ def greedy_bin_selection_vectorized(precomputed, max_bins=10, add_emulator_error
     derivatives = precomputed['derivatives']
     covariance_data = precomputed['covariance_data']
     emulator_error = precomputed['emulator_error']
-    print(emulator_error['pk'][0])
     statistics = list(derivatives.keys())
     
     available_bins = {stat: list(range(derivatives[stat].shape[0])) for stat in statistics}
@@ -240,6 +239,7 @@ if __name__== '__main__':
         'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
         'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
         'hod_dir': '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/',
+        'model_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/',
         'param_dir': None
     }
 
@@ -247,16 +247,17 @@ if __name__== '__main__':
     kwargs = dict(numpy_output=True, squeeze_output=True, paths=paths, select_filters=select_filters)
 
     stat_map = {
-        'tpcf': emc.GalaxyCorrelationFunctionMultipoles(**kwargs),
         'bk': emc.GalaxyBispectrumMultipoles(**kwargs),
         'pk' : emc.GalaxyPowerSpectrumMultipoles(**kwargs),
+        'recon_pk': emc.ReconstructedGalaxyPowerSpectrumMultipoles(**kwargs),
         'minkowski': emc.MinkowskiFunctionals(**kwargs),
-        'wst': emc.WaveletScatteringTransform(**kwargs),
-        'dsc_xi': emc.DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(**kwargs),
+        'ds_xiqg': emc.DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(**kwargs),
+        'ds_xiqq': emc.DensitySplitQuantileCorrelationFunctionMultipoles(**kwargs),
         'wp': emc.ProjectedGalaxyCorrelationFunction(**kwargs),
+        'pdf': emc.GalaxyOverdensityPDF(**kwargs),
     }
 
-    to_combine = ['pk', 'bk', 'minkowski'] 
+    to_combine = ['wp', 'pk', 'bk', 'recon_pk', 'minkowski', 'ds_xiqg', 'ds_xiqq', 'pdf'] 
     selected_bins, final_fisher, all_fisher_values = run_optimization_vectorized(
         to_combine,
         max_bins=200,

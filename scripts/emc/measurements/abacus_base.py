@@ -5,6 +5,7 @@ import cloudpickle as cp
 import numpy as np
 import time
 import glob
+import jax
 from acm.utils.catalogs_safety_checks import check_catalog
 from acm.utils.default import cosmo_list
 import gc
@@ -294,7 +295,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
     init_fn = init_dir / f'meshsize{meshsize_str}_J{wst_args["J"]}_L{wst_args["L"]}_sigma{wst_args["sigma"]}.npy'
     if init_fn.exists() and init is None:
-        print(f'Loading WST initialization from {init_fn}')
+        print(f'Loading WST initialization from {init_fn}', flush=True)
         with open(init_fn, 'rb') as f:
             init = cp.load(f)
 
@@ -303,7 +304,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     wst.set_density_contrast()
     smatavg = wst.run()
 
-    print(f'Saving WST coefficients to {output_fn}')
+    print(f'Saving WST coefficients to {output_fn}', flush=True)
     np.save(output_fn, smatavg)
 
     if not init_fn.exists():
@@ -540,7 +541,7 @@ if __name__ == '__main__':
 
     is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.todo_stats)
     if is_distributed:
-        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
+        os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.95'
         import jax
         jax.distributed.initialize()
     from jax import config
