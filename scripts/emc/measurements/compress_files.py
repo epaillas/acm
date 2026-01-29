@@ -16,10 +16,10 @@ add_covariance = args.add_covariance
 setup_logging()
 
 paths = {
-    'data_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/compressed/',
-    'measurements_dir': '/pscratch/sd/e/epaillas/emc/v1.2/abacus/',
-    'param_dir': '/pscratch/sd/e/epaillas/emc/cosmo+hod_params/',
+    'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+    'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+    'param_dir': None
 }
 
-observable = getattr(emc, statistic)(paths=paths)
-observable.compress_data(save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod)
+observable = getattr(emc, statistic)
+observable.compress_data(paths=paths, save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod)
