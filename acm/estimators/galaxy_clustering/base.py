@@ -9,12 +9,15 @@ class BaseEstimator:
         if backend == 'jaxpower':
             from .backends.jaxpower import JaxpowerBackend
             self.backend = JaxpowerBackend(**kwargs)
+            self._JaxpowerBackend = JaxpowerBackend
         elif backend == 'pypower':
             from .backends.pypower import PypowerBackend
             self.backend = PypowerBackend(**kwargs)
+            self._PypowerBackend = PypowerBackend
         elif backend == 'pyrecon':
             from .backends.pyrecon import PyreconBackend
             self.backend = PyreconBackend(**kwargs)
+            self._PyreconBackend = PyreconBackend
         else:
             raise ValueError(f"Unknown backend '{backend}'. Available backends: 'jaxpower', 'pypower', 'pyrecon'")
         
@@ -34,12 +37,12 @@ z
         delta : array_like
             Density contrast at the input positions.
         """
-        if self.backend.name == 'jaxpower':
+        if hasattr(self, '_JaxpowerBackend') and isinstance(self.backend, self._JaxpowerBackend):
             return self.backend.delta_mesh.read(positions, resampler=resampler)
-        elif self.backend.name == 'pypower':
+        elif hasattr(self, '_PypowerBackend') and isinstance(self.backend, self._PypowerBackend):
             offset = self.boxcenter - self.boxsize/2.
             return self.backend.delta_mesh.readout(positions - offset, resampler=resampler)
-        elif self.backend.name == 'pyrecon':
+        elif hasattr(self, '_PyreconBackend') and isinstance(self.backend, self._PyreconBackend):
             if resampler != 'cic':
                 raise NotImplementedError('Pyrecon backend only supports CIC resampling.')
             return self.backend.delta_mesh.read_cic(positions)
