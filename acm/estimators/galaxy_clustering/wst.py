@@ -19,7 +19,6 @@ class WaveletScatteringTransform(BaseEstimator):
 
         self.logger = logging.getLogger('WaveletScatteringTransform')
         super().__init__(**kwargs)
-        self.logger.info(f'Using {self.backend.__class__.__name__} backend.')
 
         self.J = J
         self.L = L
