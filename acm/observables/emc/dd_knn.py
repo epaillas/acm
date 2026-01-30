@@ -13,31 +13,36 @@ class DDkNN(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge 2D DD-kNN statistic
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='dd_knn', n_test=6*100, **kwargs)
-        self.paths['measurements_dir'] = '/pscratch/sd/p/pd2487/knns/dd_knn_measurements/'
+    def __init__(self, stat_name='dd_knn', n_test=6*100, **kwargs):
+        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return f'/pscratch/sd/p/pd2487/knns/trained_models/best/{self.stat_name}/last.ckpt'
-        #return f'/pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/{self.stat_name}/last-v25.ckpt'
-
     def make_mask(self, train_y):
         pass
     
+    @classmethod
     def compress_covariance(
-        self,
+        cls,
+        paths: dict,
+        stat_name: str = 'dd_knn',
+        cdf_floor: float = 0.05,
         save_to: str = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
+        Provided as a classmethod for convenience.
         
         Parameters
         ----------
-        save_to : str
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress. 
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        cdf_floor: float, optional
+            Filter out CDF bins that have values > cdf_floor or < 1 - cdf_floor
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
             
@@ -46,8 +51,10 @@ class DDkNN(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
+        logger = cls.get_logger()
+        
         # Directories
-        base_dir = Path(self.paths['measurements_dir']) / 'small' / self.stat_name
+        base_dir = Path(paths['measurements_dir']) / 'small' / stat_name
         data_fns = list(base_dir.glob('dd_knn_ph*.npy')) # NOTE: File name format hardcoded !
         
         y = []
@@ -55,18 +62,21 @@ class DDkNN(BaseObservableEMC):
             data = np.load(data_fn, allow_pickle=True)
             y.append(data)
         y = np.array(y)
+        logger.info(f'Loaded covariance data with shape: {y.shape}')
 
         # Additional step: use the mask obtained from big boxes to filter out noisy bins
         # Check that mask is present in the class (compress_data() should have been called for that)
-        if not hasattr(self, 'mask'):
-            raise AttributeError('To determine covariance of kNNs, compress_data() should be called first')
-        y = y.reshape(y.shape[0], -1)
-        y = y[:,self.mask]
+        #if not hasattr(self, 'mask'):
+        #    raise AttributeError('To determine covariance of kNNs, compress_data() should be called first')
+        mask1     = np.mean(y, axis=0) > cdf_floor
+        mask2     = np.mean(y, axis=0) < (1 - cdf_floor)
+        mask = np.logical_and(mask1, mask2)
+        y = y[:, mask]
         
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
+        logger.info(f'Cov data shape after filtering: {y.shape}')
         
         cout = xarray.DataArray(
-            data = y.reshape(y.shape[0], -1),
+            data = y,
             coords = {
                 "phase_idx": list(range(y.shape[0])),
                 "bin_idx": np.arange(y.shape[1]),
@@ -74,18 +84,22 @@ class DDkNN(BaseObservableEMC):
             attrs = {
                 "sample": ["phase_idx"],
                 "features": ["bin_idx"],
+                "mask": mask,
             },
             name = "covariance_y",
         )
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
 
+    @classmethod
     def compress_data(
-        self, 
+        cls,
+        paths: dict, 
+        stat_name: str = 'dd_knn',
         add_covariance: bool = False,
         save_to: str = None,
         cosmos: list = cosmo_list,
@@ -100,15 +114,22 @@ class DDkNN(BaseObservableEMC):
         
         Parameters
         ----------
-        add_covariance : bool
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        add_covariance : bool, optional
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        cosmos : list
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
-        n_hod : int
+        n_hod : int, optional
             Number of HOD parameters to use. Default is 100.
         phase : int, optional
             Phase index to read the data from. Default is 0.
@@ -125,36 +146,35 @@ class DDkNN(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays. 
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir'],  f'base/dd_knn')
+        logger = cls.get_logger()
+        
+        base_dir = Path(paths['measurements_dir'],  f'base/dd_knn')
         
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            logger.info(f'Compressing c{cosmo_idx:03d}')
             handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/dd_knn_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
-            self.logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
+            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
                 y.append(data)
         y = np.array(y)
-        y = y.reshape(len(cosmos), n_hod, -1)
 
-        # Additional processing step for kNNs: filter out noisy bins and flatten using fiducial cosmology
-        y_fid = y[0]
-
-        # Make a mask
-        mask1     = np.mean(y_fid, axis=0) > cdf_floor
-        mask2     = np.mean(y_fid, axis=0) < (1 - cdf_floor)
-        self.mask = np.logical_and(mask1, mask2)
-
-        # Apply it
-        y = y[:,:,self.mask]
+        # Need covariance for filtering
+        if add_covariance:
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, cdf_floor=cdf_floor)
+            mask = cov_y.attrs['mask']
+            y = y[:, mask]      # the mask exists only if cov is compressed too!
+        else:
+            y = y.reshape((len(y), -1,))        # Just flatten if no mask is present
+            print("WARNING! kNNs require cov data do perform filtering! Cov data is not included in this compression!")
 
         # Make xarrays
         y = xarray.DataArray(
-            data = y,
+            data = y.reshape(len(cosmos), n_hod, -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
@@ -166,9 +186,9 @@ class DDkNN(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
+        x = cls.compress_x(paths=paths, cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape} (after bins filtering)')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -177,10 +197,10 @@ class DDkNN(BaseObservableEMC):
             },
         )
 
+        # Append covariance if requested
         if add_covariance:
-            cov_y = self.compress_covariance()
             cout = xarray.merge([cout, cov_y])
-            
+
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
                 v_in.name = v_in.name + '_test'
@@ -191,9 +211,9 @@ class DDkNN(BaseObservableEMC):
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
 
     @set_plot_style
@@ -250,8 +270,8 @@ class DDkNN(BaseObservableEMC):
         lax[0].set_ylabel(r'$\textrm{2D DD-kNN CDF value}$', fontsize=15)
 
         bin_idx = self.bin_idx.values
-        data = self.y
-        model = self.get_model_prediction(model_params)
+        data = self.y.squeeze()
+        model = self.get_model_prediction(model_params).squeeze()
 
         cov = self.get_covariance_matrix(volume_factor=64)
         error = np.sqrt(np.diag(cov))

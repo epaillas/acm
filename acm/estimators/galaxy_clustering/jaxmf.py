@@ -1,13 +1,12 @@
 import time
 import logging
 import numpy as np
-
-from .base import BaseDensityMeshEstimator
-
 import jax
 import jax.numpy as jnp
 from typing import Tuple
-from jax import config; config.update('jax_enable_x64', True)
+from .base import BaseEstimator
+
+jax.config.update('jax_enable_x64', True)
 
 # JIT-compiled per-slice routine
 @jax.jit
@@ -105,7 +104,7 @@ def minkowski_slice_jax(delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thre
     return MFs, vol_slice
 
 
-class MinkowskiFunctionals(BaseDensityMeshEstimator):
+class MinkowskiFunctionals(BaseEstimator):
     """
     Computes 3D Minkowski functionals using the JAX implementation of the slice routine.
     Usage is similar to the original MinkowskiFunctionals class.
@@ -122,18 +121,19 @@ class MinkowskiFunctionals(BaseDensityMeshEstimator):
                       reduce peak memory and keep JAX compilation efficient.
         """
         self.logger = logging.getLogger('MinkowskiFunctionals')
+        
+        super().__init__(**kwargs)
         self.logger.info('Initializing MinkowskiFunctionals (Jax-Based).')
+        self.logger.info(f'Using {self.backend.__class__.__name__} backend.')
 
         self.thres_mask = thres_mask
         self.batch_slices = batch_slices
-        
-        super().__init__(**kwargs)
 
         self.query_positions = self.get_query_positions(method='lattice')
 
     def run(self, thresholds):
         t0 = time.time()
-        self.delta_query = self.delta_mesh.read(self.query_positions).reshape(self.data_mesh.meshsize)
+        self.delta_query = self.read_density_contrast(self.query_positions).reshape(self.meshsize)
 
         # ensure float32 input for memory (we still compute sums in float64 where needed)
         delta = self.delta_query.astype(np.float32)
@@ -175,7 +175,7 @@ class MinkowskiFunctionals(BaseDensityMeshEstimator):
 
         # Normalize MFs same as original:
         l = float(vol)
-        a = float(self.data_mesh.cellsize[0])
+        a = float(self.cellsize[0])
         # if vol is zero avoid division by zero
         if l == 0:
             norm = jnp.array([0.0, 0.0, 0.0, 0.0], dtype=jnp.float64)

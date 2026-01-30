@@ -3,18 +3,21 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from acm.observables import Observable
-from acm.utils import get_data_dirs
+from acm.utils import lookup_registry_path
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.decorators import temporary_class_state
 from acm.utils.xarray import dataset_to_dict
-
+from acm.utils.decorators import temporary_class_state
 
 class BaseObservableBGS(Observable):
     """
     Base class for the application of the ACM pipeline to the BGS dataset.
     """
     def __init__(self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs):
-        paths = kwargs.pop('paths', get_data_dirs('bgs'))
+        dataset = kwargs.get('dataset', None)
+        paths = kwargs.pop('paths', None)
+        if dataset is None and paths is None:
+            paths = lookup_registry_path('projects.yaml', 'bgs', 'Mr-20')
+        
         self.n_test = kwargs.pop('n_test', 6*100) # FIXME: Remove this on next file compression !
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
 
@@ -31,7 +34,7 @@ class BaseObservableBGS(Observable):
         -------
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
-        """        
+        """
         # Get unfiltered values
         x_test = self._dataset.get('x_test', None)
         y_test = self._dataset.get('y_test', None)
@@ -43,12 +46,14 @@ class BaseObservableBGS(Observable):
                 idx_test = range(n_test) if isinstance(n_test, int) else n_test
                 x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
                 y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
+                self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
             else:
                 raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
         
-        # Flatten on 2D for indexing
-        x_test = self.flatten_output(x_test, flat_output_dims=2)
-        y_test = self.flatten_output(y_test, flat_output_dims=2)
+        # Flatten on 2D for indexing 
+        # unstack=False because it's either already unstacked or 2D - avoids NaN issues
+        x_test = self.flatten_output(x_test, flat_output_dims=2, unstack=False)
+        y_test = self.flatten_output(y_test, flat_output_dims=2, unstack=False)
         
         prediction = self.get_model_prediction(x_test, nofilters=True) # Unfiltered prediction !
         
@@ -82,9 +87,9 @@ class BaseObservableBGS(Observable):
             return emulator_covariance_y
         
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
-        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
@@ -121,17 +126,19 @@ class BaseObservableBGS(Observable):
             name = 'emulator_error',
         )
         emulator_error = self.apply_filters(emulator_error)
+        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if 'emulator_error' in self.select_indices_on:
             emulator_error = self.apply_indices_selection(emulator_error)
-        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if self.squeeze_output:
             emulator_error = emulator_error.squeeze()
         if self.numpy_output:
             emulator_error = emulator_error.values
         return emulator_error
     
+    @classmethod
     def get_hod_from_files(
-        self, 
+        cls,
+        paths: dict, 
         cosmo_idx: int, 
         phase: int = 0, 
         seed: int = 0, 
@@ -143,6 +150,8 @@ class BaseObservableBGS(Observable):
 
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
         cosmo_idx : int
             Cosmology index to read the HOD indexes from.
         phase : int, optional
@@ -165,7 +174,7 @@ class BaseObservableBGS(Observable):
         `measurements_dir/base/c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/hod{hod:03}/` 
         and only non-empty HOD directories are considered.
         """
-        measurements_dir = self.paths['measurements_dir']
+        measurements_dir = paths['measurements_dir']
         stat_dir = Path(measurements_dir) / 'base' / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
         hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(stat_dir.glob('hod*')) if any(fn.iterdir())] # Only keep non-empty directories numbers, sorted
         
@@ -184,8 +193,10 @@ class BaseObservableBGS(Observable):
             return np.array(fn_list)
         return np.array(hod_idx)
     
+    @classmethod
     def compress_x(
-        self, 
+        cls, 
+        paths: dict,
         cosmos: list = cosmo_list, 
         n_hod: int = None,
         **kwargs
@@ -195,6 +206,8 @@ class BaseObservableBGS(Observable):
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
         cosmos : list, optional
             List of cosmologies to get from the files. Defaults to cosmo_list.
         n_hod : int, optional
@@ -219,7 +232,9 @@ class BaseObservableBGS(Observable):
         -----
         The parameters are read from the `param_dir/AbacusSummit_c{cosmo_idx:03}.csv` files.
         """
-        param_dir = self.paths['param_dir']
+        logger = cls.get_logger()
+        
+        param_dir = paths['param_dir']
         
         x = []
         for cosmo_idx in cosmos:
@@ -229,15 +244,15 @@ class BaseObservableBGS(Observable):
             x_names = [name.replace(' ', '').replace('#', '') for name in x_names]
             
             # Get the HOD indexes from folder names (density filtering is optional)
-            hod_idx = self.get_hod_from_files(cosmo_idx, **kwargs)
+            hod_idx = cls.get_hod_from_files(paths=paths, cosmo_idx=cosmo_idx, **kwargs)
             if n_hod is None:
                 n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
-                self.logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
+                logger.info(f'Number of HODs determined for c{cosmo_idx:03d}: {n_hod}')
             
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
                 hod_idx = hod_idx[:n_hod] # Restrict to the expected number of HODs
-                self.logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
+                logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
             elif len(hod_idx) < n_hod:
                 raise ValueError(f'Number of HODs for c{cosmo_idx:03d} is lower than expected ({len(hod_idx)} < {n_hod}). Cannot proceed with compression.')
             

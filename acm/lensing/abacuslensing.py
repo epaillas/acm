@@ -3,11 +3,11 @@
 
 from abc import ABC, abstractmethod
 import asdf
+import treecorr
+import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
-import numpy as np
 from pathlib import Path
-import treecorr
 
 
 # Valid phase indices for 'huge' simulations
