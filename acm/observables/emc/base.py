@@ -5,11 +5,10 @@ import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
 from acm.observables import Observable
-from acm.utils import get_data_dirs
+from acm.utils import lookup_registry_path
 from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray_data import dataset_to_dict
-from acm.utils.plotting import set_plot_style
+from acm.utils.xarray import dataset_to_dict
 from acm.utils.decorators import temporary_class_state
 
 class BaseObservableEMC(Observable):
@@ -20,19 +19,30 @@ class BaseObservableEMC(Observable):
         if phase_correction and hasattr(self, 'compute_phase_correction'):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
-            
-        paths = kwargs.pop('paths', get_data_dirs('emc'))
-        self.n_test = kwargs.pop('n_test', 6*500) # Default number of test samples for EMC
+        
+        dataset = kwargs.get('dataset', None)
+        paths = kwargs.pop('paths', None)
+        if dataset is None and paths is None:
+            paths = lookup_registry_path('projects.yaml', 'emc')
+        
+        # Get checkpoint_fn from registry if not provided
+        stat_name = kwargs.get('stat_name') # Required for super() anyways
+        model = kwargs.get('model', None)
+        if model is None and paths is not None and 'model_dir' not in paths and 'checkpoint_fn' not in kwargs:
+            try:
+                kwargs['checkpoint_fn'] = lookup_registry_path('projects.yaml', 'emc', 'checkpoint_fn', stat_name)
+            except KeyError:
+                pass # Ignore this step if no checkpoint is found for this stat_name (this will cause the model to not exist, but that's fine)
+        
+        self.n_test = kwargs.pop('n_test', 6*500) # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 
-    def get_emulator_covariance_y(self, n_test: int|list = None, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
+    def get_emulator_covariance_y(self, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
         Parameters
         ----------
-        n_test : int|list, optional
-            Number of test samples or list of indices of the test samples. The default is None.
         nofilters : bool, optional
             If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
             
@@ -41,44 +51,45 @@ class BaseObservableEMC(Observable):
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
-        n_test = n_test if n_test else self.n_test
-
-        self.logger.info(f'Computing emulator covariance array for {n_test} test samples.')
-        
         # Get unfiltered values
-        x = self._dataset.x 
-        y = self._dataset.y
+        x_test = self._dataset.get('x_test', None)
+        y_test = self._dataset.get('y_test', None)
         
-        # Flatten on 2D for indexing
-        x = self.flatten_output(x, flat_output_dims=2)
-        y = self.flatten_output(y, flat_output_dims=2)
+        if x_test is None or y_test is None:
+            # For backward compatibility
+            if hasattr(self, 'n_test'): 
+                n_test = self.n_test
+                idx_test = range(n_test) if isinstance(n_test, int) else n_test
+                x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
+                y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
+                self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
+            else:
+                raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
         
-        if isinstance(n_test, int):
-            idx_test = list(range(n_test))
-        elif isinstance(n_test, list):
-            idx_test = list(set(n_test))
+        # Flatten on 2D for indexing 
+        # unstack=False because it's either already unstacked or 2D - avoids NaN issues
+        x_test = self.flatten_output(x_test, flat_output_dims=2, unstack=False)
+        y_test = self.flatten_output(y_test, flat_output_dims=2, unstack=False)
         
-        test_x = x[idx_test]
-        test_y = y[idx_test]
-        
-        prediction = self.get_model_prediction(test_x, nofilters=True) # Unfiltered prediction !
+        prediction = self.get_model_prediction(x_test, nofilters=True) # Unfiltered prediction !
         
         # Flatten on 2D for indexing
         prediction = self.flatten_output(prediction, flat_output_dims=2)
         
-        if isinstance(test_y, xarray.DataArray):
-            test_y = test_y.values
+        if isinstance(y_test, xarray.DataArray):
+            y_test = y_test.values
         if isinstance(prediction, xarray.DataArray):
             prediction = prediction.values
             
-        diff = test_y - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
+        diff = y_test - prediction # NOTE: 2D flattening is done to ensure correct broadcasting here !
 
-        y = y.unstack()
-        shape = (len(idx_test),) + y.shape[len(y.attrs['sample']):]
+        n_test = y_test.shape[0] # Indexing on n_test to prevent filtering issues later on
+        y = self._dataset.y.unstack()
+        shape = (n_test,) + y.shape[len(y.attrs['sample']):]
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords = {
-                'n_test': idx_test,
+                'n_test': range(n_test),
                 **{k: y.coords[k] for k in y.dims if k in y.attrs['features']}
             },
             attrs = {
@@ -92,32 +103,25 @@ class BaseObservableEMC(Observable):
             return emulator_covariance_y
         
         emulator_covariance_y = self.apply_filters(emulator_covariance_y)
+        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if 'emulator_covariance_y' in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
-        emulator_covariance_y = self.flatten_output(emulator_covariance_y, self.flat_output_dims)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
             emulator_covariance_y = emulator_covariance_y.values
         return emulator_covariance_y
 
-    def get_emulator_error(self, n_test: int|list = None) -> xarray.DataArray|np.ndarray:
+    def get_emulator_error(self) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
-        
-        Parameters
-        ----------
-        n_test : int|list, optional
-            Number of test samples or list of indices of the test samples. The default is None.
-        
+
         Returns
         -------
         np.ndarray
            Emulator error, with shape (n_features, ).
-        """
-        n_test = n_test if n_test else self.n_test
-        
-        emulator_covariance_y = self.get_emulator_covariance_y(n_test, nofilters=True) # Unfiltered covariance array !
+        """        
+        emulator_covariance_y = self.get_emulator_covariance_y(nofilters=True) # Unfiltered covariance array !
         
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
@@ -138,9 +142,9 @@ class BaseObservableEMC(Observable):
             name = 'emulator_error',
         )
         emulator_error = self.apply_filters(emulator_error)
+        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if 'emulator_error' in self.select_indices_on:
             emulator_error = self.apply_indices_selection(emulator_error)
-        emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if self.squeeze_output:
             emulator_error = emulator_error.squeeze()
         if self.numpy_output:
@@ -223,8 +227,8 @@ class BaseObservableEMC(Observable):
             return pred
         
         pred = self.apply_filters(pred)
-        pred = self.apply_indices_selection(pred)
         pred = self.flatten_output(pred, self.flat_output_dims)
+        pred = self.apply_indices_selection(pred)
         
         if self.squeeze_output:
             pred = pred.squeeze()
@@ -232,70 +236,123 @@ class BaseObservableEMC(Observable):
             pred = pred.values
         return pred
 
-    def get_raw_hod_idx(self, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
+    @classmethod
+    def get_hod_from_files(cls, paths: dict, cosmo_idx: int, phase: int = 0, seed: int = 0) -> np.ndarray:
         """
-        Get the HOD indexes from the statistic files for a given phase and seed.
+        Get the HOD indexes from the raw HOD files.
         
         Parameters
         ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+            Expects a key 'hod_dir' pointing to the HOD files directory.
         cosmo_idx : int
             Cosmology index to read the HOD indexes from.
         phase : int, optional
             Phase index to read the HOD indexes from. Defaults to 0.
         seed : int, optional
             Seed index to read the HOD indexes from. Defaults to 0.
-        statistic : str, optional
-            Statistic to read the HOD indexes from. Defaults to 'density'.
 
         Returns
         -------
         np.ndarray
             Array of HOD indexes.
         """
-        data_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior'
+        data_dir = paths['hod_dir']
         data_dir = Path(data_dir) / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}'
-        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))] # Only keep non-empty directories numbers
+        hod_idx = [int(fn.stem.lstrip('hod')) for fn in sorted(data_dir.glob('hod*'))]
         return np.array(hod_idx)
-        
-    def compress_x(self, hods: dict, cosmos: list = cosmo_list) -> tuple:
+    
+    @classmethod
+    def compress_x(
+        cls,  
+        paths: dict,
+        cosmos: list = cosmo_list,
+        n_hod: int = None,
+        **kwargs
+    ) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
         
         Parameters
         ----------
-        hods : dict
-            Dictionary of hods for each cosmology.
+        paths : dict
+            Dictionary containing the paths to the data directories.
+            Can be set to None to use the default paths from the NERSC registry.
         cosmos : list, optional
             List of cosmologies to get from the files. The default is None, which means all cosmologies.
-        
+        n_hod : int, optional
+            Number of HODs to consider per cosmology.
+            If None, it is determined from the first cosmology and restricted to that number for all cosmologies. 
+            Defaults to None.
+        kwargs : dict
+            Additional arguments to pass to the get_hod_from_files method.
+            
         Returns
         -------
         xarray.DataArray
             Compressed x values.
+            
+        Raises
+        ------
+        ValueError
+            If the number of HODs for a cosmology is lower than the expected number, 
+            as the compression requires all cosmologies to have the same number of HODs.
         """
-        data_dir = self.paths['param_dir']
-
-        filename = '/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
-        cosmo_params = load_abacus_cosmologies(filename, cosmos, ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld'], mapping={'alpha_s': 'nrun'})
+        logger = cls.get_logger()
         
-        n_hod = len(hods[cosmo_list[0]])  # assumes same number of hods for each cosmology
+        if paths is None:
+            paths = lookup_registry_path('projects.yaml', 'emc')
+        
+        cosmo_file = paths['cosmo_file']  #'/pscratch/sd/e/epaillas/emc/AbacusSummit.csv'
+        hod_file = paths['hod_file']    #'/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy'
+        
+        cosmo_param_names = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld']
+        cosmo_params_mapping = {'alpha_s': 'nrun'}
+        cosmo_params = load_abacus_cosmologies(
+            cosmo_file, 
+            cosmologies = cosmos, 
+            parameters = cosmo_param_names, 
+            mapping=cosmo_params_mapping,
+        )
+        # Enforce parameters ordering after mapping
+        x_cosmo_names = cosmo_param_names.copy()
+        for key, value in cosmo_params_mapping.items():
+            x_cosmo_names[x_cosmo_names.index(key)] = value
+        hod_params = np.load(hod_file, allow_pickle=True).item()
+        
         x = []
-        x_hods = np.load('/pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy', allow_pickle=True).item()
         for cosmo_idx in cosmos:
-            x_hod = x_hods[f'c{cosmo_idx:03}']
-            x_hod_names = list(x_hod.keys())  # Store the HOD parameter names only once
-            x_hod = np.array([x_hod[param] for param in x_hod.keys()]).T
-            x_hod = x_hod[hods[cosmo_idx]]
-            x_cosmo = [cosmo_params[f'c{cosmo_idx:03}'][param] for param in cosmo_params[f'c{cosmo_idx:03}'].keys()]
-            x_cosmo = np.repeat(np.array(x_cosmo).reshape(1, -1), n_hod, axis=0)
-            x.append(np.concatenate([x_cosmo, x_hod], axis=1))
-            x_cosmo_names = [name for name in cosmo_params[f'c{cosmo_idx:03}'].keys()]
+            # HOD parameters
+            x_hod = hod_params[f'c{cosmo_idx:03}']
+            x_hod_names = list(x_hod.keys())
+            x_hod = np.array([x_hod[param] for param in x_hod.keys()]).T # Make x_hod into an array
+            
+            # Cosmo parameters
+            x_cosmo = cosmo_params[f'c{cosmo_idx:03}']
+            x_cosmo = np.array([x_cosmo[param] for param in x_cosmo_names]) # Enforce parameters ordering after mapping
+            x_cosmo = np.repeat(x_cosmo.reshape(1, -1), x_hod.shape[0], axis=0)
+            
+            # Full parameters
+            x_i = np.concatenate([x_cosmo, x_hod], axis=1)
+            
+            hod_idx = cls.get_hod_from_files(paths, cosmo_idx, **kwargs)
+            if n_hod is None:
+                n_hod = len(hod_idx) # Determine the number of HODs from the first cosmology
+                logger.info(f'Number of HODs determined from c{cosmo_idx:03d}: {n_hod}')
+            
+            # Ensure the number of HODs is as expected
+            if len(hod_idx) > n_hod:
+                hod_idx = hod_idx[:n_hod] # Restrict to the expected number of HODs
+                logger.info(f'Number of HODs for c{cosmo_idx:03d} is larger than expected ({len(hod_idx)} > {n_hod}). Restricting to the first {n_hod} HODs.')
+            elif len(hod_idx) < n_hod:
+                raise ValueError(f'Number of HODs for c{cosmo_idx:03d} is lower than expected ({len(hod_idx)} < {n_hod}). Cannot proceed with compression.')
+            
+            x.append(x_i[hod_idx, :])
+            
         x = np.concatenate(x)
         x_names = x_cosmo_names + x_hod_names
-        order = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'nrun', 'N_ur', 'w0_fld', 'wa_fld', 'logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
-        idx_sorted = [np.where(np.array(x_names) == name)[0][0] for name in order]
-        x = x[:, idx_sorted]
-        x_names = [x_names[i] for i in idx_sorted]
+        
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),
             coords = {
@@ -311,14 +368,20 @@ class BaseObservableEMC(Observable):
         )
         return x
     
-    def compress_emulator_error(self, n_test: int|list, save_to: str = None):
+    @temporary_class_state(
+        flat_output_dims = 0,
+        numpy_output = False,
+        squeeze_output = False,
+        select_filters = None,
+        slice_filters = None,
+        select_indices = None,
+    )
+    def compress_emulator_error(self, save_to: str = None):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
         
         Parameters
         ----------
-        n_test : int|list
-            Number of test samples or list of indices of the test samples.
         save_to : str
             Path of the directory where to save the emulator error file. If None, the emulator error file is not saved.
             Default is None.
@@ -328,8 +391,8 @@ class BaseObservableEMC(Observable):
         xarray.Dataset
             Compressed dataset containing 'emulator_error' and 'emulator_covariance_y' DataArrays.
         """
-        emulator_cov_y = self.get_emulator_covariance_y(n_test).unstack().squeeze()
-        emulator_error = self.get_emulator_error(n_test).unstack().squeeze()
+        emulator_cov_y = self.get_emulator_covariance_y()
+        emulator_error = self.get_emulator_error()
 
         emulator_error_dataset = xarray.Dataset(
             data_vars = {
@@ -343,102 +406,3 @@ class BaseObservableEMC(Observable):
             save_fn = Path(save_to) / f'{self.stat_name}.npy'
             np.save(save_fn, dataset_to_dict(emulator_error_dataset))
         return emulator_error_dataset
-
-    @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
-        """
-        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
-
-        Parameters
-        ----------
-        model_params : dict
-            Dictionary of model parameters to use for the prediction.
-        save_fn : str
-            Filename to save the plot. If None, the plot is not saved.
-
-        Returns
-        -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
-            Figure and axes of the plot.
-        """
-
-        height_ratios = [3, 1]
-        figsize = (6, 1.5 * sum(height_ratios))
-        fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
-            gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
-        fig.subplots_adjust(hspace=0.1)
-        show_legend = False
-
-        lax[-1].set_xlabel(r'$\textrm{bin index}$', fontsize=15)
-        lax[0].set_ylabel(r'${\rm X}$]', fontsize=15)
-
-        data = self.y
-        bin_idx = np.arange(len(data))
-        model = self.get_model_prediction(model_params)
-        
-        cov = self.get_covariance_matrix(volume_factor=64)
-        error = np.sqrt(np.diag(cov))
-
-        lax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', 
-            color=f'C0', elinewidth=1.0, capsize=None)
-        lax[0].plot(bin_idx, model, ls='-', color=f'C0')
-        lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
-
-        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
-        lax[1].set_ylabel(r'$\Delta{\rm X} / \sigma_{\rm data}$', fontsize=15)
-        lax[1].set_ylim(-4, 4)
-
-        for ax in lax:
-            ax.grid(True)
-            ax.tick_params(axis='both', labelsize=14)
-        if show_legend: lax[0].legend(fontsize=15)
-
-        if save_fn is not None:
-            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
-            self.logger.info(f'Saving plot to {save_fn}')
-        return fig, lax
-
-    @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_emulator_residuals(self, save_fn: str = None):
-        """
-        Plot the emulator residuals.
-        
-        Parameters
-        ----------
-        save_fn : str
-            Filename to save the plot. If None, the plot is not saved.
-
-        Returns
-        -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
-            Figure and axes of the plot.
-        """
-
-        residuals = self.emulator_covariance_y
-        data_cov = self.get_covariance_matrix(volume_factor=64)
-        data_err = np.sqrt(np.diag(data_cov))
-
-        fig, ax = plt.subplots(2, 1, figsize=(4, 4), sharex=True)
-
-        for res in residuals:
-            ax[0].plot(res / data_err, color='gray', alpha=0.3, lw=0.5)
-
-        # summary statistics of the emulator residuals
-        for method in ['mean', 'median', 'stdev']:
-            emu_cov = self.get_emulator_covariance_matrix(method=method, diag=True)
-            emu_err = np.sqrt(np.diag(emu_cov))
-
-            ax[1].plot(emu_err / data_err, lw=1.0, label=method)
-
-        ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
-        ax[1].set_xlabel('bin index', fontsize=13)
-        ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
-        ax[1].set_ylabel(r'$\textrm{statistic}$', fontsize=13)
-        ax[1].legend(fontsize=8)
-        plt.tight_layout()
-        if save_fn is not None:
-            plt.savefig(save_fn, dpi=300, bbox_inches='tight')
-            self.logger.info(f'Saving plot to {save_fn}')
-        return fig, ax
