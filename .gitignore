@@ -189,3 +189,12 @@ lightning_logs/
 # Batch job outputs
 *.out
 *.err
+
+# Quality
+quality/ruff_report*
+quality/coverage_report*
+quality/mypy_report*
+quality/pylint_report*
+
+
+
