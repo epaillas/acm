@@ -71,10 +71,11 @@ def get_y(obs, **kwargs):
     cosmologies = data.cosmo_idx.values
     phase = kwargs.get('phase', 0)
     seed = kwargs.get('seed', 0)
+    paths = kwargs.get('paths', None)
     index = []
     for cosmo_idx in cosmologies:
         hod_kwargs = dict(phase = phase, seed = seed, density_threshold=kwargs.get('density_threshold', None))
-        hods = obs.get_hod_from_files(cosmo_idx, **hod_kwargs)
+        hods = obs.get_hod_from_files(paths=paths, cosmo_idx=cosmo_idx, **hod_kwargs)
         for hod in hods:
             index.append([cosmo_idx, phase, seed, hod])
     index = np.asarray(index)
@@ -140,12 +141,11 @@ if __name__ == "__main__":
     
     for stat_name in args.measurements:
         cls = get_class_from_module(args.module, stat_name)
-        obs = cls(paths=paths) # Instantiate the observable class
         
         if sim_type == 'small':
-            index, data = get_covariance(obs, ells=ells)
+            index, data = get_covariance(cls, paths=paths, ells=ells)
         elif sim_type == 'base':
-            index, data = get_y(obs, ells=ells)
+            index, data = get_y(cls, paths=paths, ells=ells)
         else: 
             raise ValueError(f"sim_type must be one of ['base', 'small']")
         

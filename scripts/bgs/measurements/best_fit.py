@@ -132,11 +132,10 @@ if __name__ == "__main__":
     )
     
     # Load compressed measurements for the specified cosmology
-    cls = get_class_from_module(args.module, 'tpcf')
-    obs = cls(paths=paths)
-    data = obs.compress_data(cosmos=[args.cosmology], **cf_kwargs)
+    obs = get_class_from_module(args.module, 'tpcf')
+    data = obs.compress_data(paths=paths, cosmos=[args.cosmology], **cf_kwargs)
     y = obs.flatten_output(data.y, flat_output_dims=2).values # to 2D numpy array
-    hods = obs.get_hod_from_files(cosmo_idx=args.cosmology)
+    hods = obs.get_hod_from_files(paths=paths, cosmo_idx=args.cosmology)
     logger.info(f'Loaded data for cosmology c{args.cosmology:03d} with shape {data.y.shape}')
     
     # Load reference measurement and covariance

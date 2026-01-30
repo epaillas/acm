@@ -20,14 +20,14 @@ class BaseObservableEMC(Observable):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
         
+        dataset = kwargs.get('dataset', None)
         paths = kwargs.pop('paths', None)
-        if paths is None:
+        if dataset is None and paths is None:
             paths = lookup_registry_path('projects.yaml', 'emc')
         
         # Get checkpoint_fn from registry if not provided
         stat_name = kwargs.get('stat_name') # Required for super() anyways
         model = kwargs.get('model', None)
-        paths = kwargs.get('paths', None)
         if model is None and paths is not None and 'model_dir' not in paths and 'checkpoint_fn' not in kwargs:
             try:
                 kwargs['checkpoint_fn'] = lookup_registry_path('projects.yaml', 'emc', 'checkpoint_fn', stat_name)

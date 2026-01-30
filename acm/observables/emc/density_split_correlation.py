@@ -252,7 +252,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
         for ell in ells:
             self.select_filters.update({'ells': ell})
-            s = self.s
+            s = self.s.values
 
             for i, quantile in enumerate(quantiles):
                 self.select_filters.update({'quantiles': quantile})
