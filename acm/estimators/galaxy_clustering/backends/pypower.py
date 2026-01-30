@@ -1,10 +1,11 @@
-from pypower import CatalogMesh
-import numpy as np
-import numpy.typing as npt
-import jax.numpy as jnp
 import time
 import logging
-from typing import Optional, Any
+from typing import Optional
+
+import numpy as np
+import jax.numpy as jnp
+import numpy.typing as npt
+from pypower import CatalogMesh
 
 
 class PypowerBackend:
@@ -35,7 +36,14 @@ class PypowerBackend:
     data_mesh : array_like
         Data mesh field (set by set_density_contrast).
     """
-    def __init__(self, data_positions: npt.NDArray, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, 
+        data_positions: npt.NDArray, 
+        data_weights: Optional[npt.NDArray] = None, 
+        randoms_positions: Optional[npt.NDArray] = None, 
+        randoms_weights: Optional[npt.NDArray] = None, 
+        **kwargs
+    ) -> None:
         """Initialize the pypower backend.
         
         Parameters
