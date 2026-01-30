@@ -79,9 +79,8 @@ This is a tip
   - [ ] Inference
 - [ ] Code
   - [x] Overview
-  - [x] projects (guidelines and organisation)
+  - [x] Observables (guidelines and organisation)
   - [x] Data storage conventions
-  - [x] i/o functions 
 - [ ] Statistics
   - [x] Densitysplit
   - [ ] Others statistics ?

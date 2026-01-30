@@ -43,12 +43,20 @@ Some [estimators]() and their backends require additional packages to be install
 pip install "acm[wst,jaxpower] @ git+https://github.com/epaillas/acm@cosmodesi"
 ```
 
-```{tip}
-Check out the `pyproject.toml` file for a full list of available extras and their dependencies.
+:::{warning}
+If using the `pyrecon` backend on NERSC, ensure you are using the `main` branch of `pyrecon` to avoid crashes due to missing features in the `mpi` branch.
+
+On the `cosmodesi` environment in NERSC, you can swap the versions with:
+```bash
+module swap pyrecon/mpi pyrecon/main
 ```
+::: 
 
 The [`sunbird`](https://github.com/florpi/sunbird) package for inference and samplers can be installed using the `sunbird` extra as shown in the pip installation command above.
 
+```{tip}
+Check out the `pyproject.toml` file for a full list of available extras and their dependencies.
+```
 
 ## For Developers
 
