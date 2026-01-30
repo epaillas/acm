@@ -34,16 +34,13 @@ dependencies = [ # Base requirements
 [project.optional-dependencies]
 # Environements
 nersc = [
-    # Estimators (base)
+    # Estimators
     'polybin3d[mkl_fft] @ git+https://github.com/oliverphilcox/PolyBin3D',
 ]
 cosmodesi = [
-    # Estimators (base)
+    # Estimators
     'jax',
     'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
-    'pypower @ git+https://github.com/cosmodesi/pypower', 
-    'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
-    'jax-power @ git+https://github.com/adematti/jax-power.git',
 
     # HOD and cutsky
     'astropy',
@@ -55,6 +52,17 @@ cosmodesi = [
     'desitarget',
     'regressis @ git+https://github.com/echaussidon/regressis',
 ]
+# Estimators (backends)
+jaxpower = [
+    'jax-power @ git+https://github.com/adematti/jax-power.git',
+]
+pypower = [
+    'pypower @ git+https://github.com/cosmodesi/pypower', 
+]
+pyrecon = [
+    'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
+]
+# Documentation and testing
 docs = [
     "sphinx >= 4.2",
     "sphinx-book-theme >= 0.3",
