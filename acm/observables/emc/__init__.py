@@ -9,4 +9,4 @@ from .density_split_correlation import DensitySplitQuantileGalaxyCorrelationFunc
 from .vide import VIDEVoidGalaxyCorrelationFunctionMultipoles, VIDEVoidSizeFunction
 from .wst import WaveletScatteringTransform
 from .versus import VERSUSVoidSizeFunction, ReconstructedVERSUSVoidSizeFunction, VERSUSVoidGalaxyCorrelationFunctionMultipoles, ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles, VERSUSVoidAutoCorrelationFunctionMultipoles, ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles
-from .pdf import GalaxyOverdensityPDF
+# from .pdf import GalaxyOverdensityPDF

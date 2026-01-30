@@ -1,15 +1,15 @@
 import time
-import logging
+import warnings
+from typing import Optional
+
 import numpy as np
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 from kymatio.jax import HarmonicScattering3D
-from typing import Any, Optional
 
 from acm.utils.plotting import set_plot_style
 from .base import BaseEstimator
 
-import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 
@@ -17,11 +17,10 @@ class WaveletScatteringTransform(BaseEstimator):
     """
     Class to compute the wavelet scattering transform.
     """
-    def __init__(self, J: int = 4, L: int = 4, q: float = 0.8, sigma: float = 0.8, init_kymatio: Optional[Any] = None, **kwargs: Any) -> None:
-
-        self.logger = logging.getLogger('WaveletScatteringTransform')
+    def __init__(self, J: int = 4, L: int = 4, q: float = 0.8, sigma: float = 0.8, init_kymatio = None, **kwargs) -> None:
+        
         super().__init__(**kwargs)
-
+        
         self.J = J
         self.L = L
         self.sigma_0 = sigma
