@@ -1,3 +1,5 @@
+import logging
+
 import numpy.typing as npt
 
 
@@ -6,6 +8,8 @@ class BaseEstimator:
     Base estimator class.
     """
     def __init__(self, backend: str = 'jaxpower', **kwargs) -> None:
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info(f'Initializing {self.__class__.__name__}.')
         
         # Lazy import of backend classes to avoid forcing installation of all backends
         if backend == 'jaxpower':
