@@ -1,5 +1,4 @@
 import time
-import logging
 import warnings
 from typing import Optional
 
@@ -19,10 +18,9 @@ class WaveletScatteringTransform(BaseEstimator):
     Class to compute the wavelet scattering transform.
     """
     def __init__(self, J: int = 4, L: int = 4, q: float = 0.8, sigma: float = 0.8, init_kymatio = None, **kwargs) -> None:
-
-        self.logger = logging.getLogger('WaveletScatteringTransform')
+        
         super().__init__(**kwargs)
-
+        
         self.J = J
         self.L = L
         self.sigma_0 = sigma

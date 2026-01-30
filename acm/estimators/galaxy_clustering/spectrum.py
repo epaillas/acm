@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 
 import jax
@@ -14,7 +13,6 @@ class PowerSpectrumMultipoles(BaseEstimator):
     """
     
     def __init__(self, **kwargs) -> None:
-        self.logger = logging.getLogger(__name__)
         kwargs.setdefault('backend', 'jaxpower')
         super().__init__(**kwargs)
         

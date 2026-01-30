@@ -1,18 +1,14 @@
 import time
+
 import jax
-from jaxpower import (
-    MeshAttrs, ParticleField, FKPField,
-    BinMesh2SpectrumPoles, get_mesh_attrs,
-    compute_mesh2_spectrum, compute_fkp2_shotnoise,
-    compute_box2_normalization
-)
-import logging
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from pandas import qcut
 from pypower import CatalogFFTPower
 from pycorr import TwoPointCorrelationFunction
+from jaxpower import MeshAttrs, ParticleField, FKPField, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum, compute_fkp2_shotnoise, compute_box2_normalization
+
 from .base import BaseEstimator
 from acm.utils.plotting import set_plot_style
 
@@ -23,8 +19,6 @@ class DensitySplit(BaseEstimator):
     Expects all positions passed in cartesian coordinates of shape (N, 3).
     """
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger('DensitySplit')
-        self.logger.info('Initializing DensitySplit.')
         super().__init__(**kwargs)
 
     def set_quantiles(self, query_positions=None, query_method='randoms',
