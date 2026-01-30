@@ -61,14 +61,12 @@ This is a tip
 
 ## TODO
 
-- [ ] Add some emoji (it's fun ✨) ?
-
 ### Sections 
 
-- [ ] Getting started
-  - [ ] Installation
-    - [ ] Requirements
-    - [ ] Installation guide
+- [x] Getting started
+  - [x] Installation
+    - [x] Requirements
+    - [x] Installation guide
 - [ ] Pipeline
   - [ ] Overview
   - [ ] Galaxy-Halo model
