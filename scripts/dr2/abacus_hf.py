@@ -19,6 +19,11 @@ def get_cli_args():
     parser.add_argument("--n_phase", type=int, default=1)
     parser.add_argument('--todo_stats', nargs='+', default=['spectrum'])
     parser.add_argument('--save_dir', type=str, default='./')
+    parser.add_argument('--n_randoms', type=int, default=1)
+    parser.add_argument('--tracer', type=str, default='LRG')
+    parser.add_argument('--region', type=str, default='NGC')
+    parser.add_argument('--zmin', type=float, default=0.4)
+    parser.add_argument('--zmax', type=float, default=0.6)
 
     args = parser.parse_args()
     return args
@@ -200,18 +205,14 @@ if __name__ == '__main__':
     config.update('jax_enable_x64', True)
     from jaxpower.mesh import create_sharding_mesh
 
-    tracer = 'LRG'
-    region = 'NGC'
-    zmin, zmax = 0.4, 0.6
-    nrandoms = 1  # number of random catalogs per phase
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
 
-    catalog_args = dict(tracer=tracer, region=region, zrange=(zmin, zmax), complete=False)
+    catalog_args = dict(tracer=args.tracer, region=args.region, zrange=(args.zmin, args.zmax), complete=False)
 
     for phase_idx in phases:
 
         data_fn = get_data_fn(phase_idx=phase_idx, **catalog_args)
-        all_randoms_fn = [get_randoms_fn(phase_idx=phase_idx, rand_idx=i, **catalog_args) for i in range(nrandoms)]
+        all_randoms_fn = [get_randoms_fn(phase_idx=phase_idx, rand_idx=i, **catalog_args) for i in range(args.n_randoms)]
 
         get_data = lambda: get_clustering_positions_weights(data_fn, **catalog_args)
         get_randoms = lambda: get_clustering_positions_weights(*all_randoms_fn, **catalog_args)
@@ -219,14 +220,14 @@ if __name__ == '__main__':
         if 'spectrum' in args.todo_stats:
             cutsky_args = dict(cellsize=10.0, ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
-                save_fn = Path(args.save_dir) / f'spectrum_{tracer}_{region}_z{zmin}-{zmax}_abacus_hf_ph{phase_idx:03}.h5'
+                save_fn = Path(args.save_dir) / f'spectrum_{args.tracer}_{args.region}_z{args.zmin}-{args.zmax}_abacus_hf_ph{phase_idx:03}.h5'
                 compute_spectrum(save_fn, get_data, get_randoms, **cutsky_args)
 
         if 'density_split' in args.todo_stats:
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             save_fn = {
-                'xiqg': Path(args.save_dir) / f'dsc_xiqg_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy',
-                'xiqq': Path(args.save_dir) / f'dsc_xiqq_poles_{tracer}_{region}_z{zmin}-{zmax}_ph{phase_idx:03}.npy'
+                'xiqg': Path(args.save_dir) / f'dsc_xiqg_poles_{args.tracer}_{args.region}_z{args.zmin}-{args.zmax}_ph{phase_idx:03}.npy',
+                'xiqq': Path(args.save_dir) / f'dsc_xiqq_poles_{args.tracer}_{args.region}_z{args.zmin}-{args.zmax}_ph{phase_idx:03}.npy'
             }
             if save_fn['xiqg'].exists() and save_fn['xiqq'].exists():
                 print(f'Skipping {save_fn["xiqg"]} and {save_fn["xiqq"]}, already exists.')
