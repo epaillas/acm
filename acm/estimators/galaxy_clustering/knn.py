@@ -1,19 +1,14 @@
-import logging
 import numpy as np
 import scipy.spatial
 from numba import njit, prange
+
 from .base import BaseEstimator
 
-        
+
 class KthNearestNeighbor(BaseEstimator):
     """
     Class to compute the knns.
     """
-    def __init__(self, **kwargs):
-
-        self.logger = logging.getLogger('KthNearestNeighbor')
-        self.logger.info('Initializing KthNearestNeighbor.')
-        super().__init__(**kwargs)
 
     def compute_knn_distances(self, data, query, k, periodic, nthread=1, leafsize=32):
         """

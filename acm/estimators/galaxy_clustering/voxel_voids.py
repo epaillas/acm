@@ -2,15 +2,16 @@ import os
 import time
 import uuid
 import random
-import logging
 import subprocess
+from pathlib import Path
+from typing import Optional, Tuple, Any, Union
+
 import numpy as np
 import numpy.typing as npt
 import matplotlib
 import matplotlib.pyplot as plt
-from pathlib import Path
-from typing import Optional, Tuple, Any, Union
 from pycorr import TwoPointCorrelationFunction
+
 from .base import BaseEstimator
 from .src import fastmodules
 from acm.utils.plotting import set_plot_style
@@ -48,8 +49,6 @@ class VoxelVoids(BaseEstimator):
             - meshsize : int or array_like
                 Number of mesh cells per dimension.
         """
-        self.logger = logging.getLogger('VoxelVoids')
-        self.logger.info('Initializing VoxelVoids.')
         super().__init__(**kwargs)
         self.handle = Path(temp_dir) / str(uuid.uuid4())
 
