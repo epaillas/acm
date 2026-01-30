@@ -4,35 +4,40 @@ import glob
 from pathlib import Path
 from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
-from jaxpower import read
+from pycorr import TwoPointCorrelationFunction
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
-from acm.utils.xarray_data import dataset_to_dict
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
-from pycorr import TwoPointCorrelationFunction
+from acm.utils.xarray import dataset_to_dict, split_vars
 
 class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
     """
-    Class for the Emulator Mock Challenge's VERSUS void size function.
+    Base class for VERSUS void size function observables in the EMC pipeline.
     
     """
     def __init__(self, **kwargs):
-        if not hasattr(self, "recon"):
-            raise ValueError("Subclass must define a class attribute 'recon'")
-        self.label = ("recon_" if self.recon else "") + 'vsf'
-        self.filedir = ("recon_" if self.recon else "") + 'spherical_voids'
-        super().__init__(stat_name=f'versus_{self.label}', n_test=6*100, **kwargs)
+        super().__init__(**kwargs)
     
+    @classmethod
     def compress_covariance(
-        self,
+        cls,
+        stat_name: str,
+        paths: dict, 
         save_to: str = None,
-    ) -> xarray.DataArray:
+    ):
         """
         Compress the covariance array from the raw measurement files.
         
         Parameters
         ----------
-        save_to : str
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
             
@@ -41,8 +46,10 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
-        base_dir = Path(self.paths['measurements_dir']) / 'small' / self.filedir
-        data_fns = list(base_dir.glob(f'sv_{self.label}_ph*.npy')) # NOTE: File name format hardcoded !
+        logger = cls.get_logger()
+        
+        base_dir = Path(paths['measurements_dir']) / 'small' / '{}spherical_voids'.format('recon_' if cls.recon else '')
+        data_fns = list(base_dir.glob(f'{stat_name}_ph*.npy')) # NOTE: File name format hardcoded !
         
         y = []
         for data_fn in data_fns:
@@ -50,9 +57,8 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
             rv, vsf = data
             y.append(vsf)
         y = np.array(y)
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
         
-        cout = xarray.DataArray(
+        y = xarray.DataArray(
             data = y.reshape(y.shape[0], -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -64,61 +70,83 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
             },
             name = "covariance_y",
         )
+        
+        logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
 
+    @classmethod
     def compress_data(
-        self, 
+        cls,
+        paths: dict,
+        stat_name: str,
         add_covariance: bool = False,
         save_to: str = None,
         cosmos: list = cosmo_list,
-        n_hod: int = 500,
-        phase_idx: int = 0,
-        seed_idx: int = 0,
-    ) -> dict:
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict = None,
+    ):
         """
-        Compress the data from the VSF raw measurement files.
+        Compress the data from the densitysplit raw measurement files.
         
         Parameters
         ----------
-        add_covariance : bool
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        add_covariance : bool, optional
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        cosmos : list
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
-        n_hod : int
+        n_hod : int, optional
             Number of HOD parameters to use. Default is 100.
-        phase_idx : int
-            TODO
-        seed_idx : int
-            TODO
+        phase : int, optional
+            Phase index to read the data from. Default is 0.
+        seed : int, optional
+            Seed index to read the data from. Default is 0.
+        test_filters : dict, optional
+            Dictionary of filters to split the dataset into training and test sets.
+            Keys are the dimension names and values are the values to filter on for the test set.
+            If None, no splitting is done. Default is None.
             
         Returns
         -------
         xarray.Dataset
-            Compressed dataset containing 'x' and 'y' DataArrays. 
+            Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir']) / 'base' / self.filedir
+        logger = cls.get_logger()
+        
+        base_dir = Path(paths['measurements_dir']) / 'base' / '{}spherical_voids'.format('recon_' if cls.recon else '')
 
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/sv_{self.label}_c{cosmo_idx:03}_hod*.npy'
+            logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{stat_name}_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
+            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
                 rv, vsf = data
                 y.append(vsf)
-            hods[cosmo_idx] = self.get_raw_hod_idx(cosmo_idx)[:n_hod]
         y = np.array(y)
 
         y = xarray.DataArray(
@@ -134,9 +162,9 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(hods=hods, cosmos=cosmos)
+        x = cls.compress_x(paths=paths, cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -145,14 +173,22 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance()
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
             cout = xarray.merge([cout, cov_y])
+            
+        if test_filters is not None:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
 
     @set_plot_style
@@ -264,36 +300,39 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
 
 class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
     """
-    Class for the Emulator's Mock Challenge VERSUS void-galaxy correlation
-    function multipoles observable.
+    Base class for VERSUS void size function observables in the EMC pipeline.
+    
     """
     def __init__(self, **kwargs):
-        if not hasattr(self, "corr_type"):
-            raise ValueError("Subclass must define a class attribute 'corr_type'")
-        if not hasattr(self, "recon"):
-            raise ValueError("Subclass must define a class attribute 'recon'")
-        self.label = ("recon_" if self.recon else "") + self.corr_type
-        self.filedir = ("recon_" if self.recon else "") + 'spherical_voids'
-        super().__init__(stat_name=f'versus_{self.label}', 
-                        n_test=6*100, **kwargs)
+        super().__init__(**kwargs)
     
+    @classmethod
     def compress_covariance(
-        self,
+        cls,
+        stat_name: str,
+        paths: dict, 
         save_to: str = None,
-        rebin: int = 1,
+        rebin: int = 1, 
         ells: list = [0, 2],
-    ) -> xarray.DataArray:
+    ):
         """
         Compress the covariance array from the raw measurement files.
         
         Parameters
         ----------
-        save_to : str
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
-        rebin : int
+        rebin : int, optional
             Rebinning factor for the statistics. Default is 1.
-        ells : list
+        ells : list, optional
             List of multipoles to compute the statistics for. Default is [0, 2].
             
         Returns
@@ -301,19 +340,19 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array. 
         """
-        base_dir = Path(self.paths['measurements_dir']) / 'small' / self.filedir
-        data_fns = list(base_dir.glob(f'sv_{self.label}_ph*.npy')) # NOTE: File name format hardcoded !
+        logger = cls.get_logger()
+        
+        base_dir = Path(paths['measurements_dir']) / 'small' / '{}spherical_voids'.format('recon_' if cls.recon else '')
+        data_fns = list(base_dir.glob(f'{stat_name}_ph*.npy')) # NOTE: File name format hardcoded !
         
         y = []
         for data_fn in data_fns:
-            data = TwoPointCorrelationFunction.load(data_fn)#[:-1:rebin]
+            data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
             s, multipoles = data(ells=ells, return_sep=True) 
             y.append(np.concatenate(multipoles))
         y = np.array(y)
-
-        self.logger.info(f'Loaded covariance with shape: {y.shape}')
-        
-        cout = xarray.DataArray(
+                
+        y = xarray.DataArray(
             data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
@@ -326,69 +365,91 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = "covariance_y",
         )
+        
+        logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed covariance file to {save_fn}')
+            logger.info(f'Saving compressed covariance file to {save_fn}')
         return cout
 
+    @classmethod
     def compress_data(
-        self, 
+        cls,
+        paths: dict,
+        stat_name: str,
         add_covariance: bool = False,
         save_to: str = None,
-        cosmos: list = cosmo_list,
-        n_hod: int = 500,
         rebin: int = 1,
         ells: list = [0, 2],
-        phase_idx: int = 0,
-        seed_idx: int = 0,
-    ) -> dict:
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict = None,
+    ):
         """
-        Compress the data from the tpcf raw measurement files.
+        Compress the data from the densitysplit raw measurement files.
         
         Parameters
         ----------
-        add_covariance : bool
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        add_covariance : bool, optional
             If True, add the covariance to the compressed data. Default is False.
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        cosmos : list
+        rebin : int, optional
+            Rebinning factor for the statistics. Default is 1.
+        ells : list, optional
+            List of multipoles to compute the statistics for. Default is [0, 2].
+        cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
-        n_hod : int
+        n_hod : int, optional
             Number of HOD parameters to use. Default is 100.
-        rebin : int
-            Rebinning factor for the statistics. Default is 1.
-        ells : list
-            List of multipoles to compute the statistics for. Default is [0, 2].
-        phase_idx : int
-            TODO
-        seed_idx : int
-            TODO
+        phase : int, optional
+            Phase index to read the data from. Default is 0.
+        seed : int, optional
+            Seed index to read the data from. Default is 0.
+        test_filters : dict, optional
+            Dictionary of filters to split the dataset into training and test sets.
+            Keys are the dimension names and values are the values to filter on for the test set.
+            If None, no splitting is done. Default is None.
             
         Returns
         -------
         xarray.Dataset
-            Compressed dataset containing 'x' and 'y' DataArrays. 
+            Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        base_dir = Path(self.paths['measurements_dir']) / 'base' / self.filedir
+        logger = cls.get_logger()
+        
+        base_dir = Path(paths['measurements_dir']) / 'base' / '{}spherical_voids'.format('recon_' if cls.recon else '')
 
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'c{cosmo_idx:03}_ph000/seed0/sv_{self.label}_c{cosmo_idx:03}_hod*.npy'
+            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{stat_name}_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
+            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
-                data = TwoPointCorrelationFunction.load(filename)#[::rebin]
+                data = TwoPointCorrelationFunction.load(filename)[::rebin]
                 s, multipoles = data(ells=ells, return_sep=True) 
                 y.append(np.concatenate(multipoles))
-            hods[cosmo_idx] = self.get_raw_hod_idx(cosmo_idx)[:n_hod]
-        
         y = np.array(y)
+        
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, len(ells), -1),
             coords = {
@@ -403,9 +464,9 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             },
             name = 'y',
         )
-        x = self.compress_x(hods=hods, cosmos=cosmos)
+        x = cls.compress_x(paths=paths, cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
-        self.logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
         cout = xarray.Dataset(
             data_vars = {
@@ -414,14 +475,22 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = self.compress_covariance(ells=ells)
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, rebin=rebin, ells=ells)
             cout = xarray.merge([cout, cov_y])
+            
+        if test_filters is not None:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out])
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
-            save_fn = Path(save_to) / f'{self.stat_name}.npy'
+            save_fn = Path(save_to) / f'{stat_name}.npy'
             np.save(save_fn, dataset_to_dict(cout))
-            self.logger.info(f'Saving compressed data to {save_fn}')
+            logger.info(f'Saving compressed data to {save_fn}')
         return cout
 
     @set_plot_style
@@ -543,70 +612,120 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
 
 class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
+    """
+    Class for the Emulator's Mock Challenge VERSUS void size function.
+    """
     recon = False
+    
+    def __init__(self, stat_name='sv_vsf', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_vsf/last.ckpt'
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs.setdefault('stat_name', 'sv_vsf')
+        return super().compress_covariance(**kwargs)
+    
+    @classmethod
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
+        kwargs.setdefault('stat_name', 'sv_vsf')
+        return super().compress_data(**kwargs)
 
 
 class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
+    """
+    Class for the Emulator's Mock Challenge VERSUS void size function with density field reconstruction.
+    """
     recon = True
+    
+    def __init__(self, stat_name='sv_recon_vsf', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
-
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs.setdefault('stat_name', 'sv_recon_vsf')
+        return super().compress_covariance(**kwargs)
+    
+    @classmethod
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
+        kwargs.setdefault('stat_name', 'sv_recon_vsf')
+        return super().compress_data(**kwargs)
 
 class VERSUSVoidGalaxyCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
-    corr_type = 'xivg'
+    """
+    Class for the Emulator's Mock Challenge VERSUS void-galaxy correlation function multipoles.
+    """
     recon = False
+    
+    def __init__(self, stat_name='sv_xivg', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivg/last.ckpt'
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs.setdefault('stat_name', 'sv_xivg')
+        return super().compress_covariance(**kwargs)
+    
+    @classmethod
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
+        kwargs.setdefault('stat_name', 'sv_xivg')
+        return super().compress_data(**kwargs)
 
 
 class VERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
-    corr_type = 'xivv'
+    """
+    Class for the Emulator's Mock Challenge VERSUS void-void correlation function multipoles.
+    """
     recon = False
+    
+    def __init__(self, stat_name='sv_xivv', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/versus_xivv/last.ckpt'
-
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs.setdefault('stat_name', 'sv_xivv')
+        return super().compress_covariance(**kwargs)
+    
+    @classmethod
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
+        kwargs.setdefault('stat_name', 'sv_xivv')
+        return super().compress_data(**kwargs)
+        
 
 class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
-    corr_type = 'xivg'
-    recon = True 
+    """
+    Class for the Emulator's Mock Challenge VERSUS void-galaxy correlation function multipoles with density field reconstruction.
+    """
+    recon = True
+    
+    def __init__(self, stat_name='sv_recon_xivg', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs.setdefault('stat_name', 'sv_recon_xivg')
+        return super().compress_covariance(**kwargs)
+    
+    @classmethod
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
+        kwargs.setdefault('stat_name', 'sv_recon_xivg')
+        return super().compress_data(**kwargs)
         
 
 class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrelationFunctionMultipoles):
-    corr_type = 'xivv'
-    recon = True 
+    """
+    Class for the Emulator's Mock Challenge VERSUS void-void correlation function multipoles with density field reconstruction.
+    """
+    recon = True
+    
+    def __init__(self, stat_name='sv_recon_xivv', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
-    @property
-    def checkpoint_fn(self) -> str:
-        """
-        Override checkpoint_fn to point to the correct checkpoint file.
-        """
-        return 'none'
+    @classmethod
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+        kwargs.setdefault('stat_name', 'sv_recon_xivv')
+        return super().compress_covariance(**kwargs)
+    
+    @classmethod
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
+        kwargs.setdefault('stat_name', 'sv_recon_xivv')
+        return super().compress_data(**kwargs)
+

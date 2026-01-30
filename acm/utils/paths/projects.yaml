@@ -1,0 +1,34 @@
+emc:
+  cosmo_file: /pscratch/sd/e/epaillas/emc/AbacusSummit.csv
+  hod_file: /pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy
+  data_dir: /pscratch/sd/s/sbouchar/acm/emc/input_data/
+  covariance_dir: /pscratch/sd/e/epaillas/emc/v1.1/abacus/covariance_sets/small_box/
+  param_dir: /pscratch/sd/e/epaillas/emc/cosmo+hod_params/
+  hod_dir: /pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior # Path to the HOD files
+  
+  checkpoint_fn: # Legacy key for backward compatibility. Should be progressively deprecated for the next runs.
+    bispectrum: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/bispectrum/last.ckpt
+    dd_knn: /global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/dd_knn/last.ckpt
+    ds_xiqg: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/ds_xiqg/last.ckpt
+    minkowski: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/minkowski/last.ckpt
+    mst: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/mst/last-v25.ckpt
+    projected_tpcf: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/projected_tpcf/last.ckpt
+    recon_spectrum: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/recon_spectrum/last-v4.ckpt
+    spectrum: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/spectrum/last-v1.ckpt
+    tpcf: /pscratch/sd/e/epaillas/emc/v1.1/trained_models/best/GalaxyCorrelationFunctionMultipoles/last.ckpt
+    vide_ccf: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/vide_ccf/last.ckpt
+    vide_vsf: /pscratch/sd/e/epaillas/emc/v1.2/trained_models/best/vide_vsf/last.ckpt
+    wst: /global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/best/wst/last-v5.ckpt
+    sv_vsf: /global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/sv_vsf/last-v1.ckpt
+
+bgs:  
+  Mr-20:
+    data_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/input_data/     
+    model_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/
+    param_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/parameters/cosmo+hod_params/
+    measurements_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/measurements/
+  Mr-21.35:
+    data_dir: /pscratch/sd/s/sbouchar/acm/bgs-21.35/input_data/     
+    model_dir: /pscratch/sd/s/sbouchar/acm/bgs-21.35/trained_models/
+    param_dir: /pscratch/sd/s/sbouchar/acm/bgs-21.35/parameters/cosmo+hod_params/
+    measurements_dir: /pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements/
