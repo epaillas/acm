@@ -33,10 +33,6 @@ dependencies = [ # Base requirements
 
 [project.optional-dependencies]
 # Environements
-nersc = [
-    # Estimators
-    'polybin3d[mkl_fft] @ git+https://github.com/oliverphilcox/PolyBin3D',
-]
 cosmodesi = [
     # Estimators
     'jax',
@@ -61,6 +57,9 @@ pypower = [
 ]
 pyrecon = [
     'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
+]
+polybin3d = [
+    'polybin3d[mkl_fft] @ git+https://github.com/oliverphilcox/PolyBin3D',
 ]
 # Documentation and testing
 docs = [
