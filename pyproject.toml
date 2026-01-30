@@ -84,7 +84,7 @@ knn = [
 mst = [
     "mistreeplus @ git+https://github.com/knaidoo29/mistreeplus.git",
 ]
-minkowski = [
+wst = [
     "kymatio",
 ]
 # Model & inference
