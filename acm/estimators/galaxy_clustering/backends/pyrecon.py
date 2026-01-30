@@ -1,9 +1,10 @@
-from pyrecon import RealMesh
-import numpy as np
-import numpy.typing as npt
 import time
 import logging
-from typing import Optional, Any
+from typing import Optional
+
+import numpy as np
+import numpy.typing as npt
+from pyrecon import RealMesh
 
 
 class PyreconBackend:
@@ -37,7 +38,14 @@ class PyreconBackend:
     ran_min : float
         Minimum randoms threshold value (set by set_density_contrast).
     """
-    def __init__(self, data_positions: Optional[npt.NDArray] = None, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, 
+        data_positions: Optional[npt.NDArray] = None, 
+        data_weights: Optional[npt.NDArray] = None, 
+        randoms_positions: Optional[npt.NDArray] = None, 
+        randoms_weights: Optional[npt.NDArray] = None, 
+        **kwargs
+    ) -> None:
         """Initialize the pyrecon backend.
         
         Parameters
