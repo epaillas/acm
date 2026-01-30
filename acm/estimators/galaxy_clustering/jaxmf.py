@@ -124,8 +124,7 @@ class MinkowskiFunctionals(BaseEstimator):
         
         super().__init__(**kwargs)
         self.logger.info('Initializing MinkowskiFunctionals (Jax-Based).')
-        self.logger.info(f'Using {self.backend.__class__.__name__} backend.')
-
+        
         self.thres_mask = thres_mask
         self.batch_slices = batch_slices
 
