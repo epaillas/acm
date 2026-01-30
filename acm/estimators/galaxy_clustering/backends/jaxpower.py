@@ -1,11 +1,12 @@
-from jaxpower import MeshAttrs, ParticleField, FKPField, ComplexMeshField, RealMeshField, get_mesh_attrs
-from jax import numpy as jnp
-import jax
-import numpy as np
-import numpy.typing as npt
 import time
 import logging
-from typing import Optional, Any, Union
+from typing import Optional, Union
+
+import jax
+import numpy as np
+import jax.numpy as jnp
+import numpy.typing as npt
+from jaxpower import MeshAttrs, ParticleField, ComplexMeshField, RealMeshField, get_mesh_attrs
 
 
 class JaxpowerBackend:
@@ -41,7 +42,14 @@ class JaxpowerBackend:
     delta_mesh : RealMeshField or ComplexMeshField
         Density contrast field (set by set_density_contrast).
     """
-    def __init__(self, data_positions: npt.NDArray, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, 
+        data_positions: npt.NDArray, 
+        data_weights: Optional[npt.NDArray] = None, 
+        randoms_positions: Optional[npt.NDArray] = None, 
+        randoms_weights: Optional[npt.NDArray] = None, 
+        **kwargs
+    ) -> None:
         """Initialize the jaxpower backend.
         
         Parameters
@@ -92,7 +100,16 @@ class JaxpowerBackend:
             self.logger.info(f'Box center: {self.boxcenter}')
             self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def set_density_contrast(self, resampler: str = 'cic', interlacing: bool = False, compensate: bool = False, halo_add: int = 0, smoothing_radius: Optional[float] = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise') -> Union[RealMeshField, ComplexMeshField]:
+    def set_density_contrast(
+        self, 
+        resampler: str = 'cic', 
+        interlacing: bool = False, 
+        compensate: bool = False, 
+        halo_add: int = 0, 
+        smoothing_radius: Optional[float] = None, 
+        randoms_threshold_value: float = 0.01, 
+        randoms_threshold_method: str = 'noise'
+    ) -> Union[RealMeshField, ComplexMeshField]:
         """Compute the density contrast field.
         
         Paints particles to a mesh and computes the density contrast using
