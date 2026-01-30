@@ -9,4 +9,4 @@ from .density_split_correlation import ds_xiqg, ds_xiqq
 from .vide import vide_ccf, vide_vsf
 from .wst import wst
 from .versus import VERSUSVoidSizeFunction, ReconstructedVERSUSVoidSizeFunction, VERSUSVoidGalaxyCorrelationFunctionMultipoles, ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles, VERSUSVoidAutoCorrelationFunctionMultipoles, ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles
-from .pdf import GalaxyOverdensityPDF
+# from .pdf import GalaxyOverdensityPDF
