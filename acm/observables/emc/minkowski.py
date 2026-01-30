@@ -1,9 +1,10 @@
+from pathlib import Path
+
 import xarray
 import numpy as np
-import glob
-from pathlib import Path
-from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
+
+from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state

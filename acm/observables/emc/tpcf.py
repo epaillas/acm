@@ -1,7 +1,9 @@
+from pathlib import Path
+
 import xarray
 import numpy as np
-from pathlib import Path
 from pycorr import TwoPointCorrelationFunction
+
 from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict, split_vars
@@ -220,9 +222,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         np.ndarray
             Correction factor for the fixed phase predictions.
         """
-        from pathlib import Path
-        import numpy as np
-        from pycorr import TwoPointCorrelationFunction
         
         base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
         
@@ -266,6 +265,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Corrected predictions.
         """
         return (1 + prediction) * (1 + self.phase_correction) - 1
-    
-# Aliases
+
+# Alias
 tpcf = GalaxyCorrelationFunctionMultipoles

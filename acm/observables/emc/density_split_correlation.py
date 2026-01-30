@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import xarray
 import numpy as np
-from pathlib import Path
-from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
+
+from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
@@ -306,3 +308,7 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqq')
         kwargs['stat_name'] = kwargs.pop('stat_name', 'ds_xiqq')
         return super().compress_data(**kwargs)
+    
+# Aliases
+ds_xiqq = DensitySplitQuantileCorrelationFunctionMultipoles
+ds_xiqg = DensitySplitQuantileGalaxyCorrelationFunctionMultipoles
