@@ -47,8 +47,10 @@ class BaseCutskyCatalog(ABC):
     compute number density, and check if coordinates are within a specified photometric region.
     It is intended to be subclassed for specific cutsky catalog implementations.
     """
-    def __init__(self):
-        pass
+    @CurrentMPIComm.enable
+    def __init__(self, mpicomm=None, mpiroot=0):
+        self.mpicomm = mpicomm
+        self.mpiroot = mpiroot
 
     def apply_angular_mask(
         self,
@@ -416,7 +418,6 @@ class BaseCutskyCatalog(ABC):
             logger.info(f'Plot save in fiberasignment_{npasses}npasses.png')
         mpicomm.Barrier()
 
-    
     def save(self, filename: str) -> None:
         """
         Save the cutsky catalog to a file. Supports .fits and .npy formats.
@@ -463,7 +464,7 @@ class CutskyHOD(BaseCutskyCatalog):
         sim_type: str = 'base',
         tracer: str = 'LRG',
         DM_DICT: dict = None,
-        mpicomm = None,
+        **kwargs,
     ):
         """
         Initialize the CutskyHOD class. This checks the HOD parameters and 
@@ -500,16 +501,11 @@ class CutskyHOD(BaseCutskyCatalog):
             Dictionary containing the DM fields for the HOD sampling.
             If None, defaults to a value read from `acm.utils.paths` on NERSC systems.
             Defaults to None.
-        mpicomm : MPI communicator, optional
-            The MPI communicator for parallel processing. If None, defaults to
-            the current MPI communicator from mockfactory.
+        **kwargs: dict
+            Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.logger = logging.getLogger('CutskyHOD')
-        # if mpicomm is None:
-        #     mpicomm = MPI.COMM_WORLD
-        self.mpicomm = mpicomm
-        self.mpiroot = 0  # Root rank for MPI operations
         self.logger.info(f'Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks.')
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
@@ -1075,10 +1071,12 @@ class CutskyHOD(BaseCutskyCatalog):
 
         return combined_raw_nbar
         
+
 class CutskyRandoms(BaseCutskyCatalog):
     """
     Class to generate randoms in a cutsky region.
     """
+    @CurrentMPIComm.enable
     def __init__(
         self,
         rarange: tuple = (0., 360.),
@@ -1088,7 +1086,7 @@ class CutskyRandoms(BaseCutskyCatalog):
         nbar: float | None = None,
         seed: int | None = None,
         cosmo_idx: int = 0,
-        mpicomm = None
+        **kwargs,
     ):
         """
         Initialize the CutskyRandoms class. This generates randoms in a cutsky region
@@ -1111,16 +1109,11 @@ class CutskyRandoms(BaseCutskyCatalog):
             Random seed for reproducibility, by default None.
         cosmo_idx : int, optional
             Index of the AbacusSummit cosmology. Used for the redshift-distance relation.
-        mpicomm : MPI communicator, optional
-            The MPI communicator for parallel processing. If None, defaults to
-            the current MPI communicator from mockfactory.
+        **kwargs: dict
+            Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.logger = logging.getLogger('CutskyRandoms')
-        if mpicomm is None:
-            from mockfactory.utils import CurrentMPIComm
-            mpicomm = CurrentMPIComm.get()
-        self.mpicomm = mpicomm
         self.rarange = rarange
         self.decrange = decrange
         self.zrange = zrange
