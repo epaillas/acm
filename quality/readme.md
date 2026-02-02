@@ -6,11 +6,17 @@
 pip -e acm[testing,...]
 ```
 
-## Quality tools
+## Quality tools in line command
 
 * `acm_tests.sh` launches [pytest](https://docs.pytest.org/en/stable/) on `acm/tests` directory and [coverage](https://coverage.readthedocs.io/en/latest/), a HTML report is generated
 * `acm_lint.sh` launches [ruff](https://docs.astral.sh/ruff/) on `acm/acm` directory, a HTML report is generated
 * `acm_type.sh` launches type checker [ty](https://docs.astral.sh/ty/) on `acm/acm`
+
+
+## Quality tools with VS Code
+
+* lint : with the pluggin ruff from Astral Software, you can format your code and import. ruff check your code and can propose you a fix.
+* tests : To Do
 
 
 ## Read HTML reports with VSCode
@@ -39,6 +45,9 @@ You can also use [pylint](https://www.pylint.org/) as static code analysis to ch
 * **Refactoring** : possible improvements (complexity, duplication, etc.).
 * **Convention** : style, naming, formatting.
 
+**An interesting point** for evaluating the overall quality of the packaging is that the analysis concludes with an overall score out of 10.
+
+
 ### Configuration 
 
 `pylint` is highly configurable via its configuration file: 
@@ -54,9 +63,6 @@ acm_pylint_slow.sh
 ```
 
 The analysis results are displayed in the console and also saved in the `pylint_report.txt` file.
-
-**An interesting point** for evaluating the overall quality of the packaging is that the analysis concludes with an overall score out of 10.
-
 
 ## Others quality tools
 
