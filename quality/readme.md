@@ -8,14 +8,14 @@ pip -e acm[testing,...]
 
 ## Quality tools in line command
 
-* `acm_tests.sh` launches [pytest](https://docs.pytest.org/en/stable/) on `acm/tests` directory and [coverage](https://coverage.readthedocs.io/en/latest/), a HTML report is generated
+* `acm_tests.sh` launches [pytest](https://docs.pytest.org/en/stable/) on `acm/tests` directory and [coverage](https://coverage.readthedocs.io/en/latest/), a HTML report is generated. Return also the percent of code tested.
 * `acm_lint.sh` launches [ruff](https://docs.astral.sh/ruff/) on `acm/acm` directory, a HTML report is generated
 * `acm_type.sh` launches type checker [ty](https://docs.astral.sh/ty/) on `acm/acm`
 
 
 ## Quality tools with VS Code
 
-* lint : with the pluggin ruff from Astral Software, you can format your code and import. ruff check your code and can propose you a fix.
+* lint : with the [pluggin ruff from Astral Software](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff), you can format your code and import. ruff check your code and can propose you a fix.
 * tests : To Do
 
 
