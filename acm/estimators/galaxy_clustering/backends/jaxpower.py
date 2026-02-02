@@ -76,14 +76,8 @@ class JaxpowerBackend:
         """
         self.logger = logging.getLogger('JaxpowerBackend')
         self.name = 'jaxpower'
-        # Set mesh attributes directly if passed, otherwise infer from positions
-        if set(kwargs.keys()).issubset(set(MeshAttrs.__dataclass_fields__.keys())): 
-            self.mattrs = MeshAttrs(**kwargs) 
-        else:
-            if jax.process_index() == 0:
-                self.logger.info('Inferring mesh attributes from data and randoms positions.')  
-            pos = [p for p in [data_positions, randoms_positions] if p is not None] # get_mesh_attrs raises an error if randoms_positions is None
-            self.mattrs = get_mesh_attrs(*pos, **kwargs)
+        pos = [p for p in [data_positions, randoms_positions] if p is not None]
+        self.mattrs = get_mesh_attrs(*pos, **kwargs)
             
         self.data_mesh = ParticleField(data_positions, data_weights, attrs=self.mattrs, exchange=True, backend='jax')
         self.randoms_mesh = None
@@ -175,6 +169,8 @@ class JaxpowerBackend:
             self.delta_mesh = data_mesh - alpha * randoms_mesh
             if threshold_randoms is not None:
                 self.delta_mesh = self.delta_mesh.clone(value=jnp.where(randoms_mesh.value > threshold_randoms, self.delta_mesh.value / (alpha * randoms_mesh.value), 0.))
+            else:
+                self.delta_mesh = self.delta_mesh / (alpha * randoms_mesh)
         else:
             self.mean = data_mesh.mean()
             self.delta_mesh = data_mesh / self.mean - 1
