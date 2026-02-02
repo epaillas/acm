@@ -8,6 +8,6 @@ pwd
 #cat quality/report_pylint.txt
 #exit $status
 
-ruff check acm --output-format json > quality/ruff_report.json
+ruff check acm --config quality/ruff.toml --output-format json > quality/ruff_report.json
 ciqar -r ruff:quality/ruff_report.json  -s acm -o quality/ruff_report_html
 echo "Result in acm/quality/ruff_report_html"
