@@ -86,17 +86,18 @@ class TestSplitVars:
     def test_split_vars_basic(self):
         """Test basic splitting of variables."""
         data = xr.DataArray(
-            np.arange(20).reshape(4, 5),
-            coords={'x': range(4), 'y': range(5)},
+            np.arange(30).reshape(6, 5),
+            coords={'x': range(6), 'y': range(5)},
             dims=['x', 'y']
         )
-        
-        results = list(split_vars(data, x=slice(0, 2)))
+
+        filter = {'x': [0,1]}
+        results = list(split_vars(data, **filter))
         
         assert len(results) == 1
         v_in, v_out = results[0]
         assert v_in.shape == (2, 5)
-        assert v_out.shape == (2, 5)
+        assert v_out.shape == (4, 5)
 
     def test_split_vars_multiple(self):
         """Test splitting multiple variables."""
