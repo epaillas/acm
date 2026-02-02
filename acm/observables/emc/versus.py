@@ -1,10 +1,13 @@
 import xarray
 import numpy as np
-import glob
 from pathlib import Path
-from .base import BaseObservableEMC
+
+import xarray
+import numpy as np
 import matplotlib.pyplot as plt
 from pycorr import TwoPointCorrelationFunction
+
+from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
@@ -24,7 +27,7 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         stat_name: str,
         paths: dict, 
         save_to: str = None,
-    ):
+    ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
         
@@ -93,9 +96,9 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         phase: int = 0,
         seed: int = 0,
         test_filters: dict = None,
-    ):
+    ) -> xarray.DataArray:
         """
-        Compress the data from the densitysplit raw measurement files.
+        Compress the data from the VERSUS VSF raw measurement files.
         
         Parameters
         ----------
@@ -136,13 +139,10 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         base_dir = Path(paths['measurements_dir']) / 'base' / '{}spherical_voids'.format('recon_' if cls.recon else '')
 
         y = []
-        hods = {}
         for cosmo_idx in cosmos:
-            logger.info(f'Compressing c{cosmo_idx:03d}')
+            logger.debug(f'Compressing c{cosmo_idx:03d}')
             handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{stat_name}_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
-            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
-            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True)
                 rv, vsf = data
@@ -314,7 +314,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         save_to: str = None,
         rebin: int = 1, 
         ells: list = [0, 2],
-    ):
+    ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
         
@@ -390,9 +390,9 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         phase: int = 0,
         seed: int = 0,
         test_filters: dict = None,
-    ):
+    ) -> xarray.DataArray:
         """
-        Compress the data from the densitysplit raw measurement files.
+        Compress the data from the VERSUS CCF or ACF raw measurement files.
         
         Parameters
         ----------
@@ -437,13 +437,10 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         base_dir = Path(paths['measurements_dir']) / 'base' / '{}spherical_voids'.format('recon_' if cls.recon else '')
 
         y = []
-        hods = {}
         for cosmo_idx in cosmos:
-            self.logger.info(f'Compressing c{cosmo_idx:03d}')
+            logger.debug(f'Compressing c{cosmo_idx:03d}')
             handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{stat_name}_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
-            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
-            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
                 data = TwoPointCorrelationFunction.load(filename)[::rebin]
                 s, multipoles = data(ells=ells, return_sep=True) 
