@@ -193,6 +193,7 @@ lightning_logs/
 # Quality
 quality/ruff_report*
 quality/coverage_report*
+quality/type_report*
 quality/mypy_report*
 quality/pylint_report*
 
