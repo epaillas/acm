@@ -9,6 +9,7 @@ from acm.utils.covariance import (
     check_positive_definite,
     check_covariance_matrix,
     check_condition_number,
+    correlation_from_covariance
 )
 
 
@@ -197,3 +198,14 @@ class TestCovarianceMatrixCheck:
         # Should have at least one warning about non-square
         assert any("not square" in str(w.message) for w in record)
         assert result is False
+
+def test_covariance_to_correlation():
+    """Test conversion from covariance to correlation matrix."""
+    cov = np.array([[4, 2],
+                    [2, 3]])
+    correl = 2/(2*3**0.5)
+    expected_corr = np.array([[1, correl],
+                              [correl, 1]])
+    corr = correlation_from_covariance(cov)
+    np.testing.assert_allclose(corr, expected_corr, rtol=1e-6)
+    
