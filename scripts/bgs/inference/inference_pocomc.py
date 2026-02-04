@@ -1,12 +1,23 @@
+"""
+PocoMC inference script for BGS observables.
+
+Usage:
+    python inference_pocomc.py --config path/to/config.yaml [other options]
+
+    python inference_pocomc.py --slice_map "{'tpcf': {'s': [1, 200]}, 'ds_xiqg': {'s': [1, 200]}, 'ds_xigg': {'s': [1, 200]}}"
+"""
+
 import sys
 import yaml
 import logging
 import argparse
-import numpy as np
 from pathlib import Path
-from utils import get_fixed_params # Will be moved to sunbird 
+
+import numpy as np
 from sunbird.inference.pocomc import PocoMCSampler
 from sunbird.inference.priors import get_priors, Bouchard25
+from utils import get_fixed_params # Will be moved to sunbird 
+
 from acm import setup_logging
 from acm.utils.covariance import get_covariance_correction, check_covariance_matrix
 from utils import get_observable, save_and_plot
@@ -229,6 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default=None, help='Directory where the observable compressed data is stored.')
     parser.add_argument('--model_dir', type=str, default=None, help='Directory where the emulatir is stored.')
     parser.add_argument('--statistics', nargs='+', help='List of statistics to use, e.g. GalaxyPowerSpectrumMultipoles')
+    parser.add_argument('--slice_map', type=str, default=None, help='Expression of slice_filters_map to use (evaluated as a dictionary). Defaults as None')
     parser.add_argument('-t', '--fit_type', type=str, default='validation', help='Type of mock to fit: validation or secondgen.')
     parser.add_argument('-ce', '--add_cov_emu', action='store_true', help='Whether to add emulator covariance or not.')
     parser.add_argument('-cm', '--cosmo_model', type=str, default='base', help='Cosmological model to use.')
@@ -276,6 +288,12 @@ if __name__ == '__main__':
     
     logger.info(f'Running inference for cosmo model: {cosmo_model}, hod model: {hod_model}')
     
+    if args.slice_map is not None:
+        slice_filters_map = eval(args.slice_map)
+        logger.info(f'Using slice_filters_map: {slice_filters_map}')
+    else:
+        slice_filters_map = None
+    
     priors, ranges, labels = get_priors(hod_class=Bouchard25)
     fixed_param_names = get_fixed_params(cosmo_model, hod_model, priors)
     
@@ -284,6 +302,7 @@ if __name__ == '__main__':
         module=module, 
         paths=paths,
         select_filters_map=select_filters_map,
+        slice_filters_map=slice_filters_map,
         numpy_output=True, 
         squeeze_output=True,
         select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx},
