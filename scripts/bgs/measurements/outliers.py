@@ -8,11 +8,14 @@ Usage:
 
 import logging
 import argparse
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 from astropy.stats import sigma_clip
+
 from acm.utils.modules import get_class_from_module
 from acm.utils.logging import setup_logging
+from visual_tools import nested_set
 
 def get_covariance(obs, **kwargs):
     """
@@ -41,7 +44,7 @@ def get_covariance(obs, **kwargs):
     seed = kwargs.get('seed', 0)
     index = []
     for phase in phases:
-            index.append([cosmo_idx, phase, seed, hod_idx])
+        index.append([cosmo_idx, phase, seed, hod_idx])
     index = np.asarray(index)
 
     return index, cov
@@ -115,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument('--sim_type', type=str, choices=['small', 'base'], default='small', help='Type of simulation to analyze.')
     parser.add_argument('--ells', type=int, nargs='+', default=[0, 2], help='Multipoles to consider.')
     parser.add_argument('--seed', type=int, default=0, help='Seed number for measurements.')
+    parser.add_argument('--hods', type=int, nargs='+', default=[157], help='HOD indexes covariance for measurements.')
     parser.add_argument('--sigma', type=float, default=6.0, help='Sigma threshold for clipping.')
     parser.add_argument('--measurements', type=str, nargs='+', default='tpcf', help='Type of measurements to analyze.')
     parser.add_argument('--save_dir', type=str, help='Directory to save the outlier results to a file.')
@@ -142,47 +146,56 @@ if __name__ == "__main__":
     for stat_name in args.measurements:
         cls = get_class_from_module(args.module, stat_name)
         
-        if sim_type == 'small':
-            index, data = get_covariance(cls, paths=paths, ells=ells)
-        elif sim_type == 'base':
-            index, data = get_y(cls, paths=paths, ells=ells)
-        else: 
-            raise ValueError(f"sim_type must be one of ['base', 'small']")
+        # set compression args for specific statistics if needed
+        compress_args = dict(seed=args.seed)
+        if stat_name in ['ds_xiqg', 'ds_xiqq']:
+            compress_args['quantiles'] = [0, 1, 2, 3, 4]
         
-        outliers = get_outliers(data, index, sigma=sigma, axis=0)
-        n_outliers = len(outliers)
+        outliers_dict = {}
         
-        if n_outliers > 0:
-            print(f'Found {n_outliers} {stat_name} outliers at indices:', *outliers, sep='\n')
-        else: 
-            print(f'Found no {stat_name} outliers')
-        
-        if args.save_dir and n_outliers > 0: 
-            # Structure outliers into a nested dictionary
-            outliers_dict = {}
-            cosmo_idx = outliers[:,0]
-            for cosmo in np.unique(cosmo_idx):
-                phase_mask = outliers[:,0] == cosmo
-                phases = outliers[phase_mask, 1]
-                for phase in np.unique(phases):
-                    seed_mask = phases == phase
-                    seeds = outliers[phase_mask][seed_mask, 2]
-                    for seed in np.unique(seeds):
-                        hod_mask = seeds == seed
-                        hods = outliers[phase_mask][seed_mask][hod_mask, 3]
-                        outliers_dict.setdefault(str(cosmo), {}).setdefault(str(phase), {}).setdefault(str(seed), []).extend(hods.tolist())
-                        
-                        # Also update the all-statistics dictionary
-                        outliers_dict_all.setdefault(stat_name, {}).setdefault(str(cosmo), {}).setdefault(str(phase), {}).setdefault(str(seed), []).extend(hods.tolist())
-                        outliers_dict_all[stat_name][str(cosmo)][str(phase)][str(seed)] = list(set(outliers_dict_all[stat_name][str(cosmo)][str(phase)][str(seed)])) # Unique HODs indexes only
-                        
-            outlier_dir = Path(args.save_dir)
-            outlier_dir.mkdir(exist_ok=True)
+        for hod in args.hods:
+            print(f'Analyzing {stat_name} for HOD index {hod}')
             
-            outlier_fn = outlier_dir / f'{stat_name}_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
-            np.save(outlier_fn, outliers_dict)
-            logger.info(f'Saved {n_outliers} {stat_name} outliers to {outlier_fn}')
+            if sim_type == 'small':
+                index, data = get_covariance(cls, paths=paths, ells=ells, hod_idx=hod, **compress_args)
+            elif sim_type == 'base':
+                index, data = get_y(cls, paths=paths, ells=ells, **compress_args)
+            else: 
+                raise ValueError(f"sim_type must be one of ['base', 'small']")
             
-            outlier_fn_all = outlier_dir / f'all_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
-            np.save(outlier_fn_all, outliers_dict_all)
-            logger.info(f'Saved all outliers to {outlier_fn_all}')
+            outliers = get_outliers(data, index, sigma=sigma, axis=0)
+            n_outliers = len(outliers)
+            
+            if n_outliers > 0:
+                print(f'Found {n_outliers} {stat_name} outliers at indices:', *outliers, sep='\n')
+            else: 
+                print(f'Found no {stat_name} outliers')
+            
+            if args.save_dir and n_outliers > 0: 
+                # Structure outliers into a nested dictionary
+                cosmo_idx = outliers[:,0]
+                for cosmo in np.unique(cosmo_idx):
+                    phase_mask = outliers[:,0] == cosmo
+                    phases = outliers[phase_mask, 1]
+                    for phase in np.unique(phases):
+                        seed_mask = phases == phase
+                        seeds = outliers[phase_mask][seed_mask, 2]
+                        for seed in np.unique(seeds):
+                            hod_mask = seeds == seed
+                            hods = outliers[phase_mask][seed_mask][hod_mask, 3]
+                            nested_set(outliers_dict, [str(cosmo), str(phase), str(seed)], hods.tolist(), extend=True)
+                            
+                            # Also update the all-statistics dictionary
+                            nested_set(outliers_dict_all, [str(cosmo), str(phase), str(seed)], hods.tolist(), extend=True)
+                            outliers_dict_all[str(cosmo)][str(phase)][str(seed)] = list(set(outliers_dict_all[str(cosmo)][str(phase)][str(seed)])) # Unique HODs indexes only
+                            
+                outlier_dir = Path(args.save_dir)
+                outlier_dir.mkdir(exist_ok=True)
+                
+                outlier_fn = outlier_dir / f'{stat_name}_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
+                np.save(outlier_fn, outliers_dict)
+                logger.info(f'Saved {n_outliers} {stat_name} outliers to {outlier_fn}')
+                
+                outlier_fn_all = outlier_dir / f'all_outliers_simtype-{sim_type}_ells-{"".join(map(str, ells))}_sigma-{sigma}.npy'
+                np.save(outlier_fn_all, outliers_dict_all)
+                logger.info(f'Saved all outliers to {outlier_fn_all}')
