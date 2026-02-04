@@ -66,8 +66,19 @@ The outliers are identified in `find_outliers.py`.
 > The `outliers.py` scripts can save the outlier indexes in a `.npy` file, that can be read to re-run only those outliers.
 > In particular, this is useful for the `base` boxes, where each cosmology can have different outliers. 
 > In practice, this can be run by hand using the `--hods` argument of `measure_box.py`, but for all 85 cosmologies it can be quite tedious.
-> I've added a variation of `measure_box.py` called `measure_box_outliers.py` that reads the outlier indexes from the outliers.py outputs (hardcoded name at the moment) and re-runs only those HODs for all cosmologies.
-> **This script is not documented nor generalized at the moment, but can be used as a quick fix to re-run only the outliers.**
+> Instead, you can use the `--parameters_override` argument to provide a `.npy` file that will loop over the cosmologies, phases, seeds and HODs provided in the file.
+> Not that this is only efficient for a low number of outliers: I recommend choosing the highest possible value of sigma in `find_outliers.py` to limit the number of outliers to the actual outliers, as some high-amplitude statistics can also be clipped as outliers.
+
+> [!TIP]
+> The `visual_tools.py` file contains some plotting functions to visualize the measurements and outliers.
+
+### Training
+
+> TBD
+
+### Inference
+
+> TBD
 
 ## Data
 
