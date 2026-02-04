@@ -9,4 +9,6 @@ cov_emu_method: median
 cov_correction: percival
 cosmo_idx: 0
 hod_idx: 0
+data_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/input_data/
+model_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/
 save_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/chains/
