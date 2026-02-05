@@ -56,7 +56,7 @@ class TestPositiveDefiniteCheck:
                       [-1, 2, -1],
                       [0, -1, 2]])
         assert check_positive_definite(A) is True
-    
+    correlation_from_covariance
     def test_identity_matrix(self):
         """Test with identity matrix (always positive-definite)."""
         I = np.eye(5)
