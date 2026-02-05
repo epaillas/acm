@@ -23,8 +23,11 @@ acm_lint.sh          acm_quality_init.sh  acm_type.sh
 
 ## Quality tools with VS Code
 
-* lint : with the [pluggin ruff from Astral Software](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff), you can format your code and import. ruff check your code and can propose you a fix.
+* python syntax,PEP/lint : with the [pluggin ruff from Astral Software](https://marketplace.visualstudio.com/items?itemName=charliermarsh.ruff), you can format your code and import. ruff check your code and can propose you a fix.
     * select : View/problem to have a list of issue/warning detected by ruff
+* check type/annotation : with the [pluggin ty from Astral Software](https://marketplace.visualstudio.com/items?itemName=astral-sh.ty)
+    * Enable `SSH: perlmutter.nersc.gov`
+    * As ruff issues are visible in View/problem window
 * Copilot can generate tests
     * select module or function/method in module
     * right click
