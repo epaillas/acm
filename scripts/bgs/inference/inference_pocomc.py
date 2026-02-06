@@ -4,7 +4,7 @@ PocoMC inference script for BGS observables.
 Usage:
     python inference_pocomc.py --config path/to/config.yaml [other options]
 
-    python inference_pocomc.py --slice_map "{'tpcf': {'s': [1, 200]}, 'ds_xiqg': {'s': [1, 200]}, 'ds_xigg': {'s': [1, 200]}}"
+    python inference_pocomc.py --slice_map "{'tpcf': {'s': [1, 200]}, 'ds_xiqg': {'s': [1, 200]}, 'ds_xiqq': {'s': [1, 200]}}"
 """
 
 import sys
