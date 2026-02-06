@@ -3,7 +3,7 @@
 #SBATCH --account desi_g
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node 1
-#SBATCH --qos premium
+#SBATCH --qos regular
 #SBATCH --constraint gpu&hbm80g
 
 #SBATCH --time 10:00:00
