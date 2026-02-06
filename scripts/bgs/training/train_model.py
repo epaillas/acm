@@ -56,7 +56,7 @@ if __name__ == '__main__':
         logger_fn = checkpoint_dir / f'{stat_name}.log'
         setup_logging(filename=logger_fn, level=args.log_level)
         
-        logger.info(f'Starting optimization for {stat_name}')
+        logger.info(f'Starting training for {stat_name}')
         observable = Observable(stat_name=stat_name, paths=paths, numpy_output=True, flat_output_dims=2)
         
         checkpoint_dir = checkpoint_dir / f'{observable}'

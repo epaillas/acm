@@ -1,7 +1,7 @@
 module: acm.observables.bgs
 statistics: ['tpcf']
 fit_type: secondgen
-cosmo_model: base
+cosmo_model: base-w0wa-fixed-omega_b
 hod_model: base-VB-AB-CB-s
 add_cov_emu: true
 cov_emu_diag: true
@@ -12,3 +12,4 @@ hod_idx: 0
 data_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/input_data/
 model_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/
 save_dir: /pscratch/sd/s/sbouchar/acm/bgs-20/chains/
+slice_map: "{'tpcf': {'s': [1, 150]}, 'ds_xiqg': {'s': [1, 30]}, 'ds_xiqq': {'s': [1, 30]}}"
