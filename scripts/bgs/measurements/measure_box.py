@@ -16,15 +16,16 @@ Directories and files:
 """
 import gc
 import sys
-import jax
 import yaml
-import fitsio
 import logging
 import argparse
-import numpy as np
 from pathlib import Path
-from pycorr import TwoPointCorrelationFunction
+
+import jax
+import fitsio
+import numpy as np
 from pypower import CatalogFFTPower
+from pycorr import TwoPointCorrelationFunction
 
 from acm.hod import BoxHOD
 from acm.utils.logging import setup_logging
@@ -620,3 +621,7 @@ if __name__ == "__main__":
                                     gpu = gpu,
                                 )
                                 compute_density_split_power(positions, **kwargs)
+            
+            del abacus, catalog, positions
+            jax.clear_caches()
+            gc.collect()
