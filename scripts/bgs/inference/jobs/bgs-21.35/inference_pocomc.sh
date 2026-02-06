@@ -8,16 +8,16 @@
 
 #SBATCH --time 03:00:00
 
-#SBATCH --job-name sg-inference
-#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_inference/secondgen/%A.%x_%a.out
-#SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_inference/secondgen/%A.%x_%a.err
+#SBATCH --job-name 21-val-inference
+#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_inference/validation/%A.%x_%a.out
+#SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_inference/validation/%A.%x_%a.err
 
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
 
 cd /global/homes/s/sbouchar/acm-repo/scripts/bgs/inference/
 
-CONFIG=jobs/bgs-20/config_secondgen.yaml
+CONFIG=jobs/bgs-21.35/config_validation.yaml
 HOD_MODEL=base-AB-CB-VB-s
 
 SLICE_MAP="{'tpcf': {'s': [30, 150]}, 'ds_xiqg': {'s': [1, 30]}, 'ds_xiqq': {'s': [1, 30]}}"
