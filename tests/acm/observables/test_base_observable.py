@@ -16,18 +16,22 @@ from acm.observables.base import Observable
 
 DIR_TEST = os.getenv("ACM_TEST_DATA")
 
-OBS_TEST = Observable(
-    stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
-)
-
 
 def test_init():
+    OBS_TEST = Observable(
+        stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
+    )
+
     assert isinstance(OBS_TEST.x, xarray.DataArray)
     assert isinstance(OBS_TEST.y, xarray.DataArray)
     assert isinstance(OBS_TEST.covariance_y, xarray.DataArray)
 
 
 def test_copy():
+    OBS_TEST = Observable(
+        stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
+    )
+
     try:
         obst_copy = copy(OBS_TEST)
         assert obst_copy.x == OBS_TEST.x
@@ -45,5 +49,5 @@ class TestObservable:
         assert self.obst.get_coordinate_list("hod_idx") == list(range(100))
 
     def test_get_model_prediction(self):
-        model = self.obst.get_model_prediction(self.obst.x[0,0])
+        model = self.obst.get_model_prediction(self.obst.x[0, 0])
         assert model.size == self.obst.model.mlp[-1].out_features
