@@ -217,7 +217,7 @@ class Observable():
         """
         return logging.getLogger(cls.__name__)
     
-    def __repr__(self):
+    def __repr__(self): # pragma: no cover
         """
         Returns a string representation of the Observable object.
         """
@@ -723,7 +723,7 @@ class Observable():
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None, **kwargs) -> tuple:
+    def plot_observable(self, model_params: dict, save_fn: str = None, **kwargs) -> tuple: # pragma: no cover
         """
         Plot the observable with error bars and the model prediction, along with the residuals.
 
@@ -788,7 +788,7 @@ class Observable():
     
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_emulator_residuals(self, save_fn: str = None, **kwargs) -> tuple:
+    def plot_emulator_residuals(self, save_fn: str = None, **kwargs) -> tuple:  # pragma: no cover
         """
         Plot the emulator residuals.
         
