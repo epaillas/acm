@@ -179,6 +179,8 @@ def fit_abacus(observable):
         labels=labels,
         ellipsoid=True,
         markers=markers,
+        sample_in_transformed_space=args.sample_in_transformed_space,
+        observable=observable if args.sample_in_transformed_space else None,
     )
     sampler(vectorize=True, n_total=4096)
 
@@ -221,6 +223,7 @@ if __name__ == "__main__":
     parser.add_argument('--cov_emu_method', type=str, default='median', help='Method to compute the emulator covariance.')
     parser.add_argument('--cov_emu_diag', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
     parser.add_argument('--cov_correction', type=str, default='percival', help='Covariance correction method to use.')
+    parser.add_argument('--sample_in_transformed_space', action='store_true', help='Whether to sample in transformed space (skip output inverse transform).')
     parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/jan23')
 
     args = parser.parse_args()
@@ -237,5 +240,6 @@ if __name__ == "__main__":
     fixed_param_names = get_fixed_params(cosmo_model, hod_model)
 
     observable = get_observable(statistics)
+    print(observable.model.output_transform)
     sampler = fit_abacus(observable)
     save_and_plot(sampler, observable)

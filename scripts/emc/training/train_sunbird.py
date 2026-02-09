@@ -109,7 +109,8 @@ if __name__ == '__main__':
 
     observable = Observable(stat_name=args.statistic, paths=paths, numpy_output=True, flat_output_dims=2)
 
-    model_dir = f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/{args.statistic}/'
+    # model_dir = f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/{args.statistic}/'
+    model_dir = f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/debug/best/{args.statistic}/'
     TrainFCN(
         observable=observable,
         learning_rate=1.e-3,

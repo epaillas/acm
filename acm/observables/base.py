@@ -723,6 +723,102 @@ class Observable():
         if isinstance(save_dir, str):
             return cout.as_posix() # Return as string if save_dir is a string
         return cout
+    
+    def _validate_output_transform(self):
+        """
+        Validate that an output transform exists on the model.
+        
+        Raises
+        ------
+        ValueError
+            If no model is available or model has no output_transform attribute.
+        """
+        if not hasattr(self, 'model') or self.model is None:
+            raise ValueError("No model available. Cannot apply output transform.")
+        if not hasattr(self.model, 'output_transform') or self.model.output_transform is None:
+            raise ValueError(
+                "Model has no output_transform. Cannot perform transformations. "
+                "Ensure the model was trained with an output_transform."
+            )
+    
+    def apply_output_transform(self, data: np.ndarray | xarray.DataArray) -> np.ndarray | xarray.DataArray:
+        """
+        Apply the model's output transform to data.
+        
+        This transforms data from the original space to the transformed space 
+        (e.g., from P(k) to log10(P(k))).
+        
+        Parameters
+        ----------
+        data : np.ndarray or xarray.DataArray
+            Data vector in the original (untransformed) space.
+            
+        Returns
+        -------
+        np.ndarray or xarray.DataArray
+            Transformed data vector, same type as input.
+            
+        Raises
+        ------
+        ValueError
+            If no output transform is available on the model.
+        """
+        self._validate_output_transform()
+        
+        if isinstance(data, xarray.DataArray):
+            transformed = self.model.output_transform.transform(data.values)
+            return xarray.DataArray(
+                transformed,
+                coords=data.coords,
+                dims=data.dims,
+                attrs=data.attrs,
+                name=data.name
+            )
+        else:
+            return self.model.output_transform.transform(data)
+    
+    def transform_covariance_matrix(self, cov: np.ndarray, at_point: np.ndarray | xarray.DataArray) -> np.ndarray:
+        """
+        Transform a covariance matrix using the Jacobian of the output transform.
+        
+        For an element-wise transformation f(y), the transformed covariance is:
+        Cov_transformed = diag(J) @ Cov @ diag(J)
+        where J = df/dy is the Jacobian diagonal evaluated at `at_point`.
+        
+        Parameters
+        ----------
+        cov : np.ndarray
+            Covariance matrix in the original space, shape (n_features, n_features).
+        at_point : np.ndarray or xarray.DataArray
+            Point at which to evaluate the Jacobian, shape (n_features,).
+            Typically the mean or fiducial value of the data.
+            
+        Returns
+        -------
+        np.ndarray
+            Transformed covariance matrix, shape (n_features, n_features).
+            
+        Raises
+        ------
+        ValueError
+            If no output transform is available on the model.
+        """
+        self._validate_output_transform()
+        
+        # Extract values if xarray
+        if isinstance(at_point, xarray.DataArray):
+            at_point = at_point.values
+        
+        # Get Jacobian diagonal
+        jacobian_diag = self.model.output_transform.get_jacobian_diagonal(at_point)
+        
+        # Ensure it's a numpy array
+        if isinstance(jacobian_diag, torch.Tensor):
+            jacobian_diag = jacobian_diag.numpy()
+        
+        # Transform: Cov_transformed = diag(J) @ Cov @ diag(J)
+        # Efficient computation: (J[:, None] * Cov) * J[None, :]
+        return (jacobian_diag[:, None] * cov) * jacobian_diag[None, :]
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)

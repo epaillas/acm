@@ -272,6 +272,116 @@ class CombinedObservable():
         
         return cov
     
+    def get_transformed_y(self) -> np.ndarray:
+        """
+        Get the transformed combined observational data.
+
+        This method applies the output transform to each observable's data
+        and concatenates them into a single vector.
+
+        Returns
+        -------
+        np.ndarray
+            The concatenated transformed observational data vector.
+        """
+        transformed_y = []
+        for observable in self.observables:
+            y_transformed = observable.get_transformed_y()
+            transformed_y.append(y_transformed)
+        
+        return np.concatenate(transformed_y)
+    
+    def get_transformed_covariance_matrix(self, **kwargs) -> np.ndarray:
+        """
+        Get the transformed combined covariance matrix.
+
+        This method applies the Jacobian transformation to each observable's
+        covariance matrix and combines them into a block-diagonal matrix.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Additional keyword arguments passed to check_covariance_matrix.
+
+        Returns
+        -------
+        np.ndarray
+            The block-diagonal transformed covariance matrix.
+        """
+        covs = []
+        for observable in self.observables:
+            cov_transformed = observable.get_transformed_covariance_matrix(**kwargs)
+            covs.append(cov_transformed)
+        
+        cov = linalg.block_diag(*covs)
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="combined transformed covariance", **kwargs)
+        
+        return cov
+    
+    def get_transformed_emulator_error(self) -> np.ndarray:
+        """
+        Get the transformed combined emulator error.
+
+        This method applies the output transform to each observable's emulator
+        error and concatenates them into a single vector.
+
+        Returns
+        -------
+        np.ndarray
+            The concatenated transformed emulator error vector.
+        """
+        transformed_errors = []
+        for observable in self.observables:
+            error_transformed = observable.get_transformed_emulator_error()
+            transformed_errors.append(error_transformed)
+        
+        return np.concatenate(transformed_errors)
+    
+    def get_transformed_emulator_covariance_matrix(
+        self,
+        prefactor: float = 1.0,
+        method: str = 'bootstrap',
+        diag: bool = False,
+        **kwargs
+    ) -> np.ndarray:
+        """
+        Get the transformed combined emulator covariance matrix.
+
+        This method applies the Jacobian transformation to each observable's
+        emulator covariance matrix and combines them into a block-diagonal matrix.
+
+        Parameters
+        ----------
+        prefactor : float, optional
+            Prefactor to multiply the emulator error by. Default is 1.0.
+        method : str, optional
+            Method to estimate the emulator error from. Default is 'bootstrap'.
+        diag : bool, optional
+            If True, only the diagonal elements are returned. Default is False.
+        **kwargs : dict
+            Additional keyword arguments passed to check_covariance_matrix.
+
+        Returns
+        -------
+        np.ndarray
+            The block-diagonal transformed emulator covariance matrix.
+        """
+        covs = []
+        for observable in self.observables:
+            cov_transformed = observable.get_transformed_emulator_covariance_matrix(
+                prefactor=prefactor, method=method, diag=diag
+            )
+            covs.append(cov_transformed)
+        
+        cov = linalg.block_diag(*covs)
+        
+        # Perform sanity checks on the covariance matrix
+        check_covariance_matrix(cov, name="combined transformed emulator covariance", **kwargs)
+        
+        return cov
+    
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
         Creates a handle that combines the handles of the observables,
