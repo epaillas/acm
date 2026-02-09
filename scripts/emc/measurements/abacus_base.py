@@ -73,13 +73,13 @@ def get_save_dir(base_save_dir, stat_name, cosmo_idx, phase_idx, seed_idx, extra
     save_dir.mkdir(parents=True, exist_ok=True)
     return save_dir
 
-def get_hod_fns(cosmo=0, phase=0, redshift=0.8):
+def get_hod_fns(cosmo=0, phase=0, seed=0, redshift=0.8):
     """
     Get the list of HOD file names for a given cosmology,
     phase, and redshift.
     """
     base_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/'
-    hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed_idx}/'
+    hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed}/'
     hod_fns = glob.glob(str(Path(hod_dir) / f'hod*.fits'))
     return sorted(hod_fns)
 
@@ -291,7 +291,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/init/')
+    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/init/torch/')
     meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
     init_fn = init_dir / f'meshsize{meshsize_str}_J{wst_args["J"]}_L{wst_args["L"]}_sigma{wst_args["sigma"]}.npy'
     if init_fn.exists() and init is None:
@@ -299,7 +299,8 @@ def compute_wst(output_fn, positions, init=None, **attrs):
         with open(init_fn, 'rb') as f:
             init = cp.load(f)
 
-    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, backend='pypower', **attrs)
+    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init,
+                                     backend='pypower', kymatio_backend='torch', **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
@@ -569,7 +570,7 @@ if __name__ == '__main__':
         bspec_bin = None
         for phase_idx in phases:
             for seed_idx in seeds:
-                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
+                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, seed=seed_idx, redshift=redshift)
                 if len(hod_fns) == 0:
                     logger.info(f'No HOD files found for c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}. Skipping.')
                     continue
@@ -679,12 +680,12 @@ if __name__ == '__main__':
 
                     if 'wst' in args.todo_stats:
                         for wst_args in [
-                            {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
+                            # {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
                             # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 80},
-                            # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
+                            {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
                         ]:
                             wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
-                            save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config)
+                            save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config, version='debug')
                             output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                             if output_fn.exists():
                                 logger.info(f'Skipping {output_fn}, already exists.')
