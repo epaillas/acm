@@ -501,7 +501,7 @@ class Observable():
         else:
             raise NotImplementedError("No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method.")
     
-    def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False):
+    def get_model_prediction(self, x, model=None, coords: dict = None, attrs: dict = None, nofilters: bool = False, skip_output_inverse_transform: bool = False):
         """
         Get the prediction from the model.
         
@@ -519,6 +519,9 @@ class Observable():
             Attributes for the output DataArray. If None, the attributes of _dataset.y are used. Defaults to None.
         nofilters : bool, optional
             If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
+        skip_output_inverse_transform : bool, optional
+            If True, skip the output inverse transformation. Useful when performing inference 
+            in transformed space. Defaults to False.
         
         Returns
         -------
@@ -547,7 +550,7 @@ class Observable():
             model = self.model
 
         with torch.no_grad():
-            pred = model.get_prediction(torch.Tensor(x))
+            pred = model.get_prediction(torch.Tensor(x), skip_output_inverse_transform=skip_output_inverse_transform)
             pred = pred.numpy()
         
         if coords is None:

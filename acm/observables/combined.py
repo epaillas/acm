@@ -24,7 +24,7 @@ class CombinedModel():
         self.observables = observables
         self.models = [obs.model for obs in self.observables]
 
-    def get_prediction(self, x):
+    def get_prediction(self, x, skip_output_inverse_transform: bool = False):
         """
         Get the prediction from the model.
         
@@ -32,15 +32,17 @@ class CombinedModel():
         ----------
         x : array_like
             Input features.
+        skip_output_inverse_transform : bool, optional
+            If True, skip the output inverse transformation for all observables.
+            Defaults to False.
         
         Returns
         -------
         array_like
             Model prediction, with respective filters applied to each observable.
         """
-        return np.concatenate([obs.get_model_prediction(x) for obs in self.observables], axis=-1)
-    
-    
+        return np.concatenate([obs.get_model_prediction(x, skip_output_inverse_transform=skip_output_inverse_transform) for obs in self.observables], axis=-1)
+
 
 class CombinedObservable():
     """
@@ -182,7 +184,7 @@ class CombinedObservable():
         """
         return CombinedModel(self.observables)
     
-    def get_model_prediction(self, x)-> np.ndarray:
+    def get_model_prediction(self, x, skip_output_inverse_transform: bool = False)-> np.ndarray:
         """
         Get the prediction from the model.
         
@@ -190,13 +192,16 @@ class CombinedObservable():
         ----------
         x : array_like
             Input features.
+        skip_output_inverse_transform : bool, optional
+            If True, skip the output inverse transformation for all observables.
+            Defaults to False.
             
         Returns
         -------
         array_like
             Model prediction.
         """
-        return np.concatenate([obs.get_model_prediction(x) for obs in self.observables], axis=-1)
+        return np.concatenate([obs.get_model_prediction(x, skip_output_inverse_transform=skip_output_inverse_transform) for obs in self.observables], axis=-1)
 
     def get_covariance_matrix(
         self,
