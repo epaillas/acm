@@ -685,7 +685,7 @@ if __name__ == '__main__':
                             {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
                         ]:
                             wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
-                            save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config, version='debug')
+                            save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config)
                             output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                             if output_fn.exists():
                                 logger.info(f'Skipping {output_fn}, already exists.')
