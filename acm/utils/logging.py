@@ -74,12 +74,12 @@ def mkdir(dirname):
         return
 
 @contextmanager
-def supress_logging(enabled=True):
+def supress_logging(enabled=True, highest_level=logging.CRITICAL):
     """Context manager to temporarily suppress logging messages."""
     root = logging.getLogger()
     origin_level = root.getEffectiveLevel()
     if enabled:
-        root.setLevel(logging.CRITICAL) # Keep only critical messages
+        root.setLevel(highest_level) # Keep only messages at or above the highest_level
     yield
     if enabled:
         root.setLevel(origin_level)
