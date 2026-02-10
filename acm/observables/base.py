@@ -1,12 +1,17 @@
+import logging
+from pathlib import Path
+from copy import copy, deepcopy
+
 import torch
 import xarray
-import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
+from scipy.stats import median_abs_deviation, norm
+
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
-from scipy.stats import median_abs_deviation, norm
+from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
+
 from acm.utils.xarray import dataset_from_dict
 from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
 from acm.utils.plotting import set_plot_style
@@ -14,7 +19,6 @@ from acm.utils.decorators import temporary_class_state
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
-from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
 SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 
 class Observable():
@@ -262,6 +266,44 @@ class Observable():
                 data = data.values
             
         return data
+
+    def __copy__(self):
+        """
+        Returns a shallow copy of the Observable object by returning a new class instance trough
+        the __init__ method called with the copied class attributes that are in the __init__ signature.
+        """
+        nargs = self.__init__.__code__.co_argcount
+        init_vars = self.__init__.__code__.co_varnames[1:nargs] 
+        init_kwargs = {var: copy(getattr(self, var, None)) for var in init_vars}
+        
+        # NOTE: 'dataset' and 'checkpoint_fn' will be None as they are not stored as attributes.
+        # We can still get the dataset from the _dataset attribute.
+        if 'dataset' in init_kwargs:
+            init_kwargs['dataset'] = copy(self._dataset)
+        
+        # Create a new instance of the class with the copied parameters
+        return self.__class__(
+            **init_kwargs
+        )
+    
+    def __deepcopy__(self, memo: dict|None = None):
+        """
+        Returns a deepcopy of the Observable object returning a new class instance trough
+        the __init__ method called with the copied class attributes that are in the __init__ signature.
+        """
+        nargs = self.__init__.__code__.co_argcount
+        init_vars = self.__init__.__code__.co_varnames[1:nargs] 
+        init_kwargs = {var: deepcopy(getattr(self, var, None), memo) for var in init_vars}
+        
+        # NOTE: 'dataset' and 'checkpoint_fn' will be None as they are not stored as attributes.
+        # We can still get the dataset from the _dataset attribute.
+        if 'dataset' in init_kwargs:
+            init_kwargs['dataset'] = deepcopy(self._dataset, memo)
+        
+        # Create a new instance of the class with the copied parameters
+        return self.__class__(
+            **init_kwargs
+        )
     
     def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
