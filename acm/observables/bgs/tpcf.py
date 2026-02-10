@@ -14,8 +14,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     Class for the application of the Two-point correlation function statistic of the ACM pipeline 
     to the BGS dataset.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='tpcf', **kwargs)
+    def __init__(self, stat_name='tpcf', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
         
     #%% Compressed files creation
     @classmethod
