@@ -1,8 +1,12 @@
 from abc import ABC
 import logging
 import fitsio
+import time
+from pathlib import Path
 import numpy as np
 import healpy as hp
+import mpytools as mpy
+from mpytools import CurrentMPIComm
 from astropy.io import fits
 from astropy.table import Table
 from scipy.interpolate import InterpolatedUnivariateSpline
@@ -29,7 +33,6 @@ except ImportError:
     build_healpix_map = None
     HAS_REGRESSIS = False
 
-
 # Valid DESI photometric regions
 # N = North, DN = Dark North, DS = Dark South, SNGC = South NGC, SSGC = South SGC
 # DES = Dark Energy Survey, NGC = North Galactic Cap, SGC = South Galactic Cap
@@ -44,8 +47,10 @@ class BaseCutskyCatalog(ABC):
     compute number density, and check if coordinates are within a specified photometric region.
     It is intended to be subclassed for specific cutsky catalog implementations.
     """
-    def __init__(self):
-        pass
+    @CurrentMPIComm.enable
+    def __init__(self, mpicomm=None, mpiroot=0):
+        self.mpicomm = mpicomm
+        self.mpiroot = mpiroot
 
     def apply_angular_mask(
         self,
@@ -238,7 +243,8 @@ class BaseCutskyCatalog(ABC):
             }
             return pixels, dr9_footprint(convert_dict[region])[pixels]
 
-    def add_columns_fiberassign(self, seed: int = 0) -> None:
+    @staticmethod
+    def add_columns_fiberassign(catalog, seed: int = 0) -> None:
         """
         Add columns to the catalog that are needed for fiber assignment.
 
@@ -247,43 +253,205 @@ class BaseCutskyCatalog(ABC):
         seed : int, optional
             Random seed for reproducibility. Defaults to 0.
         """
-        self.logger.info('Adding columns for fiber assignment.')
 
-        priority = {'LRG': 3200, 'QSO': 3400, 'ELG': 3100, 'BGS': 2100}
-        tile = {'LRG': 'DARK', 'QSO': 'DARK', 'ELG': 'DARK', 'BGS': 'BRIGHT'}
+        priority = {'LRG': 3200, 'QSO': 3400, 'ELG_HIP': 3200, 'ELG_LOP': 3100, 'ELG_VLO': 3000, 'BGS': 2100}
+        numobs = {'LRG': 2, 'QSO': 4, 'ELG_HIP': 2, 'ELG_LOP': 2, 'ELG_VLO': 2, 'BGS': 1}
 
-        csize = len(self.catalog['RA'])
-        self.catalog['DESI_TARGET'] = desi_mask[self.tracer] * np.ones(csize, dtype='i8')
-        self.catalog['PRIORITY'] = priority[self.tracer] * np.ones(csize, dtype='i8')
-        self.catalog['SUBPRIORITY'] = np.random.uniform(size=csize, low=0, high=1).astype('f8')
-        self.catalog['OBSCONDITIONS'] = obsconditions.mask(tile[self.tracer]) * np.ones(csize, dtype='i8')
-        self.catalog['NUMOBS_MORE'] = np.ones(csize, dtype='i8')
-        self.catalog['TARGETID'] = np.arange(csize, dtype='i8')
+        tile = {'LRG': 'DARK', 'QSO': 'DARK', 'ELG': 'DARK', 'ELG_HIP': 'DARK', 'ELG_LOP': 'DARK', 'ELG_VLO': 'DARK', 'BGS': 'BRIGHT'} 
+
+        names_col = ['PRIORITY_INIT', 'PRIORITY', 'NUMOBS_MORE', 'NUMOBS_INIT', 'DESI_TARGET', 'OBSCONDITIONS']
+        for name in names_col:
+            catalog[name] = catalog.ones(dtype=int)
+        
+        # This can be done better using random generator
+        np.random.seed(seed)
+        catalog['TARGETID'] = np.random.permutation(np.arange(1,catalog.size+1)) + catalog.mpicomm.rank * (10**6) # to make iot unique across processes
+        catalog['SUBPRIORITY'] = np.random.uniform(0, 1, catalog.size)
+        tracer_list = np.unique(catalog['TRACER']).tolist()
+        for tr in tracer_list: 
+            mask= catalog['TRACER'] == tr
+            catalog['PRIORITY_INIT'][mask] = priority[tr]
+            catalog['PRIORITY'][mask] = priority[tr]
+            catalog['NUMOBS_MORE'][mask] = numobs[tr]
+            catalog['NUMOBS_INIT'][mask] = numobs[tr]
+            catalog['DESI_TARGET'][mask] = desi_mask[tr]
+            catalog['OBSCONDITIONS'][mask] = obsconditions.mask(tile[tr])
+
+
+    @CurrentMPIComm.enable
+    def run_FA_for_single_tracer(self, release='Y3', program='dark', npasses=7, use_sky_targets=False, 
+                                 seed=None, preload_sky_targets=False, plot_output=True, mpicomm=None, mpiroot=0):
+
+        """
+        Run a full fiber assignment workflow on a mock cutsky catalog.
+
+        Optionally adds other tracers randomly, applies multi-pass fiber assignment,
+        computes completeness weights, and produces diagnostic plots.
+
+        Parameters
+        ----------
+        release : str, default='Y3'
+            DESI data release.
+        program : str, default='dark'
+            Observing program.
+        npasses : int, default=7
+            Number of observing passes.
+        use_sky_targets : bool, default=False
+            Include sky targets.
+
+        seed : int or None
+            RNG seed.
+        preload_sky_targets : bool, default=False
+            Preload sky targets.
+        plot_output : bool, default=True
+            Produce diagnostic plots.
+        path_to_save : str or None
+            Output catalog path.
+
+        Returns
+        -------
+        cutsky_for_fa : mpytools.Catalog
+            Catalog with fiber assignment results.
+        """
+        from mpytools import Catalog
+        from mockfactory.desi import build_tiles_for_fa, apply_fiber_assignment, read_sky_targets, compute_completeness_weight
+    
+        logger = logging.getLogger('F.A.')
+        rng = np.random.RandomState(seed=seed)
+        
+        if mpicomm.rank == mpiroot:
+            self.catalog = Catalog.from_dict(self.catalog, mpicomm=mpicomm)
+        self.catalog = Catalog.scatter(self.catalog, mpiroot=mpiroot, mpicomm=mpicomm)
+
+        if 'TRACER' not in  self.catalog.columns():
+            logger.info(f'Add tracer column for {self.catalog}.')
+            self.catalog['TRACER'] = [self.tracer]*self.catalog.size
+
+            
+        if mpicomm.rank == mpiroot: 
+            logger.info('Run simple example to illustrate how to run fiber assignment.')
+            logger.info(f'Add random ELGs and QSOs objects.')
+
+        
+        # This is should be done better 
+
+        if 'ELG' in self.tracer:
+            mask_elg_vlo = rng.uniform(size=self.catalog.size) < .25
+            self.catalog['TRACER'][mask_elg_vlo] = 'ELG_VLO'
+            mask_elg_hip = rng.uniform(size=self.catalog.size) < 0.1
+            self.catalog['TRACER'][mask_elg_hip] = 'ELG_HIP'
+            tr_toadd = ['LRG', 'QSO']
+        else:
+            tr_toadd = ['LRG','ELG_HIP', 'QSO']
+            tr_toadd.remove(self.tracer)
+        nbar1 = 240 if tr_toadd[0] == 'ELG_HIP' else 310 if tr_toadd[0] == 'QSO' else 610
+        nbar2 = 240 if tr_toadd[1] == 'ELG_HIP' else 310 if tr_toadd[1] == 'QSO' else 610
+        seed1, seed2 = rng.randint(0,2**32-1,size=2)
+        cutsky_1 = RandomCutskyCatalog(rarange=(self.catalog['RA'].min(), self.catalog['RA'].max()), decrange=(self.catalog['DEC'].min(), self.catalog['DEC'].max()), drange=(self.catalog['Distance'].min(), self.catalog['Distance'].max()), nbar= nbar1, seed=seed1, mpicomm=mpicomm)
+        cutsky_2 = RandomCutskyCatalog(rarange=(self.catalog['RA'].min(), self.catalog['RA'].max()), decrange=(self.catalog['DEC'].min(), self.catalog['DEC'].max()), drange=(self.catalog['Distance'].min(), self.catalog['Distance'].max()), nbar=nbar2, seed=seed2, mpicomm=mpicomm)
+
+        cutsky_1['TRACER'] = [tr_toadd[0]]*cutsky_1.size
+        cutsky_2['TRACER'] = [tr_toadd[1]]*cutsky_2.size
+        cutsky_2 = cutsky_2[is_in_desi_footprint(cutsky_2['RA'], cutsky_2['DEC'], release=release, program=program, npasses=npasses)]
+        cutsky_1 = cutsky_1[is_in_desi_footprint(cutsky_1['RA'], cutsky_1['DEC'], release=release, program=program, npasses=npasses)]
+        cutsky_for_fa = Catalog.concatenate([self.catalog[cutsky_1.columns()], cutsky_1, cutsky_2])
+
+        self.add_columns_fiberassign(cutsky_for_fa)
+        # Collect tiles from surveyops directory on which the fiber assignment will be applied
+        tiles = build_tiles_for_fa(release_tile_path=f'/global/cfs/cdirs/desi/survey/catalogs/{release}/LSS/tiles-{program.upper()}.fits', program=program, npasses=npasses)
+
+        if use_sky_targets and preload_sky_targets:
+            # tiles is not restricted here, we will load sky_targets for all the Y1 footprint
+            sky_targets = read_sky_targets(dirname='/global/cfs/cdirs/desi/users/edmondc/desi_targets/sky_targets/', tiles=tiles, program=program, mpicomm=mpicomm)
+
+        # Get info from origin fiberassign file and setup options for F.A.
+        ts = str(tiles['TILEID'][0]).zfill(6)
+        fht = fitsio.read_header(f'/global/cfs/cdirs/desi/target/fiberassign/tiles/trunk/{ts[:3]}/fiberassign-{ts}.fits.gz')
+        rundate = fht['RUNDATE']
+        # see fiberassign.scripts.assign.parse_assign (Can modify margins, number of sky fibers for each petal etc.)
+        opts_for_fa = ["--target", " ", "--rundate", rundate, "--mask_column", "DESI_TARGET"]
+
+        
+        nbr_targets = cutsky_for_fa.csize
+        if mpicomm.rank == 0: logger.info(f'Keep only objects which is in a tile. Working with {nbr_targets} targets')
+
+        columns_for_fa = ['RA', 'DEC', 'TARGETID', 'DESI_TARGET', 'SUBPRIORITY', 'OBSCONDITIONS', 'NUMOBS_MORE']
+
+        # Let's do the F.A.:
+        apply_fiber_assignment(cutsky_for_fa, tiles, npasses, opts_for_fa, columns_for_fa, mpicomm, use_sky_targets=use_sky_targets)
+        # Compute the completeness weight: if multi-tracer, apply completeness weight once for each tracer independently
+        compute_completeness_weight(cutsky_for_fa, tiles, npasses, mpicomm)
+        # Summarize and plot
+        ra, dec = cutsky_for_fa.cget('RA', mpiroot=0), cutsky_for_fa.cget('DEC', mpiroot=0)
+        numobs, available = cutsky_for_fa.cget('NUMOBS', mpiroot=0), cutsky_for_fa.cget('AVAILABLE', mpiroot=0)
+        obs_pass, comp_weight = cutsky_for_fa.cget('OBS_PASS', mpiroot=0), cutsky_for_fa.cget('COMP_WEIGHT', mpiroot=0)
+
+        logger.info('FA done')
+        
+
+        mask_tr = cutsky_for_fa['TRACER']== self.tracer
+        cutsky_for_fa = cutsky_for_fa[mask_tr]
+        for col in cutsky_for_fa.columns():
+            if col not in self.catalog.columns():
+                self.catalog[col] = cutsky_for_fa[col]
+        del cutsky_for_fa
+        
+        if plot_output & (mpicomm.rank == 0):
+
+            logger.info(f"Nbr of targets observed: {(numobs >= 1).sum()} -- per pass: {obs_pass.sum(axis=0)} -- Nbr of targets available: {available.sum()} -- Nbr of targets: {ra.size}")
+            logger.info(f"In percentage: Observed: {(numobs >= 1).sum()/ra.size:2.2%} -- Available: {available.sum()/ra.size:2.2%}")
+            values, counts = np.unique(comp_weight, return_counts=True)
+            logger.info(f'Sanity check for completeness weight: {available.sum() - (numobs >= 1).sum()} avialable unobserved targets and {np.nansum([(val - 1) * count for val, count in zip(values, counts)])} from completeness counts')
+            logger.info(f'Completeness counts: {values} -- {counts}')
+
+            import skyproj
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots(figsize=(12, 12))
+            # sp.draw_des(label='DES', edgecolor='k')
+            sp = skyproj.DESSkyproj(ax=ax, extent=[178,209, 33, 48], fontsize=8)
+
+            sp.scatter(ra[available], dec[available], s=0.001, c='k')
+            sp.scatter(ra[numobs>0], dec[numobs>0], s=0.01,c='r')
+
+            fig.tight_layout()
+            fig.savefig(f'fiberasignment_{npasses}npasses.png', facecolor='w', bbox_inches='tight', pad_inches=0.2, dpi=400)
+            logger.info(f'Plot save in fiberasignment_{npasses}npasses.png')
+        mpicomm.Barrier()
 
     def save(self, filename: str) -> None:
         """
         Save the cutsky catalog to a file. Supports .fits and .npy formats.
+        In MPI mode, data is gathered from all ranks to root before saving.
 
         Parameters
         ----------
         filename : str
             The path to the output file.
         """
-        self.logger.info(f'Saving cutsky catalog to {filename}')
-        if filename.endswith('.fits'):
-            table = Table(self.catalog)
-            myfits = fits.BinTableHDU(data=table)
-            myfits.writeto(filename, overwrite=True)
-        elif filename.endswith('.npy'):
-            np.save(filename, self.catalog)
-        else:
-            raise ValueError('Unsupported file format. Use .fits or .npy.')
         
+        # Gather data from all ranks to root
+        catalog_gathered = {}
+        for key in self.catalog.keys():
+            catalog_gathered[key] = mpy.gather(self.catalog[key], mpicomm=self.mpicomm, mpiroot=self.mpiroot)
+        
+        # Only root rank saves to disk
+        if self.mpicomm.rank == self.mpiroot:
+            self.logger.info(f'Saving cutsky catalog to {filename}')
+            self.logger.info(f'Total number of objects saved: {len(catalog_gathered[list(catalog_gathered.keys())[0]])}')
+            if str(filename).endswith('.fits'):
+                table = Table(catalog_gathered)
+                myfits = fits.BinTableHDU(data=table)
+                myfits.writeto(filename, overwrite=True)
+            elif str(filename).endswith('.npy'):
+                np.save(filename, catalog_gathered)
+            else:
+                raise ValueError('Unsupported file format. Use .fits or .npy.')
 
 class CutskyHOD(BaseCutskyCatalog):
     """
     Patch together cubic boxes to form a pseudo-lightcone.
     """
+    @CurrentMPIComm.enable
     def __init__(
         self,
         varied_params: list[str],
@@ -296,6 +464,7 @@ class CutskyHOD(BaseCutskyCatalog):
         sim_type: str = 'base',
         tracer: str = 'LRG',
         DM_DICT: dict = None,
+        **kwargs,
     ):
         """
         Initialize the CutskyHOD class. This checks the HOD parameters and 
@@ -332,9 +501,12 @@ class CutskyHOD(BaseCutskyCatalog):
             Dictionary containing the DM fields for the HOD sampling.
             If None, defaults to a value read from `acm.utils.paths` on NERSC systems.
             Defaults to None.
+        **kwargs: dict
+            Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.logger = logging.getLogger('CutskyHOD')
+        self.logger.info(f'Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks.')
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
@@ -403,25 +575,38 @@ class CutskyHOD(BaseCutskyCatalog):
             Number of threads to use for sampling, by default 1.
         seed : float, optional
             Random seed for reproducibility, by default 0.
-        target_nbar : float, optional
-            Number density to downsample the HOD catalog to, in (Mpc/h)^-3.
+        target_nbar : list[float], optional
+            List containing (min_nbar, max_nbar) for downsampling catalogue 
+            to desired density (nbar > max_nbar) or cutting from sample 
+            (nbar < min_nbar). If only one value provided, this is taken as 
+            the maximum threshold (no minimum threshold applied). Default 
+            is None (no thresholds applied).
+        
 
         Returns
         -------
         tuple
             Tuple containing positions and velocities of the sampled galaxies.
         """
-        hod_dict = ball.run(
-            hod_params,
-            seed=seed,
-            nthreads=nthreads,
-            tracer_density_mean=target_nbar
-        )[self.tracer]
-        pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']]
-        vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']]
-        return pos.astype(np.float32), vel.astype(np.float32)
+        # Only root rank samples the HOD to avoid redundant computation
+        if self.mpicomm.rank == self.mpiroot:
+            hod_dict = ball.run(
+                hod_params,
+                seed=seed,
+                nthreads=nthreads,
+                tracer_density=target_nbar
+            )[self.tracer]
+            pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']].astype(np.float32)
+            vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']].astype(np.float32)
+        else:
+            pos = None
+            vel = None
+        # Scatter from root to all ranks (distributes data, not copies)
+        pos = mpy.scatter(pos, mpicomm=self.mpicomm, mpiroot=self.mpiroot)
+        vel = mpy.scatter(vel, mpicomm=self.mpicomm, mpiroot=self.mpiroot)
+        return pos, vel
 
-    def load_hod(self, mock_path=None):
+    def load_hod(self, mock_path=None, zsnap: float = 0.5, cosmo_idx: int = 0, phase_idx: int = 0):
         """
         Load an existing HOD catalog from a file to speed up debugging.
 
@@ -429,6 +614,12 @@ class CutskyHOD(BaseCutskyCatalog):
         ----------
         mock_path : str, optional
             Path to the HOD catalog file. If None, uses a default path.
+        znap : float, optional
+            Snapshot redshift, by default 0.5.
+        cosmo_idx : int, optional
+            Cosmology index, by default 0.
+        phase_idx : int, optional
+            Phase index, by default 0.
 
         Returns
         -------
@@ -436,14 +627,26 @@ class CutskyHOD(BaseCutskyCatalog):
             Tuple containing positions and velocities of the galaxies.
         """
         if mock_path is None:
-            base_path = f'/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/{self.tracer}/z0.500/AbacusSummit_base_c000_ph000'
-            mock_path = base_path + f'/{self.tracer}_real_space.fits'
-            # data_dir = '/pscratch/sd/e/epaillas/emc/hods/cosmo+hod/z0.5/yuan23_prior/c000_ph000/seed0'
-            # data_fn = Path(data_dir) / 'hod030_raw.fits'
-        data  = fitsio.read(mock_path)
-        pos = np.vstack([data['x'],data['y'],data['z']]).T
-        vel = np.vstack([data['vx'],data['vy'],data['vz']]).T
-        return pos.astype(np.float32), vel.astype(np.float32)
+            mock_path = Path(
+                f'/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/{self.tracer}',
+                f'z{zsnap:.3f}/AbacusSummit_{self.sim_type}_c{cosmo_idx:03d}_ph{phase_idx:03d}',
+                f'{self.tracer}_real_space.fits'
+            )
+
+        # Only root rank loads the HOD to avoid redundant I/O
+        if self.mpicomm.rank == self.mpiroot:
+            self.logger.info(f'Loading existing HOD catalog from {mock_path}')
+            data  = fitsio.read(mock_path)
+            pos = np.vstack([data['x'],data['y'],data['z']]).T.astype(np.float32)
+            vel = np.vstack([data['vx'],data['vy'],data['vz']]).T.astype(np.float32)
+        else:
+            pos = None
+            vel = None
+            
+        # Scatter from root to all ranks
+        pos = mpy.scatter(pos, mpicomm=self.mpicomm, mpiroot=self.mpiroot)
+        vel = mpy.scatter(vel, mpicomm=self.mpicomm, mpiroot=self.mpiroot)
+        return pos, vel
 
     def init_cutsky(self):
         """Initialize the catalog dictionary."""
@@ -509,7 +712,7 @@ class CutskyHOD(BaseCutskyCatalog):
                 region=region
             )
             if self.load_existing_hod:
-                box_positions, box_velocities = self.load_hod(mock_path=existing_hod_path)
+                box_positions, box_velocities = self.load_hod(mock_path=existing_hod_path, zsnap=zsnap)
             else:
                 ball  = self.balls[i]
                 box_positions, box_velocities = self._sample_hod(
@@ -519,7 +722,11 @@ class CutskyHOD(BaseCutskyCatalog):
                     target_nbar=target_nbar,
                     seed=seed
                 )
-            self.raw_nbar_snapshots.append( len(box_positions) / (self.boxsize**3) )
+            # Each rank has a portion of box_positions after scatter
+            # Need to gather total count for raw_nbar calculation
+            total_particles = mpy.csize(box_positions, mpicomm=self.mpicomm)
+            self.raw_nbar_snapshots.append( total_particles / (self.boxsize**3) )
+
             # replicate the box along each axis to cover more volume
             pos_min, pos_max = self.get_reference_borders(
                 zranges,
@@ -536,13 +743,18 @@ class CutskyHOD(BaseCutskyCatalog):
                 target_nbar,
                 shifts=shifts
             )
+
+            # turn into a mockfactory Catalog object
             box = mockfactory.BoxCatalog(
                 data={'Position': box_positions, 'Velocity': box_velocities},
                 position='Position',
                 velocity='Velocity',
                 boxsize=pos_max-pos_min,
                 boxcenter=(pos_max+pos_min)/2,
+                mpicomm=self.mpicomm,
             )
+
+            # apply cutsky transformation
             cutsky_shell = self.box_to_cutsky(
                 box=box,
                 zmin=zranges[0],
@@ -550,6 +762,7 @@ class CutskyHOD(BaseCutskyCatalog):
                 zrsd=zsnap,
                 apply_rsd=True
             )
+
             for key in self.keys_cutsky:
                 self.catalog[key].extend(cutsky_shell[key])
             del box_positions, box_velocities, box, cutsky_shell
@@ -693,11 +906,12 @@ class CutskyHOD(BaseCutskyCatalog):
         catalog : mockfactory.BoxCatalog
             The catalog with RSD applied to the positions.
         """
-        self.logger.info('Applying RSD.')
+        t0 = time.time()
         a = 1 / (1 + redshift) # scale factor
         H = 100.0 * self.cosmo.efunc(redshift)  # Hubble parameter in km/s/Mpc
         rsd_factor = 1 / (a * H)  # multiply velocities by this factor to convert to Mpc/h
         catalog['RSDPosition'] = catalog.rsd_position(f=rsd_factor)
+        self.logger.info(f'Applied RSD at z={redshift} in {time.time() - t0:.2f} seconds.')
         return catalog
 
     def get_reference_borders(
@@ -857,10 +1071,12 @@ class CutskyHOD(BaseCutskyCatalog):
 
         return combined_raw_nbar
         
+
 class CutskyRandoms(BaseCutskyCatalog):
     """
     Class to generate randoms in a cutsky region.
     """
+    @CurrentMPIComm.enable
     def __init__(
         self,
         rarange: tuple = (0., 360.),
@@ -869,7 +1085,8 @@ class CutskyRandoms(BaseCutskyCatalog):
         csize: int | None = None,
         nbar: float | None = None,
         seed: int | None = None,
-        cosmo_idx: int = 0
+        cosmo_idx: int = 0,
+        **kwargs,
     ):
         """
         Initialize the CutskyRandoms class. This generates randoms in a cutsky region
@@ -892,8 +1109,10 @@ class CutskyRandoms(BaseCutskyCatalog):
             Random seed for reproducibility, by default None.
         cosmo_idx : int, optional
             Index of the AbacusSummit cosmology. Used for the redshift-distance relation.
+        **kwargs: dict
+            Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.logger = logging.getLogger('CutskyRandoms')
         self.rarange = rarange
         self.decrange = decrange
@@ -909,7 +1128,8 @@ class CutskyRandoms(BaseCutskyCatalog):
             drange=self.drange,
             csize=csize,
             nbar=nbar,
-            seed=seed
+            seed=seed,
+            mpicomm=self.mpicomm
         )
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
