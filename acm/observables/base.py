@@ -175,7 +175,7 @@ class Observable():
         if len(datasets) == 0:
             raise FileNotFoundError(f"No datasets found for statistic '{stat_name}' in provided paths.")
         
-        _dataset = xarray.merge(datasets)
+        _dataset = xarray.merge(datasets, join='outer')
         return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
     
     @classmethod

@@ -176,7 +176,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         )
         if add_covariance:
             cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
-            cout = xarray.merge([cout, cov_y])
+            cout = xarray.merge([cout, cov_y], join='outer')
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
