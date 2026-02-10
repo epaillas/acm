@@ -16,6 +16,7 @@ from acm.utils.paths import lookup_registry_path
 from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
 
+
 class BaseLightconeCatalog(ABC):
     """
     Base class for mock lightcone catalogs.
@@ -110,7 +111,7 @@ class BaseLightconeCatalog(ABC):
         select_mask = np.random.uniform(size=len(self.catalog['Z'])) < ratio_spline(self.catalog['Z'])
         for key in self.catalog.keys():
             self.catalog[key] = self.catalog[key][select_mask]
-
+        self.catalog['NZ'] = data_nz[select_mask]
         self.logger.info(f'Downsampled data nbar: {self.get_data_nbar(self.catalog, full_sky)}' )
     
     def get_data_nbar(self, data, full_sky: bool = False):

@@ -73,13 +73,13 @@ def get_save_dir(base_save_dir, stat_name, cosmo_idx, phase_idx, seed_idx, extra
     save_dir.mkdir(parents=True, exist_ok=True)
     return save_dir
 
-def get_hod_fns(cosmo=0, phase=0, redshift=0.8):
+def get_hod_fns(cosmo=0, phase=0, seed=0, redshift=0.8):
     """
     Get the list of HOD file names for a given cosmology,
     phase, and redshift.
     """
     base_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/'
-    hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed_idx}/'
+    hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed}/'
     hod_fns = glob.glob(str(Path(hod_dir) / f'hod*.fits'))
     return sorted(hod_fns)
 
@@ -291,7 +291,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     import warnings
     warnings.filterwarnings("ignore")
 
-    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/init/')
+    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/init/torch/')
     meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
     init_fn = init_dir / f'meshsize{meshsize_str}_J{wst_args["J"]}_L{wst_args["L"]}_sigma{wst_args["sigma"]}.npy'
     if init_fn.exists() and init is None:
@@ -299,7 +299,8 @@ def compute_wst(output_fn, positions, init=None, **attrs):
         with open(init_fn, 'rb') as f:
             init = cp.load(f)
 
-    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, backend='pypower', **attrs)
+    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init,
+                                     backend='pypower', kymatio_backend='torch', **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
@@ -356,7 +357,7 @@ def compute_mst(output_fn, positions, boxsize, Nthpoint=5, sigmaJ=3, split=4, qu
     )
 
 
-def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), cellsize=5, recon=False, los='z', **attrs):
+def compute_spherical_voids(output_fn, positions, radii=np.arange(20, 50, 2), cellsize=5, recon=False, los='z', **attrs):
     """Compute the spherical void size function using the ACM package."""
     from VERSUS import SphericalVoids
     from pycorr import TwoPointCorrelationFunction
@@ -366,15 +367,20 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
                         recon_args={'f': 0.76, 'bias': 2., 'los': los, 'smoothing_radius': 10.},
                         use_wisdom=True,
                         **attrs)
-    sv.run_voidfinding(radii, threads=32)
+    sv.run_voidfinding(radii, void_overlap=True, void_resizing=False, threads=32)
+
+    # remove initial radius bin as this contains voids at all larger radii
+    mask = sv.radius < sv.input_radii[0]
+    void_rad = sv.radius[mask]
+    void_pos = sv.position[mask]
     
     # position and radius
     print(f"Saving spherical void positions and radii to {output_fn['void']}")
-    np.save(output_fn['void'], np.c_[sv.void_position, sv.void_radius])
+    np.save(output_fn['void'], np.c_[void_pos, void_rad])
 
     # comoving number density of voids
-    n_v = np.vstack([sorted(radii, reverse=True),
-                    sv.void_count / np.prod(attrs['boxsize'])])  
+    n_v = np.vstack([sv.input_radii[1:],
+                    sv.counts[1:] / np.prod(attrs['boxsize'])])  
     print(f"Saving spherical VSF to {output_fn['vsf']}")
     np.save(output_fn['vsf'], n_v)
 
@@ -383,7 +389,7 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     redges = np.hstack([np.arange(3, 80, 4), np.arange(83, 150, 7)])
     xivg = TwoPointCorrelationFunction(
         'smu', edges=(redges, muedges), 
-        data_positions1=sv.void_position, data_positions2=positions,
+        data_positions1=void_pos, data_positions2=positions,
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
         compute_sepsavg=False, position_type='pos', los=los,
     )   
@@ -394,7 +400,7 @@ def compute_spherical_voids(output_fn, positions, radii=np.arange(22, 48, 2), ce
     redges = np.hstack([35, np.arange(40, 80, 2), np.arange(81, 150, 8)])
     xivv = TwoPointCorrelationFunction(
         'smu', edges=(redges, muedges), 
-        data_positions1=sv.void_position,
+        data_positions1=void_pos,
         engine='corrfunc', boxsize=attrs['boxsize'], nthreads=32,
         compute_sepsavg=False, position_type='pos', los=los,
     )   
@@ -564,7 +570,7 @@ if __name__ == '__main__':
         bspec_bin = None
         for phase_idx in phases:
             for seed_idx in seeds:
-                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, redshift=redshift)
+                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, seed=seed_idx, redshift=redshift)
                 if len(hod_fns) == 0:
                     logger.info(f'No HOD files found for c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}. Skipping.')
                     continue
@@ -674,9 +680,9 @@ if __name__ == '__main__':
 
                     if 'wst' in args.todo_stats:
                         for wst_args in [
-                            {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
+                            # {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
                             # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 80},
-                            # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
+                            {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
                         ]:
                             wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
                             save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config)

@@ -1,4 +1,5 @@
 import acm.observables.emc as emc
+from acm.utils.paths import lookup_registry_path
 from acm import setup_logging
 import argparse
 
@@ -15,11 +16,7 @@ add_covariance = args.add_covariance
 
 setup_logging()
 
-paths = {
-    'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
-    'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
-    'param_dir': None
-}
+paths = lookup_registry_path('projects.yaml', 'emc')
 
 observable = getattr(emc, statistic)
 observable.compress_data(paths=paths, save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod)

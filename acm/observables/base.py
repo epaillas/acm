@@ -112,7 +112,7 @@ class Observable():
         if model is not None:
             self.model = model
         # Try to load model if not provided
-        elif paths is not None and 'model_dir' in paths:
+        elif paths is not None:
             try:
                 if checkpoint_fn is not None:
                     self.logger.warning("DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
