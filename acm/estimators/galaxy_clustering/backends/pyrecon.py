@@ -243,7 +243,7 @@ class PyreconBackend:
             self.mean = np.mean(self.data_mesh)
             self.delta_mesh = self.data_mesh / self.mean - 1.
         
-        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
+        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
     def get_query_positions(self, method: str = 'randoms', nquery: Optional[int] = None, seed: int = 42) -> npt.NDArray:
