@@ -1,10 +1,26 @@
-import torch
+
+"""
+Script to optimize the model hyperparameters for different observables using Optuna. 
+
+Usage:
+    python /global/homes/s/sbouchar/acm/scripts/bgs/training/optimize_model.py \
+    --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs-20/input_data \
+    --study_dir /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/study \
+    --save_dir /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models \
+    --transform arcsinh \
+    --same_n_hidden \
+    --log_level info \
+    --statistics tpcf
+"""
 import logging
 import argparse
 from pathlib import Path
+
+import torch
 from astropy.stats import sigma_clip
 from sunbird.emulators.optimise import study_fcn
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
+
 from acm.observables import Observable
 from acm.utils.logging import setup_logging
 
@@ -30,7 +46,6 @@ if __name__ == '__main__':
     
     paths = dict(data_dir=args.compressed_dir)
     study_dir = Path(args.study_dir)
-    study_dir.mkdir(parents=True, exist_ok=True)
     
     idx_train = slice(args.n_test, None)  # Assuming first n_test are test data
     
@@ -51,10 +66,10 @@ if __name__ == '__main__':
         logger.info(f'Starting optimization for {stat_name}')
         observable = Observable(stat_name=stat_name, paths=paths, numpy_output=True, flat_output_dims=2)
         
-        checkpoint_dir = study_dir / f'{observable}'
+        checkpoint_dir = study_dir / f'{stat_name}'
         
-        lhc_x = observable.get('x_train', observable.x[idx_train])
-        lhc_y = observable.get('y_train', observable.y[idx_train])
+        lhc_x = getattr(observable, 'x_train', observable.x[idx_train]) # NOTE: will crash if neither x or x_test exist (as we can't train the model anyways) 
+        lhc_y = getattr(observable, 'y_train', observable.y[idx_train])
         lhc_x_names = observable.x_names
         # covariance_matrix = observable.get_covariance_matrix() # Not used in mae loss
         
