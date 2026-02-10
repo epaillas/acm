@@ -1,3 +1,4 @@
+import time
 import logging
 
 import numpy.typing as npt
@@ -40,15 +41,18 @@ class BaseEstimator:
         delta : array_like
             Density contrast at the input positions.
         """
+        t0 = time.time()
         if self.backend.name == 'jaxpower':
-            return self.backend.delta_mesh.read(positions, resampler=resampler)
+            delta = self.backend.delta_mesh.read(positions, resampler=resampler)
         elif self.backend.name == 'pypower':
             offset = self.boxcenter - self.boxsize/2.
-            return self.backend.delta_mesh.readout(positions - offset, resampler=resampler)
+            delta = self.backend.delta_mesh.readout(positions - offset, resampler=resampler)
         elif self.backend.name == 'pyrecon':
             if resampler != 'cic':
                 raise NotImplementedError('Pyrecon backend only supports CIC resampling.')
-            return self.backend.delta_mesh.read_cic(positions)
+            delta = self.backend.delta_mesh.read_cic(positions)
+        self.logger.info(f'Read density contrast in {time.time() - t0:.2f} s.')
+        return delta
 
     def __getattr__(self, name: str):
         """

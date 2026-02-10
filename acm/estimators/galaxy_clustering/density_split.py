@@ -109,7 +109,11 @@ class DensitySplit(BaseEstimator):
                 **kwargs,
             )
             self._quantile_data_correlation.append(result)
-            R1R2 = result.R1R2
+            if "estimator" in kwargs:
+               if not kwargs['estimator'] == "davispeebles":
+                   R1R2 = result.R1R2
+
+            #R1R2 = result.R1R2
         return self._quantile_data_correlation
 
     def quantile_correlation(self, **kwargs):
@@ -148,7 +152,11 @@ class DensitySplit(BaseEstimator):
                 **kwargs,
             )
             self._quantile_correlation.append(result)
-            R1R2 = result.R1R2
+            if "estimator" in kwargs:
+               if not kwargs['estimator'] == "davispeebles":
+                   R1R2 = result.R1R2
+
+           # R1R2 = result.R1R2
 
         return self._quantile_correlation
 
