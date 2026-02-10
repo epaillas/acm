@@ -1,10 +1,10 @@
 # taken from https://github.com/cosmodesi/desilike/blob/main/desilike/utils.py
-import numpy as np
-import logging
-import sys
 import os
+import sys
 import time
+import logging
 import traceback
+from contextlib import contextmanager
 
 
 def setup_logging(level=logging.INFO, stream=sys.stdout, filename=None, filemode='w', **kwargs):
@@ -72,3 +72,14 @@ def mkdir(dirname):
         os.makedirs(dirname)  # MPI...
     except OSError:
         return
+
+@contextmanager
+def supress_logging(enabled=True):
+    """Context manager to temporarily suppress logging messages."""
+    root = logging.getLogger()
+    origin_level = root.getEffectiveLevel()
+    if enabled:
+        root.setLevel(logging.CRITICAL) # Keep only critical messages
+    yield
+    if enabled:
+        root.setLevel(origin_level)
