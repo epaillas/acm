@@ -608,13 +608,6 @@ class Observable():
         np.ndarray
             The combined data covariance matrix.
         """   
-        # if transform_output:
-        #     self._validate_output_transform()
-        #     # Get samples directly via method call (properties can't accept parameters)
-        #     cov_y = self.get_covariance_y(nofilters=False)
-        #     # Transform the samples
-        #     cov_y = self.apply_output_transform(cov_y)
-        # else:
         cov_y = self.covariance_y # Filtered and flattened DataArray
 
         if transform_output:

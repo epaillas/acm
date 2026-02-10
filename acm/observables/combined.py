@@ -249,11 +249,16 @@ class CombinedObservable():
             # Transform each observable's samples, then concatenate
             cov_y_list = []
             for observable in self.observables:
-                # Get samples and transform them
-                observable._validate_output_transform()
-                cov_y_obs = observable.get_covariance_y(nofilters=False)
-                cov_y_transformed = observable.apply_output_transform(cov_y_obs)
-                cov_y_list.append(cov_y_transformed)
+                # Get samples and transform them if the observable has a transform
+                if hasattr(observable.model, 'transform_output') and observable.model.transform_output is not None:
+                    observable._validate_output_transform()
+                    cov_y_obs = observable.get_covariance_y(nofilters=False)
+                    cov_y_transformed = observable.apply_output_transform(cov_y_obs)
+                    cov_y_list.append(cov_y_transformed)
+                else:
+                    # No transform available, use regular samples
+                    cov_y_obs = observable.get_covariance_y(nofilters=False)
+                    cov_y_list.append(cov_y_obs)
             cov_y = np.concatenate(cov_y_list, axis=-1)
         else:
             cov_y = self.covariance_y
