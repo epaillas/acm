@@ -4,12 +4,14 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
+from scipy.stats import median_abs_deviation, norm
 from acm.observables import Observable
 from acm.utils import lookup_registry_path
 from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
 from acm.utils.decorators import temporary_class_state
+from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
 
 class BaseObservableEMC(Observable):
     """
@@ -37,7 +39,7 @@ class BaseObservableEMC(Observable):
         self.n_test = kwargs.pop('n_test', 6*500) # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 
-    def get_emulator_covariance_y(self, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
+    def get_emulator_covariance_y(self, nofilters: bool = False, transform_output: bool = False) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
         
@@ -45,12 +47,18 @@ class BaseObservableEMC(Observable):
         ----------
         nofilters : bool, optional
             If True, no filters are applied to the output and the full DataArray is returned. Defaults to False.
+        transform_output : bool, optional
+            If True, compute residuals in the model's output (transformed) space.
+            Requires that the model has an output transform. Defaults to False.
             
         Returns
         -------
         np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
+        if transform_output:
+            self._validate_output_transform()
+        
         # Get unfiltered values
         x_test = self._dataset.get('x_test', None)
         y_test = self._dataset.get('y_test', None)
@@ -71,7 +79,16 @@ class BaseObservableEMC(Observable):
         x_test = self.flatten_output(x_test, flat_output_dims=2, unstack=False)
         y_test = self.flatten_output(y_test, flat_output_dims=2, unstack=False)
         
-        prediction = self.get_model_prediction(x_test, nofilters=True) # Unfiltered prediction !
+        # Get predictions (in transformed space if requested)
+        prediction = self.get_model_prediction(
+            x_test, 
+            nofilters=True, 
+            skip_output_inverse_transform=transform_output
+        )
+        
+        # Transform y_test if needed
+        if transform_output:
+            y_test = self.apply_output_transform(y_test)
         
         # Flatten on 2D for indexing
         prediction = self.flatten_output(prediction, flat_output_dims=2)
@@ -112,16 +129,22 @@ class BaseObservableEMC(Observable):
             emulator_covariance_y = emulator_covariance_y.values
         return emulator_covariance_y
 
-    def get_emulator_error(self) -> xarray.DataArray|np.ndarray:
+    def get_emulator_error(self, transform_output: bool = False) -> xarray.DataArray|np.ndarray:
         """
         Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
+
+        Parameters
+        ----------
+        transform_output : bool, optional
+            If True, compute error in the model's output (transformed) space.
+            Requires that the model has an output transform. Defaults to False.
 
         Returns
         -------
         np.ndarray
            Emulator error, with shape (n_features, ).
         """        
-        emulator_covariance_y = self.get_emulator_covariance_y(nofilters=True) # Unfiltered covariance array !
+        emulator_covariance_y = self.get_emulator_covariance_y(nofilters=True, transform_output=transform_output)
         
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(emulator_covariance_y, flat_output_dims=2)
@@ -428,6 +451,8 @@ class BaseObservableEMC(Observable):
         ValueError
             If no output transform is available on the model.
         """
+        self._validate_output_transform()
+        
         # Get unfiltered y to apply transform
         y_unfiltered = self._dataset.y
         
@@ -445,19 +470,22 @@ class BaseObservableEMC(Observable):
         
         return y_transformed
     
-    def get_transformed_covariance_matrix(self, **kwargs) -> np.ndarray:
+    @temporary_class_state(numpy_output=False)
+    def get_transformed_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1, **kwargs) -> np.ndarray:
         """
         Get the covariance matrix transformed to the model's output space.
         
-        Uses the Jacobian of the output transform to propagate the covariance:
-        Cov_transformed = diag(J) @ Cov @ diag(J)
-        
-        The Jacobian is evaluated at the fiducial point (typically the mean of y).
+        This method transforms individual samples first, then computes the covariance
+        from the transformed samples. This is more accurate than using the Jacobian approximation.
         
         Parameters
         ----------
+        volume_factor : float
+            Volume correction factor for the boxes. Default is 64.
+        prefactor : float
+            Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival).
         **kwargs
-            Additional arguments passed to get_covariance_matrix() (e.g., volume_factor, prefactor).
+            Additional arguments for the covariance matrix checker.
             
         Returns
         -------
@@ -469,25 +497,12 @@ class BaseObservableEMC(Observable):
         ValueError
             If no output transform is available on the model.
         """
-        # Get the original covariance
-        cov = self.get_covariance_matrix(**kwargs)
-        
-        # Get fiducial point for Jacobian evaluation (use unfiltered y)
-        y_fiducial = self._dataset.y
-        
-        # Need to apply same filters to get the right shape
-        y_fiducial = self.apply_filters(y_fiducial)
-        y_fiducial = self.flatten_output(y_fiducial, flat_output_dims=2)
-        y_fiducial = self.apply_indices_selection(y_fiducial)
-        
-        # Take mean over samples if multiple samples exist
-        if 'sample' in y_fiducial.dims:
-            y_fiducial = y_fiducial.mean('sample')
-        
-        # Transform the covariance
-        cov_transformed = self.transform_covariance_matrix(cov, y_fiducial)
-        
-        return cov_transformed
+        return self.get_covariance_matrix(
+            volume_factor=volume_factor,
+            prefactor=prefactor,
+            transform_output=True,
+            **kwargs
+        )
     
     def get_transformed_emulator_error(self) -> xarray.DataArray | np.ndarray:
         """
@@ -508,87 +523,27 @@ class BaseObservableEMC(Observable):
         ValueError
             If no output transform is available on the model.
         """
-        self._validate_output_transform()
-        
-        # Get test data
-        x_test = self._dataset.get('x_test', None)
-        y_test = self._dataset.get('y_test', None)
-        
-        if x_test is None or y_test is None:
-            # For backward compatibility
-            if hasattr(self, 'n_test'): 
-                n_test = self.n_test
-                idx_test = range(n_test) if isinstance(n_test, int) else n_test
-                x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[idx_test]
-                y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[idx_test]
-                self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
-            else:
-                raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
-        
-        # Flatten on 2D for indexing 
-        x_test = self.flatten_output(x_test, flat_output_dims=2, unstack=False)
-        y_test = self.flatten_output(y_test, flat_output_dims=2, unstack=False)
-        
-        # Get predictions in transformed space
-        prediction_transformed = self.get_model_prediction(
-            x_test, 
-            nofilters=True, 
-            skip_output_inverse_transform=True
-        )
-        
-        # Transform y_test to the same space
-        y_test_transformed = self.apply_output_transform(y_test)
-        
-        # Flatten for comparison
-        prediction_transformed = self.flatten_output(prediction_transformed, flat_output_dims=2)
-        y_test_transformed = self.flatten_output(y_test_transformed, flat_output_dims=2)
-        
-        if isinstance(y_test_transformed, xarray.DataArray):
-            y_test_transformed = y_test_transformed.values
-        if isinstance(prediction_transformed, xarray.DataArray):
-            prediction_transformed = prediction_transformed.values
-        
-        diff = y_test_transformed - prediction_transformed
-        
-        # Compute error
-        emulator_error_transformed = np.median(np.abs(diff), axis=0)
-        
-        # Wrap in DataArray with proper structure
-        n_test = y_test.shape[0]
-        y = self._dataset.y.unstack()
-        shape = y.shape[len(y.attrs['sample']):]
-        emulator_error_transformed = xarray.DataArray(
-            emulator_error_transformed.reshape(shape),
-            coords = {k: y.coords[k] for k in y.dims if k in y.attrs['features']},
-            attrs = {
-                'sample': [],
-                'features': y.attrs['features'],
-            },
-            name = 'emulator_error_transformed',
-        )
-        
-        # Apply filters
-        emulator_error_transformed = self.apply_filters(emulator_error_transformed)
-        emulator_error_transformed = self.flatten_output(emulator_error_transformed, self.flat_output_dims)
-        if 'emulator_error' in self.select_indices_on:
-            emulator_error_transformed = self.apply_indices_selection(emulator_error_transformed)
-        if self.squeeze_output:
-            emulator_error_transformed = emulator_error_transformed.squeeze()
-        if self.numpy_output:
-            emulator_error_transformed = emulator_error_transformed.values
-        
-        return emulator_error_transformed
+        return self.get_emulator_error(transform_output=True)
     
-    def get_transformed_emulator_covariance_matrix(self, **kwargs) -> np.ndarray:
+    @temporary_class_state(numpy_output=False)
+    def get_transformed_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, **kwargs) -> np.ndarray:
         """
         Get the emulator covariance matrix transformed to the model's output space.
         
-        Uses the Jacobian of the output transform to propagate the emulator covariance.
+        This method transforms individual emulator residuals first, then computes the covariance
+        from the transformed residuals. This is more accurate than using the Jacobian approximation.
         
         Parameters
         ----------
+        prefactor : float
+            Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival). Defaults to 1.
+        method : str
+            Method to compute the covariance matrix from the emulator residuals.
+            Options include 'median', 'mean', or 'stdev'. Defaults to 'median'.
+        diag : bool
+            If True, only the diagonal of the covariance matrix is computed. Defaults to False.
         **kwargs
-            Additional arguments passed to get_emulator_covariance_matrix() (e.g., method).
+            Additional arguments for the covariance matrix checker.
             
         Returns
         -------
@@ -600,21 +555,11 @@ class BaseObservableEMC(Observable):
         ValueError
             If no output transform is available on the model.
         """
-        # Get the original emulator covariance
-        emu_cov = self.get_emulator_covariance_matrix(**kwargs)
-        
-        # Get fiducial point for Jacobian evaluation
-        y_fiducial = self._dataset.y
-        y_fiducial = self.apply_filters(y_fiducial)
-        y_fiducial = self.flatten_output(y_fiducial, flat_output_dims=2)
-        y_fiducial = self.apply_indices_selection(y_fiducial)
-        
-        # Take mean over samples if multiple samples exist
-        if 'sample' in y_fiducial.dims:
-            y_fiducial = y_fiducial.mean('sample')
-        
-        # Transform the covariance
-        emu_cov_transformed = self.transform_covariance_matrix(emu_cov, y_fiducial)
-        
-        return emu_cov_transformed
+        return self.get_emulator_covariance_matrix(
+            prefactor=prefactor,
+            method=method,
+            diag=diag,
+            transform_output=True,
+            **kwargs
+        )
 

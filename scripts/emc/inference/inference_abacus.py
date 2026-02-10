@@ -1,6 +1,5 @@
 from sunbird.inference.pocomc import PocoMCSampler
 from sunbird.inference import priors as sunbird_priors
-from sunbird.cosmology.model_params import get_model_params
 from sunbird.inference.samples import Chain
 
 import acm.observables.emc as emc
@@ -122,18 +121,35 @@ def get_data_model_cov(observable):
     # load the data
     data_x = observable.x
     data_x_names = observable.x_names
-    data_y = observable.y
+    if args.sample_in_transformed_space:
+        data_y = observable.get_transformed_y()
+        logger.info('Loaded data_y in transformed (model) space.')
+    else:
+        data_y = observable.y
     logger.info(f'Loaded data_x with shape: {data_x.shape}')
     logger.info(f'Loaded data_y with shape {data_y.shape}')
 
     # load the covariance matrix, including emulator error and Percival correction
-    cov = observable.get_covariance_matrix(volume_factor=64)
+    if args.sample_in_transformed_space:
+        cov = observable.get_transformed_covariance_matrix()
+        logger.info('Loaded covariance matrix in transformed (model) space.')
+    else:
+        cov = observable.get_covariance_matrix()
     logger.info(f'Loaded covariance matrix with shape: {cov.shape}')
     if args.add_cov_emu:
-        cov += observable.get_emulator_covariance_matrix(
-            method=args.cov_emu_method,
-            diag=args.cov_emu_diag,
-        )
+        if args.sample_in_transformed_space:
+            cov_emu = observable.get_transformed_emulator_covariance_matrix(
+                method=args.cov_emu_method,
+                diag=args.cov_emu_diag,
+            )
+            logger.info('Loaded emulator covariance matrix in transformed (model) space.')
+        else:
+            cov_emu = observable.get_emulator_covariance_matrix(
+                method=args.cov_emu_method,
+                diag=args.cov_emu_diag,
+            )
+        cov += cov_emu
+        logger.info('Added emulator covariance to total covariance matrix.')
 
     cov *= get_covariance_correction(
         n_s=len(observable.covariance_y),
@@ -154,8 +170,6 @@ def fit_abacus(observable):
     prepares the precision matrix, and samples the posterior distribution.
     It also saves the results, including plots and chain data.
     """
-    statistics = observable.stat_name
-
     data_x, data_x_names, data_y, cov, model = get_data_model_cov(observable)
 
     precision_matrix = np.linalg.inv(cov)
@@ -180,7 +194,6 @@ def fit_abacus(observable):
         ellipsoid=True,
         markers=markers,
         sample_in_transformed_space=args.sample_in_transformed_space,
-        observable=observable if args.sample_in_transformed_space else None,
     )
     sampler(vectorize=True, n_total=4096)
 
@@ -193,7 +206,8 @@ def save_and_plot(sampler, observable):
     and plots the best-fit model against the data.
     """
     statistics = observable.stat_name
-    statistics = '+'.join(statistics)
+    if isinstance(statistics, list):
+        statistics = '+'.join(statistics)
     if args.identifier is not None: statistics += f'_{args.identifier}'
     save_dir = Path(args.save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/cosmo-{cosmo_model}_hod-{hod_model}/'
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -240,6 +254,5 @@ if __name__ == "__main__":
     fixed_param_names = get_fixed_params(cosmo_model, hod_model)
 
     observable = get_observable(statistics)
-    print(observable.model.output_transform)
     sampler = fit_abacus(observable)
     save_and_plot(sampler, observable)

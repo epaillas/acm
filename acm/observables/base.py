@@ -586,7 +586,7 @@ class Observable():
         return pred
     
     @temporary_class_state(numpy_output=False)
-    def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1, **kwargs) -> np.ndarray:
+    def get_covariance_matrix(self, volume_factor: float = 64, prefactor: float = 1, transform_output: bool = False, **kwargs) -> np.ndarray:
         """
         Covariance matrix for the statistic. 
         The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
@@ -597,6 +597,9 @@ class Observable():
             Volume correction factor for the boxes. Default is 64.
         prefactor : float
             Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival).
+        transform_output : bool
+            If True, transform the samples to the model's output space before computing covariance.
+            Requires that the model has an output transform. Default is False.
         **kwargs : dict
             Additional arguments for the covariance matrix checker.
             
@@ -605,7 +608,18 @@ class Observable():
         np.ndarray
             The combined data covariance matrix.
         """   
+        # if transform_output:
+        #     self._validate_output_transform()
+        #     # Get samples directly via method call (properties can't accept parameters)
+        #     cov_y = self.get_covariance_y(nofilters=False)
+        #     # Transform the samples
+        #     cov_y = self.apply_output_transform(cov_y)
+        # else:
         cov_y = self.covariance_y # Filtered and flattened DataArray
+
+        if transform_output:
+            self._validate_output_transform()
+            cov_y = self.apply_output_transform(cov_y)
         
         # Selection of indices on 1D array prevents reshaping or forces NaN values in covariance matrix
         if self.select_indices is not None and self.flat_output_dims == 1:
@@ -619,12 +633,13 @@ class Observable():
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         
         # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name=f"{self.stat_name} data covariance", **kwargs)
+        name_suffix = "transformed data" if transform_output else "data"
+        check_covariance_matrix(cov, name=f"{self.stat_name} {name_suffix} covariance", **kwargs)
         
         return cov
     
     @temporary_class_state(numpy_output=False)
-    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, **kwargs) -> np.ndarray:
+    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, transform_output: bool = False, **kwargs) -> np.ndarray:
         """
         Covariance matrix of the emulator residuals.
 
@@ -638,6 +653,9 @@ class Observable():
             or standard deviation ('stdev'). Defaults to 'median'.
         diag : bool
             If True, only the diagonal of the covariance matrix is computed. Defaults to False.
+        transform_output : bool
+            If True, compute residuals in the model's output (transformed) space.
+            Requires that the model has an output transform. Default is False.
         **kwargs : dict
             Additional arguments for the covariance matrix checker.
 
@@ -646,7 +664,12 @@ class Observable():
         np.ndarray
             The emulator covariance matrix.
         """
-        cov_y = self.emulator_covariance_y # Filtered and flattened DataArray
+        if transform_output:
+            self._validate_output_transform()
+            # Get residuals directly via method call (properties can't accept parameters)
+            cov_y = self.get_emulator_covariance_y(nofilters=False, transform_output=True)
+        else:
+            cov_y = self.emulator_covariance_y # Filtered and flattened DataArray
         
         # Selection of indices on 1D array prevents reshaping or forces NaN values in covariance matrix
         if self.select_indices is not None and self.flat_output_dims == 1:
@@ -682,7 +705,8 @@ class Observable():
         cov *= prefactor 
         
         # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name=f"{self.stat_name} emulator covariance", **kwargs)
+        name_suffix = "transformed emulator" if transform_output else "emulator"
+        check_covariance_matrix(cov, name=f"{self.stat_name} {name_suffix} covariance", **kwargs)
         
         return cov
 
@@ -731,14 +755,14 @@ class Observable():
         Raises
         ------
         ValueError
-            If no model is available or model has no output_transform attribute.
+            If no model is available or model has no transform_output attribute.
         """
         if not hasattr(self, 'model') or self.model is None:
             raise ValueError("No model available. Cannot apply output transform.")
-        if not hasattr(self.model, 'output_transform') or self.model.output_transform is None:
+        if not hasattr(self.model, 'transform_output') or self.model.transform_output is None:
             raise ValueError(
-                "Model has no output_transform. Cannot perform transformations. "
-                "Ensure the model was trained with an output_transform."
+                "Model has no transform_output. Cannot perform transformations. "
+                "Ensure the model was trained with a transform_output."
             )
     
     def apply_output_transform(self, data: np.ndarray | xarray.DataArray) -> np.ndarray | xarray.DataArray:
@@ -766,7 +790,7 @@ class Observable():
         self._validate_output_transform()
         
         if isinstance(data, xarray.DataArray):
-            transformed = self.model.output_transform.transform(data.values)
+            transformed = self.model.transform_output.transform(data.values)
             return xarray.DataArray(
                 transformed,
                 coords=data.coords,
@@ -775,50 +799,7 @@ class Observable():
                 name=data.name
             )
         else:
-            return self.model.output_transform.transform(data)
-    
-    def transform_covariance_matrix(self, cov: np.ndarray, at_point: np.ndarray | xarray.DataArray) -> np.ndarray:
-        """
-        Transform a covariance matrix using the Jacobian of the output transform.
-        
-        For an element-wise transformation f(y), the transformed covariance is:
-        Cov_transformed = diag(J) @ Cov @ diag(J)
-        where J = df/dy is the Jacobian diagonal evaluated at `at_point`.
-        
-        Parameters
-        ----------
-        cov : np.ndarray
-            Covariance matrix in the original space, shape (n_features, n_features).
-        at_point : np.ndarray or xarray.DataArray
-            Point at which to evaluate the Jacobian, shape (n_features,).
-            Typically the mean or fiducial value of the data.
-            
-        Returns
-        -------
-        np.ndarray
-            Transformed covariance matrix, shape (n_features, n_features).
-            
-        Raises
-        ------
-        ValueError
-            If no output transform is available on the model.
-        """
-        self._validate_output_transform()
-        
-        # Extract values if xarray
-        if isinstance(at_point, xarray.DataArray):
-            at_point = at_point.values
-        
-        # Get Jacobian diagonal
-        jacobian_diag = self.model.output_transform.get_jacobian_diagonal(at_point)
-        
-        # Ensure it's a numpy array
-        if isinstance(jacobian_diag, torch.Tensor):
-            jacobian_diag = jacobian_diag.numpy()
-        
-        # Transform: Cov_transformed = diag(J) @ Cov @ diag(J)
-        # Efficient computation: (J[:, None] * Cov) * J[None, :]
-        return (jacobian_diag[:, None] * cov) * jacobian_diag[None, :]
+            return self.model.transform_output.transform(data)
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)

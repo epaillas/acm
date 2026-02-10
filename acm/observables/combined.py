@@ -24,6 +24,20 @@ class CombinedModel():
         self.observables = observables
         self.models = [obs.model for obs in self.observables]
 
+    @property
+    def transform_output(self):
+        """
+        List of output transformations from individual models.
+        Each element corresponds to a model's transform_output, which may be None.
+        """
+        transforms = []
+        for model in self.models:
+            if hasattr(model, 'transform_output'):
+                transforms.append(model.transform_output)
+            else:
+                transforms.append(None)
+        return transforms
+
     def get_prediction(self, x, skip_output_inverse_transform: bool = False):
         """
         Get the prediction from the model.
@@ -207,6 +221,7 @@ class CombinedObservable():
         self,
         volume_factor: float = 64, 
         prefactor: float = 1,
+        transform_output: bool = False,
         **kwargs
     ) -> np.ndarray:
         """
@@ -219,6 +234,9 @@ class CombinedObservable():
             Volume correction factor for the boxes. Default is 64.
         prefactor : float
             Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival).
+        transform_output : bool
+            If True, transform samples to model's output space before computing covariance.
+            Requires that all observables have output transforms. Default is False.
         **kwargs : dict
             Additional arguments for the covariance matrix checker.
             
@@ -227,16 +245,28 @@ class CombinedObservable():
         np.ndarray
             The combined data covariance matrix.
         """   
-        cov_y = self.covariance_y
+        if transform_output:
+            # Transform each observable's samples, then concatenate
+            cov_y_list = []
+            for observable in self.observables:
+                # Get samples and transform them
+                observable._validate_output_transform()
+                cov_y_obs = observable.get_covariance_y(nofilters=False)
+                cov_y_transformed = observable.apply_output_transform(cov_y_obs)
+                cov_y_list.append(cov_y_transformed)
+            cov_y = np.concatenate(cov_y_list, axis=-1)
+        else:
+            cov_y = self.covariance_y
         prefactor = prefactor / volume_factor
         
         cov = prefactor * np.cov(cov_y, rowvar=False) # rowvar=False : each column is a variable and each row is an observation
         
-        check_covariance_matrix(cov, name="combined data covariance", **kwargs)
+        name_suffix = "transformed data" if transform_output else "data"
+        check_covariance_matrix(cov, name=f"combined {name_suffix} covariance", **kwargs)
         
         return cov
 
-    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, **kwargs) -> np.ndarray:
+    def get_emulator_covariance_matrix(self, prefactor: float = 1, method: str = 'median', diag: bool = False, transform_output: bool = False, **kwargs) -> np.ndarray:
         """
         Covariance matrix of the emulator residuals for a combination of multiple summary statistics.
         The matrix is block-diagonal, with each block corresponding to the covariance matrix of each
@@ -252,6 +282,9 @@ class CombinedObservable():
             or standard deviation ('stdev'). Defaults to 'median'.
         diag : bool
             If True, only the diagonal of the covariance matrix is computed. Defaults to False.
+        transform_output : bool
+            If True, compute residuals in the model's output (transformed) space.
+            Requires that all observables have output transforms. Default is False.
         **kwargs : dict
             Additional arguments for the covariance matrix checker.
 
@@ -262,13 +295,19 @@ class CombinedObservable():
         """
         covs = []
         for observable in self.observables:
-            cov_y = observable.get_emulator_covariance_matrix(prefactor=prefactor, method=method, diag=diag)
+            cov_y = observable.get_emulator_covariance_matrix(
+                prefactor=prefactor, 
+                method=method, 
+                diag=diag,
+                transform_output=transform_output
+            )
             covs.append(cov_y)
         
         cov = linalg.block_diag(*covs)
         
         # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name="combined emulator covariance", **kwargs)
+        name_suffix = "transformed emulator" if transform_output else "emulator"
+        check_covariance_matrix(cov, name=f"combined {name_suffix} covariance", **kwargs)
         
         return cov
     
@@ -368,19 +407,13 @@ class CombinedObservable():
         np.ndarray
             The block-diagonal transformed emulator covariance matrix.
         """
-        covs = []
-        for observable in self.observables:
-            cov_transformed = observable.get_transformed_emulator_covariance_matrix(
-                prefactor=prefactor, method=method, diag=diag
-            )
-            covs.append(cov_transformed)
-        
-        cov = linalg.block_diag(*covs)
-        
-        # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name="combined transformed emulator covariance", **kwargs)
-        
-        return cov
+        return self.get_emulator_covariance_matrix(
+            prefactor=prefactor,
+            method=method,
+            diag=diag,
+            transform_output=True,
+            **kwargs
+        )
     
     def get_save_handle(self, save_dir: str|Path = None) -> str|Path:
         """
