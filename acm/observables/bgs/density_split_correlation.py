@@ -352,8 +352,8 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
     """
     Class for the application of the densitysplit cross-correlation statistic of the ACM pipeline to the BGS dataset.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='ds_xiqg', **kwargs)
+    def __init__(self, stat_name='ds_xiqg', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
     
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.DataArray:
@@ -372,8 +372,8 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """
     Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
     """
-    def __init__(self, **kwargs):
-        super().__init__(stat_name='ds_xiqq', **kwargs)
+    def __init__(self, stat_name='ds_xiqq', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
     
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.DataArray:
