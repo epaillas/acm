@@ -269,41 +269,43 @@ class Observable():
 
     def __copy__(self):
         """
-        Returns a shallow copy of the Observable object by returning a new class instance trough
-        the __init__ method called with the copied class attributes that are in the __init__ signature.
+        Returns a shallow copy of the Observable object by returning a new class instance
+        and copying all the class attributes to that new instance.
         """
-        nargs = self.__init__.__code__.co_argcount
-        init_vars = self.__init__.__code__.co_varnames[1:nargs] 
-        init_kwargs = {var: copy(getattr(self, var, None)) for var in init_vars}
+        # Create a new instance of the class with a minimal set of attributes
+        new_cls = self.__class__(
+            stat_name=copy(self.stat_name),
+            dataset=copy(self._dataset),
+            model=copy(getattr(self, 'model', None)),
+        ) # NOTE: The logger is not copied to avoid issues with multiple loggers. It will be re-created in the new instance instead.
         
-        # NOTE: 'dataset' and 'checkpoint_fn' will be None as they are not stored as attributes.
-        # We can still get the dataset from the _dataset attribute.
-        if 'dataset' in init_kwargs:
-            init_kwargs['dataset'] = copy(self._dataset)
-        
-        # Create a new instance of the class with the copied parameters
-        return self.__class__(
-            **init_kwargs
-        )
+        # Copy all other class attributes
+        cls_vars = vars(self)
+        for key, value in cls_vars.items():
+            if key in ['stat_name', '_dataset', 'model', 'logger']:
+                continue
+            setattr(new_cls, key, copy(value))
+        return new_cls
     
     def __deepcopy__(self, memo: dict|None = None):
         """
-        Returns a deepcopy of the Observable object returning a new class instance trough
-        the __init__ method called with the copied class attributes that are in the __init__ signature.
+        Returns a deep copy of the Observable object by returning a new class instance
+        and deep copying all the class attributes to that new instance.
         """
-        nargs = self.__init__.__code__.co_argcount
-        init_vars = self.__init__.__code__.co_varnames[1:nargs] 
-        init_kwargs = {var: deepcopy(getattr(self, var, None), memo) for var in init_vars}
+        # Create a new instance of the class with a minimal set of attributes
+        new_cls = self.__class__(
+            stat_name=deepcopy(self.stat_name, memo),
+            dataset=deepcopy(self._dataset, memo),
+            model=deepcopy(getattr(self, 'model', None), memo),
+        ) # NOTE: The logger is not copied to avoid issues with multiple loggers. It will be re-created in the new instance instead.
         
-        # NOTE: 'dataset' and 'checkpoint_fn' will be None as they are not stored as attributes.
-        # We can still get the dataset from the _dataset attribute.
-        if 'dataset' in init_kwargs:
-            init_kwargs['dataset'] = deepcopy(self._dataset, memo)
-        
-        # Create a new instance of the class with the copied parameters
-        return self.__class__(
-            **init_kwargs
-        )
+        # Deep copy all other class attributes
+        cls_vars = vars(self)
+        for key, value in cls_vars.items():
+            if key in ['stat_name', '_dataset', 'model', 'logger']:
+                continue
+            setattr(new_cls, key, deepcopy(value, memo))
+        return new_cls
     
     def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
