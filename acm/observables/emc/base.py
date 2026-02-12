@@ -52,8 +52,8 @@ class BaseObservableEMC(Observable):
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         # Get unfiltered values
-        x_test = self._dataset.get('x_test', None)
-        y_test = self._dataset.get('y_test', None)
+        x_test = getattr(self._dataset, 'x_test', None)
+        y_test = getattr(self._dataset, 'y_test', None)
         
         if x_test is None or y_test is None:
             # For backward compatibility
@@ -65,6 +65,9 @@ class BaseObservableEMC(Observable):
                 self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
             else:
                 raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
+        else:
+            x_test = self.drop_nan_dimensions(x_test)
+            y_test = self.drop_nan_dimensions(y_test)
         
         # Flatten on 2D for indexing 
         # unstack=False because it's either already unstacked or 2D - avoids NaN issues
