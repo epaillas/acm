@@ -19,6 +19,9 @@ acm_lint.sh          acm_quality_init.sh  acm_type.sh
 * `acm_tests.sh` launches [pytest](https://docs.pytest.org/en/stable/) on `acm/tests/acm` directory and [coverage](https://coverage.readthedocs.io/en/latest/), a HTML report is generated. Return also the percent of code tested.
 * `acm_lint.sh` launches [ruff](https://docs.astral.sh/ruff/) on `acm/acm` directory, a HTML report is generated
 * `acm_type.sh` launches type checker [ty](https://docs.astral.sh/ty/) on `acm/acm`
+* `acm_format_file.sh` applies formatter and sort the import for a specific file. The first use may result in many changes.
+* `acm_lint_fix_file.sh` fixes some issues reported by `acm_lint.sh` for a specific file.
+
 
 
 ## Quality tools with VS Code
