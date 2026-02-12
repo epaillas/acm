@@ -272,9 +272,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         """
         if self.tracer == 'LRG':
             return [0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
-        elif self.tracer == 'ELG':
-            raise ValueError('ELG lightcone snap_redshifts not yet implemented')
-        elif self.tracer == 'QSO':
+        elif self.tracer == 'QSO' or self.tracer == 'ELG':
             # fills shell between 0.763 and 2.627
             return [0.800,  0.875,  0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400, 1.475, 1.550, 1.625, 1.700, 1.850, 2.000, 2.250, 2.500]
         elif self.tracer == 'BGS':
