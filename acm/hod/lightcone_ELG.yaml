@@ -44,15 +44,16 @@ HOD_params:
         Bsat: 0
         ic: 1.0
     
-    # ELG and QSO default params from https://github.com/abacusorg/abacusutils/blob/880f04a2566a93219e64b0d9f211f92d2dfaf0c9/scripts/hod/config/abacus_hod.yaml#L52
+    
+    # ELG default params from https://github.com/abacusorg/abacusutils/blob/044265e7d519bd0853724c5e26d1b433a6235a36/tests/abacus_hod.yaml#L50
     ELG_params:
-        p_max: 0.53
-        Q: 10.
-        logM_cut: 12.3
+        p_max: 0.33
+        Q: 100.
+        logM_cut: 11.75
         kappa: 1.
         sigma: 0.58
         logM1: 13.53
-        alpha: 0.9
+        alpha: 1.
         gamma: 4.12
         A_s: 1.
         alpha_c: 0
@@ -66,7 +67,7 @@ HOD_params:
         Bcent: 0
         Bsat: 0
         ic: 1.0
-
+# QSO default params from https://github.com/abacusorg/abacusutils/blob/880f04a2566a93219e64b0d9f211f92d2dfaf0c9/scripts/hod/config/abacus_hod.yaml#L52
     QSO_params:
         p_max: 0.33
         logM_cut: 12.21
