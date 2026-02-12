@@ -4,9 +4,9 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node 1
 #SBATCH --qos regular
-#SBATCH --constraint cpu
+#SBATCH --constraint gpu
 
-#SBATCH --time 48:00:00
+#SBATCH --time 5:00:00
 
 #SBATCH --job-name tpcf_train
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_training/%A.%x_%a.out
