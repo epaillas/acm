@@ -225,7 +225,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         )
         if add_covariance:
             cov_y = cls.compress_covariance(paths=paths, measurement_root=measurement_root, stat_name=stat_name, rebin=rebin, ells=ells, quantiles=quantiles, overwrite_s=s)
-            cout = xarray.merge([cout, cov_y])
+            cout = xarray.merge([cout, cov_y], join='outer')
             
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
@@ -233,7 +233,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
                 v_out.name = v_out.name + '_train'
                 v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
                 v_out.attrs['nan_dims'] = list(test_filters.keys())
-                cout = xarray.merge([cout, v_in, v_out])
+                cout = xarray.merge([cout, v_in, v_out], join='outer')
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
@@ -278,14 +278,14 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqg')
-        kwargs['stat_name'] = kwargs.get('stat_name', 'ds_xiqg')
+        kwargs.setdefault('measurement_root', 'dsc_xiqg')
+        kwargs.setdefault('stat_name', 'ds_xiqg')
         return super().compress_covariance(**kwargs)
     
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqg')
-        kwargs['stat_name'] = kwargs.pop('stat_name', 'ds_xiqg')
+        kwargs.setdefault('measurement_root', 'dsc_xiqg')
+        kwargs.setdefault('stat_name', 'ds_xiqg')
         return super().compress_data(**kwargs)
     
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
@@ -297,12 +297,12 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqq')
-        kwargs['stat_name'] = kwargs.get('stat_name', 'ds_xiqq')
+        kwargs.setdefault('measurement_root', 'dsc_xiqq')
+        kwargs.setdefault('stat_name', 'ds_xiqq')
         return super().compress_covariance(**kwargs)
     
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs['measurement_root'] = kwargs.pop('measurement_root', 'dsc_xiqq')
-        kwargs['stat_name'] = kwargs.pop('stat_name', 'ds_xiqq')
+        kwargs.setdefault('measurement_root', 'dsc_xiqq')
+        kwargs.setdefault('stat_name', 'ds_xiqq')
         return super().compress_data(**kwargs)
