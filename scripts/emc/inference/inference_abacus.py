@@ -94,19 +94,13 @@ def get_filters(observable_name):
 
 def get_observable(observable_names):
     """Get the observable class by name."""
-    paths = {
-        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
-        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
-        'model_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/',
-        'param_dir': None
-    }
     if isinstance(observable_names, str):
         observable_names = [observable_names]
     observables = []
     for observable_name in observable_names:
         select_filters, slice_filters = get_filters(observable_name)
         obs = getattr(emc, observable_name)(
-            paths=paths, numpy_output=True,
+            numpy_output=True,
             squeeze_output=True,
             select_filters=select_filters,
             slice_filters=slice_filters,
@@ -191,7 +185,9 @@ def save_and_plot(sampler, observable):
     and plots the best-fit model against the data.
     """
     statistics = observable.stat_name
-    statistics = '+'.join(statistics)
+    # join if multiple statistics are used
+    if isinstance(statistics, list):
+        statistics = '+'.join(statistics)
     if args.identifier is not None: statistics += f'_{args.identifier}'
     save_dir = Path(args.save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/cosmo-{cosmo_model}_hod-{hod_model}/'
     Path(save_dir).mkdir(parents=True, exist_ok=True)
@@ -211,7 +207,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--statistics', nargs='+', help='List of statistics to use, e.g. GalaxyPowerSpectrumMultipoles')
+    parser.add_argument('-s', '--statistics', nargs='+', help='List of statistics to use, e.g. GalaxyPowerSpectrumMultipoles')
     parser.add_argument("--cosmo_idx", type=int, default=0)
     parser.add_argument("--hod_idx", type=int, default=0)
     parser.add_argument('--add_cov_emu', action='store_true', help='Whether to add emulator covariance or not.')
