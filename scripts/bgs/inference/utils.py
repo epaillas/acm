@@ -8,8 +8,6 @@ from sunbird.inference.samples import Chain
 from acm.observables import CombinedObservable
 from acm.utils.modules import get_class_from_module
 
-from secondgen_bgs import get_secondgen_data
-
 #%% Inference script utils
 def get_observable(
     observable_names: list[str]|str, 
