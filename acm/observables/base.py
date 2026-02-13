@@ -824,6 +824,8 @@ class Observable():
 
             ax[1].plot(emu_err / data_err, lw=1.0, label=method)
 
+            self.logger.info(f"Emulator residuals are larger than 10 sigma in bins: {np.where(emu_err / data_err > 10)[0].tolist()} using method '{method}'.")
+
         ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
         ax[1].set_xlabel('bin index', fontsize=13)
         ax[0].set_ylabel(r'$\Delta X / \sigma_{\rm data}$', fontsize=13)
