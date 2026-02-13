@@ -1,10 +1,15 @@
 import os
 import fitsio
 from pathlib import Path
+import cloudpickle as cp
 import numpy as np
+import torch
 import time
 import glob
+import jax
 from acm.utils.catalogs_safety_checks import check_catalog
+from acm.utils.default import cosmo_list
+import gc
 
 
 def get_cli_args():
@@ -243,18 +248,20 @@ def compute_wst(output_fn, positions, init=None, **attrs):
     """Compute the wavelet scattering transform using the ACM package."""
     from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
     import warnings
-    import cloudpickle as cp
     warnings.filterwarnings("ignore")
 
-    init_dir = Path(args.save_dir) / 'v1.2/abacus/small/wst/init/'
+    # init_dir = Path(args.save_dir) / 'v1.2/abacus/small/wst/init/torch/'
+
+    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/init/torch/')
     meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
     init_fn = init_dir / f'meshsize{meshsize_str}_J{wst_args["J"]}_L{wst_args["L"]}_sigma{wst_args["sigma"]}.npy'
     if init_fn.exists() and init is None:
-        print(f'Loading WST initialization from {init_fn}')
+        print(f'Loading WST initialization from {init_fn}', flush=True)
         with open(init_fn, 'rb') as f:
             init = cp.load(f)
 
-    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init, **attrs)
+    wst = WaveletScatteringTransform(data_positions=positions, init_kymatio=init,
+                                     backend='pypower', kymatio_backend='torch', **attrs)
 
     wst.set_density_contrast()
     smatavg = wst.run()
@@ -544,11 +551,14 @@ if __name__ == '__main__':
         
         if 'wst' in args.todo_stats:
             for wst_args in [
-                # {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 90},
-                {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 20},
-                # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 100},
+                # # {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 90},
+                # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 20},
+                # # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 100},
+                {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
+                # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 80},
+                # {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
             ]:
-                wst_base_dir = get_save_dir(args.save_dir, 'wst')
+                wst_base_dir = get_save_dir(args.save_dir, 'wst', version='meshsize-match')
                 save_dir = wst_base_dir / f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
                 save_dir.mkdir(parents=True, exist_ok=True)
                 output_fn = Path(save_dir) / f'wst_ph{phase_idx:03}.npy'
