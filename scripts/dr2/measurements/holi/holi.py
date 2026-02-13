@@ -1,0 +1,235 @@
+"""
+Script to measure clustering statistics from the DR2 Holi mocks
+(altmtl catalogs).
+
+Some functions are borrowed from
+https://github.com/adematti/jax-power/blob/main/scripts/abacus_hf.py
+"""
+from cosmoprimo.fiducial import TabulatedDESI
+from mockfactory import Catalog, sky_to_cartesian, setup_logging
+from collections.abc import Callable
+import functools
+from pathlib import Path
+import numpy as np
+import time
+import os
+
+from jax import config
+config.update('jax_enable_x64', True)
+
+
+def get_cli_args():
+    """Parse command-line arguments for Holi clustering measurements."""
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--statistics', nargs='+', default=['spectrum'])
+    parser.add_argument("--start_phase", type=int, default=201)
+    parser.add_argument("--n_phase", type=int, default=1)
+    parser.add_argument('--tracer', type=str, default='LRG')
+    parser.add_argument('--region', type=str, default='NGC')
+    parser.add_argument('--zrange', nargs=2, type=float, default=[0.4, 0.6])
+    parser.add_argument('--n_randoms', type=int, default=19)
+    parser.add_argument(
+        '--base_dir',
+        type=str,
+        default='/global/cfs/cdirs/desicollab/mocks/cai/LSS/DA2/mocks/holi_v1/'
+    )
+    parser.add_argument(
+        '--save_dir',
+        type=str,
+        default='/global/cfs/cdirs/desicollab/users/epaillas/acm/dr2/measurements/holi'
+    )
+
+    args = parser.parse_args()
+    return args
+
+
+def default_mpicomm(func: Callable):
+    """Wrapper to provide a default MPI communicator."""
+    @functools.wraps(func)
+    def wrapper(*args, mpicomm=None, **kwargs):
+        if mpicomm is None:
+            from mpi4py import MPI
+            mpicomm = MPI.COMM_WORLD
+        return func(*args, mpicomm=mpicomm, **kwargs)
+
+    return wrapper
+
+
+@default_mpicomm
+def _read_catalog(fn, mpicomm=None):
+    """Wrapper around :meth:`Catalog.read` to read catalog(s)."""
+    one_fn = fn[0] if isinstance(fn, (tuple, list)) else fn
+    kw = {}
+    if str(one_fn).endswith('.h5'): kw['group'] = 'LSS'
+    catalog = Catalog.read(fn, mpicomm=mpicomm, **kw)
+    if str(one_fn).endswith('.fits'): catalog.get(catalog.columns())  # Faster to read all columns at once
+    return catalog
+
+
+def get_clustering_rdzw(*fns, zrange=None, region=None, tracer=None, **kwargs):
+    """Read one or more catalogs and return concatenated RA/DEC/Z/weight arrays.
+
+    Weights are defined as ``WEIGHT * WEIGHT_FKP``. Optional redshift and
+    region selections are applied before concatenation.
+    """
+    from mpi4py import MPI
+    mpicomm = MPI.COMM_WORLD
+
+    catalogs = [None] * len(fns)
+    for ifn, fn in enumerate(fns):
+        irank = ifn % mpicomm.size
+        catalogs[ifn] = (irank, None)
+        if mpicomm.rank == irank:  # Faster to read catalogs from one rank
+            print(fn)
+            catalog = _read_catalog(fn, mpicomm=MPI.COMM_SELF)
+            catalog.get(catalog.columns())  # Faster to read all columns at once
+            for name in ['WEIGHT', 'WEIGHT_FKP']:
+                if name not in catalog: catalog[name] = catalog.ones()
+            if tracer is not None and 'Z' not in catalog:
+                catalog['Z'] = catalog[f'Z_{tracer}']
+            catalog = catalog[['RA', 'DEC', 'Z', 'WEIGHT', 'WEIGHT_FKP']]
+            if zrange is not None:
+                mask = (catalog['Z'] >= zrange[0]) & (catalog['Z'] <= zrange[1])
+                catalog = catalog[mask]
+            if region is not None:
+                mask = select_region(catalog['RA'], catalog['DEC'], region)
+                catalog = catalog[mask]
+            catalogs[ifn] = (irank, catalog)
+
+    rdzw = []
+    for irank, catalog in catalogs:
+        if mpicomm.size > 1:
+            catalog = Catalog.scatter(catalog, mpicomm=mpicomm, mpiroot=irank)
+        weight = catalog['WEIGHT'] * catalog['WEIGHT_FKP']
+        rdzw.append([catalog['RA'], catalog['DEC'], catalog['Z'], weight])
+    return [np.concatenate([arrays[i] for arrays in rdzw], axis=0) for i in range(4)]
+
+
+def get_clustering_positions_weights(*fns, **kwargs):
+    """Convert input catalogs to Cartesian positions and combined weights."""
+    fiducial = TabulatedDESI()
+    ra, dec, z, weights = get_clustering_rdzw(*fns, **kwargs)
+    weights = np.asarray(weights, dtype='f8')
+    dist = fiducial.comoving_radial_distance(z)
+    positions = sky_to_cartesian(dist, ra, dec, dtype='f8')
+    return positions, weights
+
+
+def get_data_fn(tracer='LRG', region='NGC', phase_idx=0, base_dir='', **kwargs):
+    """Build the Holi altmtl data-catalog path for a given phase."""
+    mock_dir = Path(base_dir) / f'altmtl{phase_idx}' / 'loa-v1' / f'mock{phase_idx}' / 'LSScats'
+    return mock_dir / f'{tracer}_{region}_clustering.dat.h5'
+
+
+def get_randoms_fn(tracer='LRG', region='NGC', phase_idx=0, rand_idx=0, base_dir='', **kwargs):
+    """Build the Holi altmtl random-catalog path for a given phase/index."""
+    mock_dir = Path(base_dir) / f'altmtl{phase_idx}' / 'loa-v1' / f'mock{phase_idx}' / 'LSScats'
+    return mock_dir / f'{tracer}_{region}_{rand_idx}_clustering.ran.h5'
+
+
+def compute_spectrum(save_fn, get_data, get_randoms, ells=(0, 2, 4), los='firstpoint', **attrs):
+    """Compute the power spectrum of a set of positions using the ACM package."""
+    from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
+    data_positions, data_weights = get_data()
+    randoms_positions, randoms_weights = get_randoms()
+    ps = PowerSpectrumMultipoles(
+        data_positions=data_positions,
+        randoms_positions=randoms_positions,
+        data_weights=data_weights,
+        randoms_weights=randoms_weights,
+        **attrs
+    )
+    ps.compute_spectrum(edges={'step': 0.001}, ells=ells, los=los, save_fn=save_fn)
+    return ps
+
+
+def compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
+    """Compute density-split statistics using the ACM package."""
+    from acm.estimators.galaxy_clustering.density_split import DensitySplit
+
+    data_positions, data_weights = get_data()
+    randoms_positions, randoms_weights = get_randoms()
+
+    ds = DensitySplit(data_positions=data_positions, randoms_positions=randoms_positions, **attrs)
+
+    ds.set_density_contrast(smoothing_radius=smoothing_radius)
+    ds.set_quantiles(query_positions=randoms_positions, nquantiles=5)
+
+    sedges = np.arange(0, 201, 1)
+    muedges = np.linspace(-1, 1, 241)
+    edges = (sedges, muedges)
+
+    ccf = ds.quantile_data_correlation(
+        data_positions=data_positions,
+        randoms_positions=randoms_positions,
+        data_weights=data_weights,
+        randoms_weights=randoms_weights,
+        edges=edges,
+        los=los,
+        nthreads=4,
+        gpu=True,
+    )
+
+    acf = ds.quantile_correlation(
+        randoms_positions=randoms_positions,
+        edges=edges,
+        los=los,
+        nthreads=4,
+        gpu=True,
+    )
+
+    np.save(save_fn['xiqg'], ccf)
+    np.save(save_fn['xiqq'], acf)
+
+
+if __name__ == '__main__':
+    args = get_cli_args()
+    setup_logging()
+
+    tracer = args.tracer
+    region = args.region
+    zmin, zmax = args.zrange
+    nrandoms = args.n_randoms
+    phases = list(range(args.start_phase, args.start_phase + args.n_phase))
+
+    catalog_args = dict(
+        tracer=tracer,
+        region=region,
+        zrange=(zmin, zmax),
+        base_dir=args.base_dir,
+    )
+
+    for phase_idx in phases:
+        data_fn = get_data_fn(phase_idx=phase_idx, **catalog_args)
+        if not data_fn.exists():
+            print(f'Skipping phase {phase_idx}: missing data catalog {data_fn}')
+            continue
+        all_randoms_fn = [
+            get_randoms_fn(phase_idx=phase_idx, rand_idx=i, **catalog_args)
+            for i in range(nrandoms)
+        ]
+
+        get_data = lambda: get_clustering_positions_weights(data_fn, **catalog_args)
+        get_randoms = lambda: get_clustering_positions_weights(*all_randoms_fn, **catalog_args)
+
+        if 'spectrum' in args.statistics:
+            save_dir = Path(args.save_dir) / 'spectrum' / f'ph{phase_idx:03}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            cutsky_args = dict(cellsize=10.0, ells=(0, 2, 4))
+            save_fn = Path(save_dir) / f'mesh2_poles_{tracer}_{region}_z{zmin}-{zmax}_acm.h5'
+            compute_spectrum(save_fn, get_data, get_randoms, **cutsky_args)
+
+        if 'density_split' in args.statistics:
+            save_dir = Path(args.save_dir) / 'density_split' / f'ph{phase_idx:03}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            save_fn = {
+                'xiqg': Path(save_dir) / f'dsc_xiqg_poles_{tracer}_{region}_z{zmin}-{zmax}.npy',
+                'xiqq': Path(save_dir) / f'dsc_xiqq_poles_{tracer}_{region}_z{zmin}-{zmax}.npy',
+            }
+            if save_fn['xiqg'].exists() and save_fn['xiqq'].exists():
+                print(f'Skipping {save_fn["xiqg"]} and {save_fn["xiqq"]}, already exists.')
+                continue
+            cutsky_args = dict(cellsize=5.0, boxpad=1.2, check=True)
+            compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args)
