@@ -1,12 +1,18 @@
+import logging
+from pathlib import Path
+from copy import copy, deepcopy
+
 import torch
 import xarray
-import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
+from scipy.stats import median_abs_deviation, norm
+
 from sunbird.emulators import FCN
 from sunbird.data.data_utils import transform_filters_to_slices
-from scipy.stats import median_abs_deviation, norm
+from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
+
+from acm.utils.logging import supress_logging
 from acm.utils.xarray import dataset_from_dict
 from acm.utils.covariance import orthogonal_gk_mad_covariance, check_covariance_matrix
 from acm.utils.plotting import set_plot_style
@@ -14,7 +20,6 @@ from acm.utils.decorators import temporary_class_state
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
-from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
 SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 
 class Observable():
@@ -36,6 +41,7 @@ class Observable():
         numpy_output: bool = False,
         paths: dict = None,
         checkpoint_fn: Path | str = None,
+        silent_load: bool = False,
     ):
         """
         Parameters
@@ -67,6 +73,8 @@ class Observable():
             If dataset or model is None, they will be loaded from the provided paths. Defaults to None.
         checkpoint_fn : Path | str, optional
             Legacy parameter for the model checkpoint file path. Use `paths['model_dir']/stat_name.ckpt` instead. Defaults to None.
+        silent_load : bool, optional
+            If True, suppresses info logging messages during dataset loading. Defaults to False.
             
         Raises
         ------
@@ -99,28 +107,29 @@ class Observable():
         self.squeeze_output = squeeze_output
         self.flat_output_dims = flat_output_dims
         
-        # Load dataset if not provided
-        if dataset is None:
-            if paths is None:
-                raise ValueError("If dataset is not provided, paths must be provided to load the dataset.")
-            dataset = self.load_dataset_from_files(stat_name, paths)
-        
-        if model is not None:
-            self.model = model
-        # Try to load model if not provided
-        elif paths is not None:
-            try:
-                if checkpoint_fn is not None:
-                    self.logger.warning("DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
-                    checkpoint_fn = Path(checkpoint_fn)
-                else:
-                    checkpoint_fn = Path(paths['model_dir']) / f'{stat_name}.ckpt'
-                self.model = self.load_model(checkpoint_fn)
-            except (FileNotFoundError, OSError, RuntimeError, KeyError, ValueError) as e:
-                self.logger.warning(f"Could not load model from checkpoint: {e}")
-        
-        self._dataset = dataset
-        self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
+        with supress_logging(enabled=silent_load):
+            # Load dataset if not provided
+            if dataset is None:
+                if paths is None:
+                    raise ValueError("If dataset is not provided, paths must be provided to load the dataset.")
+                dataset = self.load_dataset_from_files(stat_name, paths)
+            
+            if model is not None:
+                self.model = model
+            # Try to load model if not provided
+            elif paths is not None and 'model_dir' in paths:
+                try:
+                    if checkpoint_fn is not None:
+                        self.logger.warning("DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead.")
+                        checkpoint_fn = Path(checkpoint_fn)
+                    else:
+                        checkpoint_fn = Path(paths['model_dir']) / f'{stat_name}.ckpt'
+                    self.model = self.load_model(checkpoint_fn)
+                except (FileNotFoundError, OSError, RuntimeError, KeyError, ValueError) as e:
+                    self.logger.warning(f"Could not load model from checkpoint: {e}")
+            
+            self._dataset = dataset
+            self.logger.info("Datasets loaded with the following coordinates: {}".format(list(self._dataset.data_vars.keys())))
         
         # Set the filters
         self.select_filters = select_filters
@@ -171,7 +180,7 @@ class Observable():
         if len(datasets) == 0:
             raise FileNotFoundError(f"No datasets found for statistic '{stat_name}' in provided paths.")
         
-        _dataset = xarray.merge(datasets)
+        _dataset = xarray.merge(datasets, join='outer')
         return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
     
     @classmethod
@@ -262,6 +271,48 @@ class Observable():
                 data = data.values
             
         return data
+
+    def __copy__(self):
+        """
+        Returns a shallow copy of the Observable object by returning a new class instance
+        and copying all the class attributes to that new instance.
+        """
+        # Create a new instance of the class with a minimal set of attributes
+        new_cls = self.__class__(
+            stat_name = copy(self.stat_name),
+            dataset = copy(self._dataset),
+            model = copy(getattr(self, 'model', None)),
+            silent_load = True, # Avoid logging messages during copy
+        ) # NOTE: The logger is not copied to avoid issues with multiple loggers. It will be re-created in the new instance instead.
+        
+        # Copy all other class attributes
+        cls_vars = vars(self)
+        for key, value in cls_vars.items():
+            if key in ['stat_name', '_dataset', 'model', 'logger']:
+                continue
+            setattr(new_cls, key, copy(value))
+        return new_cls
+    
+    def __deepcopy__(self, memo: dict|None = None):
+        """
+        Returns a deep copy of the Observable object by returning a new class instance
+        and deep copying all the class attributes to that new instance.
+        """
+        # Create a new instance of the class with a minimal set of attributes
+        new_cls = self.__class__(
+            stat_name = deepcopy(self.stat_name, memo),
+            dataset = deepcopy(self._dataset, memo),
+            model = deepcopy(getattr(self, 'model', None), memo),
+            silent_load = True, # Avoid logging messages during copy
+        ) # NOTE: The logger is not copied to avoid issues with multiple loggers. It will be re-created in the new instance instead.
+        
+        # Deep copy all other class attributes
+        cls_vars = vars(self)
+        for key, value in cls_vars.items():
+            if key in ['stat_name', '_dataset', 'model', 'logger']:
+                continue
+            setattr(new_cls, key, deepcopy(value, memo))
+        return new_cls
     
     def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
@@ -823,6 +874,10 @@ class Observable():
             emu_err = np.sqrt(np.diag(emu_cov))
 
             ax[1].plot(emu_err / data_err, lw=1.0, label=method)
+
+            outliers = np.where(emu_err / data_err > 10)[0].tolist()
+            if len(outliers) > 0:
+                self.logger.info(f"Emulator residuals are larger than 10 sigma in bins: {outliers} using method '{method}'.")
 
         ax[1].axhline(1.0, color='k', ls=':', lw=0.7)
         ax[1].set_xlabel('bin index', fontsize=13)
