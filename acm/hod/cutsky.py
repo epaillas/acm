@@ -494,6 +494,7 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         super().__init__()
         self.DM_DICT_simtype = 'box'
+        self.sim_geometry = 'cutsky'
         self.logger = logging.getLogger('CutskyHOD')
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
@@ -541,7 +542,8 @@ class CutskyHOD(BaseCutskyCatalog):
                 cosmo_idx=self.cosmo_idx,
                 phase_idx=self.phase_idx,
                 config_file=self.config_file,
-                DM_DICT_simtype=self.DM_DICT_simtype
+                DM_DICT_simtype=self.DM_DICT_simtype,
+                sim_geometry = self.sim_geometry
             )
             self.balls += [ball]
         self.cosmo = AbacusSummit(self.cosmo_idx)

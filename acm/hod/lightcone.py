@@ -232,6 +232,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         """
         BaseLightconeCatalog.__init__(self)
         self.DM_DICT_simtype = 'lightcone'
+        self.sim_geometry = 'lightcone'
         self.logger = logging.getLogger('LightconeHOD')
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
