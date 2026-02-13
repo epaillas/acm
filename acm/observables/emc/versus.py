@@ -174,7 +174,8 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         )
         if add_covariance:
             cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
-            cout = xarray.merge([cout, cov_y])
+            cout = xarray.merge([cout, cov_y], join='outer')
+
             
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
@@ -182,7 +183,7 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
                 v_out.name = v_out.name + '_train'
                 v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
                 v_out.attrs['nan_dims'] = list(test_filters.keys())
-                cout = xarray.merge([cout, v_in, v_out])
+                cout = xarray.merge([cout, v_in, v_out], join='outer')
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
@@ -473,7 +474,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         )
         if add_covariance:
             cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, rebin=rebin, ells=ells)
-            cout = xarray.merge([cout, cov_y])
+            cout = xarray.merge([cout, cov_y], join='outer')
             
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
@@ -481,7 +482,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
                 v_out.name = v_out.name + '_train'
                 v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
                 v_out.attrs['nan_dims'] = list(test_filters.keys())
-                cout = xarray.merge([cout, v_in, v_out])
+                cout = xarray.merge([cout, v_in, v_out], join='outer')
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
