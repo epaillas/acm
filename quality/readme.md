@@ -45,14 +45,39 @@ acm_lint.sh          acm_quality_init.sh  acm_type.sh
 * Right-click on an HTML file → “Open with Live Server” at the top
 * The page will open in your browser.
  
+## How implement tests
 
-## Launch only one test
+### With pytest framework
+
+Here a [How-to guides](https://docs.pytest.org/en/stable/how-to/index.html) to begin with pytest.
+
+Some important conventions with pytest:
+* file of test must begin by `test_`, like
+    * `test_xxx.py`
+* the name of class of test must begin by `Test`, like
+    * `class TestDatasetToDict:`
+* the name of test function/method must begin by `test_`, like
+    * `def test_init(path_file):`
+    * `def test_get_cov(self):`
+
+acm tests are in directory `acm/tests/acm`
+
+### Launch only one test
 
 During a debugging phase, it is practical to launch only the test you are working on, this is possible with the following command
 
 ```console
 pytest tests/path/to/my/test::test_to_fix
 ```
+
+### Data file for test
+
+Some functions and methods require input files that are too large for Git. GitHub Releases let you host these files in your project, and pytest can automatically download them when tests start. Simply add your test files to a GitHub Release and list their names in your pytest configuration.
+
+* GitHub Release for acm : [storage_data_tests](https://github.com/epaillas/acm/releases/tag/data_test_v1), used "modify" to add file
+* Configuration file where the test file can be added to the list of files to download : `acm/tests/conftest.py`
+* download directory `acm/tests/data` is defined by a environment variable `ACM_TEST_DATA`
+
 
 ## Pylint
 
