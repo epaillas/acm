@@ -48,7 +48,7 @@ def get_cli_args():
     )
     parser.add_argument('--make_randoms', action='store_true', default=False)
     parser.add_argument('--n_randoms', type=int, default=1)
-    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/e/epaillas/acm/dr2/hods/cutsky/v0.0/')
+    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/e/epaillas/acm/dr2/hods/cutsky/v0.1/')
 
     args = parser.parse_args()
     return args
@@ -92,10 +92,13 @@ if __name__ == '__main__':
             hod_params = get_hod_params()
 
             # initialize class
-            cutsky = CutskyHOD(varied_params=hod_params.keys(),
-                            zranges=zranges, snapshots=snapshots,
-                            cosmo_idx=cosmo_idx, phase_idx=phase_idx,
-                            load_existing_hod=True, mpicomm=mpicomm)
+            cutsky = CutskyHOD(
+                tracer=tracer,
+                varied_params=hod_params.keys(),
+                zranges=zranges, snapshots=snapshots,
+                cosmo_idx=cosmo_idx, phase_idx=phase_idx,
+                load_existing_hod=False, mpicomm=mpicomm
+            )
             # you can set load_existing_hod=True to load a pre-made catalog rather
             # than actually sampling from AbacusSummit for a quick debugging
 
@@ -109,10 +112,7 @@ if __name__ == '__main__':
             nz_filename= f'/global/cfs/cdirs/desi/survey/catalogs/DA2/LSS/loa-v1/LSScats/v2/{tracer}_full_HPmapcut_nz.txt'
             cutsky.apply_radial_mask(nz_filename=nz_filename)
 
-            # cutsky.save(save_dir / f'{tracer}_{region}_hod{hod_idx:03}.dat.fits')
-
-            # cutsky.plot_footprint(save_dir / 'cutsky_footprint.png')
-            # fig, ax = cutsky.plot_redshift_distribution(save_dir / 'cutsky_zdist.png')
+            cutsky.save(save_dir / f'{tracer}_{region}_hod{hod_idx:03}.dat.fits')
 
             if args.make_randoms:
                 for rnd_idx in range(args.n_randoms):
@@ -128,7 +128,5 @@ if __name__ == '__main__':
                     cutsky_randoms.apply_angular_mask(region=region, release=release, npasses=None, program='dark')
                     # we use `shape_only=True` to only match the n(z) shape, keeping the randoms amplitude
                     cutsky_randoms.apply_radial_mask(nz_filename=nz_filename, shape_only=True)
+                    save_dir = Path(args.save_dir)
                     cutsky_randoms.save(save_dir / f'{tracer}_{region}_{rnd_idx}.ran.fits')
-
-                    # cutsky_randoms.plot_footprint(save_dir / 'cutsky_randoms_footprint.png')
-                    # cutsky_randoms.plot_redshift_distribution(save_fn=save_dir / 'cutsky_randoms_zdist.png', catalog2=cutsky.catalog)
