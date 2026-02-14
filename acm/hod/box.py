@@ -34,6 +34,7 @@ class BoxHOD:
         redshift: float = 0.5,
         DM_DICT: dict = None,
         DM_DICT_simtype: str = None,
+        sim_geometry: str = None,
     ):
         """
         Initialize the BoxHOD class.
@@ -63,6 +64,9 @@ class BoxHOD:
         DM_DICT_simtype : str, optional
             The simtype paramter used by get_Abacus_dirs, either 'box' or 
             'lightcone'. Defaults to 'box' if None
+        sim_geometry : str, optional
+            The simtype paramter used for choices related to the mock geometry. 
+            Either 'box', 'cutsky', or 'lightcone'. Defaults to 'box' if None
             
         Raises
         ------
@@ -71,6 +75,9 @@ class BoxHOD:
         """
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
+        if sim_geometry is None:
+            sim_geometry = 'box'
+        self.sim_geometry = sim_geometry
         if sim_type not in ['base', 'small', 'png']:
             raise ValueError('Invalid sim_type. Must be either "base", "small", or "png".')
         self.sim_type = sim_type
@@ -251,7 +258,12 @@ class BoxHOD:
                 self.ball.tracers[tracer][key] = hod_params[key]
         self.ball.tracers[tracer]['ic'] = 1
         self.in_density = True  # Flag if mock is within density threshold
-        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed)
+        # set want_nfw (unique for ELG cutsky)
+        if tracer == 'ELG' and self.sim_geometry == 'cutsky':
+            want_nfw = True
+        else:
+            want_nfw = False
+        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw)
         # workaround for compute_ngal issue with high sigma values
         n_gal = len(hod_dict[tracer]['x'])
         subsample = None
