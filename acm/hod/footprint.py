@@ -4,6 +4,15 @@ import mockfactory
 from cosmoprimo.fiducial import DESI
 
 
+def read_catalog(fn):
+    """Wrapper around :meth:`Catalog.read` to read catalog(s)."""
+    kw = {}
+    if fn.endswith('.h5'): kw['group'] = 'LSS'
+    catalog = mockfactory.Catalog.read(fn, **kw)
+    if fn.endswith('.fits'): catalog.get(catalog.columns())  # Faster to read all columns at once
+    return catalog
+
+
 def minmax_xyz_desi(zrange, region='NGC', release='Y1', tracer='LRG', custom_xyz_file=None):
     """
     Get the minimum and maximum cartesian coordinates of
@@ -29,9 +38,12 @@ def minmax_xyz_desi(zrange, region='NGC', release='Y1', tracer='LRG', custom_xyz
     if custom_xyz_file is not None:
         data_fn = custom_xyz_file
     else:
-        data_fn  = f'/global/cfs/cdirs/desi/survey/catalogs/{release}/mocks/SecondGenMocks/AbacusSummit_v4_1/'
-        data_fn += f'altmtl0/mock0/LSScats/{tracer}_{region}_clustering.dat.fits'
-    data = fitsio.read(data_fn)
+        # data_fn  = f'/global/cfs/cdirs/desi/survey/catalogs/{release}/mocks/SecondGenMocks/AbacusSummit_v4_1/'
+        # data_fn += f'altmtl0/mock0/LSScats/{tracer}_{region}_clustering.dat.fits'
+        data_fn = '/global/cfs/cdirs/desi/survey/catalogs/DA2/mocks/AbacusHighFidelity/altmtl0/loa-v1/mock0/LSScats/'
+        data_fn += f'{tracer}_{region}_clustering.dat.h5'
+    # data = fitsio.read(data_fn)
+    data = read_catalog(data_fn)
     zmin, zmax = zrange
     chosen = np.logical_and(data['Z'] < zmax, data['Z'] > zmin)
     cosmo = DESI()
@@ -62,9 +74,9 @@ def minmax_skycoord_desi(zrange, region='NGC', release='Y1', tracer='LRG'):
     """
     if release == 'Y5':
         release = 'Y3'  # we don't have Y5 mocks yet, but the minmax should hopefully be the same
-    data_fn  = f'/global/cfs/cdirs/desi/survey/catalogs/{release}/mocks/SecondGenMocks/AbacusSummit_v4_1/'
-    data_fn += f'altmtl0/mock0/LSScats/{tracer}_{region}_clustering.dat.fits'
-    data = fitsio.read(data_fn)
+    data_fn = f'/global/cfs/cdirs/desi/survey/catalogs/DA2/mocks/AbacusHighFidelity/altmtl0/loa-v1/mock0/LSScats/'
+    data_fn += f'{tracer}_{region}_clustering.dat.h5'
+    data = read_catalog(data_fn)
     zmin, zmax = zrange
     chosen = np.logical_and(data['Z'] < zmax, data['Z'] > zmin)
     ra_min = np.min(data['RA'][chosen])
