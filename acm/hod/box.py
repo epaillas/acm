@@ -93,7 +93,7 @@ class BoxHOD:
         if DM_DICT is None:
             if DM_DICT_simtype is None:
                 DM_DICT_simtype = 'box'
-            DM_DICT = lookup_registry_path('Abacus.yaml', tracer=tracer, simtype=DM_DICT_simtype)
+            DM_DICT = lookup_registry_path('Abacus.yaml', tracer, DM_DICT_simtype)
         self.setup(config, DM_DICT)
         # AbacusHOD doesn't work with BGS, so after loading the BGS subsample files,
         # we use tracer = LRG for subsequent steps
@@ -127,6 +127,7 @@ class BoxHOD:
         sim_params['sim_name'] = self.abacus_simname()
         sim_params['z_mock'] = self.redshift
         HOD_params = config['HOD_params']
+        self.logger.info(f'Initializing AbacusHOD with parameters {sim_params}.')
         self.ball = abacus_hod.AbacusHOD(sim_params, HOD_params)
         self.ball.params['Lbox'] = self.boxsize
         self.cosmo_fid = DESI()
