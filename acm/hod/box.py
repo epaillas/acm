@@ -13,7 +13,6 @@ from cosmoprimo.fiducial import DESI, AbacusSummit
 from acm.utils.paths import lookup_registry_path
 
 
-from acm.utils.paths import get_Abacus_dirs
 
 class BoxHOD:
     """
@@ -94,7 +93,7 @@ class BoxHOD:
         if DM_DICT is None:
             if DM_DICT_simtype is None:
                 DM_DICT_simtype = 'box'
-            DM_DICT = get_Abacus_dirs(tracer=tracer, simtype=DM_DICT_simtype)
+            DM_DICT = lookup_registry_path('Abacus.yaml', tracer=tracer, simtype=DM_DICT_simtype)
         self.setup(config, DM_DICT)
         # AbacusHOD doesn't work with BGS, so after loading the BGS subsample files,
         # we use tracer = LRG for subsequent steps
