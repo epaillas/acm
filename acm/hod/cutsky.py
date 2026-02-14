@@ -504,7 +504,9 @@ class CutskyHOD(BaseCutskyCatalog):
         **kwargs: dict
             Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
-        super().__init__(**kwargs)
+        super().__init__()
+        self.DM_DICT_simtype = 'box'
+        self.sim_geometry = 'cutsky'
         self.logger = logging.getLogger('CutskyHOD')
         self.logger.info(f'Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks.')
         self.config_file = config_file
@@ -525,12 +527,13 @@ class CutskyHOD(BaseCutskyCatalog):
             self.cosmo = AbacusSummit(self.cosmo_idx)
             self.logger.info('Load existing hod instead of generating new ones.')
         else:
+            self.setup_hod(DM_DICT=DM_DICT, tracer = tracer)
             if DM_DICT is None:
-                DM_DICT = lookup_registry_path('Abacus.yaml', self.tracer, 'box')
-            self.setup_hod(DM_DICT=DM_DICT)
+                DM_DICT = lookup_registry_path('Abacus.yaml', self.tracer, self.DM_DICT_simtype)
+            self.setup_hod(DM_DICT=DM_DICT, tracer=tracer)
         self.keys_cutsky = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']
 
-    def setup_hod(self, DM_DICT: dict):
+    def setup_hod(self, DM_DICT: dict, tracer: str = 'LRG'):
         """
         Initialize AbacusHOD objects for each snapshot.
 
@@ -543,12 +546,15 @@ class CutskyHOD(BaseCutskyCatalog):
         for zsnap in self.snapshots:
             ball = BoxHOD(
                 varied_params=self.varied_params,
+                tracer=tracer,
                 DM_DICT=DM_DICT,
                 sim_type=self.sim_type,
                 redshift=zsnap,
                 cosmo_idx=self.cosmo_idx,
                 phase_idx=self.phase_idx,
-                config_file=self.config_file
+                config_file=self.config_file,
+                DM_DICT_simtype=self.DM_DICT_simtype,
+                sim_geometry = self.sim_geometry
             )
             self.balls += [ball]
         self.cosmo = AbacusSummit(self.cosmo_idx)
@@ -588,6 +594,8 @@ class CutskyHOD(BaseCutskyCatalog):
         tuple
             Tuple containing positions and velocities of the sampled galaxies.
         """
+        # No BGS in AbacusHOD so we use LRG
+        tracer = 'LRG' if self.tracer == 'BGS' else self.tracer
         # Only root rank samples the HOD to avoid redundant computation
         if self.mpicomm.rank == self.mpiroot:
             hod_dict = ball.run(
@@ -595,7 +603,7 @@ class CutskyHOD(BaseCutskyCatalog):
                 seed=seed,
                 nthreads=nthreads,
                 tracer_density=target_nbar
-            )[self.tracer]
+            )[tracer]
             pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']].astype(np.float32)
             vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']].astype(np.float32)
         else:
