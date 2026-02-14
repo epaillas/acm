@@ -82,7 +82,7 @@ class BaseCutskyCatalog(ABC):
         None
             The cutsky catalog is modified in place.
         """
-        self.logger.info('Applying angular mask.')
+        self.logger.info(f'Applying angular mask for region {region} and release {release}.')
         if custom_mask_path is None:
             is_in_desi = is_in_desi_footprint(
                 self.catalog['RA'],
@@ -127,7 +127,7 @@ class BaseCutskyCatalog(ABC):
         None
             The cutsky catalog is modified in place.
         """
-        self.logger.info('Applying radial mask.')
+        self.logger.info(f'Applying radial mask using n(z) file {nz_filename}.')
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = (zbin_min + zbin_max) / 2
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
@@ -527,7 +527,6 @@ class CutskyHOD(BaseCutskyCatalog):
             self.cosmo = AbacusSummit(self.cosmo_idx)
             self.logger.info('Load existing hod instead of generating new ones.')
         else:
-            self.setup_hod(DM_DICT=DM_DICT, tracer = tracer)
             if DM_DICT is None:
                 DM_DICT = lookup_registry_path('Abacus.yaml', self.tracer, self.DM_DICT_simtype)
             self.setup_hod(DM_DICT=DM_DICT, tracer=tracer)
