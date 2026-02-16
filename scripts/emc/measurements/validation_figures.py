@@ -5,26 +5,22 @@ import argparse
 
 
 def plot_training_set(observable_name):
-    paths = {
-        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
-        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
-        'param_dir': None
-    }
-    observable = getattr(emc, observable_name, None)(
-        paths=paths, numpy_output=True,
-    )
+    # paths = {
+    #     'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+    #     'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+    #     'param_dir': None
+    # }
+    observable = getattr(emc, observable_name, None)(numpy_output=True)
     save_fn = Path(args.save_dir) / f'{observable.stat_name}_training_set.png'
     observable.plot_training_set(save_fn=save_fn)
 
 def plot_covariance_set(observable_name):
-    paths = {
-        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
-        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
-        'param_dir': None
-    }
-    observable = getattr(emc, observable_name, None)(
-        paths=paths, select_filters={}, numpy_output=True,
-    )
+    # paths = {
+    #     'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
+    #     'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
+    #     'param_dir': None
+    # }
+    observable = getattr(emc, observable_name, None)(select_filters={}, numpy_output=True)
     save_fn = Path(args.save_dir) / f'{observable.stat_name}_covariance_set.png'
     observable.plot_covariance_set(save_fn=save_fn)
 

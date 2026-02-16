@@ -21,6 +21,7 @@ class_names = {
     'pk': 'GalaxyPowerSpectrumMultipoles',
     'bk': 'GalaxyBispectrumMultipoles',
     'recon_pk': 'ReconstructedGalaxyPowerSpectrumMultipoles',
+    'wst': 'WaveletScatteringTransform',
     'minkowski': 'MinkowskiFunctionals',
     'ds_xiqg': 'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles',
     'ds_xiqq': 'DensitySplitQuantileCorrelationFunctionMultipoles',
@@ -106,19 +107,13 @@ def get_filters(observable_name):
 
 def get_observable(stat_names):
     """Get the observable class from a list of stat_name."""
-    paths = {
-        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
-        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
-        'model_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/',
-        'param_dir': None
-    }
     select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
     observables = []
     for stat_name in stat_names:
         observable_name = class_names[stat_name]
         select_indices = selected_bins[stat_name]
         obs = getattr(emc, observable_name)(
-            paths=paths, numpy_output=True,
+            numpy_output=True,
             squeeze_output=True,
             select_filters=select_filters,
             select_indices=select_indices,
@@ -232,10 +227,10 @@ if __name__ == "__main__":
     parser.add_argument('--cov_emu_method', type=str, default='median', help='Method to compute the emulator covariance.')
     parser.add_argument('--cov_emu_diag', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
     parser.add_argument('--cov_correction', type=str, default='percival', help='Covariance correction method to use.')
-    parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/jan23')
+    parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/greedy/', help='Directory to save the results.')
 
     args = parser.parse_args()
-    setup_logging()
+    setup_logging(level='INFO')
 
     cosmo_model = args.cosmo_model
     hod_model = args.hod_model
