@@ -1,11 +1,12 @@
-from jaxpower import MeshAttrs, ParticleField, FKPField, ComplexMeshField, RealMeshField, get_mesh_attrs
-from jax import numpy as jnp
-import jax
-import numpy as np
-import numpy.typing as npt
 import time
 import logging
-from typing import Optional, Any, Union
+from typing import Optional, Union
+
+import jax
+import numpy as np
+import jax.numpy as jnp
+import numpy.typing as npt
+from jaxpower import MeshAttrs, ParticleField, ComplexMeshField, RealMeshField, get_mesh_attrs
 
 
 class JaxpowerBackend:
@@ -41,7 +42,14 @@ class JaxpowerBackend:
     delta_mesh : RealMeshField or ComplexMeshField
         Density contrast field (set by set_density_contrast).
     """
-    def __init__(self, data_positions: npt.NDArray, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, 
+        data_positions: npt.NDArray, 
+        data_weights: Optional[npt.NDArray] = None, 
+        randoms_positions: Optional[npt.NDArray] = None, 
+        randoms_weights: Optional[npt.NDArray] = None, 
+        **kwargs
+    ) -> None:
         """Initialize the jaxpower backend.
         
         Parameters
@@ -68,14 +76,8 @@ class JaxpowerBackend:
         """
         self.logger = logging.getLogger('JaxpowerBackend')
         self.name = 'jaxpower'
-        # Set mesh attributes directly if passed, otherwise infer from positions
-        if set(kwargs.keys()).issubset(set(MeshAttrs.__dataclass_fields__.keys())): 
-            self.mattrs = MeshAttrs(**kwargs) 
-        else:
-            if jax.process_index() == 0:
-                self.logger.info('Inferring mesh attributes from data and randoms positions.')  
-            pos = [p for p in [data_positions, randoms_positions] if p is not None] # get_mesh_attrs raises an error if randoms_positions is None
-            self.mattrs = get_mesh_attrs(*pos, **kwargs)
+        pos = [p for p in [data_positions, randoms_positions] if p is not None]
+        self.mattrs = get_mesh_attrs(*pos, **kwargs)
             
         self.data_mesh = ParticleField(data_positions, data_weights, attrs=self.mattrs, exchange=True, backend='jax')
         self.randoms_mesh = None
@@ -92,7 +94,16 @@ class JaxpowerBackend:
             self.logger.info(f'Box center: {self.boxcenter}')
             self.logger.info(f'Box meshsize: {self.meshsize}')
 
-    def set_density_contrast(self, resampler: str = 'cic', interlacing: bool = False, compensate: bool = False, halo_add: int = 0, smoothing_radius: Optional[float] = None, randoms_threshold_value: float = 0.01, randoms_threshold_method: str = 'noise') -> Union[RealMeshField, ComplexMeshField]:
+    def set_density_contrast(
+        self, 
+        resampler: str = 'cic', 
+        interlacing: bool = False, 
+        compensate: bool = False, 
+        halo_add: int = 0, 
+        smoothing_radius: Optional[float] = None, 
+        randoms_threshold_value: float = 0.01, 
+        randoms_threshold_method: str = 'noise'
+    ) -> Union[RealMeshField, ComplexMeshField]:
         """Compute the density contrast field.
         
         Paints particles to a mesh and computes the density contrast using
@@ -158,6 +169,8 @@ class JaxpowerBackend:
             self.delta_mesh = data_mesh - alpha * randoms_mesh
             if threshold_randoms is not None:
                 self.delta_mesh = self.delta_mesh.clone(value=jnp.where(randoms_mesh.value > threshold_randoms, self.delta_mesh.value / (alpha * randoms_mesh.value), 0.))
+            else:
+                self.delta_mesh = self.delta_mesh / (alpha * randoms_mesh)
         else:
             self.mean = data_mesh.mean()
             self.delta_mesh = data_mesh / self.mean - 1

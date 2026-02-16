@@ -1,5 +1,4 @@
 import time
-import logging
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -119,13 +118,9 @@ class MinkowskiFunctionals(BaseEstimator):
         """
         batch_slices: how many slices to process per python loop iteration. Small batches
                       reduce peak memory and keep JAX compilation efficient.
-        """
-        self.logger = logging.getLogger('MinkowskiFunctionals')
-        
+        """        
         super().__init__(**kwargs)
-        self.logger.info('Initializing MinkowskiFunctionals (Jax-Based).')
-        self.logger.info(f'Using {self.backend.__class__.__name__} backend.')
-
+                
         self.thres_mask = thres_mask
         self.batch_slices = batch_slices
 

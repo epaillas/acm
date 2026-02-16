@@ -5,20 +5,19 @@ import numpy as np
 from pathlib import Path
 from astropy.io import fits
 from astropy.table import Table
+import logging
+import warnings
+import sys
 from abacusnbody.hod import abacus_hod
 from cosmoprimo.fiducial import DESI, AbacusSummit
 from acm.utils.paths import lookup_registry_path
+
 
 
 class BoxHOD:
     """
     BoxHOD is a wrapper around AbacusHOD, a class for handling Halo Occupation Distribution (HOD) modeling 
     using the AbacusSummit simulations.
-    
-    Note
-    ----
-    Only the 'LRG' tracers are currently supported.
-    Note that BGS is also supported, by using `tracer='LRG'` and BGS characteristics (mean density, redshift, etc.)
     """
     
     logger = logging.getLogger('BoxHOD') # Set up logger for the class as a class attribute
@@ -26,18 +25,25 @@ class BoxHOD:
     def __init__(
         self,
         varied_params: list[str],
+        tracer: str = 'LRG',
         config_file: str | None = None,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         sim_type: str = 'base',
         redshift: float = 0.5,
         DM_DICT: dict = None,
+        DM_DICT_simtype: str = None,
+        sim_geometry: str = None,
     ):
         """
         Initialize the BoxHOD class.
         
         Parameters
         ----------
+        tracer : str, optional
+            Tracer type. Default is 'LRG'. Each BoxHOD object uses a single tracer, 
+            since the varied_params list is itself fixed for each BoxHOD object,
+            while varied_params may differ for different tracers.
         varied_params : list[str]
             List of parameters that vary.
         config_file : str, optional
@@ -52,9 +58,14 @@ class BoxHOD:
         redshift : float, optional
             Redshift value. Default is 0.5.
         DM_DICT : dict, optional
-            Dictionary containing dark matter information. 
-            If None, defaults to a value read from `acm.utils.paths` on NERSC systems.
-            Defaults to None.
+            Dictionary containing dark matter information. Defaults to None, which 
+            together with the user-specified tracer maps to a value in utils.paths.
+        DM_DICT_simtype : str, optional
+            The simtype paramter used by get_Abacus_dirs, either 'box' or 
+            'lightcone'. Defaults to 'box' if None
+        sim_geometry : str, optional
+            The simtype paramter used for choices related to the mock geometry. 
+            Either 'box', 'cutsky', or 'lightcone'. Defaults to 'box' if None
             
         Raises
         ------
@@ -63,6 +74,9 @@ class BoxHOD:
         """
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
+        if sim_geometry is None:
+            sim_geometry = 'box'
+        self.sim_geometry = sim_geometry
         if sim_type not in ['base', 'small', 'png']:
             raise ValueError('Invalid sim_type. Must be either "base", "small", or "png".')
         self.sim_type = sim_type
@@ -70,11 +84,22 @@ class BoxHOD:
         self.redshift = redshift
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
-            config_file = Path(config_dir) / 'box.yaml'
+            if tracer == 'LRG':
+                config_file = Path(config_dir) /  'box.yaml'
+            else:
+                box_yaml_file = 'box_' + tracer + '.yaml'
+                config_file = Path(config_dir) / box_yaml_file
         config = yaml.safe_load(open(config_file))
         if DM_DICT is None:
-            DM_DICT = lookup_registry_path('Abacus.yaml', 'LRG', 'box')
+            if DM_DICT_simtype is None:
+                DM_DICT_simtype = 'box'
+            DM_DICT = lookup_registry_path('Abacus.yaml', tracer=tracer, simtype=DM_DICT_simtype)
         self.setup(config, DM_DICT)
+        # AbacusHOD doesn't work with BGS, so after loading the BGS subsample files,
+        # we use tracer = LRG for subsequent steps
+        if tracer == 'BGS':
+            tracer = 'LRG'
+        self.tracer = tracer
         self.check_params(varied_params)
 
     def setup(self, config: dict, DM_DICT: dict) -> None:
@@ -163,19 +188,18 @@ class BoxHOD:
         params = list(params)
         params = self.param_mapping(params) # re-map custom keys to Abacus keys
         for param in params:
-            if param not in self.ball.tracers['LRG'].keys():
+            if param not in self.ball.tracers[self.tracer].keys():
                 raise ValueError(f'Invalid parameter: {param}. Valid list '
-                                 f'of parameters include: {list(self.ball.tracers["LRG"].keys())}')
+                                 f'of parameters include: {list(self.ball.tracers[self.tracer].keys())}')
         self.logger.info(f'Varied parameters: {params}.')
         self.varied_params = params
-        default = {key: value for key, value in self.ball.tracers['LRG'].items() if key not in params}
+        default = {key: value for key, value in self.ball.tracers[self.tracer].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
     def run(
         self,
         hod_params: dict,
         nthreads: int = 1,
-        tracer: str = 'LRG',
         tracer_density: list[float] | None = None,
         process_underdense: bool = True,
         seed: int | None = None,
@@ -191,8 +215,6 @@ class BoxHOD:
             Dictionary of HOD parameters.
         nthreads : int, optional
             Number of threads to use. Default is 1.
-        tracer : str, optional
-            Tracer type. Default is 'LRG'.
         tracer_density : list[float], optional
             List containing (min_nbar, max_nbar) for downsampling catalogue to desired density (nbar > max_nbar) or cutting from sample (nbar < min_nbar). If only one value provided, this is taken as the maximum threshold (no minimum threshold applied). Default is None (no thresholds applied).
         process_underdense: bool, optional
@@ -219,21 +241,28 @@ class BoxHOD:
         ValueError
             If the HOD parameters do not match the varied parameters.
         """
+        tracer = self.tracer
         self.add_ap = add_ap # flag to indicate if AP distortions were applied to number density
         if seed == 0: seed = None
-        if tracer not in ['LRG']:
-            raise ValueError('Only LRGs are currently supported.')
+        #if tracer not in ['LRG']:
+        #    raise ValueError('Only LRGs are currently supported.')
         hod_params = self.param_mapping(hod_params)
         if set(hod_params.keys()) != set(self.varied_params):
             raise ValueError('Invalid HOD parameters. Must match the varied parameters.')
         for key in hod_params.keys():
+            # TODO: remove tracer == LRG ?
             if key == 'sigma' and tracer == 'LRG':
                 self.ball.tracers[tracer][key] = 10**hod_params[key]
             else:
                 self.ball.tracers[tracer][key] = hod_params[key]
         self.ball.tracers[tracer]['ic'] = 1
         self.in_density = True  # Flag if mock is within density threshold
-        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed)
+        # set want_nfw (unique for ELG cutsky)
+        if tracer == 'ELG' and self.sim_geometry == 'cutsky':
+            want_nfw = True
+        else:
+            want_nfw = False
+        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw)
         # workaround for compute_ngal issue with high sigma values
         n_gal = len(hod_dict[tracer]['x'])
         subsample = None
@@ -252,15 +281,14 @@ class BoxHOD:
                 self.logger.info('Mock within density thresholds')
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
-        hod_dict = self.postprocess_catalog(hod_dict, tracer, subsample)
+        hod_dict = self.postprocess_catalog(hod_dict, subsample)
         if save_fn is not None:
-            self.save_catalog(save_fn, hod_dict, tracer)
+            self.save_catalog(save_fn, hod_dict)
         return hod_dict
 
     def postprocess_catalog(
         self,
         hod_dict: dict,
-        tracer: str = 'LRG',
         subsample: list[int] | None = None,
     ) -> dict:
         """
@@ -270,8 +298,6 @@ class BoxHOD:
         ----------
         hod_dict : dict
             Dictionary containing the HOD catalog.
-        tracer : str, optional
-            Tracer type. Default is 'LRG'.
         subsample : list[int], optional
             List of indices used to subsample the catalogue.
 
@@ -280,6 +306,7 @@ class BoxHOD:
         dict
             Dictionary containing the HOD catalog.
         """
+        tracer = self.tracer
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
         is_central = np.zeros(len(hod_dict[tracer]['x']))
@@ -298,7 +325,6 @@ class BoxHOD:
         self,
         save_fn: str | Path,
         hod_dict: dict,
-        tracer: str = 'LRG',
     ) -> None:
         """
         Save the HOD catalog to a FITS file.
@@ -309,9 +335,8 @@ class BoxHOD:
             Filename to save the catalog. If parent tree directories do not exist, they will be created.
         hod_dict : dict
             Dictionary containing the HOD catalog.
-        tracer : str, optional
-            Tracer type. Default is 'LRG'.
         """
+        tracer = self.tracer
         # Ensure parent directories exist
         save_fn = Path(save_fn)
         save_fn.parent.mkdir(parents=True, exist_ok=True)
@@ -422,7 +447,6 @@ class BoxHOD:
     def get_positions(
         cls,
         hod_dict: dict,
-        tracer: str | None = None,
         los: str | None = None,
         add_rsd: bool = False,
         hubble: float | None = None,
@@ -439,8 +463,6 @@ class BoxHOD:
         ----------
         hod_dict : dict
             Dictionary containing the tracer positions.
-        tracer : str, optional
-            Tracer type to read from `hod_dict`. If None, uses the top-level keys of `hod_dict`. Default is None.
         los: str, optional
             Line-of-sight for RSD and AP distortions. If None, no distortions are applied.
         add_rsd : bool, optional
@@ -464,7 +486,8 @@ class BoxHOD:
             Array of galaxy positions with shape (N_gal, 3).
         """
         hod_dict = hod_dict.copy()  # Avoid modifying the original dictionary
-        tracer_dict = hod_dict[tracer] if tracer is not None else hod_dict
+        tracer = self.tracer
+        tracer_dict = hod_dict[tracer] #if tracer is not None else hod_dict
         
         # Apply RSD before AP distortions
         if add_rsd:
