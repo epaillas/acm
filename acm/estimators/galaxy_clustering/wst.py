@@ -1,13 +1,16 @@
 import time
 import warnings
 from typing import Optional
+from pathlib import Path
 
 import numpy as np
 import jax.numpy as jnp
 import numpy.typing as npt
 import matplotlib.pyplot as plt
 import torch
+import xarray as xr
 from kymatio.jax import HarmonicScattering3D
+from lsstypes import ObservableLeaf
 
 from acm.utils.plotting import set_plot_style
 from .base import BaseEstimator
@@ -110,9 +113,20 @@ class WaveletScatteringTransform(BaseEstimator):
         smatavg /= np.prod(self.meshsize)
         return np.asarray(smatavg)
 
-    def run(self, delta_query: Optional[npt.NDArray] = None) -> npt.NDArray:
+    def run(self, delta_query: Optional[npt.NDArray] = None, save_fn: Optional[str] = None) -> npt.NDArray:
         """
         Run the wavelet scattering transform.
+
+        Parameters
+        ----------
+        delta_query : array_like, optional
+            Density contrast field. If not provided, will be read from query positions.
+        save_fn : str, optional
+            Path to save the computed WST coefficients. Format is determined from extension:
+            - .hdf5, .h5 -> lsstypes
+            - .nc -> xarray NetCDF
+            - .zarr -> xarray Zarr
+            - .npy -> numpy
 
         Returns
         -------
@@ -130,7 +144,104 @@ class WaveletScatteringTransform(BaseEstimator):
         else:
             self.smatavg = self._run_jax(self.delta_query)
         self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
+        
+        if save_fn is not None:
+            self.save(save_fn)
+        
         return self.smatavg
+
+    def save(self, filename: str) -> None:
+        """
+        Save the wavelet scattering transform coefficients.
+        
+        Format is automatically determined from file extension:
+        - .hdf5, .h5 -> lsstypes (ObservableLeaf in HDF5 format)
+        - .nc -> xarray (DataArray in NetCDF format)
+        - .zarr -> xarray (DataArray in Zarr format)
+        - .npy -> numpy (simple array, no coordinates/metadata)
+        
+        Parameters
+        ----------
+        filename : str
+            Path to save the WST coefficients.
+            
+        Notes
+        -----
+        For lsstypes and xarray formats, coefficients are saved with:
+        - wst: The coefficient values
+        - index: Integer index for each coefficient (0 to N-1)
+        - attrs: Dictionary with WST parameters (J, L, sigma_0, q, meshsize, etc.)
+        
+        For numpy format, only the raw coefficient array is saved (backward compatibility).
+        
+        Examples
+        --------
+        >>> wst = WaveletScatteringTransform(**params)
+        >>> wst.run()
+        >>> wst.save('wst_coefficients.hdf5')  # lsstypes format
+        >>> wst.save('wst_coefficients.nc')     # xarray NetCDF
+        >>> wst.save('wst_coefficients.zarr')   # xarray Zarr
+        >>> wst.save('wst_coefficients.npy')    # numpy format
+        
+        Or directly from run():
+        >>> wst.run(save_fn='wst_coefficients.hdf5')
+        
+        Raises
+        ------
+        ValueError
+            If the file extension is not recognized.
+        """
+        if not hasattr(self, 'smatavg'):
+            raise ValueError("No WST coefficients to save. Run the transform first using run().")
+        
+        self.logger.info(f'Saving WST coefficients to {filename}')
+        path = Path(filename)
+        
+        # Create coordinate array
+        index = np.arange(len(self.smatavg))
+        
+        # Build metadata dictionary
+        attrs = dict(
+            J=self.J,
+            L=self.L,
+            sigma_0=self.sigma_0,
+            q=self.q,
+            max_order=self.max_order,
+            kymatio_backend=self.kymatio_backend,
+            boxsize=self.boxsize,
+            boxcenter=self.boxcenter,
+            meshsize=self.meshsize,
+        )
+        
+        # Determine format from file extension
+        if path.suffix in ['.hdf5', '.h5']:
+            leaf = ObservableLeaf(
+                coefficients=self.smatavg,
+                index=index,
+                coords=['index'],
+                attrs=attrs
+            )
+            leaf.write(filename)
+        elif path.suffix in ['.nc', '.zarr']:
+            data_array = xr.DataArray(
+                self.smatavg,
+                dims=['index'],
+                coords={'index': index},
+                attrs=attrs,
+                name='coefficients'
+            )
+            if path.suffix == '.nc':
+                data_array.to_netcdf(filename)
+            elif path.suffix == '.zarr':
+                data_array.to_zarr(filename, mode='w')
+        elif path.suffix == '.npy':
+            np.save(filename, self.smatavg)
+        else:
+            raise ValueError(
+                f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
+                f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
+                f".zarr (xarray Zarr), .npy (numpy)."
+            )
 
     @set_plot_style
     def plot_coefficients(self, save_fn: Optional[str] = None):

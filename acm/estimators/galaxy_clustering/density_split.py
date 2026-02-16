@@ -1,4 +1,5 @@
 import time
+from pathlib import Path
 
 import jax
 import numpy as np
@@ -8,6 +9,10 @@ from pandas import qcut
 from pypower import CatalogFFTPower
 from pycorr import TwoPointCorrelationFunction
 from jaxpower import MeshAttrs, ParticleField, FKPField, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum, compute_fkp2_shotnoise, compute_box2_normalization
+
+import xarray as xr
+from lsstypes.external import from_pycorr
+from lsstypes import ObservableLeaf, ObservableTree
 
 from .base import BaseEstimator
 from acm.utils.plotting import set_plot_style
@@ -60,10 +65,93 @@ class DensitySplit(BaseEstimator):
         for i in range(nquantiles):
             quantiles.append(self.query_positions[self.quantiles_idx == i])
         self.quantiles = quantiles
+        self.nquantiles = nquantiles
         self.logger.info(f"Quantiles calculated in {time.time() - t0:.2f} seconds.")
         return self.quantiles, self.quantiles_idx, self.delta_query
+    
+    def save(self, data, filename, type='correlation'):
+        """
+        Save the per-quantile correlations or power spectra to disk.
 
-    def quantile_data_correlation(self, data_positions, **kwargs):
+        Parameters
+        ----------
+        data : list
+            List of per-quantile correlation or power-spectrum measurements.
+        filename : str or path-like
+            Output filename where the data will be written.
+        type : str, optional
+            Type of data being saved. Options are 'correlation' or 'power'.
+        """
+        attrs = {
+            'nquantiles': self.nquantiles,
+            'query_method': self.query_method,
+            'boxsize': self.boxsize,
+            'meshsize': self.meshsize,
+        }
+        if type == 'correlation':
+            self.save_correlations(data, filename, attrs=attrs)
+        elif type == 'power':
+            self.save_powers(data, filename, attrs=attrs)
+        else:
+            raise ValueError(f"Unknown type '{type}'. Available types: 'correlation', 'power'")
+
+    def save_correlations(self, correlations, filename, attrs=None):
+        """
+        Save a list of pycorr correlation objects to an lsstypes ObservableTree.
+
+        Parameters
+        ----------
+        correlations : list
+            List of per-quantile correlation measurements.
+        filename : str or path-like
+            Output filename where the ObservableTree will be written.
+        """
+        path = Path(filename)
+        self.logger.info(f'Saving to {filename}')
+
+        if path.suffix in ['.hdf5', '.h5']:
+            leaves = []
+            for quantile in range(self.nquantiles):
+                corr = from_pycorr(correlations[quantile])
+                leaves.append(corr)
+            tree = ObservableTree(leaves, quantiles=list(range(self.nquantiles)), attrs=attrs)
+            tree.write(path)
+        elif path.suffix == '.npy':
+            np.save(filename, correlations)
+        else:             raise ValueError(
+                f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
+                "Supported extensions are: .hdf5, .h5, .npy"
+            )
+
+    def save_powers(self, powers, filename, attrs=None):
+        """
+        Save a list of per-quantile power-spectrum objects to an lsstypes ObservableTree.
+
+        Parameters
+        ----------
+        powers : list
+            List of per-quantile power-spectrum measurements.
+        filename : str or path-like
+            Output filename where the ObservableTree will be written.
+        """
+        path = Path(filename)
+        self.logger.info(f'Saving to {filename}')
+
+        if path.suffix in ['.hdf5', '.h5']:
+            leaves = []
+            for quantile in range(self.nquantiles):
+                leaves.append(powers[quantile])  # assumes power is calculated with jax-power
+            tree = ObservableTree(leaves, quantiles=list(range(self.nquantiles)), attrs=attrs)
+            tree.write(filename)
+        elif path.suffix == '.npy':
+            np.save(filename, powers)
+        else:
+            raise ValueError(
+                f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
+                "Supported extensions are: .hdf5, .h5, .npy"
+            )
+
+    def quantile_data_correlation(self, data_positions, save_fn=None, **kwargs):
         """
         Compute the cross-correlation function between the density field
         quantiles and the data.
@@ -72,13 +160,14 @@ class DensitySplit(BaseEstimator):
         ----------
         data_positions : array_like
             Positions of the data.
+        save_fn : str or path-like, optional
+            If provided, save the per-quantile correlations to disk using
+            :meth:`save_correlations`.
         kwargs : dict
             Additional arguments for pycorr.TwoPointCorrelationFunction.
 
         Returns
         -------
-        s : array_like
-            Pair separations.
         quantile_data_ccf : array_like
             Cross-correlation function between quantiles and data.
         """
@@ -114,21 +203,24 @@ class DensitySplit(BaseEstimator):
                    R1R2 = result.R1R2
 
             #R1R2 = result.R1R2
+        if save_fn is not None:
+            self.save(self._quantile_data_correlation, save_fn, type='correlation')
         return self._quantile_data_correlation
 
-    def quantile_correlation(self, **kwargs):
+    def quantile_correlation(self, save_fn=None, **kwargs):
         """
         Compute the auto-correlation function of the density field quantiles.
 
         Parameters
         ----------
+        save_fn : str or path-like, optional
+            If provided, save the per-quantile correlations to disk using
+            :meth:`save_correlations`.
         kwargs : dict
             Additional arguments for pycorr.TwoPointCorrelationFunction.
 
         Returns
         -------
-        s : array_like
-            Pair separations.
         quantile_acf : array_like
             Auto-correlation function of quantiles.
         """
@@ -155,13 +247,12 @@ class DensitySplit(BaseEstimator):
             if "estimator" in kwargs:
                if not kwargs['estimator'] == "davispeebles":
                    R1R2 = result.R1R2
-
-           # R1R2 = result.R1R2
-
+        if save_fn is not None:
+            self.save(self._quantile_correlation, save_fn, type='correlation')
         return self._quantile_correlation
 
     def quantile_data_power(self, data_positions, edges={'step': 0.001}, ells=(0, 2, 4),
-        los='z', resampler='tsc', interlacing=0, compensate=True, **kwargs):
+        los='z', resampler='tsc', interlacing=0, compensate=True, save_fn=None, **kwargs):
         """
         Compute the cross-power spectrum between the data and the density field quantiles.
 
@@ -181,13 +272,14 @@ class DensitySplit(BaseEstimator):
             Interlacing factor for the mesh painting.
         compensate : bool, optional
             Whether to apply compensation for the mass assignment scheme.
+        save_fn : str or path-like, optional
+            If provided, save the per-quantile spectra to disk using
+            :meth:`save_powers`.
         kwargs : dict
             Additional arguments for pypower.CatalogFFTPower.
 
         Returns
         -------
-        k : array_like
-            Wavenumbers.
         quantile_data_power : array_like
             Cross-power spectrum between quantiles and data.
         """
@@ -243,10 +335,12 @@ class DensitySplit(BaseEstimator):
 
             self._quantile_data_power.append(spectrum)
             self.logger.info(f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s.")
+        if save_fn is not None:
+            self.save(self._quantile_data_power, save_fn, type='power')
         return self._quantile_data_power
 
     def quantile_power(self, edges={'step': 0.001}, ells=(0, 2, 4),
-        los='z', resampler='tsc', interlacing=0, compensate=True, **kwargs):
+        los='z', resampler='tsc', interlacing=0, compensate=True, save_fn=None, **kwargs):
         """
         Compute the auto-power spectrum of the density field quantiles.
 
@@ -266,13 +360,14 @@ class DensitySplit(BaseEstimator):
             Interlacing factor for the mesh painting.
         compensate : bool, optional
             Whether to apply compensation for the mass assignment scheme.
+        save_fn : str or path-like, optional
+            If provided, save the per-quantile spectra to disk using
+            :meth:`save_powers`.
         kwargs : dict
             Additional arguments for pypower.CatalogFFTPower.
 
         Returns
         -------
-        k : array_like
-            Wavenumbers.
         quantile_power : array_like
             Auto-power spectrum of quantiles.
         """
@@ -321,6 +416,8 @@ class DensitySplit(BaseEstimator):
 
             self._quantile_power.append(spectrum)
             self.logger.info(f"Q{i} auto-spectrum calculated in {time.time() - t0:.2f} s.")
+        if save_fn is not None:
+            self.save(self._quantile_power, save_fn, type='power')
         return self._quantile_power
 
     @set_plot_style
