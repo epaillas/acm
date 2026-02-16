@@ -13,8 +13,9 @@ class BaseObservableBGS(Observable):
     Base class for the application of the ACM pipeline to the BGS dataset.
     """
     def __init__(self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs):
+        dataset = kwargs.get('dataset', None)
         paths = kwargs.pop('paths', None)
-        if paths is None:
+        if dataset is None and paths is None:
             paths = lookup_registry_path('projects.yaml', 'bgs', 'Mr-20')
         
         self.n_test = kwargs.pop('n_test', 6*100) # FIXME: Remove this on next file compression !
@@ -35,8 +36,8 @@ class BaseObservableBGS(Observable):
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         # Get unfiltered values
-        x_test = self._dataset.get('x_test', None)
-        y_test = self._dataset.get('y_test', None)
+        x_test = getattr(self._dataset, 'x_test', None)
+        y_test = getattr(self._dataset, 'y_test', None)
         
         if x_test is None or y_test is None:
             # For backward compatibility
@@ -48,6 +49,9 @@ class BaseObservableBGS(Observable):
                 self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
             else:
                 raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
+        else:
+            x_test = self.drop_nan_dimensions(x_test)
+            y_test = self.drop_nan_dimensions(y_test)
         
         # Flatten on 2D for indexing 
         # unstack=False because it's either already unstacked or 2D - avoids NaN issues

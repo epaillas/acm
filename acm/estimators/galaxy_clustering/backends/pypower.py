@@ -1,10 +1,11 @@
-from pypower import CatalogMesh
-import numpy as np
-import numpy.typing as npt
-import jax.numpy as jnp
 import time
 import logging
-from typing import Optional, Any
+from typing import Optional
+
+import numpy as np
+import jax.numpy as jnp
+import numpy.typing as npt
+from pypower import CatalogMesh
 
 
 class PypowerBackend:
@@ -35,7 +36,14 @@ class PypowerBackend:
     data_mesh : array_like
         Data mesh field (set by set_density_contrast).
     """
-    def __init__(self, data_positions: npt.NDArray, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, 
+        data_positions: npt.NDArray, 
+        data_weights: Optional[npt.NDArray] = None, 
+        randoms_positions: Optional[npt.NDArray] = None, 
+        randoms_weights: Optional[npt.NDArray] = None, 
+        **kwargs
+    ) -> None:
         """Initialize the pypower backend.
         
         Parameters
@@ -135,7 +143,7 @@ class PypowerBackend:
             delta_mesh = data_mesh / self.mean - 1
         self.data_mesh = data_mesh
         self.delta_mesh = delta_mesh
-        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
+        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
     def get_query_positions(self, method: str = 'randoms', nquery: Optional[int] = None, seed: int = 42) -> npt.NDArray:

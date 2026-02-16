@@ -68,7 +68,7 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
             act_fn='learned_sigmoid',
             # act_fn='SiLU',
             # loss='GaussianNLoglike',
-            # loss='mae',
+            loss='mae',
             training=True,
             mean_output=train_mean,
             std_output=train_std,
@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
     observable = Observable(stat_name=args.statistic, paths=paths, numpy_output=True, flat_output_dims=2)
 
-    model_dir = f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/{observable}/'
+    model_dir = f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/{args.statistic}/'
     TrainFCN(
         observable=observable,
         learning_rate=1.e-3,

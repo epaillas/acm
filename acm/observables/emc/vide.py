@@ -146,11 +146,6 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         rv = data['rv']
         n_stacked_bins = 4
 
-        # get hod indices
-        hods = {}
-        for cosmo_idx in cosmos:
-            hods[cosmo_idx] = cls.get_hod_from_files(paths, cosmo_idx)[:n_hod]
-
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, n_stacked_bins, len(ells), -1),
             coords = {
@@ -178,7 +173,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         )
         if add_covariance:
             cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, ells=ells)
-            cout = xarray.merge([cout, cov_y])
+            cout = xarray.merge([cout, cov_y], join='outer')
             
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
@@ -186,7 +181,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 v_out.name = v_out.name + '_train'
                 v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
                 v_out.attrs['nan_dims'] = list(test_filters.keys())
-                cout = xarray.merge([cout, v_in, v_out])
+                cout = xarray.merge([cout, v_in, v_out], join='outer')
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
@@ -448,11 +443,6 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         y = data['y']
         rv = data['s']
 
-        # get hod indices
-        hods = {}
-        for cosmo_idx in cosmos:
-            hods[cosmo_idx] = cls.get_hod_from_files(paths, cosmo_idx)[:n_hod]
-
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, -1),
             coords = {
@@ -478,7 +468,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         )
         if add_covariance:
             cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, cosmos=cosmos, n_hod=n_hod)
-            cout = xarray.merge([cout, cov_y])
+            cout = xarray.merge([cout, cov_y], join='outer')
             
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
@@ -486,7 +476,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
                 v_out.name = v_out.name + '_train'
                 v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
                 v_out.attrs['nan_dims'] = list(test_filters.keys())
-                cout = xarray.merge([cout, v_in, v_out])
+                cout = xarray.merge([cout, v_in, v_out], join='outer')
         
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)

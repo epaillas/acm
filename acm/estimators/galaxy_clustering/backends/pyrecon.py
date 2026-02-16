@@ -1,9 +1,10 @@
-from pyrecon import RealMesh
-import numpy as np
-import numpy.typing as npt
 import time
 import logging
-from typing import Optional, Any
+from typing import Optional
+
+import numpy as np
+import numpy.typing as npt
+from pyrecon import RealMesh
 
 
 class PyreconBackend:
@@ -37,7 +38,14 @@ class PyreconBackend:
     ran_min : float
         Minimum randoms threshold value (set by set_density_contrast).
     """
-    def __init__(self, data_positions: Optional[npt.NDArray] = None, data_weights: Optional[npt.NDArray] = None, randoms_positions: Optional[npt.NDArray] = None, randoms_weights: Optional[npt.NDArray] = None, **kwargs: Any) -> None:
+    def __init__(
+        self, 
+        data_positions: Optional[npt.NDArray] = None, 
+        data_weights: Optional[npt.NDArray] = None, 
+        randoms_positions: Optional[npt.NDArray] = None, 
+        randoms_weights: Optional[npt.NDArray] = None, 
+        **kwargs
+    ) -> None:
         """Initialize the pyrecon backend.
         
         Parameters
@@ -235,7 +243,7 @@ class PyreconBackend:
             self.mean = np.mean(self.data_mesh)
             self.delta_mesh = self.data_mesh / self.mean - 1.
         
-        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
+        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} s.')
         return self.delta_mesh
 
     def get_query_positions(self, method: str = 'randoms', nquery: Optional[int] = None, seed: int = 42) -> npt.NDArray:

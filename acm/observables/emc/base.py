@@ -20,14 +20,14 @@ class BaseObservableEMC(Observable):
             self.logger.info('Computing phase correction.')
             self.phase_correction = self.compute_phase_correction()
         
+        dataset = kwargs.get('dataset', None)
         paths = kwargs.pop('paths', None)
-        if paths is None:
+        if dataset is None and paths is None:
             paths = lookup_registry_path('projects.yaml', 'emc')
         
         # Get checkpoint_fn from registry if not provided
         stat_name = kwargs.get('stat_name') # Required for super() anyways
         model = kwargs.get('model', None)
-        paths = kwargs.get('paths', None)
         if model is None and paths is not None and 'model_dir' not in paths and 'checkpoint_fn' not in kwargs:
             try:
                 kwargs['checkpoint_fn'] = lookup_registry_path('projects.yaml', 'emc', 'checkpoint_fn', stat_name)
@@ -52,8 +52,8 @@ class BaseObservableEMC(Observable):
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         # Get unfiltered values
-        x_test = self._dataset.get('x_test', None)
-        y_test = self._dataset.get('y_test', None)
+        x_test = getattr(self._dataset, 'x_test', None)
+        y_test = getattr(self._dataset, 'y_test', None)
         
         if x_test is None or y_test is None:
             # For backward compatibility
@@ -65,6 +65,9 @@ class BaseObservableEMC(Observable):
                 self.logger.warning('DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future.')
             else:
                 raise ValueError('x_test and y_test are not available in the dataset. Please provide them or set n_test in the class.')
+        else:
+            x_test = self.drop_nan_dimensions(x_test)
+            y_test = self.drop_nan_dimensions(y_test)
         
         # Flatten on 2D for indexing 
         # unstack=False because it's either already unstacked or 2D - avoids NaN issues

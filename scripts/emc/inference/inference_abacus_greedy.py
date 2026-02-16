@@ -17,9 +17,15 @@ import logging
 
 
 class_names = {
+    'wp': 'ProjectedGalaxyCorrelationFunction',
     'pk': 'GalaxyPowerSpectrumMultipoles',
     'bk': 'GalaxyBispectrumMultipoles',
+    'recon_pk': 'ReconstructedGalaxyPowerSpectrumMultipoles',
+    'wst': 'WaveletScatteringTransform',
     'minkowski': 'MinkowskiFunctionals',
+    'ds_xiqg': 'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles',
+    'ds_xiqq': 'DensitySplitQuantileCorrelationFunctionMultipoles',
+    'pdf': 'GalaxyOverdensityPDF',
 }
 
 
@@ -101,18 +107,13 @@ def get_filters(observable_name):
 
 def get_observable(stat_names):
     """Get the observable class from a list of stat_name."""
-    paths = {
-        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
-        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
-        'param_dir': None
-    }
     select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
     observables = []
     for stat_name in stat_names:
         observable_name = class_names[stat_name]
         select_indices = selected_bins[stat_name]
         obs = getattr(emc, observable_name)(
-            paths=paths, numpy_output=True,
+            numpy_output=True,
             squeeze_output=True,
             select_filters=select_filters,
             select_indices=select_indices,
@@ -202,13 +203,13 @@ def save_and_plot(sampler, observable):
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     """Save the chain data and plots to the specified directory."""
-    sampler.save_chain(save_fn=save_dir / f'chain_{statistics}.npy', metadata={'markers': sampler.markers, 'zeff': 0.5})
-    sampler.save_table(save_fn=save_dir / f'chain_{statistics}_stats.txt')
-    chain = Chain.load(save_dir / f'chain_{statistics}.npy')
-    chain.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,
+    sampler.save_chain(save_fn=save_dir / f'chain_greedy.npy', metadata={'markers': sampler.markers, 'zeff': 0.5})
+    sampler.save_table(save_fn=save_dir / f'chain_greedy_stats.txt')
+    chain = Chain.load(save_dir / f'chain_greedy.npy')
+    chain.plot_triangle(save_fn=save_dir / f'chain_greedy_triangle.pdf', thin=128,
                         markers=sampler.markers, title_limit=1)
-    chain.plot_trace(save_fn=save_dir / f'chain_{statistics}_trace.pdf', thin=128)
-    # observable.plot_observable(model_params=chain.bestfit, save_fn=save_dir / f'chain_{statistics}_bestfit.pdf')
+    chain.plot_trace(save_fn=save_dir / f'chain_greedy_trace.pdf', thin=128)
+    observable.plot_observable(model_params=chain.bestfit, save_fn=save_dir / f'chain_greedy_bestfit.pdf')
 
 
 if __name__ == "__main__":
@@ -216,7 +217,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--greedy_fn", type=Path, default=Path("/global/u1/e/epaillas/code/acm/scripts/emc/fisher/jan19/selected_bins.npy"))
+    parser.add_argument("--greedy_fn", type=Path, default=Path("/global/u1/e/epaillas/code/acm/scripts/emc/fisher/selected_bins.npy"))
     parser.add_argument("--cosmo_idx", type=int, default=0)
     parser.add_argument("--hod_idx", type=int, default=0)
     parser.add_argument('--add_cov_emu', action='store_true', help='Whether to add emulator covariance or not.')
@@ -226,10 +227,10 @@ if __name__ == "__main__":
     parser.add_argument('--cov_emu_method', type=str, default='median', help='Method to compute the emulator covariance.')
     parser.add_argument('--cov_emu_diag', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
     parser.add_argument('--cov_correction', type=str, default='percival', help='Covariance correction method to use.')
-    parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/debug')
+    parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/greedy/', help='Directory to save the results.')
 
     args = parser.parse_args()
-    setup_logging()
+    setup_logging(level='INFO')
 
     cosmo_model = args.cosmo_model
     hod_model = args.hod_model
@@ -244,7 +245,7 @@ if __name__ == "__main__":
     selected_bins = np.load(args.greedy_fn, allow_pickle=True).item()
     logger.info(f'Loading greedy bins from: {args.greedy_fn}')
 
-    statistics = selected_bins.keys()
+    statistics = [key for key in selected_bins.keys() if len(selected_bins[key]) > 1]
     observable = get_observable(statistics)
     sampler = fit_abacus(observable)
     save_and_plot(sampler, observable)
