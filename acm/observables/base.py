@@ -1,3 +1,5 @@
+"""Module containing the base Observable class, which can be used to load compressed Observable files or models and apply filters to their outputs."""
+
 import logging
 from pathlib import Path
 from copy import copy, deepcopy
@@ -25,9 +27,7 @@ SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 
 
 class Observable:
-    """
-    Class to load a compressed Observable file or model and apply filters to their outputs.
-    """
+    """Class to load a compressed Observable file or model and apply filters to their outputs."""
 
     def __init__(
         self,
@@ -50,7 +50,8 @@ class Observable:
         checkpoint_fn: Path | str | None = None,
         silent_load: bool | None = False,
     ):
-        """
+        """Initialize the Observable object by loading the dataset and model.
+        
         Parameters
         ----------
         stat_name: str
@@ -245,8 +246,7 @@ class Observable:
 
     @classmethod
     def get_logger(cls) -> logging.Logger:
-        """
-        Returns the logger for the class.
+        """Return the logger for the class.
 
         Returns
         -------
@@ -256,9 +256,7 @@ class Observable:
         return logging.getLogger(cls.__name__)
 
     def __repr__(self):  # pragma: no cover
-        """
-        Returns a string representation of the Observable object.
-        """
+        """Return a string representation of the Observable object."""
         r = f"<{type(self).__name__}>"
         for key, value in self.__dict__.items():
             if key == "logger":
@@ -270,9 +268,9 @@ class Observable:
         return r
 
     def __getattr__(self, name):
-        """
-        Returns the attribute of the class xarray _dataset,
-        with the filter applied. Also reshapes the output by stacking coordinates
+        """Return the attribute of the class xarray _dataset, with the filter applied.
+        
+        Also reshapes the output by stacking coordinates
         (on one or two dims) if flat_output_dims is set.
         """
         # First, apply the filters
@@ -302,7 +300,8 @@ class Observable:
         return data
 
     def __copy__(self):
-        """
+        """Return copy of the Observable object.
+        
         Returns a shallow copy of the Observable object by returning a new class instance
         and copying all the class attributes to that new instance.
         """
@@ -323,7 +322,8 @@ class Observable:
         return new_cls
 
     def __deepcopy__(self, memo: dict | None = None):
-        """
+        """Return deep copy of the Observable object.
+        
         Returns a deep copy of the Observable object by returning a new class instance
         and deep copying all the class attributes to that new instance.
         """
@@ -344,7 +344,8 @@ class Observable:
         return new_cls
 
     def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
-        """
+        """Drop Nan in array.
+        
         Drops dimensions that contain only NaN values in a DataArray.
         Does nothing if no 'nan_dims' attribute is found.
 
@@ -454,7 +455,8 @@ class Observable:
     def flatten_output(
         cls, dataarray: xarray.DataArray, flat_output_dims: int, unstack: bool = True
     ) -> xarray.DataArray:
-        """
+        """Return a flatten array version.
+        
         Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
         containing the list of dimensions to stack on.
 
@@ -489,7 +491,8 @@ class Observable:
         return dataarray
 
     def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
-        """
+        """Return array with indices selection applied.
+        
         Apply the indices selection on the last dimension of a given DataArray.
         Should be called after filters are applied and after flattening the DataArray.
         Does nothing if select_indices is None.
@@ -532,8 +535,7 @@ class Observable:
         return dataarray.isel({dim_name: self.select_indices})
 
     def get_coordinate_list(self, name: str) -> list:
-        """
-        Returns the list of values of a coordinate of the dataset
+        """Return the list of values of a coordinate of the dataset.
 
         Parameters
         ----------
@@ -565,8 +567,8 @@ class Observable:
 
     @property
     def emulator_error(self):
-        """
-        Returns the emulator error of the statistic, with filters applied.
+        """Return the emulator error of the statistic, with filters applied.
+        
         Reads the emulator error from the error_dir if it is provided, otherwise uses the get_emulator_error method if implemented.
         """
         if hasattr(self._dataset, "emulator_error"):
@@ -590,8 +592,8 @@ class Observable:
 
     @property
     def emulator_covariance_y(self):
-        """
-        Returns the covariance of the emulator error of the statistic, with filters applied.
+        """Return the covariance of the emulator error of the statistic, with filters applied.
+        
         Reads the emulator covariance from the error_dir if it is provided, otherwise uses the get_emulator_covariance_y method if implemented.
         """
         if hasattr(self._dataset, "emulator_covariance_y"):
@@ -717,8 +719,8 @@ class Observable:
     def get_covariance_matrix(
         self, volume_factor: float = 64, prefactor: float = 1, **kwargs
     ) -> np.ndarray:
-        """
-        Covariance matrix for the statistic.
+        """Return covariance matrix for the statistic.
+        
         The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
 
         Parameters
@@ -841,8 +843,8 @@ class Observable:
         return cov
 
     def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
-        """
-        Creates a handle that includes the statistics and filters used.
+        """Create a handle that includes the statistics and filters used.
+        
         This can be used to save anything related to this observable.
 
         Parameters
@@ -986,7 +988,6 @@ class Observable:
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-
         volume_factor = kwargs.pop("volume_factor", 64)
         prefactor = kwargs.pop("prefactor", 1)
         data_cov = self.get_covariance_matrix(
