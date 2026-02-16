@@ -1,5 +1,6 @@
 from typing import Optional
 
+import time
 import jax
 from jaxpower import FKPField, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum, compute_fkp2_shotnoise, compute_fkp2_normalization, compute_box2_normalization
 
@@ -56,6 +57,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         spectrum
             Computed power spectrum multipoles.
         """
+        t0 = time.time()
         self.bin = BinMesh2SpectrumPoles(
             self.mattrs,
             edges=edges,
@@ -82,6 +84,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         if save_fn and jax.process_index() == 0:
             self.logger.info(f'Saving power spectrum to {save_fn}')
             self.spectrum.write(save_fn)
+        self.logger.info(f'Power spectrum computed in {time.time() - t0:.2f} s.')
         return self.spectrum
     
     def get_multipoles(self, kmin: Optional[float] = None, kmax: Optional[float] = None, rebin: int = 1):

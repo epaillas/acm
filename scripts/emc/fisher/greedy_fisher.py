@@ -235,21 +235,14 @@ if __name__== '__main__':
 
     args = parser.parse_args()
 
-    paths = {
-        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/compressed/',
-        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.2/abacus/',
-        'hod_dir': '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/',
-        'model_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.2/best/',
-        'param_dir': None
-    }
-
-    select_filters={'cosmo_idx': [0], 'hod_idx': [0,],}
-    kwargs = dict(numpy_output=True, squeeze_output=True, paths=paths, select_filters=select_filters)
+    select_filters={'cosmo_idx': [0], 'hod_idx': [54,],}
+    kwargs = dict(numpy_output=True, squeeze_output=True, select_filters=select_filters)
 
     stat_map = {
         'bk': emc.GalaxyBispectrumMultipoles(**kwargs),
         'pk' : emc.GalaxyPowerSpectrumMultipoles(**kwargs),
         'recon_pk': emc.ReconstructedGalaxyPowerSpectrumMultipoles(**kwargs),
+        'wst': emc.WaveletScatteringTransform(**kwargs),
         'minkowski': emc.MinkowskiFunctionals(**kwargs),
         'ds_xiqg': emc.DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(**kwargs),
         'ds_xiqq': emc.DensitySplitQuantileCorrelationFunctionMultipoles(**kwargs),
@@ -257,7 +250,7 @@ if __name__== '__main__':
         'pdf': emc.GalaxyOverdensityPDF(**kwargs),
     }
 
-    to_combine = ['wp', 'pk', 'bk', 'recon_pk', 'minkowski', 'ds_xiqg', 'ds_xiqq', 'pdf'] 
+    to_combine = ['wp', 'pk', 'bk', 'recon_pk', 'wst', 'minkowski', 'ds_xiqg', 'ds_xiqq', 'pdf'] 
     selected_bins, final_fisher, all_fisher_values = run_optimization_vectorized(
         to_combine,
         max_bins=200,

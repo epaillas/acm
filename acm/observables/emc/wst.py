@@ -16,21 +16,34 @@ class WaveletScatteringTransform(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, stat_name='wst', n_test=6*186, **kwargs):
+    def __init__(self, stat_name='wst', n_test=6*125, **kwargs):
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
     @staticmethod
-    def renorm_wst(inpt):
-        s0 = inpt[0]
-        s12 =  inpt[1:].reshape(15,5)
-        outp = np.zeros_like(s12)
-        outp[:5,:] = s12[:5,:]/s0
-        outp[5:9,:] = s12[5:9,:]/s12[0,:]
-        outp[9:12,:] = s12[9:12,:]/s12[1,:]
-        outp[12:14,:] = s12[12:14,:]/s12[2,:]
-        outp[14:,:] = s12[14:,:]/s12[3,:]
-        sfin = np.hstack((1.0,outp.flatten()))  
-        return sfin   
+    def renorm_wst(inpt, config='J5_L3_q0.8_sigma0.4'):
+        if config == 'J5_L3_q0.8_sigma0.4':
+            s0 = inpt[0]
+            s12 =  inpt[1:].reshape(21,4)
+            outp = np.zeros_like(s12)
+            outp[:6,:] = s12[:6,:]/s0
+            outp[6:11,:] = s12[6:11,:]/s12[0,:]
+            outp[11:15,:] = s12[11:15,:]/s12[1,:]
+            outp[15:18,:] = s12[15:18,:]/s12[2,:]
+            outp[18:20,:] = s12[18:20,:]/s12[3,:]
+            outp[20:,:] = s12[20:,:]/s12[4,:]
+            sfin = np.hstack((1.0,outp.flatten())) 
+            return sfin
+        else:
+            s0 = inpt[0]
+            s12 =  inpt[1:].reshape(15,5)
+            outp = np.zeros_like(s12)
+            outp[:5,:] = s12[:5,:]/s0
+            outp[5:9,:] = s12[5:9,:]/s12[0,:]
+            outp[9:12,:] = s12[9:12,:]/s12[1,:]
+            outp[12:14,:] = s12[12:14,:]/s12[2,:]
+            outp[14:,:] = s12[14:,:]/s12[3,:]
+            sfin = np.hstack((1.0,outp.flatten()))  
+        return sfin  
     
     @classmethod
     def compress_covariance(
@@ -64,13 +77,35 @@ class WaveletScatteringTransform(BaseObservableEMC):
         
         # Directories
         base_dir = Path(paths['measurements_dir']) / 'small' / stat_name
-        data_fns = list(base_dir.glob('wst_ph*.npy')) # NOTE: File name format hardcoded !
+        
+        # Define WST configurations to concatenate
+        configs = [
+            'J4_L4_q1_sigma0.8',
+            # 'J4_L4_q1_sigma1.0',
+            'J5_L3_q0.8_sigma0.4',
+        ]
+
+        # WST coefficient indices to mask due to instabilities
+        mask = [95, 96, 97, 98, 99, 116, 117, 118, 119, 131, 132, 133, 134, 141, 142, 143, 144, 146, 147, 148, 149]
+        
+        # Get phase files from first configuration
+        first_config_dir = base_dir / configs[0]
+        data_fns = list(first_config_dir.glob('wst_ph*.npy'))
         
         y = []
         for data_fn in data_fns:
-            data = np.load(data_fn, allow_pickle=True)
-            y.append(cls.renorm_wst(data)[1:])  # Exclude the first element (normalization)
-            # y.append(data)
+            phase_filename = data_fn.name
+            concatenated_coeffs = []
+            for config_folder in configs:
+                config_dir = base_dir / config_folder
+                filename = config_dir / phase_filename
+                data = np.load(filename, allow_pickle=True)
+                normalized = cls.renorm_wst(data, config=config_folder)[1:]  # Exclude first element
+                concatenated_coeffs.append(normalized)
+            # Concatenate coefficients from all three configurations
+            concatenated_coeffs = np.concatenate(concatenated_coeffs)
+            # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
+            y.append(concatenated_coeffs)
         y = np.array(y)
                 
         y = xarray.DataArray(
@@ -149,19 +184,42 @@ class WaveletScatteringTransform(BaseObservableEMC):
         logger = cls.get_logger()
         
         base_dir = Path(paths['measurements_dir'],  f'base/{stat_name}/')
+
+        # Define WST configurations to concatenate
+        configs = [
+            'J4_L4_q1_sigma0.8',
+            # 'J4_L4_q1_sigma1.0',
+            'J5_L3_q0.8_sigma0.4',
+        ]
+
+        # WST coefficient indices to mask due to instabilities
+        mask = [95, 96, 97, 98, 99, 116, 117, 118, 119, 131, 132, 133, 134, 141, 142, 143, 144, 146, 147, 148, 149]
         
         y = []
         hods = {}
         for cosmo_idx in cosmos:
             logger.info(f'Compressing c{cosmo_idx:03}')
-            handle = f'fixed-meshsizec{cosmo_idx:03}_ph000/seed0/wst_c{cosmo_idx:03}_hod*.npy'
-            filenames = sorted(base_dir.glob(handle))[:n_hod]
-            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
-            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
-            for filename in filenames:
-                data = np.load(filename, allow_pickle=True)
-                y.append(cls.renorm_wst(data)[1:])  # Exclude the first element (normalization)
-                # y.append(data)
+            
+            # Get HOD indices from first configuration
+            first_config_dir = base_dir / configs[0] / f'c{cosmo_idx:03}_ph{phase:03}' / f'seed{seed}'
+            filenames = sorted(first_config_dir.glob(f'wst_c{cosmo_idx:03}_hod*.npy'))[:n_hod]
+            hod_indices = [int(f.stem.split('hod')[-1]) for f in filenames]
+            hods[cosmo_idx] = hod_indices
+            logger.info(f'Number of HODs: {len(hod_indices)}')
+            
+            # Load and concatenate data from all configurations for each HOD
+            for hod_idx in hod_indices:
+                concatenated_coeffs = []
+                for config_folder in configs:
+                    config_dir = base_dir / config_folder / f'c{cosmo_idx:03}_ph{phase:03}' / f'seed{seed}'
+                    filename = config_dir / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                    data = np.load(filename, allow_pickle=True)
+                    normalized = cls.renorm_wst(data, config=config_folder)[1:]  # Exclude first element
+                    concatenated_coeffs.append(normalized)
+                # Concatenate coefficients from all three configurations
+                concatenated_coeffs = np.concatenate(concatenated_coeffs)
+                # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
+                y.append(concatenated_coeffs)
         y = np.array(y)
         y = xarray.DataArray(
             data = y.reshape(len(cosmos), n_hod, -1),

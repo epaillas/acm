@@ -1,5 +1,6 @@
 from  abc import ABC
 import os
+import yaml
 import numpy as np
 from pathlib import Path
 
@@ -11,10 +12,10 @@ from .cutsky import CutskyHOD, CutskyRandoms
 from mockfactory import RandomCutskyCatalog
 from mockfactory.utils import radecbox_area
 
-from acm.utils.paths import lookup_registry_path
-
 from scipy.interpolate import InterpolatedUnivariateSpline
 import logging
+import warnings
+# warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 class BaseLightconeCatalog(ABC):
@@ -187,17 +188,12 @@ class BaseLightconeCatalog(ABC):
         
 class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
     def __init__(
-        self, 
-        varied_params, 
-        config_file: str = None, 
-        cosmo_idx: int = 0, 
-        phase_idx: int = 0, 
-        zrange: list = [0.4, 0.8],
-        load_existing_hod: bool = False,
-        sim_type: str = 'base', 
-        tracer: str = 'LRG',
-        DM_DICT: dict = None, 
-    ):
+        self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
+        phase_idx: int = 0, zrange: list = [0.4, 0.8],
+        fixed_redshift_snapshot = None,
+        DM_DICT: dict = None, load_existing_hod: bool = False,
+        sim_type: str = 'base', tracer: str = 'LRG',
+        ):
         """
         Initialize the CutskyHOD class. This checks the HOD parameters and 
         loads the relevant simulation data that will be used to sample the
@@ -217,6 +213,13 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         zrange : list, optional
             List containing the redshift range for which to build the lightcone catalog.
             Should contain two elements: [zmin, zmax].
+        fixed_redshift_snapshot : float, optional
+            Value that overrides zrange with a single redshift snapshot. Used for 
+            debugging purposes. When set to None (defualt value), zrange is used instead.
+        DM_DICT : dict, optional
+            Dictionary containing the DM fields for the HOD sampling.
+            Defaults to None, which together with the user-specified tracer maps to 
+            a value in utils.paths.
         load_existing_hod : bool, optional 
             If True, load an existing HOD catalog instead of generating a new one
             (useful for quick debugging). Defaults to False.
@@ -226,12 +229,10 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             TODO: huge not yet supported with BoxHOD
         tracer : str, optional
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
-        DM_DICT : dict, optional
-            Dictionary containing the DM fields for the HOD sampling.
-            If None, defaults to a value read from `acm.utils.paths` on NERSC systems.
-            Defaults to None.
         """
         BaseLightconeCatalog.__init__(self)
+        self.DM_DICT_simtype = 'lightcone'
+        self.sim_geometry = 'lightcone'
         self.logger = logging.getLogger('LightconeHOD')
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
@@ -240,13 +241,16 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         self.sim_type = sim_type
         self.tracer = tracer
         self.zrange = zrange
+        self.fixed_redshift_snapshot = fixed_redshift_snapshot
         self.boxsize = 7500 if sim_type == 'huge' else 2000
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
-            self.config_file = Path(config_dir) /  'lightcone.yaml'
-        if DM_DICT is None:
-            DM_DICT = lookup_registry_path('Abacus.yaml', tracer, 'lightcone')
-        self.setup_hod(DM_DICT)
+            if tracer == "LRG":
+                self.config_file = Path(config_dir) /  'lightcone.yaml'
+            else:
+                lightcone_yaml_file = 'lightcone_' + tracer + '.yaml'
+                self.config_file = Path(config_dir) / lightcone_yaml_file
+        self.setup_hod(DM_DICT=DM_DICT, tracer = tracer)
         self.monte_carlo_sampling_count = 10000
         self.keys_lightcone = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']
 
@@ -267,7 +271,16 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         list
             List of redshift snapshots 
         """
-        return [0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
+        if self.tracer == 'LRG':
+            return [0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
+        elif self.tracer == 'QSO' or self.tracer == 'ELG':
+            # fills shell between 0.763 and 2.627
+            return [0.800,  0.875,  0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400, 1.475, 1.550, 1.625, 1.700, 1.850, 2.000, 2.250, 2.500]
+        elif self.tracer == 'BGS':
+            raise ValueError('BGS lightcone snap_redshifts not yet implemented')
+        else:
+            error_string = f'invalid tracer for lightcone snap_redshifts: {self.tracer}'
+            raise ValueError(error_string)
 
     @property
     def snapshots(self):
@@ -280,6 +293,8 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         snaps: list
             List of redshift snapshots 
         """
+        if self.fixed_redshift_snapshot is not None:
+            return [self.fixed_redshift_snapshot]
         snap_min = np.abs(np.array(self.snap_redshifts) - self.zrange[0]).argmin()
         snap_max = np.abs(np.array(self.snap_redshifts) - self.zrange[1]).argmin()
         snaps = self.snap_redshifts[snap_min:snap_max+2]  # Include an extra snapshot at high-z to avoid edge effects
