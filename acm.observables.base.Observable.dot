@@ -1,5 +1,0 @@
-digraph "acm.observables.base.Observable" {
-rankdir=BT
-charset="utf-8"
-"acm.observables.base.Observable" [color="black", fontcolor="black", label=<acm.observables.base.Observable>, shape="record", style="solid"];
-}
