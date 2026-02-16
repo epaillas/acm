@@ -83,7 +83,8 @@ if __name__ == '__main__':
         fid_cosmo = AbacusSummit(cosmo_idx)
 
         for phase_idx in phases:
-            logger.info(f'Generating cutsky mock for cosmo {cosmo_idx}, phase {phase_idx}.')
+            if mpicomm.rank == 0:
+                logger.info(f'Generating cutsky mock for cosmo {cosmo_idx}, phase {phase_idx}.')
 
             save_dir = Path(args.save_dir) / f'c{cosmo_idx:03}_ph{phase_idx:03}'
             save_dir.mkdir(parents=True, exist_ok=True)
@@ -105,7 +106,7 @@ if __name__ == '__main__':
             # sample HOD parameters and build the cutsky mock
             # this does not have the angular or radial mask carved in yet
             hod = {key: hod_params[key][30] for key in hod_params.keys()}
-            cutsky.sample_hod(hod, nthreads=128, region=region, release=release)
+            cutsky.sample_hod(hod, nthreads=1, region=region, release=release)
 
             # apply angular and radial masks
             cutsky.apply_angular_mask(region=region, release=release, npasses=None, program='dark')
