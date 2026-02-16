@@ -11,6 +11,8 @@ from acm.utils.default import cosmo_list
 import gc
 
 
+
+
 def get_cli_args():
     import argparse
 
@@ -28,6 +30,13 @@ def get_cli_args():
         '--save_dir',
         type=str,
         default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/'
+    )
+    parser.add_argument(
+        '--wst_config',
+        type=str,
+        default='j5',
+        choices=['j4', 'j5', 'j4_alt'],
+        help='WST configuration: j4 (J=4,L=4,q=1,sigma=0.8), j5 (J=5,L=3,q=0.8,sigma=0.4), j4_alt (J=4,L=4,q=1,sigma=1.0)'
     )
 
     args = parser.parse_args()
@@ -679,21 +688,22 @@ if __name__ == '__main__':
                         compute_minkowski(output_fn, hod_positions, **box_args)
 
                     if 'wst' in args.todo_stats:
-                        for wst_args in [
-                            # {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
-                            # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 80},
-                            {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
-                        ]:
-                            wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
-                            save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config)
-                            output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                            if output_fn.exists():
-                                logger.info(f'Skipping {output_fn}, already exists.')
-                                continue
-                            hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                            box_args = dict(boxsize=boxsize, meshsize=np.repeat(wst_args['meshsize'], 3), boxcenter=0.0)
-                            wst_args.pop('meshsize')
-                            wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
+                        wst_configs = {
+                            'j5': {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
+                            'j4': {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
+                            'j4_alt': {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 80},
+                        }
+                        wst_args = wst_configs[args.wst_config].copy()
+                        wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
+                        save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config)
+                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        if output_fn.exists():
+                            logger.info(f'Skipping {output_fn}, already exists.')
+                            continue
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        box_args = dict(boxsize=boxsize, meshsize=np.repeat(wst_args['meshsize'], 3), boxcenter=0.0)
+                        wst_args.pop('meshsize')
+                        wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
 
                     if 'spherical_voids' in args.todo_stats:
                         save_dir = get_save_dir(args.save_dir, 'spherical_voids', cosmo_idx, phase_idx, seed_idx)
