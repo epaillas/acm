@@ -139,7 +139,6 @@ class BoxHOD:
         self.hubble = 100 * self.cosmo.efunc(self.redshift)
         self.q_par = 100 * self.cosmo_fid.efunc(self.redshift) / self.hubble
         self.q_perp = self.cosmo.angular_diameter_distance(self.redshift) / self.cosmo_fid.angular_diameter_distance(self.redshift)
-        self.logger.info(f'Processing {self.abacus_simname()} at z = {self.redshift}')
 
     def abacus_simdirs(self, DM_DICT: dict) -> tuple:
         """
