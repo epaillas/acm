@@ -208,13 +208,13 @@ class WaveletScatteringTransform(BaseEstimator):
             q=self.q,
             max_order=self.max_order,
             kymatio_backend=self.kymatio_backend,
-            boxsize=self.boxsize,
-            boxcenter=self.boxcenter,
-            meshsize=self.meshsize,
+            boxsize=self.boxsize.tolist(),
+            boxcenter=self.boxcenter.tolist(),
+            meshsize=self.meshsize.tolist(),
         )
         
         # Determine format from file extension
-        if path.suffix in ['.hdf5', '.h5']:
+        if path.suffix in ['.hdf5', '.h5', '.txt']:
             leaf = ObservableLeaf(
                 coefficients=self.smatavg,
                 index=index,
