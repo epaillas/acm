@@ -2,7 +2,10 @@ import time
 import numpy as np
 import jax
 import jax.numpy as jnp
-from typing import Tuple
+import xarray as xr
+from pathlib import Path
+from typing import Tuple, Optional
+from lsstypes import ObservableLeaf
 from .base import BaseEstimator
 
 jax.config.update('jax_enable_x64', True)
@@ -126,8 +129,29 @@ class MinkowskiFunctionals(BaseEstimator):
 
         self.query_positions = self.get_query_positions(method='lattice')
 
-    def run(self, thresholds):
+    def run(self, thresholds, save_fn: Optional[str] = None):
+        """
+        Compute 3D Minkowski functionals.
+
+        Parameters
+        ----------
+        thresholds : array_like
+            Threshold values used to evaluate the Minkowski functionals.
+        save_fn : str, optional
+            Path to save the computed Minkowski functionals. Format is determined
+            from extension:
+            - .hdf5, .h5 -> lsstypes
+            - .nc -> xarray NetCDF
+            - .zarr -> xarray Zarr
+            - .npy -> numpy
+
+        Returns
+        -------
+        MFs3D : array_like
+            Minkowski functionals with shape (nthresholds, 4).
+        """
         t0 = time.time()
+        self.thresholds = np.asarray(thresholds)
         self.delta_query = self.read_density_contrast(self.query_positions).reshape(self.meshsize)
 
         # ensure float32 input for memory (we still compute sums in float64 where needed)
@@ -182,4 +206,80 @@ class MinkowskiFunctionals(BaseEstimator):
             self.MFs3D = np.array(MFs3D)  # convert back to numpy for easy printing/consumption
 
         self.logger.info(f'Processed {dims_x} slices in {time.time() - t0:.2f} s. Volume (valid pixels): {vol}')
+
+        if save_fn is not None:
+            self.save(save_fn)
+
         return self.MFs3D
+
+    def save(self, filename: str) -> None:
+        """
+        Save computed Minkowski functionals.
+
+        Format is automatically determined from file extension:
+        - .hdf5, .h5 -> lsstypes (ObservableLeaf in HDF5 format)
+        - .nc -> xarray (DataArray in NetCDF format)
+        - .zarr -> xarray (DataArray in Zarr format)
+        - .npy -> numpy (simple array, no coordinates/metadata)
+
+        Parameters
+        ----------
+        filename : str
+            Path to save the Minkowski functional values.
+
+        Raises
+        ------
+        ValueError
+            If no Minkowski functionals are available or the extension is not recognized.
+        """
+        if not hasattr(self, 'MFs3D'):
+            raise ValueError("No Minkowski functionals to save. Run the estimator first using run().")
+
+        path = Path(filename)
+        threshold = getattr(self, 'thresholds', np.arange(self.MFs3D.shape[0]))
+        functional = np.arange(self.MFs3D.shape[1])
+
+        attrs = dict(
+            thres_mask=self.thres_mask,
+            batch_slices=self.batch_slices,
+            boxsize=self.boxsize,
+            boxcenter=self.boxcenter,
+            meshsize=self.meshsize,
+            description='Minkowski functionals'
+        )
+
+        if path.suffix in ['.hdf5', '.h5']:
+            leaf = ObservableLeaf(
+                mfs3d=self.MFs3D,
+                threshold=threshold,
+                functional=functional,
+                coords=['threshold', 'functional'],
+                attrs=attrs
+            )
+            leaf.write(filename)
+
+        elif path.suffix in ['.nc', '.zarr']:
+            data_array = xr.DataArray(
+                self.MFs3D,
+                dims=['threshold', 'functional'],
+                coords={
+                    'threshold': threshold,
+                    'functional': functional,
+                },
+                attrs=attrs,
+                name='mfs3d'
+            )
+            if path.suffix == '.nc':
+                data_array.to_netcdf(filename)
+            elif path.suffix == '.zarr':
+                data_array.to_zarr(filename, mode='w')
+
+        elif path.suffix == '.npy':
+            np.save(filename, self.MFs3D)
+
+        else:
+            raise ValueError(
+                f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
+                f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
+                f".zarr (xarray Zarr), .npy (numpy)."
+            )

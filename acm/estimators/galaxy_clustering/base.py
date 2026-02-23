@@ -1,6 +1,12 @@
 import time
 import logging
+from typing import Optional
+from pathlib import Path
 
+import lsstypes as types
+import xarray as xr
+
+import numpy as np
 import numpy.typing as npt
 
 
@@ -69,4 +75,62 @@ class BaseEstimator:
             Attribute from the backend.
         """
         return self.backend.__getattribute__(name)
+    
+    @staticmethod
+    def read(filename: str, data_var: Optional[str] = None):
+        """
+        Read estimator output from a file.
+        
+        Format is automatically determined from file extension:
+        - .hdf5, .h5 -> lsstypes
+        - .nc -> xarray NetCDF
+        - .zarr -> xarray Zarr
+        - .npy -> numpy
+        
+        Parameters
+        ----------
+        filename : str
+            Path to the saved file.
+        data_var : str, optional
+            For xarray zarr files, the name of the data variable to extract.
+            If None, returns the full dataset for zarr or the DataArray for NetCDF.
+            
+        Returns
+        -------
+        data : ObservableLeaf, xarray.DataArray, xarray.Dataset, or numpy.ndarray
+            The loaded data.
+            - lsstypes (.hdf5, .h5): ObservableLeaf object with .value() and .coords() methods
+            - xarray NetCDF (.nc): DataArray with .values and coordinate attributes
+            - xarray Zarr (.zarr): DataArray (if data_var specified) or Dataset
+            - numpy (.npy): plain ndarray
+            
+        Examples
+        --------
+        >>> data = MyEstimator.read('output.hdf5')  # lsstypes format
+        >>> data = MyEstimator.read('output.nc')     # xarray NetCDF format  
+        >>> data = MyEstimator.read('output.zarr', data_var='wst')  # xarray Zarr with specific variable
+        >>> coeffs = MyEstimator.read('output.npy')  # numpy array
+        
+        Raises
+        ------
+        ValueError
+            If the file extension is not recognized.
+        """
+        path = Path(filename)
+        
+        # Determine format from file extension
+        if path.suffix == '.hdf5' or path.suffix == '.h5':
+            return types.read(filename)
+        elif path.suffix == '.nc':
+            return xr.open_dataarray(filename)
+        elif str(filename).endswith('.zarr'):
+            dataset = xr.open_zarr(filename)
+        elif path.suffix == '.npy':
+            return np.load(filename)
+        else:
+            raise ValueError(
+                f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
+                f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
+                f".zarr (xarray Zarr), .npy (numpy)."
+            )
         
