@@ -743,7 +743,7 @@ class CutskyHOD(BaseCutskyCatalog):
                 )
             # Each rank has a portion of box_positions after scatter
             # Need to gather total count for raw_nbar calculation
-            total_particles = mpy.csize(box_positions, mpicomm=self.mpicomm)
+            total_particles = mpy.csize(box_positions, mpicomm=self.mpicomm) // 3
             self.raw_nbar_snapshots.append( total_particles / (self.boxsize**3) )
 
             # replicate the box along each axis to cover more volume

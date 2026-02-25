@@ -3,6 +3,8 @@ import os
 import yaml
 import numpy as np
 from pathlib import Path
+from mpytools import CurrentMPIComm
+
 
 # cosmodesi/acm
 import mockfactory
@@ -23,8 +25,10 @@ class BaseLightconeCatalog(ABC):
     Base class for mock lightcone catalogs.
     """
 
-    def __init__(self):
-        pass
+    @CurrentMPIComm.enable
+    def __init__(self, mpicomm=None, mpiroot=0):
+        self.mpicomm = mpicomm
+        self.mpiroot = mpiroot
 
     """
     def apply_angular_mask(self):
@@ -364,7 +368,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
                                               position='Position', velocity='Velocity',
                                               boxsize=boxsize, boxcenter=[boxsize/2, boxsize/2, boxsize/2])
             lightcone_shell = self.box_to_cutsky(box=box, zmin=self.zrange[0], zmax=self.zrange[1], 
-                                          zrsd=zsnap, apply_rsd=True)
+                                          zrsd=zsnap, apply_rsd=True) 
             for key in self.keys_lightcone:
                 self.catalog[key].extend(lightcone_shell[key])
             del box_positions, box_velocities, box, lightcone_shell
