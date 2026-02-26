@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 import time
 import os
+import cloudpickle as cp
 
 from jax import config
 config.update('jax_enable_x64', True)
@@ -38,7 +39,7 @@ def get_cli_args():
     parser.add_argument(
         '--save_dir',
         type=str,
-        default='/global/cfs/cdirs/desicollab/users/epaillas/acm/dr2/measurements/holi'
+        default= '/pscratch/sd/a/acasella/acm/dr2/measurements/holi'
     )
 
     args = parser.parse_args()
@@ -67,6 +68,49 @@ def _read_catalog(fn, mpicomm=None):
     if str(one_fn).endswith('.fits'): catalog.get(catalog.columns())  # Faster to read all columns at once
     return catalog
 
+def select_region(ra, dec, region=None):
+    # print('select', region)
+    if region in [None, 'ALL', 'GCcomb']:
+        return np.ones_like(ra, dtype='?')
+    mask_ngc = (ra > 100 - dec)
+    mask_ngc &= (ra < 280 + dec)
+    mask_n = mask_ngc & (dec > 32.375)
+    mask_s = (~mask_n) & (dec > -25.)
+    if region == 'NGC':
+        return mask_ngc
+    if region == 'SGC':
+        return ~mask_ngc
+    if region == 'N':
+        return mask_n
+    if region == 'S':
+        return mask_s
+    if region == 'SNGC':
+        return mask_ngc & mask_s
+    if region == 'SSGC':
+        return (~mask_ngc) & mask_s
+    if footprint is None: load_footprint()
+    north, south, des = footprint.get_imaging_surveys()
+    mask_des = des[hp.ang2pix(nside, ra, dec, nest=True, lonlat=True)]
+    if region == 'DES':
+        return mask_des
+    if region == 'SnoDES':
+        return mask_s & (~mask_des)
+    if region == 'SSGCnoDES':
+        return (~mask_ngc) & mask_s & (~mask_des)
+    raise ValueError('unknown region {}'.format(region))
+
+def get_proposal_boxsize(tracer):
+    if 'BGS' in tracer:
+        return 4000.
+    if 'LRG' in tracer:
+        return 7000.
+    if 'LRG+ELG' in tracer:
+        return 9000.
+    if 'ELG' in tracer:
+        return 9000.
+    if 'QSO' in tracer:
+        return 10000.
+    raise NotImplementedError(f'tracer {tracer} is unknown')
 
 def get_clustering_rdzw(*fns, zrange=None, region=None, tracer=None, **kwargs):
     """Read one or more catalogs and return concatenated RA/DEC/Z/weight arrays.
@@ -152,8 +196,7 @@ def compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, e
     data_positions, data_weights = get_data()
     randoms_positions, randoms_weights = get_randoms()
 
-    ds = DensitySplit(data_positions=data_positions, randoms_positions=randoms_positions, **attrs)
-
+    ds = DensitySplit(data_positions=data_positions, data_weights=data_weights, randoms_positions=randoms_positions, randoms_weights=randoms_weights, **attrs)
     ds.set_density_contrast(smoothing_radius=smoothing_radius)
     ds.set_quantiles(query_positions=randoms_positions, nquantiles=5)
 
@@ -184,6 +227,80 @@ def compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, e
     np.save(save_fn['xiqq'], acf)
 
 
+def compute_minkowski(save_fn, get_data, get_randoms, smoothing_radius=10, **attrs):
+    """Compute density-split statistics using the ACM package."""
+    from acm.estimators.galaxy_clustering.jaxmf import MinkowskiFunctionals
+    from jaxpower import get_mesh_attrs
+
+    data_positions, data_weights = get_data()
+    randoms_positions, randoms_weights = get_randoms()
+
+    mf = MinkowskiFunctionals(data_positions=data_positions, data_weights=data_weights, randoms_positions=randoms_positions, randoms_weights=randoms_weights, thres_mask = -5, **attrs)
+    mf.set_density_contrast(smoothing_radius=smoothing_radius)
+
+    print("starting mf")
+    MFs = mf.run(thresholds = np.linspace(-1,5,num=81,dtype=np.float32))
+
+    np.save(save_fn, MFs)
+
+
+def compute_wst(save_fn, get_data, get_randoms, init=None, smoothing_radius=10, **attrs):
+    from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    data_positions, data_weights = get_data()
+    randoms_positions, randoms_weights = get_randoms()
+
+    init_dir = Path('/pscratch/sd/e/epaillas/emc/v1.2/abacus/base/wst/init/')
+    meshsize_str = '-'.join([f'{int(bs)}' for bs in attrs['meshsize']])
+    init_fn = init_dir / f'meshsize{meshsize_str}_J{attrs["J"]}_L{attrs["L"]}_sigma{attrs["sigma"]}.npy'
+
+    if init_fn.exists() and init is None:
+        print(f'Loading WST initialization from {init_fn}')
+        with open(init_fn, 'rb') as f:
+            init = cp.load(f)
+
+    print("starting initialization")
+    wst = WaveletScatteringTransform(data_positions=data_positions, data_weights=data_weights, randoms_positions=randoms_positions,
+        randoms_weights=randoms_weights, init_kymatio=init, backend='pypower', kymatio_backend='jax', **attrs) 
+
+    print("starting density contrast")
+    #Build density contrast
+    wst.set_density_contrast(smoothing_radius=smoothing_radius)
+
+    #Run WST
+    smatavg = wst.run()
+    np.save(save_fn, smatavg)
+    if not init_fn.exists():
+        with open(init_fn, 'wb') as f:
+            print(f'Saving WST initialization to {init_fn}')
+            cp.dump(wst.S, f)
+    return wst.S
+
+def compute_min_spanning_tree(save_fn, get_data, get_randoms, boxsize, sigmaJ=3, smoothing_radius=10, **attrs):
+    from acm.estimators.galaxy_clustering.mst import MinimumSpanningTree
+
+    data_positions, data_weights = get_data()
+    randoms_positions, randoms_weights = get_randoms()
+
+    mst = MinimumSpanningTree(data_positions=data_positions, data_weights=data_weights, randoms_positions=randoms_positions,
+        randoms_weights=randoms_weights, meshsize=128, boxsize=boxsize)
+    mst.set_density_contrast(smoothing_radius=smoothing_radius)
+
+    mst.setup(
+        sigmaJ=sigmaJ,
+        boxsize=boxsize,
+        Nthpoint=5,      
+        origin=0.0,
+        split=1,      
+        iterations=1,      
+        quartiles=10
+    )
+
+    mstdict = mst.get_percolation_statistics(data_pos=data_positions)
+    mst.plot_percolation_statistics(mstdict, fname=save_fn)
+
 if __name__ == '__main__':
     args = get_cli_args()
     setup_logging()
@@ -200,6 +317,7 @@ if __name__ == '__main__':
         zrange=(zmin, zmax),
         base_dir=args.base_dir,
     )
+    wst_init = None
 
     for phase_idx in phases:
         data_fn = get_data_fn(phase_idx=phase_idx, **catalog_args)
@@ -233,3 +351,25 @@ if __name__ == '__main__':
                 continue
             cutsky_args = dict(cellsize=5.0, boxpad=1.2, check=True)
             compute_density_split(save_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args)
+
+        if 'minkowski' in args.statistics:
+            save_dir = Path(args.save_dir) / 'minkowski' / f'ph{phase_idx:03}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            cutsky_args = dict(cellsize=10.0, boxpad=1.2, check=True)
+            save_fn = Path(save_dir) / f'MFs_{tracer}_{region}_z{zmin}-{zmax}.npy'
+            compute_minkowski(save_fn, get_data, get_randoms, smoothing_radius=10, **cutsky_args) 
+
+        if 'wst' in args.statistics:
+            save_dir = Path(args.save_dir) / 'wst' / f'ph{phase_idx:03}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            cutsky_args = dict(meshsize=np.repeat(360,3), J=4, L=4, sigma=0.8)
+            save_fn = Path(save_dir) / f'wst_{tracer}_{region}_z{zmin}-{zmax}_jax.npy'
+            wst_init = compute_wst(save_fn, get_data, get_randoms, init=wst_init, smoothing_radius=10, **cutsky_args)
+
+        if 'mst' in args.statistics:
+            save_dir = Path(args.save_dir) / 'minimum_spanning_tree' / f'ph{phase_idx:03}'
+            save_dir.mkdir(parents=True, exist_ok=True)
+            cutsky_args = dict(cellsize=10.0)
+            save_fn = Path(save_dir) / f'mst_{tracer}_{region}_z{zmin}-{zmax}.png'
+            boxsize = get_proposal_boxsize(tracer)
+            compute_min_spanning_tree(save_fn, get_data, get_randoms, boxsize, smoothing_radius=10, **cutsky_args)
