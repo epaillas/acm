@@ -1,13 +1,6 @@
 {
-
-    "python.defaultInterpreterPath": "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20251214-1.0.0/conda/bin",
     "python.envFile": "${workspaceFolder}/.env",
     "python.languageServer": "Pylance",
-
-    "python.analysis.extraPaths": [
-        "/global/homes/j/jcolley/.local/lib/python3.12/site-packages"
-    ],
-
     "python.analysis.useLibraryCodeForTypes": true,
     "python.testing.pytestArgs": [
         "tests"
