@@ -77,9 +77,6 @@ class VoxelVoids(BaseEstimator):
         # Use backend's set_density_contrast method
         delta_mesh = self.backend.set_density_contrast(
             smoothing_radius=smoothing_radius,
-            check=check,
-            ran_min=ran_min,
-            save_wisdom=save_wisdom
         )
         
         # Extract numpy array from mesh objects if needed
@@ -190,23 +187,27 @@ class VoxelVoids(BaseEstimator):
         self.logger.info("Post-processing voids.")
         nmesh = self.meshsize
         cellsize = self.cellsize[0]
-        mask_cut = np.zeros(nmesh[0] * nmesh[1] * nmesh[2], dtype='int')
+        mask_cut = np.zeros(nmesh[0] * nmesh[1] * nmesh[2], dtype=np.intc)
         if self.has_randoms:
             # identify "empty" cells for later cuts on void catalogue
-            mask_cut = np.zeros(nmesh[0] * nmesh[1] * nmesh[2], dtype='int')
+            mask_cut = np.zeros(nmesh[0] * nmesh[1] * nmesh[2], dtype=np.intc)
             randoms_mesh_value = self.backend.randoms_mesh.value if hasattr(self.backend.randoms_mesh, 'value') else self.backend.randoms_mesh
             fastmodules.survey_mask(mask_cut, randoms_mesh_value, self.ran_min)
         self.mask_cut = mask_cut
         self.min_dens_cut = 1.0
         rawdata = np.loadtxt(f"{self.handle}.txt", skiprows=2)
         # remove voids that: a) don't meet minimum density cut, b) are edge voids, or c) lie in a masked voxel
-        select = np.zeros(rawdata.shape[0], dtype='int')
+        select = np.zeros(rawdata.shape[0], dtype=np.intc)
         fastmodules.voxelvoid_cuts(select, self.mask_cut, rawdata, self.min_dens_cut)
         select = np.asarray(select, dtype=bool)
         rawdata = rawdata[select]
         # void minimum density centre locations
         self.logger.info('Calculating void positions.')
         xpos, ypos, zpos = self.voxel_position(rawdata[:, 2])
+        offset = self.boxcenter - self.boxsize / 2.
+        xpos += offset[0]
+        ypos += offset[1]
+        zpos += offset[2]
         self.core_dens = rawdata[:, 3]
         # void effective radii
         self.logger.info('Calculating void radii.')
