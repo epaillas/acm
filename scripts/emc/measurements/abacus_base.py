@@ -758,11 +758,12 @@ if __name__ == '__main__':
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dt_voids(output_fn, hod_positions)
 
-                    if 'jaxel_voids' in args.todo_stats:
+                    if 'jaxel_voids' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'jaxel_voids', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'jaxel_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
-                        compute_jaxel_voids(output_fn, hod_positions, boxsize=boxsize)
+                        box_args = get_box_args(boxsize, cellsize=3.9)
+                        compute_jaxel_voids(output_fn, hod_positions, **box_args)
 
 
         if is_distributed:
