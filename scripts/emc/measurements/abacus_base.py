@@ -25,7 +25,7 @@ def get_cli_args():
     parser.add_argument("--n_phase", type=int, default=1)
     parser.add_argument("--start_seed", type=int, default=0)
     parser.add_argument("--n_seed", type=int, default=1)
-    parser.add_argument('--todo_stats', nargs='+', default=['spectrum'])
+    parser.add_argument("-s", "--statistics", nargs='+', default=['spectrum'])
     parser.add_argument(
         '--save_dir',
         type=str,
@@ -38,6 +38,7 @@ def get_cli_args():
         choices=['j4', 'j5', 'j4_alt'],
         help='WST configuration: j4 (J=4,L=4,q=1,sigma=0.8), j5 (J=5,L=3,q=0.8,sigma=0.4), j4_alt (J=4,L=4,q=1,sigma=1.0)'
     )
+    parser.add_argument("--version", type=str, default='v1.2', help='Version string for organizing outputs')
 
     args = parser.parse_args()
     return args
@@ -278,20 +279,11 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     edges = (sedges, muedges)
 
     if do_correlation:
-        ccf = ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True)
-        acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
-        print(f'Saving {output_fn["xiqg"]}')
-        np.save(output_fn['xiqg'], ccf)
-        print(f'Saving {output_fn["xiqq"]}')
-        np.save(output_fn['xiqq'], acf)
+        ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True, save_fn=output_fn['xiqg'])
+        ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True, save_fn=output_fn['xiqq'])
     if do_power:
-        pkqg = ds.quantile_data_power(positions, edges={'step': 0.001}, ells=ells, los=los)
-        print(f'Saving {output_fn["pkqg"]}')
-        pkqq = ds.quantile_power(edges={'step': 0.001}, ells=ells, los=los)
-        print(f'Saving {output_fn["pkqq"]}')
-        for i in range(5):
-            pkqg[i].write(Path(str(output_fn[f'pkqg']).replace('poles', f'poles_q{i}')))
-            pkqq[i].write(Path(str(output_fn[f'pkqq']).replace('poles', f'poles_q{i}')))
+        ds.quantile_data_power(positions, edges={'step': 0.001}, ells=ells, los=los, save_fn=output_fn['pkqg'])
+        ds.quantile_power(edges={'step': 0.001}, ells=ells, los=los, save_fn=output_fn['pkqq'])
             
 
 def compute_wst(output_fn, positions, init=None, **attrs):
@@ -312,10 +304,7 @@ def compute_wst(output_fn, positions, init=None, **attrs):
                                      backend='pypower', kymatio_backend='torch', **attrs)
 
     wst.set_density_contrast()
-    smatavg = wst.run()
-
-    print(f'Saving WST coefficients to {output_fn}', flush=True)
-    np.save(output_fn, smatavg)
+    smatavg = wst.run(save_fn=output_fn)
 
     if not init_fn.exists():
         # save kymatio initalization to a file
@@ -549,12 +538,26 @@ def compute_dt_voids(output_fn, positions, **attrs):
     # print(f'Saving DT VSF to {output_fn}')
     # np.save(output_fn, n_v)
 
+def compute_jaxel_voids(output_fn, positions, **attrs):
+    """Compute the voxel void size function using the ACM package."""
+    from acm.estimators.galaxy_clustering.jaxel_voids import JaxelVoids
+
+    jaxel = JaxelVoids(data_positions=positions, **attrs)
+    jaxel.set_density_contrast(smoothing_radius=10)
+    jaxel.find_voids()
+
+    sedges = np.arange(0, 201, 1)
+    muedges = np.linspace(-1, 1, 241)
+    edges = (sedges, muedges)
+
+    jaxel.void_data_correlation(positions, edges=edges, los='z', nthreads=4, gpu=True, save_fn=output_fn)
+
 
 if __name__ == '__main__':
 
     args = get_cli_args()
 
-    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.todo_stats)
+    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.statistics)
     if is_distributed:
         os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.95'
         import jax
@@ -587,7 +590,7 @@ if __name__ == '__main__':
                 for hod_fn in hod_fns[args.start_hod : args.start_hod +args.n_hod]:
                     hod_idx = hod_fn.split('.fits')[0].split('hod')[-1]
 
-                    if 'spectrum' in args.todo_stats:
+                    if 'spectrum' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'spectrum', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'mesh2_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
@@ -595,7 +598,7 @@ if __name__ == '__main__':
                         with create_sharding_mesh() as sharding_mesh:
                             compute_spectrum(output_fn, hod_positions, **box_args)
 
-                    if 'recon_spectrum' in args.todo_stats:
+                    if 'recon_spectrum' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'recon_spectrum', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'mesh2_recon_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         if output_fn.exists():
@@ -604,7 +607,7 @@ if __name__ == '__main__':
                         with create_sharding_mesh() as sharding_mesh:
                             compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
-                    if 'bispectrum' in args.todo_stats:
+                    if 'bispectrum' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'bispectrum', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'mesh3_spectrum_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
                         if output_fn.exists():
@@ -622,7 +625,7 @@ if __name__ == '__main__':
                                     jax.clear_caches()
                                     gc.collect()
 
-                    if 'tpcf' in args.todo_stats:
+                    if 'tpcf' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'tpcf', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'tpcf_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
@@ -632,7 +635,7 @@ if __name__ == '__main__':
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
                         compute_tpcf_smu(output_fn, hod_positions, **box_args)
 
-                    if 'tpcf_rppi' in args.todo_stats:
+                    if 'tpcf_rppi' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'projected_tpcf', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'tpcf_rppi_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
@@ -642,15 +645,15 @@ if __name__ == '__main__':
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
                         compute_tpcf_rppi(output_fn, hod_positions, **box_args)
 
-                    if 'recon_tpcf_smu' in args.todo_stats:
+                    if 'recon_tpcf_smu' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'recon_tpcf_smu', cosmo_idx, phase_idx, seed_idx)
                         output_fn = Path(save_dir) / f'recon_tpcf_smu_smu_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
                         compute_recon_tpcf_smu(output_fn, hod_positions, **box_args)
 
-                    if 'density_split_correlation' in args.todo_stats:
-                        save_dir = get_save_dir(args.save_dir, 'density_split', cosmo_idx, phase_idx, seed_idx)
+                    if 'density_split_correlation' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'density_split', cosmo_idx, phase_idx, seed_idx, version=args.version)
                         output_fn = {
                             'xiqg': Path(save_dir) / f'dsc_xiqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy',
                             'xiqq': Path(save_dir) / f'dsc_xiqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
@@ -663,22 +666,22 @@ if __name__ == '__main__':
                         compute_density_split(output_fn, hod_positions, smoothing_radius=10,
                             do_correlation=True, do_power=False, **box_args)
 
-                    if 'density_split_power' in args.todo_stats:
-                        save_dir = get_save_dir(args.save_dir, 'density_split', cosmo_idx, phase_idx, seed_idx)
+                    if 'density_split_power' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'density_split_power', cosmo_idx, phase_idx, seed_idx, version=args.version)
                         output_fn = {
                             'pkqg': Path(save_dir) / f'dsc_pkqg_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5',
                             'pkqq': Path(save_dir) / f'dsc_pkqq_poles_c{cosmo_idx:03}_hod{hod_idx:03}.h5',
                         }
                         if output_fn['pkqg'].exists() and output_fn['pkqq'].exists():
-                            print(f'Skipping {output_fn["pkqg"]} and {output_fn["pkqq"]}, already exists.')
+                            logger.info(f'Skipping {output_fn["pkqg"]} and {output_fn["pkqq"]}, already exists.')
                             continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=3.9)
                         compute_density_split(output_fn, hod_positions, smoothing_radius=10,
                             do_correlation=False, do_power=True, **box_args)
 
-                    if 'minkowski' in args.todo_stats:
-                        save_dir = get_save_dir(args.save_dir, 'minkowski', cosmo_idx, phase_idx, seed_idx)
+                    if 'minkowski' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'minkowski', cosmo_idx, phase_idx, seed_idx, version=args.version)
                         output_fn = Path(save_dir) / f'minkowski_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
@@ -687,7 +690,7 @@ if __name__ == '__main__':
                         box_args = get_box_args(boxsize, cellsize=3.9)
                         compute_minkowski(output_fn, hod_positions, **box_args)
 
-                    if 'wst' in args.todo_stats:
+                    if 'wst' in args.statistics:
                         wst_configs = {
                             'j5': {'J': 5, 'L': 3, 'q': 0.8, 'sigma': 0.4, 'meshsize': 400},
                             'j4': {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 360},
@@ -695,8 +698,8 @@ if __name__ == '__main__':
                         }
                         wst_args = wst_configs[args.wst_config].copy()
                         wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
-                        save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config)
-                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config, version=args.version)
+                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.txt'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
                             continue
@@ -705,8 +708,8 @@ if __name__ == '__main__':
                         wst_args.pop('meshsize')
                         wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args)
 
-                    if 'spherical_voids' in args.todo_stats:
-                        save_dir = get_save_dir(args.save_dir, 'spherical_voids', cosmo_idx, phase_idx, seed_idx)
+                    if 'spherical_voids' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'spherical_voids', cosmo_idx, phase_idx, seed_idx, version=args.version)
                         label = f'c{cosmo_idx:03}_hod{hod_idx:03}' 
                         output_fn = {
                             'void': Path(save_dir) / f'sv_void_{label}.npy',
@@ -721,8 +724,8 @@ if __name__ == '__main__':
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
                         compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
 
-                    if 'recon_spherical_voids' in args.todo_stats:
-                        save_dir = get_save_dir(args.save_dir, 'recon_spherical_voids', cosmo_idx, phase_idx, seed_idx)
+                    if 'recon_spherical_voids' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'recon_spherical_voids', cosmo_idx, phase_idx, seed_idx, version=args.version)
                         label = f'c{cosmo_idx:03}_hod{hod_idx:03}' 
                         output_fn = {
                             'void': Path(save_dir) / f'sv_recon_void_{label}.npy',
@@ -737,25 +740,30 @@ if __name__ == '__main__':
                         box_args = dict(boxsize=boxsize, boxcenter=0.0)
                         compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
                     
-                    #if 'dr_knn' in args.todo_stats:
-                    #    save_dir = '/pscratch/sd/p/pd2487/knn_measurements/'
-                    #    save_dir += f'c{cosmo_idx:03}_ph{phase_idx:03}/seed{seed_idx}/'
-                    #    Path(save_dir).mkdir(parents=True, exist_ok=True)
+                    #if 'dr_knn' in args.statistics:
+                    #    save_dir = get_save_dir(args.save_dir, 'dr_knn', cosmo_idx, phase_idx, seed_idx, version=args.version)
                     #    output_fn = Path(save_dir) / f'dr_knn_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                     #    hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                     #    compute_dr_knn(output_fn, hod_positions, boxsize, los='z')
                     
-                    if 'dd_knn' in args.todo_stats:
-                        save_dir = get_save_dir(args.save_dir, 'dd_knn', cosmo_idx, phase_idx, seed_idx)
+                    if 'dd_knn' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'dd_knn', cosmo_idx, phase_idx, seed_idx, version=args.version)
                         output_fn = Path(save_dir) / f'dd_knn_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dd_knn(output_fn, hod_positions, boxsize, los='z')
 
-                    if 'dt_voids' in args.todo_stats:
-                        save_dir = get_save_dir(args.save_dir, 'dt_voids', cosmo_idx, phase_idx, seed_idx)
+                    if 'dt_voids' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'dt_voids', cosmo_idx, phase_idx, seed_idx, version=args.version)
                         output_fn = Path(save_dir) / f'dt_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dt_voids(output_fn, hod_positions)
+
+                    if 'jaxel_voids' in args.statistics:
+                        save_dir = get_save_dir(args.save_dir, 'jaxel_voids', cosmo_idx, phase_idx, seed_idx)
+                        output_fn = Path(save_dir) / f'jaxel_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        box_args = get_box_args(boxsize, cellsize=3.9)
+                        compute_jaxel_voids(output_fn, hod_positions, **box_args)
 
 
         if is_distributed:
