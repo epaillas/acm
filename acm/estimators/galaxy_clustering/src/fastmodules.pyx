@@ -204,7 +204,8 @@ def normalize_rho_box(np.ndarray [np.float64_t, ndim=3] rhog, int npart):
 
   return rhog
 
-def survey_mask(np.ndarray [np.int_t, ndim=1] mask, np.ndarray [np.float64_t, ndim=3] rhor, double ran_min):
+#def survey_mask(np.ndarray [np.int_t, ndim=1] mask, np.ndarray [np.float64_t, ndim=3] rhor, double ran_min):
+def survey_mask(int[:] mask, double[:,:,:] rhor, double ran_min):
 
   cdef int Nx = rhor.shape[0]
   cdef int Ny = rhor.shape[1]
@@ -218,8 +219,9 @@ def survey_mask(np.ndarray [np.int_t, ndim=1] mask, np.ndarray [np.float64_t, nd
 
   return mask
 
-def survey_cuts_logical(np.ndarray [np.int_t, ndim=1] out, np.ndarray [np.float64_t, ndim=1] veto,
-                        np.ndarray [np.float64_t, ndim=1] redshift, double zmin, double zmax):
+#def survey_cuts_logical(np.ndarray [np.int_t, ndim=1] out, np.ndarray [np.float64_t, ndim=1] veto,
+                        #np.ndarray [np.float64_t, ndim=1] redshift, double zmin, double zmax):
+def survey_cuts_logical(int[:] out, double[:] veto, double[:] redshift, double zmin, double zmax):
 
   cdef int N = redshift.shape[0]
   cdef int i
@@ -231,8 +233,9 @@ def survey_cuts_logical(np.ndarray [np.int_t, ndim=1] out, np.ndarray [np.float6
 
   return out
 
-def voxelvoid_cuts(np.ndarray [np.int_t, ndim=1] select, np.ndarray [np.int_t, ndim=1] mask,
-                   np.ndarray [np.float64_t, ndim=2] rawvoids, double min_dens_cut):
+#def voxelvoid_cuts(np.ndarray [np.int_t, ndim=1] select, np.ndarray [np.int_t, ndim=1] mask,
+                   #np.ndarray [np.float64_t, ndim=2] rawvoids, double min_dens_cut):
+def voxelvoid_cuts(int[:] select, int[:] mask, double[:,:] rawvoids, double min_dens_cut):
 
   cdef int N = rawvoids.shape[0]
   cdef int i, vox
@@ -246,8 +249,9 @@ def voxelvoid_cuts(np.ndarray [np.int_t, ndim=1] select, np.ndarray [np.int_t, n
 
   return select
 
-def voxelcluster_cuts(np.ndarray [np.int_t, ndim=1] select, np.ndarray [np.int_t, ndim=1] mask,
-                   np.ndarray [np.float64_t, ndim=2] rawclusters, double max_dens_cut):
+#def voxelcluster_cuts(np.ndarray [np.int_t, ndim=1] select, np.ndarray [np.int_t, ndim=1] mask,
+                   #np.ndarray [np.float64_t, ndim=2] rawclusters, double max_dens_cut):
+def voxelcluster_cuts(int[:] select, int[:] mask, double[:,:] rawclusters, double max_dens_cut):
 
   cdef int N = rawclusters.shape[0]
   cdef int i, vox
@@ -260,8 +264,9 @@ def voxelcluster_cuts(np.ndarray [np.int_t, ndim=1] select, np.ndarray [np.int_t
 
   return select
 
-def get_member_densities(np.ndarray [np.float64_t, ndim=1] member_dens, np.ndarray [np.int_t, ndim=1] voxels,
-                         np.ndarray [np.float64_t, ndim=1] rho):
+#def get_member_densities(np.ndarray [np.float64_t, ndim=1] member_dens, np.ndarray [np.int_t, ndim=1] voxels,
+                         #np.ndarray [np.float64_t, ndim=1] rho):
+def get_member_densities(double[:] member_dens, int[:] voxels, double[:] rho):
 
   cdef int N = len(voxels)
   cdef int i
