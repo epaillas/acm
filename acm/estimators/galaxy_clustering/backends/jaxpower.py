@@ -133,6 +133,9 @@ class JaxpowerBackend:
         delta_mesh : RealMeshField or ComplexMeshField
             Density contrast field.
         """
+        self.randoms_threshold_value = randoms_threshold_value
+        self.randoms_threshold_method = randoms_threshold_method
+
         def _2r(mesh):
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
