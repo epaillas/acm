@@ -687,7 +687,7 @@ class JaxelVoids(BaseEstimator):
         )
 
         out = Path(save_fn) if save_fn else Path('void_slice.gif')
-        anim.save(out, writer='pillow', dpi=120)
+        anim.save(out, writer='pillow', dpi=300)
 
         plt.tight_layout()
         return fig
@@ -699,9 +699,9 @@ class JaxelVoids(BaseEstimator):
         save_fn: Optional[Union[str, Path]] = None,
         elev: float = 20.0,
         n_turns: int = 3,
-        n_frames: int = 180,
-        interval: int = 300,
-        dpi: int = 120,
+        n_frames: int = 360,
+        interval: int = 120,
+        dpi: int = 200,
         padding_cells: int = 2,
         show_axes: bool = False,
     ) -> matplotlib.figure.Figure:
@@ -721,9 +721,9 @@ class JaxelVoids(BaseEstimator):
             Elevation angle (degrees) of the camera.
         n_turns : int, default=3
             Number of full azimuth rotations in the GIF.
-        n_frames : int, default=180
+        n_frames : int, default=360
             Number of animation frames.
-        interval : int, default=300
+        interval : int, default=120
             Delay between frames in milliseconds.
         dpi : int, default=120
             Output GIF resolution.
