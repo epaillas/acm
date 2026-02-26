@@ -1,6 +1,4 @@
 {
-
-    #"python.defaultInterpreterPath": "/global/common/software/desi/users/adematti/perlmutter/cosmodesiconda/20251214-1.0.0/conda/bin",
     "python.envFile": "${workspaceFolder}/.env",
     "python.languageServer": "Pylance",
 
