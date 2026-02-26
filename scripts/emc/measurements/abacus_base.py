@@ -549,6 +549,20 @@ def compute_dt_voids(output_fn, positions, **attrs):
     # print(f'Saving DT VSF to {output_fn}')
     # np.save(output_fn, n_v)
 
+def compute_jaxel_voids(output_fn, positions, **attrs):
+    """Compute the voxel void size function using the ACM package."""
+    from acm.estimators.galaxy_clustering.jaxel_voids import JaxelVoids
+
+    jaxel = JaxelVoids(data_positions=positions, **attrs)
+    jaxel.set_density_contrast(smoothing_radius=10)
+    jaxel.find_voids()
+
+    sedges = np.arange(0, 201, 1)
+    muedges = np.linspace(-1, 1, 241)
+    edges = (sedges, muedges)
+
+    jaxel.void_data_correlation(positions, edges=edges, los='z', nthreads=4, gpu=True, save_fn=output_fn)
+
 
 if __name__ == '__main__':
 
@@ -756,6 +770,12 @@ if __name__ == '__main__':
                         output_fn = Path(save_dir) / f'dt_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         compute_dt_voids(output_fn, hod_positions)
+
+                    if 'jaxel_voids' in args.todo_stats:
+                        save_dir = get_save_dir(args.save_dir, 'jaxel_voids', cosmo_idx, phase_idx, seed_idx)
+                        output_fn = Path(save_dir) / f'jaxel_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+                        compute_jaxel_voids(output_fn, hod_positions, boxsize=boxsize)
 
 
         if is_distributed:
