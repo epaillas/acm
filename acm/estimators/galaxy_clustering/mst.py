@@ -2,10 +2,10 @@ import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import mistreeplus as mist # https://github.com/knaidoo29/mistreeplus
-from .base import BaseDensityMeshEstimator
+from .base import BaseEstimator
 from acm.utils.plotting import set_plot_style
 
-class MinimumSpanningTree(BaseDensityMeshEstimator):
+class MinimumSpanningTree(BaseEstimator):
     """
     Class to compute the minimum spanning tree statistics, following https://arxiv.org/abs/1907.00989
     but using a new set of powerful percolation statistics (default).
@@ -270,5 +270,5 @@ class MinimumSpanningTree(BaseDensityMeshEstimator):
         plt.ylabel(r'Percolation Length [$h^{-1}Mpc$]')
         plt.legend(loc='best', framealpha=1.)
         if fname is not None:
-            plt.savefig(fname, bbox_inches=True)
+            plt.savefig(fname, bbox_inches="tight")
         plt.show()
