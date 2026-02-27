@@ -68,6 +68,38 @@ def _read_catalog(fn, mpicomm=None):
     return catalog
 
 
+def select_region(ra, dec, region=None):
+    # print('select', region)
+    if region in [None, 'ALL', 'GCcomb']:
+        return np.ones_like(ra, dtype='?')
+    mask_ngc = (ra > 100 - dec)
+    mask_ngc &= (ra < 280 + dec)
+    mask_n = mask_ngc & (dec > 32.375)
+    mask_s = (~mask_n) & (dec > -25.)
+    if region == 'NGC':
+        return mask_ngc
+    if region == 'SGC':
+        return ~mask_ngc
+    if region == 'N':
+        return mask_n
+    if region == 'S':
+        return mask_s
+    if region == 'SNGC':
+        return mask_ngc & mask_s
+    if region == 'SSGC':
+        return (~mask_ngc) & mask_s
+    if footprint is None: load_footprint()
+    north, south, des = footprint.get_imaging_surveys()
+    mask_des = des[hp.ang2pix(nside, ra, dec, nest=True, lonlat=True)]
+    if region == 'DES':
+        return mask_des
+    if region == 'SnoDES':
+        return mask_s & (~mask_des)
+    if region == 'SSGCnoDES':
+        return (~mask_ngc) & mask_s & (~mask_des)
+    raise ValueError('unknown region {}'.format(region))
+
+
 def get_clustering_rdzw(*fns, zrange=None, region=None, tracer=None, **kwargs):
     """Read one or more catalogs and return concatenated RA/DEC/Z/weight arrays.
 
@@ -218,7 +250,7 @@ if __name__ == '__main__':
             save_dir = Path(args.save_dir) / 'spectrum' / f'ph{phase_idx:03}'
             save_dir.mkdir(parents=True, exist_ok=True)
             cutsky_args = dict(cellsize=10.0, ells=(0, 2, 4))
-            save_fn = Path(save_dir) / f'mesh2_poles_{tracer}_{region}_z{zmin}-{zmax}_acm.h5'
+            save_fn = Path(save_dir) / f'mesh2_poles_{tracer}_{region}_z{zmin}-{zmax}.h5'
             compute_spectrum(save_fn, get_data, get_randoms, **cutsky_args)
 
         if 'density_split' in args.statistics:
