@@ -149,7 +149,8 @@ class JaxelVoids(BaseEstimator):
         void_radii = np.asarray(self.void_radii, dtype=float)
         core_dens = np.asarray(getattr(self, 'core_dens', np.full(len(void_radii), np.nan)), dtype=float)
         n_voids = int(void_radii.shape[0])
-        zone_sizes = np.asarray([len(zone) for zone in getattr(self, 'zones', [])], dtype=int)
+        zone_ptr = getattr(self, 'zone_ptr', np.zeros(1, dtype=np.int64))
+        zone_sizes = np.diff(zone_ptr).astype(int)
 
         default_attrs = dict(
             estimator='JaxelVoids',
@@ -169,13 +170,14 @@ class JaxelVoids(BaseEstimator):
 
         if path.suffix in ['.hdf5', '.h5']:
             leaf = ObservableLeaf(
-                voids=voids,
-                void_radii=void_radii,
+                x=voids[:, 0],
+                y=voids[:, 1],
+                z=voids[:, 2],
+                radius=void_radii,
                 core_dens=core_dens,
                 zone_size=zone_sizes,
                 void=np.arange(n_voids, dtype=int),
-                xyz=np.arange(3, dtype=int),
-                coords=['void', 'xyz'],
+                coords=['void'],
                 attrs=attrs,
             )
             leaf.write(str(path))
@@ -183,14 +185,15 @@ class JaxelVoids(BaseEstimator):
         elif path.suffix in ['.nc', '.zarr']:
             dataset = xr.Dataset(
                 data_vars={
-                    'voids': (('void', 'xyz'), voids),
-                    'void_radii': (('void',), void_radii),
+                    'x': (('void',), voids[:, 0]),
+                    'y': (('void',), voids[:, 1]),
+                    'z': (('void',), voids[:, 2]),
+                    'radius': (('void',), void_radii),
                     'core_dens': (('void',), core_dens),
                     'zone_size': (('void',), zone_sizes),
                 },
                 coords={
                     'void': np.arange(n_voids, dtype=int),
-                    'xyz': np.arange(3, dtype=int),
                 },
                 attrs=attrs,
             )
@@ -203,8 +206,10 @@ class JaxelVoids(BaseEstimator):
             np.save(
                 str(path),
                 {
-                    'voids': voids,
-                    'void_radii': void_radii,
+                    'x': voids[:, 0],
+                    'y': voids[:, 1],
+                    'z': voids[:, 2],
+                    'radius': void_radii,
                     'core_dens': core_dens,
                     'zone_size': zone_sizes,
                     'attrs': attrs,
@@ -296,7 +301,7 @@ class JaxelVoids(BaseEstimator):
     @staticmethod
     @partial(jax.jit, static_argnames=('nsteps',))
     def _compute_roots(
-        rho: jnp.ndarray,
+        delta: jnp.ndarray,
         valid_mask: jnp.ndarray,
         nsteps: int,
     ) -> jnp.ndarray:
@@ -304,7 +309,7 @@ class JaxelVoids(BaseEstimator):
 
         Parameters
         ----------
-        rho : jax.Array
+        delta : jax.Array
             3D scalar field used for descent ordering (here, overdensity).
         valid_mask : jax.Array
             Boolean mask of voxels allowed to participate.
@@ -323,16 +328,16 @@ class JaxelVoids(BaseEstimator):
         1) choose the lowest-density neighbor among 6-connectivity,
         2) repeatedly pointer-jump until each voxel reaches a local minimum.
         """
-        nmesh = rho.shape
+        nmesh = delta.shape
         nvox = int(np.prod(nmesh))
         idx = jnp.arange(nvox, dtype=jnp.int64).reshape(nmesh)
 
-        rho_xp = jnp.roll(rho, -1, axis=0)
-        rho_xm = jnp.roll(rho, 1, axis=0)
-        rho_yp = jnp.roll(rho, -1, axis=1)
-        rho_ym = jnp.roll(rho, 1, axis=1)
-        rho_zp = jnp.roll(rho, -1, axis=2)
-        rho_zm = jnp.roll(rho, 1, axis=2)
+        delta_xp = jnp.roll(delta, -1, axis=0)
+        delta_xm = jnp.roll(delta, 1, axis=0)
+        delta_yp = jnp.roll(delta, -1, axis=1)
+        delta_ym = jnp.roll(delta, 1, axis=1)
+        delta_zp = jnp.roll(delta, -1, axis=2)
+        delta_zm = jnp.roll(delta, 1, axis=2)
 
         idx_xp = jnp.roll(idx, -1, axis=0)
         idx_xm = jnp.roll(idx, 1, axis=0)
@@ -341,10 +346,10 @@ class JaxelVoids(BaseEstimator):
         idx_zp = jnp.roll(idx, -1, axis=2)
         idx_zm = jnp.roll(idx, 1, axis=2)
 
-        candidates_rho = jnp.stack([rho, rho_xp, rho_xm, rho_yp, rho_ym, rho_zp, rho_zm], axis=0)
+        candidates_delta = jnp.stack([delta, delta_xp, delta_xm, delta_yp, delta_ym, delta_zp, delta_zm], axis=0)
         candidates_idx = jnp.stack([idx, idx_xp, idx_xm, idx_yp, idx_ym, idx_zp, idx_zm], axis=0)
 
-        min_choice = jnp.argmin(candidates_rho, axis=0)
+        min_choice = jnp.argmin(candidates_delta, axis=0)
         next_idx = jnp.take_along_axis(candidates_idx, min_choice[None, ...], axis=0)[0]
         next_idx = jnp.where(valid_mask, next_idx, -jnp.ones_like(next_idx)).reshape(-1)
 
@@ -384,7 +389,8 @@ class JaxelVoids(BaseEstimator):
 
         valid_roots = roots_np[flat_valid]
         if valid_roots.size == 0:
-            self.zones = []
+            self.zone_ptr = np.zeros(1, dtype=np.int64)
+            self.zone_voxels = np.empty(0, dtype=np.int64)
             self.core_dens = np.array([], dtype=float)
             return np.empty((0, 3), dtype=float), np.empty((0,), dtype=float)
 
@@ -411,7 +417,8 @@ class JaxelVoids(BaseEstimator):
         self.core_dens = core_delta[keep] + 1.0
 
         if selected_roots.size == 0:
-            self.zones = []
+            self.zone_ptr = np.zeros(1, dtype=np.int64)
+            self.zone_voxels = np.empty(0, dtype=np.int64)
             return np.empty((0, 3), dtype=float), np.empty((0,), dtype=float)
 
         valid_voxel_ids = np.flatnonzero(flat_valid)
@@ -420,16 +427,53 @@ class JaxelVoids(BaseEstimator):
         sorted_voxel_ids = valid_voxel_ids[sort_order]
         left = np.searchsorted(sorted_roots, selected_roots, side='left')
         right = np.searchsorted(sorted_roots, selected_roots, side='right')
-        self.zones = [
-            sorted_voxel_ids[lo:hi].astype(int).tolist()
-            for lo, hi in zip(left, right)
-        ]
+
+        # Store zone membership in CSR format:
+        #   zone_voxels[zone_ptr[i] : zone_ptr[i+1]]  gives the flat voxel
+        #   indices belonging to zone i.  This uses 8 bytes/voxel (int64)
+        #   instead of ~56 bytes/voxel for a list-of-lists of Python ints.
+        counts = right - left
+        self.zone_ptr = np.empty(len(selected_roots) + 1, dtype=np.int64)
+        self.zone_ptr[0] = 0
+        np.cumsum(counts, out=self.zone_ptr[1:])
+        self.zone_voxels = np.concatenate(
+            [sorted_voxel_ids[lo:hi] for lo, hi in zip(left, right)],
+        ).astype(np.int64)
         xpos, ypos, zpos = self.voxel_position(selected_roots.astype(np.int64))
 
         cell_vol = float(self.cellsize[0] * self.cellsize[1] * self.cellsize[2])
         vols = selected_counts.astype(float) * cell_vol
         rads = (3.0 * vols / (4.0 * np.pi)) ** (1.0 / 3.0)
         return np.c_[xpos, ypos, zpos], rads
+
+    def _iter_zones(self):
+        """Iterate over zones, yielding each zone's flat voxel-index array.
+
+        Yields
+        ------
+        voxels : ndarray of int64
+            Flat voxel indices belonging to the current zone.  The array is
+            a zero-copy view into ``self.zone_voxels``.
+        """
+        for lo, hi in zip(self.zone_ptr[:-1], self.zone_ptr[1:]):
+            yield self.zone_voxels[lo:hi]
+
+    def _get_zone(self, i: int) -> npt.NDArray:
+        """Return the flat voxel-index array for zone *i*.
+
+        Parameters
+        ----------
+        i : int
+            Zone index (0-based).
+
+        Returns
+        -------
+        ndarray of int64
+            View into ``self.zone_voxels`` for zone *i*.
+        """
+        lo = int(self.zone_ptr[i])
+        hi = int(self.zone_ptr[i + 1])
+        return self.zone_voxels[lo:hi]
 
     def voxel_position(self, voxel: npt.NDArray) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         """Map flattened voxel indices to Cartesian coordinates.
@@ -595,8 +639,8 @@ class JaxelVoids(BaseEstimator):
         boxsize = np.asarray(self.boxsize, dtype=float)
         zones_mesh = np.zeros(np.prod(nmesh), dtype=float)
         rng = np.random.default_rng(42)
-        for zone in self.zones:
-            zones_mesh[np.asarray(zone, dtype=int)] = rng.random()
+        for zone in self._iter_zones():
+            zones_mesh[zone] = rng.random()
         zones_mesh = np.ma.masked_where(zones_mesh == 0, zones_mesh).reshape(nmesh)
         # zones_mesh = np.sum(zones_mesh, axis=2)
         zones_mesh = zones_mesh[:, :, 0]  # Take a thin slice in z
@@ -650,8 +694,8 @@ class JaxelVoids(BaseEstimator):
 
         zones_mesh = np.zeros(np.prod(nmesh), dtype=float)
         rng = np.random.default_rng(42)
-        for zone in self.zones:
-            zones_mesh[np.asarray(zone, dtype=int)] = rng.random()
+        for zone in self._iter_zones():
+            zones_mesh[zone] = rng.random()
         zones_mesh = np.ma.masked_where(zones_mesh == 0, zones_mesh).reshape(nmesh)
 
         fig, ax = plt.subplots()
@@ -710,7 +754,7 @@ class JaxelVoids(BaseEstimator):
         Parameters
         ----------
         zone_id : int, optional
-            Index of the zone in ``self.zones`` to render. If None, the
+            Index of the zone in ``self.zone_ptr`` / ``self.zone_voxels`` to render. If None, the
             largest non-edge zone is selected automatically. If provided but
             it touches the simulation-box edges, the method falls back to the
             largest non-edge zone.
@@ -731,7 +775,7 @@ class JaxelVoids(BaseEstimator):
             Number of mesh cells added around the void bounding box for zoom.
         show_axes : bool, default=False
             If True, display 3D axis spines with tick labels in physical
-            coordinates ($h^{-1}\,\mathrm{Mpc}$). If False, hide all axes.
+            coordinates ($h^{-1}\\,\\mathrm{Mpc}$). If False, hide all axes.
 
         Returns
         -------
@@ -764,8 +808,7 @@ class JaxelVoids(BaseEstimator):
             )
 
         non_edge_candidates = []
-        for zid, zone in enumerate(self.zones):
-            voxels = np.asarray(zone, dtype=np.int64)
+        for zid, voxels in enumerate(self._iter_zones()):
             if voxels.size == 0:
                 continue
             xi_c, yi_c, zi_c = zone_indices(voxels)
@@ -777,9 +820,10 @@ class JaxelVoids(BaseEstimator):
 
         non_edge_candidates.sort(key=lambda x: x[0], reverse=True)
 
+        n_zones = len(self.zone_ptr) - 1
         selected = None
-        if zone_id is not None and 0 <= zone_id < len(self.zones):
-            vox_try = np.asarray(self.zones[zone_id], dtype=np.int64)
+        if zone_id is not None and 0 <= zone_id < n_zones:
+            vox_try = self._get_zone(zone_id)
             if vox_try.size > 0:
                 xi_t, yi_t, zi_t = zone_indices(vox_try)
                 if not touches_edge(xi_t, yi_t, zi_t):
