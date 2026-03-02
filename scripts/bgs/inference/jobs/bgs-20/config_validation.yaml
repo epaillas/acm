@@ -2,7 +2,7 @@ module: acm.observables.bgs
 statistics: ['tpcf']
 fit_type: validation
 cosmo_model: base-w0wa-fixed-omega_b
-hod_model: base-VB-AB-CB-s
+hod_model: base-AB-CB-VB-s
 add_cov_emu: true
 cov_emu_diag: true
 cov_emu_method: median
