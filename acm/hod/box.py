@@ -260,9 +260,11 @@ class BoxHOD:
         # set want_nfw (unique for ELG cutsky)
         if tracer == 'ELG' and self.sim_geometry == 'cutsky':
             want_nfw = True
+            NFW_draw = np.load('/global/cfs/projectdirs/desi/users/arocher/nfw.npy', allow_pickle=True)
         else:
             want_nfw = False
-        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw)
+            NFW_draw = None
+        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw, NFW_draw=NFW_draw)
         # workaround for compute_ngal issue with high sigma values
         n_gal = len(hod_dict[tracer]['x'])
         subsample = None
