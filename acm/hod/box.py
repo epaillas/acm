@@ -84,6 +84,7 @@ class BoxHOD:
         self.redshift = redshift
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
+            # TODO: remove tracer condition and make all tracer config files use the naming convention 'box_{tracer}.yaml' for consistency ?
             if tracer == 'LRG':
                 config_file = Path(config_dir) /  'box.yaml'
             else:
@@ -205,6 +206,7 @@ class BoxHOD:
         seed: int | None = None,
         save_fn: str | Path | None = None,
         add_ap: bool = False,
+        use_logsigma: bool = True,
     ) -> dict:
         """
         Run the HOD model with the given parameters.
@@ -227,6 +229,10 @@ class BoxHOD:
             Whether to take Alcock-Paczynski distortions into account when computing the number density. 
             To use if you plan to apply AP distortions to the catalog later on. 
             Default is False.
+        use_logsigma: bool, optional
+            Whether to use the logarithm of sigma as the parameter for the HOD instead of sigma itself. 
+            This is useful for sampling purposes, since sigma can vary over several orders of magnitude. 
+            Default is True.
 
         Returns
         -------
@@ -250,8 +256,7 @@ class BoxHOD:
         if set(hod_params.keys()) != set(self.varied_params):
             raise ValueError('Invalid HOD parameters. Must match the varied parameters.')
         for key in hod_params.keys():
-            # TODO: remove tracer == LRG ?
-            if key == 'sigma' and tracer == 'LRG':
+            if key == 'sigma' and use_logsigma:
                 self.ball.tracers[tracer][key] = 10**hod_params[key]
             else:
                 self.ball.tracers[tracer][key] = hod_params[key]
