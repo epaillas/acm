@@ -447,6 +447,7 @@ class BoxHOD:
     def get_positions(
         cls,
         hod_dict: dict,
+        tracer: str | None = None,
         los: str | None = None,
         add_rsd: bool = False,
         hubble: float | None = None,
@@ -463,6 +464,8 @@ class BoxHOD:
         ----------
         hod_dict : dict
             Dictionary containing the tracer positions.
+        tracer : str, optional
+            Tracer type to read from `hod_dict`. If None, uses the top-level keys of `hod_dict`. Default is None.
         los: str, optional
             Line-of-sight for RSD and AP distortions. If None, no distortions are applied.
         add_rsd : bool, optional
@@ -486,8 +489,7 @@ class BoxHOD:
             Array of galaxy positions with shape (N_gal, 3).
         """
         hod_dict = hod_dict.copy()  # Avoid modifying the original dictionary
-        tracer = self.tracer
-        tracer_dict = hod_dict[tracer] #if tracer is not None else hod_dict
+        tracer_dict = hod_dict[tracer] if tracer is not None else hod_dict
         
         # Apply RSD before AP distortions
         if add_rsd:
