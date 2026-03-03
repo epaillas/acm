@@ -41,7 +41,7 @@ class BaseLightconeCatalog(ABC):
         pass
     """
     
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, ):
+    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, dz_new: float = 0.002):
         """
         Applies the radial selection function to a lightcone catalog based on 
         an input n(z) file (number desity as a function of redshift).
@@ -53,8 +53,11 @@ class BaseLightconeCatalog(ABC):
             (1, 2, 3) are zbin_min, zbin_max, and target_nz respectively.
         shape_only : bool, optional
             If True, match only the shape of the n(z), disregarding the amplitude.
-        full_sky: bool
+        full_sky : bool
             If True, the survey volunme is scaled to the full sky rather than an octant
+        dz_new : float
+            redshift interval used for redshift bin edges. Should be small compared to 
+            the expected fluctuations in the raw n(z)
         Returns
         -------
         None
@@ -71,6 +74,34 @@ class BaseLightconeCatalog(ABC):
 
         # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
+        zbin_mid = 0.5 * (zbin_min + zbin_max)
+        
+        # nz(z) interpolator (piecewise linear)
+        nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
+        
+        # --- refine each coarse bin into dz=0.002 sub-bins ---
+        nsub = int(round((zbin_max[0] - zbin_min[0]) / dz_new))  # should be 5 for 0.01->0.002
+        if not np.allclose(zbin_max - zbin_min, nsub * dz_new, rtol=0, atol=1e-12):
+            raise ValueError("Your input bins are not an integer multiple of dz_new.")
+        
+        # new bin edges per coarse bin: (Nbins, nsub+1)
+        edges = zbin_min[:, None] + dz_new * np.arange(nsub + 1)[None, :]
+        
+        # flatten into sub-bins
+        zbin_min = edges[:, :-1].ravel()
+        zbin_max = edges[:,  1:].ravel()
+        
+        #impose lightcone redshift limits on zbins
+        select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
+        zbin_min = zbin_min[select_zbins]
+        zbin_max = zbin_max[select_zbins]
+        zbin_min[0] = zmin_data
+        zbin_max[-1] = zmax_data
+        zbin_mid = (zbin_min + zbin_max) / 2
+        target_nz = nz_spline(zbin_mid)
+        """
+        # read n(z) file
+        zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = (zbin_min + zbin_max) / 2
 
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
@@ -83,6 +114,7 @@ class BaseLightconeCatalog(ABC):
         zbin_max[-1] = zmax_data
         zbin_mid = (zbin_min + zbin_max) / 2
         target_nz = nz_spline(zbin_mid)
+        """
 
         #calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
