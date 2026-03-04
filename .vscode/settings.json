@@ -1,0 +1,10 @@
+{
+    "python.envFile": "${workspaceFolder}/.env",
+    "python.languageServer": "Pylance",
+    "python.analysis.useLibraryCodeForTypes": true,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}
