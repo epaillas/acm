@@ -1,0 +1,8 @@
+# Ignorer tout par défaut
+*
+
+# Ré-inclure ces fichiers
+!README.md
+
+# Toujours garder le .gitignore lui-même
+!.gitignore
