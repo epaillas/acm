@@ -18,7 +18,6 @@ class BaseObservableBGS(Observable):
         if dataset is None and paths is None:
             paths = lookup_registry_path('projects.yaml', 'bgs', 'Mr-20')
         
-        self.n_test = kwargs.pop('n_test', 6*100) # FIXME: Remove this on next file compression !
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, squeeze_output=squeeze_output, **kwargs)
 
     def get_emulator_covariance_y(self, nofilters: bool = False) -> xarray.DataArray|np.ndarray:
