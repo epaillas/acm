@@ -77,7 +77,7 @@ class BaseEstimator:
         return self.backend.__getattribute__(name)
     
     @staticmethod
-    def read(filename: str, data_var: Optional[str] = None):
+    def read(filename: str, **kwargs):
         """
         Read estimator output from a file.
         
@@ -91,9 +91,8 @@ class BaseEstimator:
         ----------
         filename : str
             Path to the saved file.
-        data_var : str, optional
-            For xarray zarr files, the name of the data variable to extract.
-            If None, returns the full dataset for zarr or the DataArray for NetCDF.
+        **kwargs
+            Additional keyword arguments for the specific file format reader.
             
         Returns
         -------
@@ -122,11 +121,11 @@ class BaseEstimator:
         if path.suffix == '.hdf5' or path.suffix == '.h5':
             return types.read(filename)
         elif path.suffix == '.nc':
-            return xr.open_dataarray(filename)
+            return xr.open_dataarray(filename, **kwargs)
         elif str(filename).endswith('.zarr'):
-            dataset = xr.open_zarr(filename)
+            return xr.open_zarr(filename, **kwargs)
         elif path.suffix == '.npy':
-            return np.load(filename)
+            return np.load(filename, **kwargs)
         else:
             raise ValueError(
                 f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
