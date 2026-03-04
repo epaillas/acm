@@ -699,7 +699,7 @@ if __name__ == '__main__':
                         wst_args = wst_configs[args.wst_config].copy()
                         wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
                         save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config, version=args.version)
-                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.txt'
+                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
                             continue
@@ -760,7 +760,10 @@ if __name__ == '__main__':
 
                     if 'jaxel_voids' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'jaxel_voids', cosmo_idx, phase_idx, seed_idx)
-                        output_fn = Path(save_dir) / f'jaxel_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        output_fn = Path(save_dir) / f'jaxel_voids_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
+                        if output_fn.exists():
+                            logger.info(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=3.9)
                         compute_jaxel_voids(output_fn, hod_positions, **box_args)
