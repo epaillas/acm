@@ -58,6 +58,7 @@ class BaseLightconeCatalog(ABC):
         dz_new : float
             redshift interval used for redshift bin edges. Should be small compared to 
             the expected fluctuations in the raw n(z)
+            
         Returns
         -------
         None
@@ -75,6 +76,8 @@ class BaseLightconeCatalog(ABC):
         # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = 0.5 * (zbin_min + zbin_max)
+        if zbin_min[0] > zmin_data or zbin_max[-1] < zmax_data:
+            raise ValueError('Provided n(z) file does not cover redshift range of data')
         
         # nz(z) interpolator (piecewise linear)
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
@@ -99,28 +102,14 @@ class BaseLightconeCatalog(ABC):
         zbin_max[-1] = zmax_data
         zbin_mid = (zbin_min + zbin_max) / 2
         target_nz = nz_spline(zbin_mid)
-        """
-        # read n(z) file
-        zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
-        zbin_mid = (zbin_min + zbin_max) / 2
-
-        nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
-        
-        #impose lightcone redshift limits on zbins
-        select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
-        zbin_min = zbin_min[select_zbins]
-        zbin_max = zbin_max[select_zbins]
-        zbin_min[0] = zmin_data
-        zbin_max[-1] = zmax_data
-        zbin_mid = (zbin_min + zbin_max) / 2
-        target_nz = nz_spline(zbin_mid)
-        """
 
         #calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
         dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
         dedges =  np.insert(dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0]))
-        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) / 8 
+        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
+        if not full_sky:
+            volume = volume / 8
         
         # Handle shells exterior to the Abacus boxes
         if np.any(dbin_max > self.boxsize):

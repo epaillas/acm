@@ -99,6 +99,31 @@ class BaseCutskyCatalog(ABC):
             )
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][is_in_desi & is_in_photo]
+
+            # calculate sky fraction
+            num_samples = 100000
+            generate_fibonacci = np.arange(0, num_samples, dtype=float) + 0.5
+            mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_samples)
+            mask_dec = 180 / np.pi * phi - 90
+            mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
+
+            mask_in_desi = is_in_desi_footprint(
+                mask_ra,
+                mask_dec,
+                release=release,
+                program=program,
+                npasses=npasses
+            )
+            _, mask_in_photo = self.is_in_photometric_region(
+                mask_ra,
+                mask_dec,
+                region=region
+            )
+
+            in_mask = mask_in_desi & mask_in_photo
+
+            self.sky_fraction = np.sum(in_mask) / len(in_mask)
+
         else:
             mask = fitsio.read(custom_mask_path)
             nside = hp.npix2nside(len(mask['IN_MASK']))
@@ -108,9 +133,11 @@ class BaseCutskyCatalog(ABC):
             is_in_mask = mask['IN_MASK'][target_pixels]
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][is_in_mask]
+
+            self.sky_fraction = np.sum(mask['IN_MASK']) / len(mask['IN_MASK'])
             
 
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False) -> None:
+    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, dz_new: float = 0.002) -> None:
         """
         Applies the radial selection function to a cutsky catalog based on 
         an input n(z) file (number desity as a function of redshift).
@@ -122,7 +149,10 @@ class BaseCutskyCatalog(ABC):
             (1, 2, 3) are zbin_min, zbin_max, and target_nz respectively.
         shape_only : bool, optional
             If True, match only the shape of the n(z), disregarding the amplitude.
-
+        dz_new : float
+            redshift interval used for redshift bin edges. Should be small compared to 
+            the expected fluctuations in the raw n(z)
+            
         Returns
         -------
         None
@@ -130,11 +160,53 @@ class BaseCutskyCatalog(ABC):
         """
         if self.mpicomm.rank == self.mpiroot:
             self.logger.info(f'Applying radial mask using n(z) file {nz_filename}.')
+
+        zmin_data = self.catalog['Z'].min()
+        zmax_data = self.catalog['Z'].max()
+
+        # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
-        zbin_mid = (zbin_min + zbin_max) / 2
+        zbin_mid = 0.5 * (zbin_min + zbin_max)
+        if zbin_min[0] > zmin_data or zbin_max[-1] < zmax_data:
+            raise ValueError('Provided n(z) file does not cover redshift range of data')
+
+        # nz(z) interpolator (piecewise linear)
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
-        raw_nbar = self.get_raw_nbar_at_z(zbin_mid)
-        ratio = target_nz / raw_nbar
+
+        # --- refine each coarse bin into dz=0.002 sub-bins ---
+        nsub = int(round((zbin_max[0] - zbin_min[0]) / dz_new))  # should be 5 for 0.01->0.002
+        if not np.allclose(zbin_max - zbin_min, nsub * dz_new, rtol=0, atol=1e-12):
+            raise ValueError("Your input bins are not an integer multiple of dz_new.")
+        
+        # new bin edges per coarse bin: (Nbins, nsub+1)
+        edges = zbin_min[:, None] + dz_new * np.arange(nsub + 1)[None, :]
+        
+        # flatten into sub-bins
+        zbin_min = edges[:, :-1].ravel()
+        zbin_max = edges[:,  1:].ravel()
+        
+        #impose lightcone redshift limits on zbins
+        select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
+        zbin_min = zbin_min[select_zbins]
+        zbin_max = zbin_max[select_zbins]
+        zbin_min[0] = zmin_data
+        zbin_max[-1] = zmax_data
+        zbin_mid = (zbin_min + zbin_max) / 2
+        target_nz = nz_spline(zbin_mid)
+        
+        #raw_nbar = self.get_raw_nbar_at_z(zbin_mid)
+        #ratio = target_nz / raw_nbar
+        
+        #calculate volumes of shells
+        zedges = np.insert(zbin_max, 0, zbin_min[0])
+        dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
+        dedges =  np.insert(dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0]))
+        volume = self.sky_fraction * 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
+
+        # calculate downsampling ratio
+        data_nz = np.histogram(self.catalog['Z'], bins=zedges)[0] / volume
+        ratio = target_nz / data_nz
+        
         if shape_only:
             max_ratio = np.max(ratio[~np.isinf(ratio)])
             ratio /= max_ratio
