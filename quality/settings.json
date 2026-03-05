@@ -3,7 +3,7 @@
     "python.languageServer": "Pylance",
     "python.analysis.useLibraryCodeForTypes": true,
     "python.testing.pytestArgs": [
-        "tests"
+        "tests/acm"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true
