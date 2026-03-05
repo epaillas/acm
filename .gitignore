@@ -134,14 +134,14 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+#.env
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
-.vscode/
+#.vscode/
 
 # Spyder project settings
 .spyderproject
@@ -189,3 +189,13 @@ lightning_logs/
 # Batch job outputs
 *.out
 *.err
+
+# Quality
+quality/ruff_report*
+quality/coverage_report*
+quality/type_report*
+quality/mypy_report*
+quality/pylint_report*
+
+
+

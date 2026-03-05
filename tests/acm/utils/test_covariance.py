@@ -9,6 +9,7 @@ from acm.utils.covariance import (
     check_positive_definite,
     check_covariance_matrix,
     check_condition_number,
+    correlation_from_covariance
 )
 
 
@@ -55,7 +56,7 @@ class TestPositiveDefiniteCheck:
                       [-1, 2, -1],
                       [0, -1, 2]])
         assert check_positive_definite(A) is True
-    
+    correlation_from_covariance
     def test_identity_matrix(self):
         """Test with identity matrix (always positive-definite)."""
         I = np.eye(5)
@@ -197,3 +198,87 @@ class TestCovarianceMatrixCheck:
         # Should have at least one warning about non-square
         assert any("not square" in str(w.message) for w in record)
         assert result is False
+
+
+class TestCorrelationFromCovariance:
+    """Test the correlation_from_covariance function."""
+    
+    def test_identity_covariance(self):
+        """Test with identity covariance matrix."""
+        cov = np.eye(3)
+        corr = correlation_from_covariance(cov)
+        expected = np.eye(3)
+        np.testing.assert_allclose(corr, expected, rtol=1e-10)
+    
+    def test_diagonal_covariance(self):
+        """Test with diagonal covariance matrix."""
+        cov = np.array([[4, 0, 0],
+                        [0, 9, 0],
+                        [0, 0, 16]])
+        corr = correlation_from_covariance(cov)
+        expected = np.eye(3)
+        np.testing.assert_allclose(corr, expected, rtol=1e-10)
+    
+    def test_two_by_two_covariance(self):
+        """Test with 2x2 covariance matrix."""
+        cov = np.array([[4, 2],
+                        [2, 3]])
+        corr = correlation_from_covariance(cov)
+        correl_value = 2 / (2 * np.sqrt(3))
+        expected = np.array([[1, correl_value],
+                                [correl_value, 1]])
+        np.testing.assert_allclose(corr, expected, rtol=1e-10)
+    
+    def test_symmetric_output(self):
+        """Test that output correlation matrix is symmetric."""
+        np.random.seed(42)
+        data = np.random.randn(50, 5)
+        cov = np.cov(data, rowvar=False)
+        corr = correlation_from_covariance(cov)
+        np.testing.assert_allclose(corr, corr.T, rtol=1e-10)
+    
+    def test_unit_diagonal(self):
+        """Test that diagonal elements are 1."""
+        np.random.seed(42)
+        data = np.random.randn(50, 5)
+        cov = np.cov(data, rowvar=False)
+        corr = correlation_from_covariance(cov)
+        np.testing.assert_allclose(np.diag(corr), np.ones(5), rtol=1e-10)
+    
+    def test_bounds_correlation(self):
+        """Test that all correlation values are in [-1, 1]."""
+        np.random.seed(42)
+        data = np.random.randn(50, 5)
+        cov = np.cov(data, rowvar=False)
+        corr = correlation_from_covariance(cov)
+        assert np.all(corr >= -1 - 1e-10) and np.all(corr <= 1 + 1e-10)
+    
+    def test_zero_covariance_handling(self):
+        """Test handling of zero covariance elements."""
+        cov = np.array([[4, 0, 2],
+                        [0, 9, 0],
+                        [2, 0, 16]])
+        corr = correlation_from_covariance(cov)
+        # Zero covariance elements should result in zero correlation
+        assert corr[0, 1] == 0
+        assert corr[1, 0] == 0
+        assert corr[1, 2] == 0
+        assert corr[2, 1] == 0
+    
+    def test_perfect_correlation(self):
+        """Test with perfectly correlated variables."""
+        cov = np.array([[4, 4],
+                        [4, 4]])
+        corr = correlation_from_covariance(cov)
+        expected = np.array([[1, 1],
+                                [1, 1]])
+        np.testing.assert_allclose(corr, expected, rtol=1e-10)
+class TestCorrelationFromCovariance:
+    """Test the correlation_from_covariance function."""
+    
+    def test_identity_covariance(self):
+        """Test with identity covariance matrix."""
+        cov = np.eye(3)
+        corr = correlation_from_covariance(cov)
+        expected = np.eye(3)
+    
