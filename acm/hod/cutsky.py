@@ -58,7 +58,8 @@ class BaseCutskyCatalog(ABC):
         release: str = 'Y1',
         npasses: int | None = None,
         program: str = 'dark',
-        custom_mask_path: str | None = None
+        custom_mask_path: str | None = None,
+        num_fibonacci_samples: int = 100000
     ) -> None:
         """
         Applies the angular mask to the cutsky catalog based on the specified region.
@@ -76,6 +77,8 @@ class BaseCutskyCatalog(ABC):
         custom_mask_path : str
             If not set to None, a custom mask file is read for applying the angular mask. The file should be in FITS format
             and should include a column named IN_MASK that corresponds to a boolean healpix mask
+        num_fibonacci_samples : int
+            The number of points to evenly distribute on teh sky for calculating the survey mask sky fraction
 
         Returns
         -------
@@ -100,13 +103,18 @@ class BaseCutskyCatalog(ABC):
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][is_in_desi & is_in_photo]
 
-            # calculate sky fraction
-            num_samples = 100000
-            generate_fibonacci = np.arange(0, num_samples, dtype=float) + 0.5
-            mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_samples)
+            # ==============================================================
+            # Calculate survey mask sky fraction using Fibonacci method 
+            # for populating RA and dec. points on the sky
+            # ==============================================================
+            
+            # Fibonacci method 
+            generate_fibonacci = np.arange(0, num_fibonacci_samples, dtype=float) + 0.5
+            mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
             mask_dec = 180 / np.pi * phi - 90
             mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
 
+            # Sky fraction calculation
             mask_in_desi = is_in_desi_footprint(
                 mask_ra,
                 mask_dec,
@@ -647,7 +655,8 @@ class CutskyHOD(BaseCutskyCatalog):
         hod_params: dict,
         nthreads: int = 1,
         seed: float = 0,
-        target_nbar: float = None
+        target_nbar: float = None,
+        nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy',
     ):
         """
         Internal function to sample HOD galaxies from the given ball object
@@ -669,7 +678,9 @@ class CutskyHOD(BaseCutskyCatalog):
             (nbar < min_nbar). If only one value provided, this is taken as 
             the maximum threshold (no minimum threshold applied). Default 
             is None (no thresholds applied).
-        
+        nfw_draw_path: str, optional
+            Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
+            samples on NERSC
 
         Returns
         -------
@@ -684,7 +695,8 @@ class CutskyHOD(BaseCutskyCatalog):
                 hod_params,
                 seed=seed,
                 nthreads=nthreads,
-                tracer_density=target_nbar
+                tracer_density=target_nbar,
+                nfw_draw_path=nfw_draw_path,
             )[tracer]
             pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']].astype(np.float32)
             vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']].astype(np.float32)
@@ -754,7 +766,8 @@ class CutskyHOD(BaseCutskyCatalog):
         region: str = 'NGC',
         release: str = 'Y1',
         target_nz_filename: str | None = None,
-        custom_xyz_file: str | None = None
+        custom_xyz_file: str | None = None,
+        nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy'
     ) -> dict:
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
@@ -782,6 +795,9 @@ class CutskyHOD(BaseCutskyCatalog):
         custom_xyz_file : str
             If not None, a custom file is read for the positions of the tracers that define
             the survey volume bounds
+        nfw_draw_path: str, optional
+            Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
+            samples on NERSC
 
         Returns
         -------
@@ -790,7 +806,7 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         self.catalog = self.init_cutsky()
 
-        self.raw_nbar_snapshots = []
+        #self.raw_nbar_snapshots = []
         
         # construct one redshift shell at a time from the snapshots
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
@@ -811,12 +827,13 @@ class CutskyHOD(BaseCutskyCatalog):
                     hod_params,
                     nthreads=nthreads,
                     target_nbar=target_nbar,
-                    seed=seed
+                    seed=seed,
+                    nfw_draw_path = nfw_draw_path,
                 )
             # Each rank has a portion of box_positions after scatter
             # Need to gather total count for raw_nbar calculation
-            total_particles = mpy.csize(box_positions, mpicomm=self.mpicomm) // 3
-            self.raw_nbar_snapshots.append( total_particles / (self.boxsize**3) )
+            #total_particles = mpy.csize(box_positions, mpicomm=self.mpicomm) // 3
+            #self.raw_nbar_snapshots.append( total_particles / (self.boxsize**3) )
 
             # replicate the box along each axis to cover more volume
             pos_min, pos_max = self.get_reference_borders(
@@ -1129,7 +1146,7 @@ class CutskyHOD(BaseCutskyCatalog):
             pos = pos[chosen]
             vel = vel[chosen]
         return pos,vel
-
+    '''
     def get_raw_nbar_at_z(self, redshift: np.ndarray) -> np.ndarray | float:
         """
         Obtains the correct raw_nbar value for a given redshift input
@@ -1162,7 +1179,7 @@ class CutskyHOD(BaseCutskyCatalog):
             combined_raw_nbar[select_targets] = raw_nbar
 
         return combined_raw_nbar
-        
+    ''' 
 
 class CutskyRandoms(BaseCutskyCatalog):
     """
@@ -1226,8 +1243,9 @@ class CutskyRandoms(BaseCutskyCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-        self.raw_nbar = self.calculate_raw_nbar()
+        #self.raw_nbar = self.calculate_raw_nbar()
 
+    '''
     def calculate_raw_nbar(self):
         """
         Calculate the comoving number density as a function of redshift, in (Mpc/h)^-3.
@@ -1241,7 +1259,7 @@ class CutskyRandoms(BaseCutskyCatalog):
         fsky = area / 41253.0  # sky fraction covered by the randoms
         volume = 4/3 * np.pi * (self.drange[1]**3 - self.drange[0]**3) * fsky  # in (Mpc/h)^3
         return len(self.catalog['Z']) / volume
-
+    
     def get_raw_nbar_at_z(self, *args):
         """
         Obtains the correct raw_nbar value for a randoms catalog
@@ -1251,4 +1269,5 @@ class CutskyRandoms(BaseCutskyCatalog):
         self.raw_nbar : float
             The raw_nbar values for the randoms
         """
-        return self.raw_nbar
+        return self.
+    '''
