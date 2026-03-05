@@ -143,6 +143,9 @@ class JaxpowerBackend:
                 mesh = mesh.r2c()
             return mesh
 
+        self.randoms_threshold_value = randoms_threshold_value
+        self.randoms_threshold_method = randoms_threshold_method
+
         t0 = time.time()
         kw = dict(resampler=resampler, compensate=compensate, interlacing=interlacing, halo_add=halo_add)
         data_mesh = self.data_mesh.paint(**kw, out='real')
