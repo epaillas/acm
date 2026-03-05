@@ -69,13 +69,16 @@ docs = [
 ]
 testing = [
     "pytest",
-    "pytest-cov",
+    "coverage",
     "pytest-docstyle",
     "pytest-emoji",
-    "flake8",
+    "pylint",
+    "ruff",
     "black",
     "isort",
     "mypy",
+    "ciqar",
+    "ty"
 ]
 # Estimators
 knn = [
