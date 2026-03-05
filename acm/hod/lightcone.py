@@ -506,7 +506,7 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-        self.raw_nbar = self.calculate_raw_nbar()
+        #self.raw_nbar = self.calculate_raw_nbar()
         self.sim_type = sim_type
         self.boxsize = 7500 if self.sim_type == 'huge' else 2000
         self.monte_carlo_sampling_count = 10000
