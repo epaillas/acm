@@ -207,6 +207,7 @@ class BoxHOD:
         save_fn: str | Path | None = None,
         add_ap: bool = False,
         use_logsigma: bool = True,
+        nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy',
     ) -> dict:
         """
         Run the HOD model with the given parameters.
@@ -233,6 +234,9 @@ class BoxHOD:
             Whether to use the logarithm of sigma as the parameter for the HOD instead of sigma itself. 
             This is useful for sampling purposes, since sigma can vary over several orders of magnitude. 
             Default is True.
+        nfw_draw_path: str, optional
+            Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
+            samples on NERSC
 
         Returns
         -------
@@ -264,8 +268,11 @@ class BoxHOD:
         self.in_density = True  # Flag if mock is within density threshold
         # set want_nfw (unique for ELG cutsky)
         if tracer == 'ELG' and self.sim_geometry == 'cutsky':
+            # TODO: create functional ELG cutsky mocks implementation
+            raise ValueError('ELG cutsky mocks are not currently supported')
+            
             want_nfw = True
-            NFW_draw = np.load('/global/cfs/projectdirs/desi/users/arocher/nfw.npy', allow_pickle=True)
+            NFW_draw = np.load(nfw_draw_path, allow_pickle=True)
         else:
             want_nfw = False
             NFW_draw = None
