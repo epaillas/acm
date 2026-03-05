@@ -20,7 +20,9 @@ Coordinates:
   * ells          (ells) int64 16B 0 2
   * s             (s) float64 400B 1.5 4.5 7.5 10.5 ... 139.5 142.5 145.5 148.5
   * phase_idx     (phase_idx) int64 13kB 3000 3001 3002 3003 ... 4997 4998 4999
-Data variables:
+  
+Data variables: (data_vars attribute of xarray.Dataset) 
+https://docs.xarray.dev/en/stable/api/dataset.html#attributes
     x             (cosmo_idx, hod_idx, parameters) float64 1MB 0.02237 ... 0....
     y             (cosmo_idx, hod_idx, ells, s) float64 7MB 2.486 ... -0.001705
     covariance_y  (phase_idx, ells, s) float64 1MB 3.873 1.615 ... -0.00172,
@@ -47,7 +49,14 @@ From ckpt file in 'model_dir' parameter
     (mlp5): Linear(in_features=549, out_features=100, bias=True)
   )
   (loss_fct): L1Loss()
+  
+  
+__getattr__(name) method of Observable class is used to access the attributes of the dataset.
+apply also filter if  name is in data_vars of _dataset attibut, ie in this example:
+* x,y, covariance_y.
+
 """
+from desilike.observables.types import ObservableCovariance
 
 import os
 from copy import copy, deepcopy
@@ -181,7 +190,6 @@ def test_drop_nan_dimensions():
             lon=("X", np.array([10.0, 10.25, 10.5, 10.75])),
         ),
     )
-    
     obst = Observable(stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST))
     out_daa = obst.drop_nan_dimensions(daa)
     xarray.testing.assert_equal(daa, out_daa)
@@ -195,3 +203,52 @@ def test_drop_nan_dimensions():
     daa.attrs["nan_dims"] = ["X", "Y"]
     out_daa = obst.drop_nan_dimensions(daa)
     assert out_daa.values.shape == (3,3)
+
+@pytest.mark.skip(reason="Test temporarily skipped")
+def test_get_covariance_matrix():
+    """
+    Test that the method get_covariance_matrix correctly returns the covariance matrix from the dataset.
+    
+CODE of method get_covariance_matrix()
+
+    cov_y = self.covariance_y  # Filtered and flattened DataArray
+    cov_y = self.flatten_output(cov_y, flat_output_dims=2, unstack=False)  # No unstacking to avoid NaN
+    cov_y = cov_y.values
+    prefactor = prefactor / volume_factor
+    cov = prefactor * np.cov(cov_y, rowvar=False)
+
+
+Comments about method:
+    * use self._dataset.covariance_y to get the covariance matrix from the dataset
+    * Observe apply filter : cov_y = self.covariance_y 
+
+
+    1) covariance_y shape is (phase_idx, ells, s) = (1643, 2, 50) 
+    covariance matrix must be square.
+    
+In [2]: np.sqrt(1643)
+Out[2]: 40.53393639902249
+
+maybe triangle plus diagonal: n(n-1)/2 = 1643
+
+np.roots([1,-1,-1643*2])
+Out[6]: array([ 57.82582315, -56.82582315])
+
+neither , so ?
+
+
+    2) cov = prefactor * np.cov(cov_y, rowvar=False)
+    covariance is defined by covariance method of numpy with covariance  ...?
+    """
+    obst = Observable(stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST))
+    cov_matrix = obst.get_covariance_matrix()
+    assert False
+    
+
+def test_flatten_output():
+    arr = xarray.DataArray(
+        np.arange(24).reshape(2, 3,4),
+        coords=[("x", ["a", "b"]), ("features", [0, 1, 2]), ("sample", [10, 20, 30, 40])],
+    )
+    res = Observable.flatten_output(arr, flat_output_dims=1)
+    print(res)
