@@ -269,6 +269,9 @@ class BoxHOD:
             Whether to use the logarithm of sigma as the parameter for the HOD instead of sigma itself. 
             This is useful for sampling purposes, since sigma can vary over several orders of magnitude. 
             Default is True.
+        save_distortions: bool, default=False
+            Save positions distorted by RSD and AP effects to catalog (only used if save_fn is provided). 
+            AP distortion will not be saved if add_ap is False.
 
         Returns
         -------
@@ -373,6 +376,9 @@ class BoxHOD:
             Filename to save the catalog. If parent tree directories do not exist, they will be created.
         hod_dict : dict
             Dictionary containing the HOD catalog.
+        save_distortions: bool, default=False
+            Save positions distorted by RSD and AP effects to catalog (only used if save_fn is provided). 
+            AP distortion will not be saved if add_ap is False.
         """
         tracer = self.tracer
         # Ensure parent directories exist
@@ -390,8 +396,7 @@ class BoxHOD:
                 label[i-2] += append
 
                 positions = self.get_positions(
-                                    hod_dict,
-                                    tracer=tracer,
+                                    catalog,
                                     los=los,
                                     add_rsd=True,
                                     hubble=self.hubble,
@@ -551,8 +556,8 @@ class BoxHOD:
         np.ndarray
             Array of galaxy positions with shape (N_gal, 3).
         """
-        hod_dict = hod_dict.copy()  # Avoid modifying the original dictionary
-        tracer_dict = hod_dict[tracer] if tracer is not None else hod_dict
+        # Avoid modifying the original dictionary
+        tracer_dict = hod_dict[tracer].copy() if tracer is not None else hod_dict.copy()
         
         # Apply RSD before AP distortions
         if add_rsd:
