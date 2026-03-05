@@ -1,6 +1,6 @@
 import numpy as np
 from acm.hod import BoxHOD
-from acm.utils import setup_logging
+from acm import setup_logging
 import logging
 from pathlib import Path
 import pandas
