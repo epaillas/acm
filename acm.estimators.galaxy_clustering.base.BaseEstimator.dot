@@ -1,5 +1,0 @@
-digraph "acm.estimators.galaxy_clustering.base.BaseEstimator" {
-rankdir=BT
-charset="utf-8"
-"acm.estimators.galaxy_clustering.base.BaseEstimator" [color="black", fontcolor="black", label=<acm.estimators.galaxy_clustering.base.BaseEstimator>, shape="record", style="solid"];
-}
