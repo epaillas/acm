@@ -197,6 +197,41 @@ class BoxHOD:
         default = {key: value for key, value in self.ball.tracers[self.tracer].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
+    def check_catalogue(self, hod_dict: dict, n_target: float, rtol: float = 0.01) -> None:
+        """
+        Check if catalogue number density and satellite fractions match expectations, i.e. halo/particle catalogue subsampling is sufficient for given parameter values.
+
+        Parameters
+        ----------
+        hod_dict : dict
+            Dictionary containing the HOD catalog.
+
+        n_target: float
+            Target number density for HOD catalogue downsampling.
+
+        rtol: float, default=0.01
+            Relative tolerance of true and expected values for number density and satellite fraction.
+
+        Raises
+        ------
+        logger.warning
+            If the values are outside of the tolerance.
+        """
+
+        # ensure number density matches expectation of HMF
+        N_gal_mock = len(hod_dict[self.tracer]['x'])
+        n_gal_mock = N_gal_mock / self.boxsize**3
+        if self.add_ap: n_gal_mock *= self.q_par * self.q_perp**2
+        n_gal_diff = n_gal_mock / min(n_target.max(), self.n_gal) - 1
+        if abs(n_gal_diff) > rtol:
+            self.logger.warning(f'Number density of mock does not match expectation ({n_gal_diff*100:.0f}% offset). Adjust the halo catalogue subsampling!')
+
+        # ensure satellite fraction matches expectation of HMF
+        f_sat_mock = 1 - hod_dict[self.tracer]['Ncent'] / N_gal_mock
+        f_sat_diff = f_sat_mock / self.f_sat - 1
+        if abs(f_sat_diff) > rtol:
+            self.logger.warning(f'Satellite fraction of mock does not match expectation ({f_sat_diff*100:.0f}% offset). Adjust the particle catalogue subsampling!')
+
     def run(
         self,
         hod_params: dict,
@@ -207,6 +242,7 @@ class BoxHOD:
         save_fn: str | Path | None = None,
         add_ap: bool = False,
         use_logsigma: bool = True,
+        save_distortions: bool = False,
     ) -> dict:
         """
         Run the HOD model with the given parameters.
@@ -233,6 +269,9 @@ class BoxHOD:
             Whether to use the logarithm of sigma as the parameter for the HOD instead of sigma itself. 
             This is useful for sampling purposes, since sigma can vary over several orders of magnitude. 
             Default is True.
+        save_distortions: bool, default=False
+            Save positions distorted by RSD and AP effects to catalog (only used if save_fn is provided). 
+            AP distortion will not be saved if add_ap is False.
 
         Returns
         -------
@@ -267,34 +306,36 @@ class BoxHOD:
             want_nfw = True
         else:
             want_nfw = False
-        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw)
-        # workaround for compute_ngal issue with high sigma values
-        n_gal = len(hod_dict[tracer]['x'])
-        subsample = None
+
+        N_gal_dict, f_sat_dict = self.ball.compute_ngal(Nthread=nthreads)
+        self.f_sat = f_sat_dict[tracer]
+        self.n_gal = N_gal_dict[tracer] / self.boxsize**3
+        if self.add_ap: self.n_gal *= self.q_par * self.q_perp**2
+
         if tracer_density is not None:
-            n_target = np.array(tracer_density) * self.boxsize ** 3
-            if self.add_ap: n_target /= self.q_par * self.q_perp**2
-            if (n_target.size > 1) & (n_target.min() / n_gal > 1): 
-                self.logger.info('Catalogue below minimum density threshold')
+            n_target = np.array(tracer_density)
+            if (n_target.size > 1) & (n_target.min() / self.n_gal > 1): 
+                self.logger.info(f'Catalogue below minimum density threshold (n={self.n_gal:.5f})')
                 self.in_density = False  # Flag that mock is below density threshold
                 if not process_underdense:
-                    return hod_dict  # Unprocessed catalog, should not be used
-            elif (n_target.max() / n_gal) < 1:
-                self.logger.info('Downsampling mock')
-                subsample = np.random.choice(range(n_gal), size=int(n_target.max()), replace=False)
+                    return None
             else:
-                self.logger.info('Mock within density thresholds')
+                self.logger.info(f'Catalogue above minimum density threshold (n={self.n_gal:.5f})')
+                self.ball.tracers[tracer]['ic'] = min(1, n_target.max() / self.n_gal)
+
+        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw)
+
+        self.check_catalogue(hod_dict, n_target.max())
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
         hod_dict = self.postprocess_catalog(hod_dict, subsample)
         if save_fn is not None:
-            self.save_catalog(save_fn, hod_dict)
+            self.save_catalog(save_fn, hod_dict, save_distortions=save_distortions)
         return hod_dict
 
     def postprocess_catalog(
         self,
         hod_dict: dict,
-        subsample: list[int] | None = None,
     ) -> dict:
         """
         Add distortion effects and format the HOD catalog.
@@ -303,8 +344,6 @@ class BoxHOD:
         ----------
         hod_dict : dict
             Dictionary containing the HOD catalog.
-        subsample : list[int], optional
-            List of indices used to subsample the catalogue.
 
         Returns
         -------
@@ -318,11 +357,7 @@ class BoxHOD:
         is_central[:Ncent] += 1
         hod_dict[tracer]['is_cent'] = is_central
 
-        # workaround for compute_ngal issue
-        if subsample is None:
-            hod_dict[tracer] = {k.upper():v  for k, v in hod_dict[tracer].items()}
-        else:
-            hod_dict[tracer] = {k.upper():v[subsample]  for k, v in hod_dict[tracer].items()}
+        hod_dict[tracer] = {k.upper():v  for k, v in hod_dict[tracer].items()}
 
         return hod_dict
 
@@ -330,6 +365,7 @@ class BoxHOD:
         self,
         save_fn: str | Path,
         hod_dict: dict,
+        save_distortions: bool = False,
     ) -> None:
         """
         Save the HOD catalog to a FITS file.
@@ -340,15 +376,42 @@ class BoxHOD:
             Filename to save the catalog. If parent tree directories do not exist, they will be created.
         hod_dict : dict
             Dictionary containing the HOD catalog.
+        save_distortions: bool, default=False
+            Save positions distorted by RSD and AP effects to catalog (only used if save_fn is provided). 
+            AP distortion will not be saved if add_ap is False.
         """
         tracer = self.tracer
         # Ensure parent directories exist
         save_fn = Path(save_fn)
         save_fn.parent.mkdir(parents=True, exist_ok=True)
         
-        table = Table(hod_dict[tracer])
+        catalog = hod_dict[tracer].copy()
+        if save_distortions:
+            axes = ['X', 'Y', 'Z']
+            append = '_PERP' if self.add_ap else ''
+            for (i, los) in enumerate(axes):
+                label = axes.copy()
+                label[i] += '_RSD'
+                label[i-1] += append
+                label[i-2] += append
+
+                positions = self.get_positions(
+                                    catalog,
+                                    los=los,
+                                    add_rsd=True,
+                                    hubble=self.hubble,
+                                    az=self.az,
+                                    boxsize=self.boxsize,
+                                    add_ap=self.add_ap,
+                                    q_par=self.q_par,
+                                    q_perp=self.q_perp,
+                                )
+                catalog[label[0]], catalog[label[1]], catalog[label[2]] = positions.T
+
+        table = Table(catalog)
         header = fits.Header({
             'gal_type': tracer, 
+            'n_gal': self.n_gal,
             'hubble': self.hubble, 
             'az': self.az,
             'boxsize': self.boxsize,
@@ -493,8 +556,8 @@ class BoxHOD:
         np.ndarray
             Array of galaxy positions with shape (N_gal, 3).
         """
-        hod_dict = hod_dict.copy()  # Avoid modifying the original dictionary
-        tracer_dict = hod_dict[tracer] if tracer is not None else hod_dict
+        # Avoid modifying the original dictionary
+        tracer_dict = hod_dict[tracer].copy() if tracer is not None else hod_dict.copy()
         
         # Apply RSD before AP distortions
         if add_rsd:
