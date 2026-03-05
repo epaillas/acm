@@ -1,0 +1,19 @@
+[lint]
+select = ["D", "PL"]
+
+# Checks for the use of unnamed numerical constants ("magic") values in comparisons.
+ignore = ["PLR2004"]
+
+# Disable F541 because can produce wrong fix with latex, like
+# -        lax[1].set_ylabel(rf'$\Delta w_p / \sigma_{{w_p}}$', fontsize=15)
+# +        lax[1].set_ylabel(r'$\Delta w_p / \sigma_{w_p}$', fontsize=15)
+unfixable = ["F541"]
+
+[lint.pylint]
+max-args = 6
+
+[lint.pydocstyle]
+convention = "numpy"
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]
