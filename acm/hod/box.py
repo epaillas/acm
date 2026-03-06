@@ -338,7 +338,7 @@ class BoxHOD:
             self.check_catalogue(hod_dict, n_target.max())
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
-        hod_dict = self.postprocess_catalog(hod_dict, subsample)
+        hod_dict = self.postprocess_catalog(hod_dict)
         if save_fn is not None:
             self.save_catalog(save_fn, hod_dict, save_distortions=save_distortions)
         return hod_dict
