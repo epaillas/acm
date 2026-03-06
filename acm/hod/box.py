@@ -8,7 +8,7 @@ from astropy.table import Table
 import logging
 import warnings
 import sys
-from abacusnbody.hod import abacus_hod
+from abacusnbody.hod.abacus_hod import AbacusHOD
 from cosmoprimo.fiducial import DESI, AbacusSummit
 from acm.utils.paths import lookup_registry_path
 
@@ -129,7 +129,7 @@ class BoxHOD:
         sim_params['z_mock'] = self.redshift
         HOD_params = config['HOD_params']
         self.logger.info(f'Initializing AbacusHOD with parameters {sim_params}.')
-        self.ball = abacus_hod.AbacusHOD(sim_params, HOD_params)
+        self.ball = AbacusHOD(sim_params, HOD_params)
         self.ball.params['Lbox'] = self.boxsize
         self.cosmo_fid = DESI()
         if self.cosmo_idx in [300, 301, 302, 303]:
