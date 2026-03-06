@@ -41,7 +41,7 @@ class BaseLightconeCatalog(ABC):
         pass
     """
     
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, ):
+    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, dz_new: float = 0.002):
         """
         Applies the radial selection function to a lightcone catalog based on 
         an input n(z) file (number desity as a function of redshift).
@@ -53,8 +53,12 @@ class BaseLightconeCatalog(ABC):
             (1, 2, 3) are zbin_min, zbin_max, and target_nz respectively.
         shape_only : bool, optional
             If True, match only the shape of the n(z), disregarding the amplitude.
-        full_sky: bool
+        full_sky : bool
             If True, the survey volunme is scaled to the full sky rather than an octant
+        dz_new : float
+            redshift interval used for redshift bin edges. Should be small compared to 
+            the expected fluctuations in the raw n(z)
+            
         Returns
         -------
         None
@@ -64,16 +68,30 @@ class BaseLightconeCatalog(ABC):
         self.logger.info(f'Raw data nbar: {data_nbar}' )
         
         self.logger.info('Applying radial mask.')
-        #nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
 
         zmin_data = self.catalog['Z'].min()
         zmax_data = self.catalog['Z'].max()
 
         # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
-        zbin_mid = (zbin_min + zbin_max) / 2
-
+        zbin_mid = 0.5 * (zbin_min + zbin_max)
+        if zbin_min[0] > zmin_data or zbin_max[-1] < zmax_data:
+            raise ValueError('Provided n(z) file does not cover redshift range of data')
+        
+        # nz(z) interpolator (piecewise linear)
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
+        
+        # --- refine each coarse bin into dz=0.002 sub-bins ---
+        nsub = int(round((zbin_max[0] - zbin_min[0]) / dz_new))  # should be 5 for 0.01->0.002
+        if not np.allclose(zbin_max - zbin_min, nsub * dz_new, rtol=0, atol=1e-12):
+            raise ValueError("Your input bins are not an integer multiple of dz_new.")
+        
+        # new bin edges per coarse bin: (Nbins, nsub+1)
+        edges = zbin_min[:, None] + dz_new * np.arange(nsub + 1)[None, :]
+        
+        # flatten into sub-bins
+        zbin_min = edges[:, :-1].ravel()
+        zbin_max = edges[:,  1:].ravel()
         
         #impose lightcone redshift limits on zbins
         select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
@@ -88,7 +106,9 @@ class BaseLightconeCatalog(ABC):
         zedges = np.insert(zbin_max, 0, zbin_min[0])
         dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
         dedges =  np.insert(dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0]))
-        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) / 8 
+        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
+        if not full_sky:
+            volume = volume / 8
         
         # Handle shells exterior to the Abacus boxes
         if np.any(dbin_max > self.boxsize):
@@ -485,7 +505,6 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-        self.raw_nbar = self.calculate_raw_nbar()
         self.sim_type = sim_type
         self.boxsize = 7500 if self.sim_type == 'huge' else 2000
         self.monte_carlo_sampling_count = 10000
