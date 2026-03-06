@@ -16,8 +16,8 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, stat_name='spectrum', **kwargs):
-        super().__init__(stat_name=stat_name, **kwargs)
+    def __init__(self, stat_name='spectrum', n_test=6*250, **kwargs):
+        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
     @classmethod
     def compress_covariance(
