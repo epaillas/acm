@@ -242,6 +242,7 @@ class BoxHOD:
         save_fn: str | Path | None = None,
         add_ap: bool = False,
         use_logsigma: bool = True,
+        nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy',
         save_distortions: bool = False,
     ) -> dict:
         """
@@ -269,6 +270,9 @@ class BoxHOD:
             Whether to use the logarithm of sigma as the parameter for the HOD instead of sigma itself. 
             This is useful for sampling purposes, since sigma can vary over several orders of magnitude. 
             Default is True.
+        nfw_draw_path: str, optional
+            Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
+            samples on NERSC
         save_distortions: bool, default=False
             Save positions distorted by RSD and AP effects to catalog (only used if save_fn is provided). 
             AP distortion will not be saved if add_ap is False.
@@ -303,9 +307,14 @@ class BoxHOD:
         self.in_density = True  # Flag if mock is within density threshold
         # set want_nfw (unique for ELG cutsky)
         if tracer == 'ELG' and self.sim_geometry == 'cutsky':
+            # TODO: create functional ELG cutsky mocks implementation
+            warnings.warn("WARNING: ELG cutsky mocks are not currently supported. Unexpected behavior may occur.")
+            
             want_nfw = True
+            NFW_draw = np.load(nfw_draw_path, allow_pickle=True)
         else:
             want_nfw = False
+            NFW_draw = None
 
         N_gal_dict, f_sat_dict = self.ball.compute_ngal(Nthread=nthreads)
         self.f_sat = f_sat_dict[tracer]
@@ -323,7 +332,7 @@ class BoxHOD:
                 self.logger.info(f'Catalogue above minimum density threshold (n={self.n_gal:.5f})')
                 self.ball.tracers[tracer]['ic'] = min(1, n_target.max() / self.n_gal)
 
-        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw)
+        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw, NFW_draw=NFW_draw)
 
         self.check_catalogue(hod_dict, n_target.max())
 
