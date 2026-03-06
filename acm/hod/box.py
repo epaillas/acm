@@ -423,7 +423,8 @@ class BoxHOD:
         myfits.writeto(save_fn, overwrite=True)
         self.logger.info(f'Saving {save_fn}.')
 
-    def param_mapping(self, hod_params: dict | list[str]) -> dict | list[str]:
+    @staticmethod
+    def param_mapping(hod_params: dict | list[str]) -> dict | list[str]:
         """
         Map custom HOD parameters to Abacus HOD parameters. 
 
