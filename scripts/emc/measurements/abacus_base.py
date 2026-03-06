@@ -38,7 +38,7 @@ def get_cli_args():
         choices=['j4', 'j5', 'j4_alt'],
         help='WST configuration: j4 (J=4,L=4,q=1,sigma=0.8), j5 (J=5,L=3,q=0.8,sigma=0.4), j4_alt (J=4,L=4,q=1,sigma=1.0)'
     )
-    parser.add_argument("--version", type=str, default='v1.2', help='Version string for organizing outputs')
+    parser.add_argument("--version", type=str, default='v1.3', help='Version string for organizing outputs')
 
     args = parser.parse_args()
     return args
@@ -83,12 +83,12 @@ def get_save_dir(base_save_dir, stat_name, cosmo_idx, phase_idx, seed_idx, extra
     save_dir.mkdir(parents=True, exist_ok=True)
     return save_dir
 
-def get_hod_fns(cosmo=0, phase=0, seed=0, redshift=0.8):
+def get_hod_fns(cosmo=0, phase=0, seed=0, redshift=0.8, version='v1.2'):
     """
     Get the list of HOD file names for a given cosmology,
     phase, and redshift.
     """
-    base_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/'
+    base_dir = f'/pscratch/sd/n/ntbfin/emulator/hods/{version}/yuan23_prior/'
     hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed}/'
     hod_fns = glob.glob(str(Path(hod_dir) / f'hod*.fits'))
     return sorted(hod_fns)
