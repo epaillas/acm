@@ -202,9 +202,6 @@ class BaseCutskyCatalog(ABC):
         zbin_mid = (zbin_min + zbin_max) / 2
         target_nz = nz_spline(zbin_mid)
         
-        #raw_nbar = self.get_raw_nbar_at_z(zbin_mid)
-        #ratio = target_nz / raw_nbar
-        
         #calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
         dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
@@ -805,8 +802,6 @@ class CutskyHOD(BaseCutskyCatalog):
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
         self.catalog = self.init_cutsky()
-
-        #self.raw_nbar_snapshots = []
         
         # construct one redshift shell at a time from the snapshots
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
@@ -830,10 +825,6 @@ class CutskyHOD(BaseCutskyCatalog):
                     seed=seed,
                     nfw_draw_path = nfw_draw_path,
                 )
-            # Each rank has a portion of box_positions after scatter
-            # Need to gather total count for raw_nbar calculation
-            #total_particles = mpy.csize(box_positions, mpicomm=self.mpicomm) // 3
-            #self.raw_nbar_snapshots.append( total_particles / (self.boxsize**3) )
 
             # replicate the box along each axis to cover more volume
             pos_min, pos_max = self.get_reference_borders(
@@ -1146,40 +1137,7 @@ class CutskyHOD(BaseCutskyCatalog):
             pos = pos[chosen]
             vel = vel[chosen]
         return pos,vel
-    '''
-    def get_raw_nbar_at_z(self, redshift: np.ndarray) -> np.ndarray | float:
-        """
-        Obtains the correct raw_nbar value for a given redshift input
-
-        Parameters
-        ----------
-        redshift : np.ndarray
-            Array of input redshifts
-
-        Returns
-        -------
-        combined_raw_nbar : np.ndarray
-            The raw_nbar values for each redshift
-        """
-
-        if len(self.raw_nbar_snapshots) == 1:
-            return self.raw_nbar_snapshots[0]
-
-        combined_raw_nbar = np.zeros_like(redshift)
-        
-        for raw_nbar, zrange in zip(self.raw_nbar_snapshots, self.zranges):
-
-            select_targets = np.ones_like(redshift, dtype = bool)
-
-            if zrange[0] != self.zranges[0][0]:
-                select_targets *= (redshift > zrange[0] ) 
-            if zrange[1] != self.zranges[-1][1]:
-                select_targets *= (redshift < zrange[1] ) 
-            
-            combined_raw_nbar[select_targets] = raw_nbar
-
-        return combined_raw_nbar
-    ''' 
+    
 
 class CutskyRandoms(BaseCutskyCatalog):
     """
@@ -1243,31 +1201,4 @@ class CutskyRandoms(BaseCutskyCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-        #self.raw_nbar = self.calculate_raw_nbar()
 
-    '''
-    def calculate_raw_nbar(self):
-        """
-        Calculate the comoving number density as a function of redshift, in (Mpc/h)^-3.
-
-        Returns
-        -------
-        float
-            The number density of the randoms.
-        """
-        area = radecbox_area(self.rarange, self.decrange)  # in square degrees
-        fsky = area / 41253.0  # sky fraction covered by the randoms
-        volume = 4/3 * np.pi * (self.drange[1]**3 - self.drange[0]**3) * fsky  # in (Mpc/h)^3
-        return len(self.catalog['Z']) / volume
-    
-    def get_raw_nbar_at_z(self, *args):
-        """
-        Obtains the correct raw_nbar value for a randoms catalog
-
-        Returns
-        -------
-        self.raw_nbar : float
-            The raw_nbar values for the randoms
-        """
-        return self.
-    '''

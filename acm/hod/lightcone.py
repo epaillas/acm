@@ -68,7 +68,6 @@ class BaseLightconeCatalog(ABC):
         self.logger.info(f'Raw data nbar: {data_nbar}' )
         
         self.logger.info('Applying radial mask.')
-        #nz_filename = f'/global/cfs/cdirs/desi/survey/catalogs/Y1/LSS/iron/LSScats/v1.5/{tracer}_NGC_nz.txt'
 
         zmin_data = self.catalog['Z'].min()
         zmax_data = self.catalog['Z'].max()
@@ -506,7 +505,6 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-        #self.raw_nbar = self.calculate_raw_nbar()
         self.sim_type = sim_type
         self.boxsize = 7500 if self.sim_type == 'huge' else 2000
         self.monte_carlo_sampling_count = 10000

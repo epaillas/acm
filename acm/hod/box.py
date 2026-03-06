@@ -269,7 +269,7 @@ class BoxHOD:
         # set want_nfw (unique for ELG cutsky)
         if tracer == 'ELG' and self.sim_geometry == 'cutsky':
             # TODO: create functional ELG cutsky mocks implementation
-            raise ValueError('ELG cutsky mocks are not currently supported')
+            warnings.warn("WARNING: ELG cutsky mocks are not currently supported. Unexpected behavior may occur.")
             
             want_nfw = True
             NFW_draw = np.load(nfw_draw_path, allow_pickle=True)
