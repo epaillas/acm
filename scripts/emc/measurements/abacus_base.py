@@ -11,8 +11,6 @@ from acm.utils.default import cosmo_list
 import gc
 
 
-
-
 def get_cli_args():
     import argparse
 
@@ -582,7 +580,7 @@ if __name__ == '__main__':
         bspec_bin = None
         for phase_idx in phases:
             for seed_idx in seeds:
-                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, seed=seed_idx, redshift=redshift)
+                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, seed=seed_idx, redshift=redshift, version=args.version)
                 if len(hod_fns) == 0:
                     logger.info(f'No HOD files found for c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}. Skipping.')
                     continue
