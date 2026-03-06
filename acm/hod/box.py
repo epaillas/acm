@@ -196,6 +196,121 @@ class BoxHOD:
         self.varied_params = params
         default = {key: value for key, value in self.ball.tracers[self.tracer].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
+        
+    @staticmethod
+    def setup_ball_tracer(ball: AbacusHOD, hod_params: dict, tracer: str, use_logsigma: bool = True) -> None:
+        """
+        Set up the AbacusHOD tracer parameters based on the provided HOD parameters.
+
+        Parameters
+        ----------
+        ball : AbacusHOD object
+            The AbacusHOD object to set up.
+        hod_params : dict
+            Dictionary of HOD parameters.
+        tracer : str
+            The tracer for which to set up parameters.
+        use_logsigma : bool, optional
+            Whether to use the logarithm of sigma as the parameter for the HOD instead of sigma itself. Default is True.
+
+        Returns
+        -------
+        ball : AbacusHOD object
+            The AbacusHOD object with updated tracer parameters.
+        """
+        for key in hod_params.keys():
+            if key == 'sigma' and use_logsigma:
+                ball.tracers[tracer][key] = 10**hod_params[key]
+            else:
+                ball.tracers[tracer][key] = hod_params[key]
+        ball.tracers[tracer]['ic'] = 1
+        return ball
+    
+    @staticmethod
+    def ngal_fsat_from_ball(
+        ball: AbacusHOD,
+        tracer: str, 
+        boxsize: float, 
+        add_ap: bool = False,
+        q_par: float | None = None,
+        q_perp: float | None = None,
+        nthreads: int = 1
+    ) -> tuple:
+        """
+        Get the number density and satellite fraction from the AbacusHOD object HMF for a given tracer and box size, taking into account Alcock-Paczynski distortions if specified.
+
+        Parameters
+        ----------
+        ball : AbacusHOD
+            The AbacusHOD object to compute the number density and satellite fraction from.
+        tracer : str
+            The tracer for which to compute the number density and satellite fraction.
+        boxsize : float
+            The size of the simulation box.
+        add_ap : bool, optional
+            Whether to take Alcock-Paczynski distortions into account when computing the number density. 
+            To use if you plan to apply AP distortions to the catalog later on.
+            Default is False.
+        q_par : float | None, optional
+            The parallel scale factor for Alcock-Paczynski distortions. Default is None.
+        q_perp : float | None, optional
+            The perpendicular scale factor for Alcock-Paczynski distortions. Default is None.
+        nthreads : int, optional
+            The number of threads to use for computation. Default is 1
+
+        Returns
+        -------
+        tuple
+            A tuple containing the number density and satellite fraction for the given tracer and box size.
+        """
+        N_gal_dict, f_sat_dict = ball.compute_ngal(Nthread=nthreads)
+        f_sat = f_sat_dict[tracer]
+        n_gal = N_gal_dict[tracer] / boxsize**3
+        if add_ap: n_gal *= q_par * q_perp**2
+        
+        return n_gal, f_sat
+    
+    @staticmethod
+    def ngal_fsat_from_mock(
+        hod_dict: dict,
+        tracer: str,
+        boxsize: float,
+        add_ap: bool = False,
+        q_par: float | None = None,
+        q_perp: float | None = None,
+    ) -> tuple:
+        """
+        Get the number density and satellite fraction from the HOD mock catalogue for a given tracer and box size, taking into account Alcock-Paczynski distortions if specified.
+        
+        Parameters
+        ----------
+        hod_dict : dict
+            Dictionary containing the HOD catalog.
+        tracer : str
+            The tracer for which to compute the number density and satellite fraction.
+        boxsize : float
+            The size of the simulation box.
+        add_ap : bool, optional
+            Whether to take Alcock-Paczynski distortions into account when computing the number density.
+            To use if you plan to apply AP distortions to the catalog later on.
+            Default is False.
+        q_par : float | None, optional
+            The parallel scale factor for Alcock-Paczynski distortions. Default is None.
+        q_perp : float | None, optional
+            The perpendicular scale factor for Alcock-Paczynski distortions. Default is None.
+        
+        Returns
+        -------
+        tuple
+            A tuple containing the number density and satellite fraction for the given tracer and box size.
+        """
+        N_gal_mock = len(hod_dict[tracer]['x'])
+        n_gal_mock = N_gal_mock / boxsize**3
+        if add_ap: n_gal_mock *= q_par * q_perp**2
+        
+        f_sat_mock = 1 - hod_dict[tracer]['Ncent'] / N_gal_mock
+        
+        return n_gal_mock, f_sat_mock
 
     def check_catalogue(self, hod_dict: dict, n_target: float, rtol: float = 0.01) -> None:
         """
@@ -217,17 +332,22 @@ class BoxHOD:
         logger.warning
             If the values are outside of the tolerance.
         """
+        
+        n_gal_mock, f_sat_mock = self.ngal_fsat_from_mock(
+            hod_dict, 
+            self.tracer, 
+            self.boxsize, 
+            add_ap=self.add_ap, 
+            q_par=self.q_par, 
+            q_perp=self.q_perp
+        )
 
         # ensure number density matches expectation of HMF
-        N_gal_mock = len(hod_dict[self.tracer]['x'])
-        n_gal_mock = N_gal_mock / self.boxsize**3
-        if self.add_ap: n_gal_mock *= self.q_par * self.q_perp**2
         n_gal_diff = n_gal_mock / min(n_target.max(), self.n_gal) - 1
         if abs(n_gal_diff) > rtol:
             self.logger.warning(f'Number density of mock does not match expectation ({n_gal_diff*100:.0f}% offset). Adjust the halo catalogue subsampling!')
 
         # ensure satellite fraction matches expectation of HMF
-        f_sat_mock = 1 - hod_dict[self.tracer]['Ncent'] / N_gal_mock
         f_sat_diff = f_sat_mock / self.f_sat - 1
         if abs(f_sat_diff) > rtol:
             self.logger.warning(f'Satellite fraction of mock does not match expectation ({f_sat_diff*100:.0f}% offset). Adjust the particle catalogue subsampling!')
@@ -287,30 +407,25 @@ class BoxHOD:
             If the HOD parameters do not match the varied parameters.
         """
         tracer = self.tracer
+        
         self.add_ap = add_ap # flag to indicate if AP distortions were applied to number density
-        if seed == 0: seed = None
-        #if tracer not in ['LRG']:
-        #    raise ValueError('Only LRGs are currently supported.')
+        self.in_density = True  # Flag if mock is within density threshold
+        
+        if seed == 0: 
+            seed = None
+        
         hod_params = self.param_mapping(hod_params)
         if set(hod_params.keys()) != set(self.varied_params):
             raise ValueError('Invalid HOD parameters. Must match the varied parameters.')
-        for key in hod_params.keys():
-            if key == 'sigma' and use_logsigma:
-                self.ball.tracers[tracer][key] = 10**hod_params[key]
-            else:
-                self.ball.tracers[tracer][key] = hod_params[key]
-        self.ball.tracers[tracer]['ic'] = 1
-        self.in_density = True  # Flag if mock is within density threshold
+        self.ball = self.setup_ball_tracer(self.ball, hod_params, tracer, use_logsigma=use_logsigma)
+        
         # set want_nfw (unique for ELG cutsky)
         if tracer == 'ELG' and self.sim_geometry == 'cutsky':
             want_nfw = True
         else:
             want_nfw = False
 
-        N_gal_dict, f_sat_dict = self.ball.compute_ngal(Nthread=nthreads)
-        self.f_sat = f_sat_dict[tracer]
-        self.n_gal = N_gal_dict[tracer] / self.boxsize**3
-        if self.add_ap: self.n_gal *= self.q_par * self.q_perp**2
+        self.n_gal, self.f_sat = self.ngal_fsat_from_ball(self.ball, tracer, self.boxsize, add_ap=self.add_ap, q_par=self.q_par, q_perp=self.q_perp, nthreads=nthreads)
 
         if tracer_density is not None:
             n_target = np.array(tracer_density)
@@ -328,29 +443,31 @@ class BoxHOD:
         self.check_catalogue(hod_dict, n_target.max())
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
-        hod_dict = self.postprocess_catalog(hod_dict)
+        hod_dict = self.postprocess_catalog(hod_dict, tracer)
         if save_fn is not None:
             self.save_catalog(save_fn, hod_dict, save_distortions=save_distortions)
         return hod_dict
 
+    @staticmethod
     def postprocess_catalog(
-        self,
         hod_dict: dict,
+        tracer: str,
     ) -> dict:
         """
-        Add distortion effects and format the HOD catalog.
+        Format HOD catalog with central galaxy flag and uppercase keys for positions and velocities.
 
         Parameters
         ----------
         hod_dict : dict
             Dictionary containing the HOD catalog.
+        tracer : str
+            The tracer for which to process the catalog.
 
         Returns
         -------
         dict
             Dictionary containing the HOD catalog.
         """
-        tracer = self.tracer
         Ncent = hod_dict[tracer]['Ncent']
         hod_dict[tracer].pop('Ncent', None)
         is_central = np.zeros(len(hod_dict[tracer]['x']))
