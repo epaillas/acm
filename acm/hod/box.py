@@ -334,7 +334,8 @@ class BoxHOD:
 
         hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw, NFW_draw=NFW_draw)
 
-        self.check_catalogue(hod_dict, n_target.max())
+        if tracer_density is not None:
+            self.check_catalogue(hod_dict, n_target.max())
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
         hod_dict = self.postprocess_catalog(hod_dict, subsample)
