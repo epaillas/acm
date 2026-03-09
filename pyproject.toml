@@ -36,6 +36,7 @@ dependencies = [ # Base requirements
 cosmodesi = [
     # Estimators
     'jax',
+    'lsstypes @ git+https://github.com/adematti/lsstypes.git',
     'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
 
     # HOD and cutsky
