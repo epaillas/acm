@@ -197,7 +197,7 @@ class BoxHOD:
         default = {key: value for key, value in self.ball.tracers[self.tracer].items() if key not in params}
         self.logger.info(f'Default parameters: {default}.')
 
-    def check_catalogue(self, hod_dict: dict, n_target: float, rtol: float = 0.01) -> None:
+    def check_catalog(self, hod_dict: dict, n_target: float, rtol: float = 0.01) -> None:
         """
         Check if catalogue number density and satellite fractions match expectations, i.e. halo/particle catalogue subsampling is sufficient for given parameter values.
 
@@ -222,7 +222,7 @@ class BoxHOD:
         N_gal_mock = len(hod_dict[self.tracer]['x'])
         n_gal_mock = N_gal_mock / self.boxsize**3
         if self.add_ap: n_gal_mock *= self.q_par * self.q_perp**2
-        n_gal_diff = n_gal_mock / min(n_target.max(), self.n_gal) - 1
+        n_gal_diff = n_gal_mock / min(n_target, self.n_gal) - 1
         if abs(n_gal_diff) > rtol:
             self.logger.warning(f'Number density of mock does not match expectation ({n_gal_diff*100:.0f}% offset). Adjust the halo catalogue subsampling!')
 
@@ -334,10 +334,10 @@ class BoxHOD:
 
         hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw, NFW_draw=NFW_draw)
 
-        self.check_catalogue(hod_dict, n_target.max())
+        self.check_catalog(hod_dict, 1 if tracer_density is None else n_target.max())
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
-        hod_dict = self.postprocess_catalog(hod_dict, subsample)
+        hod_dict = self.postprocess_catalog(hod_dict)
         if save_fn is not None:
             self.save_catalog(save_fn, hod_dict, save_distortions=save_distortions)
         return hod_dict
