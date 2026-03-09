@@ -199,7 +199,7 @@ class BoxHOD:
 
     def check_catalog(self, hod_dict: dict, n_target: float, rtol: float = 0.01) -> None:
         """
-        Check if check_catalog number density and satellite fractions match expectations, i.e. halo/particle catalogue subsampling is sufficient for given parameter values.
+        Check if catalogue number density and satellite fractions match expectations, i.e. halo/particle catalogue subsampling is sufficient for given parameter values.
 
         Parameters
         ----------
