@@ -21,7 +21,7 @@ from acm import setup_logging
 from acm.utils.covariance import get_covariance_correction, check_covariance_matrix
 
 from utils import get_observable, save_and_plot
-from secondgen_bgs import get_secondgen_data
+from bgs_mocks import get_mock_data
 
 logger = logging.getLogger(__file__.split('/')[-1])
 
@@ -193,8 +193,10 @@ def fit_pocomc(
     if fit_type == 'validation':
         x, observation = get_observable_data(observable)
     elif fit_type == 'secondgen':
-        x, observation, extra_cov = get_secondgen_data(observable)
+        x, observation, extra_cov = get_mock_data(observable, mock_type='SecondGen')
         covariances.append(extra_cov)
+    elif fit_type == 'uchuu':
+        x, observation = get_mock_data(observable, mock_type='Uchuu', add_covariance=False)
     else:
         raise ValueError(f'Unknown fit_type: {fit_type}')
     
