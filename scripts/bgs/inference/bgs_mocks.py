@@ -71,8 +71,8 @@ def compress_mock_x(
     # Handle empty hod dict case
     if hod_params == {}:
         logger.warning(
-            f'No HOD parameters found for Mr_cut={Mr_cut} in {fn}.',
-            'x will contain only cosmology parameters with zeros as placeholders for HOD parameters.'
+            f'No HOD parameters found for Mr_cut={Mr_cut} in {fn}. \
+            x will contain only cosmology parameters with zeros as placeholders for HOD parameters.'
         )
         values = np.concatenate([values, np.zeros(12)]) # Ensure values is a 1D array even if no HOD params
         parameters += [f'hod_param_{i}' for i in range(12)] # Add placeholder names for HOD parameters
@@ -147,7 +147,6 @@ def compress_mock_tpcf(
         raise ValueError(f'Unknown mock type: {mock_type}')
     
     fns = [data_dir / f'z{z:.3f}' / mock_name / 'measurements' / f'Mr{Mr_cut}' / f'tpcf_los_{l}.npy' for l in los]
-    print(fns)
     data = sum([TwoPointEstimator.load(fn).normalize() for fn in fns if fn.exists()])
     if data == 0:
         raise FileNotFoundError(f'No measurement files found in {data_dir}, cannot compute mock data.')
