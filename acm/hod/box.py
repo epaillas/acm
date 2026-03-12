@@ -343,7 +343,7 @@ class BoxHOD:
         )
 
         # ensure number density matches expectation of HMF
-        n_gal_diff = n_gal_mock / min(n_target.max(), self.n_gal) - 1
+        n_gal_diff = n_gal_mock / min(n_target, self.n_gal) - 1
         if abs(n_gal_diff) > rtol:
             self.logger.warning(f'Number density of mock does not match expectation ({n_gal_diff*100:.0f}% offset). Adjust the halo catalogue subsampling!')
 
