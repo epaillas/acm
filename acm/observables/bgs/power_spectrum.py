@@ -44,7 +44,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(small_dir.glob(f'c{cosmo_idx:03d}_ph*'))]
         for phase in phases:
             fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
-            fns = [fn_dir / f'{stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+            fns = [fn_dir / f'{stat_name}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
             data = lsstypes.mean([lsstypes.read(fn).select(k=slice(0, None, rebin)).select(k=(kmin, kmax)) for fn in fns if fn.exists()])
             if data == 0:
                 raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot compute covariance.')
@@ -116,7 +116,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
             )[:n_hod] # Restrict to n_hod if needed
             
             for fn_dir in hod_fns:
-                fns = [fn_dir / f'{stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+                fns = [fn_dir / f'{stat_name}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
                     raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot load data.')

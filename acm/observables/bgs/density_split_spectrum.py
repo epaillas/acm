@@ -97,7 +97,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
             y_quantiles = []
             for q in quantiles:
                 fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
-                fns = [fn_dir / f'{measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+                fns = [fn_dir / f'{measurement_root}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
                     raise FileNotFoundError(f'No measurement files found in {fn_dir} for quantile {q}, cannot compute covariance.')
@@ -234,7 +234,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
             
             for fn_dir in hod_fns:
                 y_quantiles = []
-                fns = [fn_dir / f'{measurement_root}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+                fns = [fn_dir / f'{measurement_root}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
                 for q in quantiles:
                     data = lsstypes.mean([lsstypes.read(fn).select(k=slice(0, None, rebin)).select(k=(kmin, kmax)).get(quantiles=q) for fn in fns if fn.exists()])
                     if data == 0:
