@@ -312,7 +312,7 @@ class BoxHOD:
         
         return n_gal_mock, f_sat_mock
 
-    def check_catalogue(self, hod_dict: dict, n_target: float, rtol: float = 0.01) -> None:
+    def check_catalog(self, hod_dict: dict, n_target: float, rtol: float = 0.01) -> None:
         """
         Check if catalogue number density and satellite fractions match expectations, i.e. halo/particle catalogue subsampling is sufficient for given parameter values.
 
@@ -362,6 +362,7 @@ class BoxHOD:
         save_fn: str | Path | None = None,
         add_ap: bool = False,
         use_logsigma: bool = True,
+        nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy',
         save_distortions: bool = False,
     ) -> dict:
         """
@@ -389,6 +390,9 @@ class BoxHOD:
             Whether to use the logarithm of sigma as the parameter for the HOD instead of sigma itself. 
             This is useful for sampling purposes, since sigma can vary over several orders of magnitude. 
             Default is True.
+        nfw_draw_path: str, optional
+            Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
+            samples on NERSC
         save_distortions: bool, default=False
             Save positions distorted by RSD and AP effects to catalog (only used if save_fn is provided). 
             AP distortion will not be saved if add_ap is False.
@@ -421,9 +425,14 @@ class BoxHOD:
         
         # set want_nfw (unique for ELG cutsky)
         if tracer == 'ELG' and self.sim_geometry == 'cutsky':
+            # TODO: create functional ELG cutsky mocks implementation
+            warnings.warn("WARNING: ELG cutsky mocks are not currently supported. Unexpected behavior may occur.")
+            
             want_nfw = True
+            NFW_draw = np.load(nfw_draw_path, allow_pickle=True)
         else:
             want_nfw = False
+            NFW_draw = None
 
         self.n_gal, self.f_sat = self.ngal_fsat_from_ball(self.ball, tracer, self.boxsize, add_ap=self.add_ap, q_par=self.q_par, q_perp=self.q_perp, nthreads=nthreads)
 
@@ -438,9 +447,9 @@ class BoxHOD:
                 self.logger.info(f'Catalogue above minimum density threshold (n={self.n_gal:.5f})')
                 self.ball.tracers[tracer]['ic'] = min(1, n_target.max() / self.n_gal)
 
-        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw)
+        hod_dict = self.ball.run_hod(self.ball.tracers, want_rsd=False, Nthread=nthreads, reseed=seed, want_nfw=want_nfw, NFW_draw=NFW_draw)
 
-        self.check_catalogue(hod_dict, n_target.max())
+        self.check_catalog(hod_dict, 1 if tracer_density is None else n_target.max())
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage 
         hod_dict = self.postprocess_catalog(hod_dict, tracer)

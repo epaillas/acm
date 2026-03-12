@@ -11,8 +11,6 @@ from acm.utils.default import cosmo_list
 import gc
 
 
-
-
 def get_cli_args():
     import argparse
 
@@ -38,7 +36,7 @@ def get_cli_args():
         choices=['j4', 'j5', 'j4_alt'],
         help='WST configuration: j4 (J=4,L=4,q=1,sigma=0.8), j5 (J=5,L=3,q=0.8,sigma=0.4), j4_alt (J=4,L=4,q=1,sigma=1.0)'
     )
-    parser.add_argument("--version", type=str, default='v1.2', help='Version string for organizing outputs')
+    parser.add_argument("--version", type=str, default='v1.3', help='Version string for organizing outputs')
 
     args = parser.parse_args()
     return args
@@ -83,12 +81,12 @@ def get_save_dir(base_save_dir, stat_name, cosmo_idx, phase_idx, seed_idx, extra
     save_dir.mkdir(parents=True, exist_ok=True)
     return save_dir
 
-def get_hod_fns(cosmo=0, phase=0, seed=0, redshift=0.8):
+def get_hod_fns(cosmo=0, phase=0, seed=0, redshift=0.8, version='v1.2'):
     """
     Get the list of HOD file names for a given cosmology,
     phase, and redshift.
     """
-    base_dir = '/pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior/'
+    base_dir = f'/pscratch/sd/n/ntbfin/emulator/hods/{version}/z0.5/yuan23_prior/'
     hod_dir = Path(base_dir) / f'c{cosmo:03}_ph{phase:03}/seed{seed}/'
     hod_fns = glob.glob(str(Path(hod_dir) / f'hod*.fits'))
     return sorted(hod_fns)
@@ -582,7 +580,7 @@ if __name__ == '__main__':
         bspec_bin = None
         for phase_idx in phases:
             for seed_idx in seeds:
-                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, seed=seed_idx, redshift=redshift)
+                hod_fns = get_hod_fns(cosmo=cosmo_idx, phase=phase_idx, seed=seed_idx, redshift=redshift, version=args.version)
                 if len(hod_fns) == 0:
                     logger.info(f'No HOD files found for c{cosmo_idx:03}_ph{phase_idx:03}_seed{seed_idx}. Skipping.')
                     continue
@@ -699,7 +697,7 @@ if __name__ == '__main__':
                         wst_args = wst_configs[args.wst_config].copy()
                         wst_config = f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
                         save_dir = get_save_dir(args.save_dir, 'wst', cosmo_idx, phase_idx, seed_idx, extra_path=wst_config, version=args.version)
-                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.txt'
+                        output_fn = Path(save_dir) / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
                         if output_fn.exists():
                             logger.info(f'Skipping {output_fn}, already exists.')
                             continue
@@ -760,7 +758,10 @@ if __name__ == '__main__':
 
                     if 'jaxel_voids' in args.statistics:
                         save_dir = get_save_dir(args.save_dir, 'jaxel_voids', cosmo_idx, phase_idx, seed_idx)
-                        output_fn = Path(save_dir) / f'jaxel_voids_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
+                        output_fn = Path(save_dir) / f'jaxel_voids_c{cosmo_idx:03}_hod{hod_idx:03}.h5'
+                        if output_fn.exists():
+                            logger.info(f'Skipping {output_fn}, already exists.')
+                            continue
                         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
                         box_args = get_box_args(boxsize, cellsize=3.9)
                         compute_jaxel_voids(output_fn, hod_positions, **box_args)

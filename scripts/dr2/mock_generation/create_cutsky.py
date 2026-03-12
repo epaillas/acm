@@ -48,7 +48,7 @@ def get_cli_args():
     )
     parser.add_argument('--make_randoms', action='store_true', default=False)
     parser.add_argument('--n_randoms', type=int, default=1)
-    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/e/epaillas/acm/dr2/hods/cutsky/v0.1/')
+    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/e/epaillas/acm/dr2/hods/cutsky/v0.2/')
 
     args = parser.parse_args()
     return args
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     release = args.release
     cosmos = list(range(args.start_cosmo, args.start_cosmo + args.n_cosmo))
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
-    hod_idx = 0  # TODO : allow varying hod_idx
+    hod_idx = 30  # TODO : allow varying hod_idx
 
     for cosmo_idx in cosmos:
         fid_cosmo = AbacusSummit(cosmo_idx)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
             # sample HOD parameters and build the cutsky mock
             # this does not have the angular or radial mask carved in yet
-            hod = {key: hod_params[key][30] for key in hod_params.keys()}
+            hod = {key: hod_params[key][hod_idx] for key in hod_params.keys()}
             cutsky.sample_hod(hod, nthreads=1, region=region, release=release)
 
             # apply angular and radial masks
