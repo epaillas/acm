@@ -123,7 +123,7 @@ def test_deepcopy():
     assert obst_copy.select_filters["cosmo_idx"] != OBS_TEST.select_filters["cosmo_idx"]
 
 
-@pytest.mark.skip(reason="Test temporarily skipped")
+#@pytest.mark.skip(reason="Test temporarily skipped")
 def test_copy_method():
     """
     Certainly __getattr__() use method of dataset from xarray ?
