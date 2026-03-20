@@ -132,6 +132,7 @@ def test_copy_method():
     AttributeError: 'Dataset' object has no attribute 'paths'
 
     """
+    
     OBS_TEST = Observable(
         stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
     )
