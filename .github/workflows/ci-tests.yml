@@ -18,7 +18,23 @@ jobs:
       - name: Configuration
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13" 
+          python-version: "3.13"
+
+      - name: Configuration
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          
+      - name: Cache installation
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip- 
+
+      - name: mpi Installation
+          sudo apt install -y openmpi-bin libopenmpi-dev
 
       - name: Installation package with editable mode
         run: |
