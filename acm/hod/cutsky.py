@@ -58,7 +58,8 @@ class BaseCutskyCatalog(ABC):
         release: str = 'Y1',
         npasses: int | None = None,
         program: str = 'dark',
-        custom_mask_path: str | None = None
+        custom_mask_path: str | None = None,
+        num_fibonacci_samples: int = 100000
     ) -> None:
         """
         Applies the angular mask to the cutsky catalog based on the specified region.
@@ -76,13 +77,16 @@ class BaseCutskyCatalog(ABC):
         custom_mask_path : str
             If not set to None, a custom mask file is read for applying the angular mask. The file should be in FITS format
             and should include a column named IN_MASK that corresponds to a boolean healpix mask
+        num_fibonacci_samples : int
+            The number of points to evenly distribute on teh sky for calculating the survey mask sky fraction
 
         Returns
         -------
         None
             The cutsky catalog is modified in place.
         """
-        self.logger.info('Applying angular mask.')
+        if self.mpicomm.rank == self.mpiroot:
+            self.logger.info(f'Applying angular mask for region {region} and release {release}.')
         if custom_mask_path is None:
             is_in_desi = is_in_desi_footprint(
                 self.catalog['RA'],
@@ -98,6 +102,36 @@ class BaseCutskyCatalog(ABC):
             )
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][is_in_desi & is_in_photo]
+
+            # ==============================================================
+            # Calculate survey mask sky fraction using Fibonacci method 
+            # for populating RA and dec. points on the sky
+            # ==============================================================
+            
+            # Fibonacci method 
+            generate_fibonacci = np.arange(0, num_fibonacci_samples, dtype=float) + 0.5
+            mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
+            mask_dec = 180 / np.pi * phi - 90
+            mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
+
+            # Sky fraction calculation
+            mask_in_desi = is_in_desi_footprint(
+                mask_ra,
+                mask_dec,
+                release=release,
+                program=program,
+                npasses=npasses
+            )
+            _, mask_in_photo = self.is_in_photometric_region(
+                mask_ra,
+                mask_dec,
+                region=region
+            )
+
+            in_mask = mask_in_desi & mask_in_photo
+
+            self.sky_fraction = np.sum(in_mask) / len(in_mask)
+
         else:
             mask = fitsio.read(custom_mask_path)
             nside = hp.npix2nside(len(mask['IN_MASK']))
@@ -107,9 +141,11 @@ class BaseCutskyCatalog(ABC):
             is_in_mask = mask['IN_MASK'][target_pixels]
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][is_in_mask]
+
+            self.sky_fraction = np.sum(mask['IN_MASK']) / len(mask['IN_MASK'])
             
 
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False) -> None:
+    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, dz_new: float = 0.002) -> None:
         """
         Applies the radial selection function to a cutsky catalog based on 
         an input n(z) file (number desity as a function of redshift).
@@ -121,18 +157,61 @@ class BaseCutskyCatalog(ABC):
             (1, 2, 3) are zbin_min, zbin_max, and target_nz respectively.
         shape_only : bool, optional
             If True, match only the shape of the n(z), disregarding the amplitude.
-
+        dz_new : float
+            redshift interval used for redshift bin edges. Should be small compared to 
+            the expected fluctuations in the raw n(z)
+            
         Returns
         -------
         None
             The cutsky catalog is modified in place.
         """
-        self.logger.info('Applying radial mask.')
+        if self.mpicomm.rank == self.mpiroot:
+            self.logger.info(f'Applying radial mask using n(z) file {nz_filename}.')
+
+        zmin_data = self.catalog['Z'].min()
+        zmax_data = self.catalog['Z'].max()
+
+        # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
-        zbin_mid = (zbin_min + zbin_max) / 2
+        zbin_mid = 0.5 * (zbin_min + zbin_max)
+        if zbin_min[0] > zmin_data or zbin_max[-1] < zmax_data:
+            raise ValueError('Provided n(z) file does not cover redshift range of data')
+
+        # nz(z) interpolator (piecewise linear)
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
-        raw_nbar = self.get_raw_nbar_at_z(zbin_mid)
-        ratio = target_nz / raw_nbar
+
+        # --- refine each coarse bin into dz=0.002 sub-bins ---
+        nsub = int(round((zbin_max[0] - zbin_min[0]) / dz_new))  # should be 5 for 0.01->0.002
+        if not np.allclose(zbin_max - zbin_min, nsub * dz_new, rtol=0, atol=1e-12):
+            raise ValueError("Your input bins are not an integer multiple of dz_new.")
+        
+        # new bin edges per coarse bin: (Nbins, nsub+1)
+        edges = zbin_min[:, None] + dz_new * np.arange(nsub + 1)[None, :]
+        
+        # flatten into sub-bins
+        zbin_min = edges[:, :-1].ravel()
+        zbin_max = edges[:,  1:].ravel()
+        
+        #impose lightcone redshift limits on zbins
+        select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
+        zbin_min = zbin_min[select_zbins]
+        zbin_max = zbin_max[select_zbins]
+        zbin_min[0] = zmin_data
+        zbin_max[-1] = zmax_data
+        zbin_mid = (zbin_min + zbin_max) / 2
+        target_nz = nz_spline(zbin_mid)
+        
+        #calculate volumes of shells
+        zedges = np.insert(zbin_max, 0, zbin_min[0])
+        dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
+        dedges =  np.insert(dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0]))
+        volume = self.sky_fraction * 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
+
+        # calculate downsampling ratio
+        data_nz = np.histogram(self.catalog['Z'], bins=zedges)[0] / volume
+        ratio = target_nz / data_nz
+        
         if shape_only:
             max_ratio = np.max(ratio[~np.isinf(ratio)])
             ratio /= max_ratio
@@ -324,7 +403,8 @@ class BaseCutskyCatalog(ABC):
         self.catalog = Catalog.scatter(self.catalog, mpiroot=mpiroot, mpicomm=mpicomm)
 
         if 'TRACER' not in  self.catalog.columns():
-            logger.info(f'Add tracer column for {self.catalog}.')
+            if mpicomm.rank == mpiroot:
+                logger.info(f'Add tracer column for {self.catalog}.')
             self.catalog['TRACER'] = [self.tracer]*self.catalog.size
 
             
@@ -386,7 +466,8 @@ class BaseCutskyCatalog(ABC):
         numobs, available = cutsky_for_fa.cget('NUMOBS', mpiroot=0), cutsky_for_fa.cget('AVAILABLE', mpiroot=0)
         obs_pass, comp_weight = cutsky_for_fa.cget('OBS_PASS', mpiroot=0), cutsky_for_fa.cget('COMP_WEIGHT', mpiroot=0)
 
-        logger.info('FA done')
+        if mpicomm.rank == mpiroot:
+            logger.info('FA done')
         
 
         mask_tr = cutsky_for_fa['TRACER']== self.tracer
@@ -508,7 +589,8 @@ class CutskyHOD(BaseCutskyCatalog):
         self.DM_DICT_simtype = 'box'
         self.sim_geometry = 'cutsky'
         self.logger = logging.getLogger('CutskyHOD')
-        self.logger.info(f'Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks.')
+        if self.mpicomm.rank == self.mpiroot:
+            self.logger.info(f'Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks.')
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
@@ -525,9 +607,9 @@ class CutskyHOD(BaseCutskyCatalog):
         self.boxcenter = np.array([0, 0, 0])  # Mpc/h
         if self.load_existing_hod:
             self.cosmo = AbacusSummit(self.cosmo_idx)
-            self.logger.info('Load existing hod instead of generating new ones.')
+            if self.mpicomm.rank == self.mpiroot:
+                self.logger.info('Load existing hod instead of generating new ones.')
         else:
-            self.setup_hod(DM_DICT=DM_DICT, tracer = tracer)
             if DM_DICT is None:
                 DM_DICT = lookup_registry_path('Abacus.yaml', self.tracer, self.DM_DICT_simtype)
             self.setup_hod(DM_DICT=DM_DICT, tracer=tracer)
@@ -536,6 +618,8 @@ class CutskyHOD(BaseCutskyCatalog):
     def setup_hod(self, DM_DICT: dict, tracer: str = 'LRG'):
         """
         Initialize AbacusHOD objects for each snapshot.
+        Only the root rank creates the BoxHOD objects to avoid loading
+        heavy simulation data on all MPI ranks.
 
         Parameters
         ----------
@@ -544,18 +628,21 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         self.balls = []
         for zsnap in self.snapshots:
-            ball = BoxHOD(
-                varied_params=self.varied_params,
-                tracer=tracer,
-                DM_DICT=DM_DICT,
-                sim_type=self.sim_type,
-                redshift=zsnap,
-                cosmo_idx=self.cosmo_idx,
-                phase_idx=self.phase_idx,
-                config_file=self.config_file,
-                DM_DICT_simtype=self.DM_DICT_simtype,
-                sim_geometry = self.sim_geometry
-            )
+            if self.mpicomm.rank == self.mpiroot:
+                ball = BoxHOD(
+                    varied_params=self.varied_params,
+                    tracer=tracer,
+                    DM_DICT=DM_DICT,
+                    sim_type=self.sim_type,
+                    redshift=zsnap,
+                    cosmo_idx=self.cosmo_idx,
+                    phase_idx=self.phase_idx,
+                    config_file=self.config_file,
+                    DM_DICT_simtype=self.DM_DICT_simtype,
+                    sim_geometry = self.sim_geometry
+                )
+            else:
+                ball = None
             self.balls += [ball]
         self.cosmo = AbacusSummit(self.cosmo_idx)
 
@@ -565,7 +652,8 @@ class CutskyHOD(BaseCutskyCatalog):
         hod_params: dict,
         nthreads: int = 1,
         seed: float = 0,
-        target_nbar: float = None
+        target_nbar: float = None,
+        nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy',
     ):
         """
         Internal function to sample HOD galaxies from the given ball object
@@ -587,7 +675,9 @@ class CutskyHOD(BaseCutskyCatalog):
             (nbar < min_nbar). If only one value provided, this is taken as 
             the maximum threshold (no minimum threshold applied). Default 
             is None (no thresholds applied).
-        
+        nfw_draw_path: str, optional
+            Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
+            samples on NERSC
 
         Returns
         -------
@@ -602,7 +692,8 @@ class CutskyHOD(BaseCutskyCatalog):
                 hod_params,
                 seed=seed,
                 nthreads=nthreads,
-                tracer_density=target_nbar
+                tracer_density=target_nbar,
+                nfw_draw_path=nfw_draw_path,
             )[tracer]
             pos = np.c_[hod_dict['X'], hod_dict['Y'], hod_dict['Z']].astype(np.float32)
             vel = np.c_[hod_dict['VX'], hod_dict['VY'], hod_dict['VZ']].astype(np.float32)
@@ -672,7 +763,8 @@ class CutskyHOD(BaseCutskyCatalog):
         region: str = 'NGC',
         release: str = 'Y1',
         target_nz_filename: str | None = None,
-        custom_xyz_file: str | None = None
+        custom_xyz_file: str | None = None,
+        nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy'
     ) -> dict:
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
@@ -700,6 +792,9 @@ class CutskyHOD(BaseCutskyCatalog):
         custom_xyz_file : str
             If not None, a custom file is read for the positions of the tracers that define
             the survey volume bounds
+        nfw_draw_path: str, optional
+            Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
+            samples on NERSC
 
         Returns
         -------
@@ -707,12 +802,11 @@ class CutskyHOD(BaseCutskyCatalog):
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
         self.catalog = self.init_cutsky()
-
-        self.raw_nbar_snapshots = []
         
         # construct one redshift shell at a time from the snapshots
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
-            self.logger.info(f'Processing snapshot at z = {zsnap} for redshift range {zranges}')
+            if self.mpicomm.rank == self.mpiroot:
+                self.logger.info(f'Processing snapshot at z = {zsnap} for redshift range {zranges}')
             target_nbar = self.get_target_nbar(
                 nz_filename=target_nz_filename,
                 zmin=zranges[0],
@@ -728,12 +822,9 @@ class CutskyHOD(BaseCutskyCatalog):
                     hod_params,
                     nthreads=nthreads,
                     target_nbar=target_nbar,
-                    seed=seed
+                    seed=seed,
+                    nfw_draw_path = nfw_draw_path,
                 )
-            # Each rank has a portion of box_positions after scatter
-            # Need to gather total count for raw_nbar calculation
-            total_particles = mpy.csize(box_positions, mpicomm=self.mpicomm)
-            self.raw_nbar_snapshots.append( total_particles / (self.boxsize**3) )
 
             # replicate the box along each axis to cover more volume
             pos_min, pos_max = self.get_reference_borders(
@@ -919,7 +1010,8 @@ class CutskyHOD(BaseCutskyCatalog):
         H = 100.0 * self.cosmo.efunc(redshift)  # Hubble parameter in km/s/Mpc
         rsd_factor = 1 / (a * H)  # multiply velocities by this factor to convert to Mpc/h
         catalog['RSDPosition'] = catalog.rsd_position(f=rsd_factor)
-        self.logger.info(f'Applied RSD at z={redshift} in {time.time() - t0:.2f} seconds.')
+        if self.mpicomm.rank == self.mpiroot:
+            self.logger.info(f'Applied RSD at z={redshift} in {time.time() - t0:.2f} seconds.')
         return catalog
 
     def get_reference_borders(
@@ -1045,40 +1137,7 @@ class CutskyHOD(BaseCutskyCatalog):
             pos = pos[chosen]
             vel = vel[chosen]
         return pos,vel
-
-    def get_raw_nbar_at_z(self, redshift: np.ndarray) -> np.ndarray | float:
-        """
-        Obtains the correct raw_nbar value for a given redshift input
-
-        Parameters
-        ----------
-        redshift : np.ndarray
-            Array of input redshifts
-
-        Returns
-        -------
-        combined_raw_nbar : np.ndarray
-            The raw_nbar values for each redshift
-        """
-
-        if len(self.raw_nbar_snapshots) == 1:
-            return self.raw_nbar_snapshots[0]
-
-        combined_raw_nbar = np.zeros_like(redshift)
-        
-        for raw_nbar, zrange in zip(self.raw_nbar_snapshots, self.zranges):
-
-            select_targets = np.ones_like(redshift, dtype = bool)
-
-            if zrange[0] != self.zranges[0][0]:
-                select_targets *= (redshift > zrange[0] ) 
-            if zrange[1] != self.zranges[-1][1]:
-                select_targets *= (redshift < zrange[1] ) 
-            
-            combined_raw_nbar[select_targets] = raw_nbar
-
-        return combined_raw_nbar
-        
+    
 
 class CutskyRandoms(BaseCutskyCatalog):
     """
@@ -1142,29 +1201,4 @@ class CutskyRandoms(BaseCutskyCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-        self.raw_nbar = self.calculate_raw_nbar()
 
-    def calculate_raw_nbar(self):
-        """
-        Calculate the comoving number density as a function of redshift, in (Mpc/h)^-3.
-
-        Returns
-        -------
-        float
-            The number density of the randoms.
-        """
-        area = radecbox_area(self.rarange, self.decrange)  # in square degrees
-        fsky = area / 41253.0  # sky fraction covered by the randoms
-        volume = 4/3 * np.pi * (self.drange[1]**3 - self.drange[0]**3) * fsky  # in (Mpc/h)^3
-        return len(self.catalog['Z']) / volume
-
-    def get_raw_nbar_at_z(self, *args):
-        """
-        Obtains the correct raw_nbar value for a randoms catalog
-
-        Returns
-        -------
-        self.raw_nbar : float
-            The raw_nbar values for the randoms
-        """
-        return self.raw_nbar

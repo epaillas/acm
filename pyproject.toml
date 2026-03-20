@@ -78,7 +78,8 @@ testing = [
     "isort",
     "mypy",
     "ciqar",
-    "ty"
+    "ty",
+    "pytest-cov"
 ]
 # Estimators
 knn = [

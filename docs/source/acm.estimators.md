@@ -72,6 +72,14 @@
    :undoc-members:
    :show-inheritance:
 ```
+## acm.estimators.jax_voxel_voids
+```{eval-rst}
+.. automodule:: acm.estimators.galaxy_clustering.jax_voxel_voids
+   :members:
+   :no-index:
+   :undoc-members:
+   :show-inheritance:
+```
 ## acm.estimators.wst
 ```{eval-rst}
 .. automodule:: acm.estimators.galaxy_clustering.wst

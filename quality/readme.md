@@ -3,7 +3,7 @@
 ## Install initialize quality tools
 
 ```console
-pip -e acm[testing,...]
+pip install -e acm[testing,...]
 source acm/quality/acm_quality_init.sh
 ```
 
