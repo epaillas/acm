@@ -19,11 +19,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-
-      - name: Configuration
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
           
       - name: Cache installation
         uses: actions/cache@v3
@@ -44,4 +39,5 @@ jobs:
 
       - name: Process tests
         run: |
+          source quality/acm_quality_init.sh
           pytest tests/acm -vv -s
