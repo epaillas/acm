@@ -34,6 +34,7 @@ jobs:
             ${{ runner.os }}-pip- 
 
       - name: mpi Installation
+        run: |
           sudo apt install -y openmpi-bin libopenmpi-dev
 
       - name: Installation package with editable mode
