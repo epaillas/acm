@@ -1,120 +1,268 @@
-from .base import BaseObservable
+import xarray
+import numpy as np
+from pathlib import Path
+from pycorr import TwoPointCorrelationFunction
+from .base import BaseObservableEMC
+from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
+from acm.utils.xarray import dataset_to_dict, split_vars
 
-
-class GalaxyCorrelationFunctionMultipoles(BaseObservable):
+class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, select_filters: dict = None, slice_filters: dict = None):
-        self.stat_name = 'tpcf'
-        self.sep_name = 's'
-        self.select_filters = select_filters
-        self.slice_filters = slice_filters
-        super().__init__()
+    def __init__(self, stat_name='tpcf', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
+    
+    @classmethod
+    def compress_covariance(
+        cls,
+        paths: dict,
+        stat_name: str = 'tpcf', 
+        save_to: str = None, 
+        rebin: int = 4, 
+        ells: list = [0, 2, 4], 
+        overwrite_s: np.ndarray = None
+    ) -> xarray.DataArray:
+        """
+        Compress the covariance array from the raw measurement files.
         
-    @property
-    def coords_lhc_x(self):
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
-            'param_idx': list(range(20))
-        }
-
-    @property
-    def coords_lhc_y(self):
-        return {
-            'cosmo_idx': list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182)),
-            'hod_idx': list(range(250)),
-            'multipoles': [0, 2],
-            's': self.separation,
-        }
-
-    @property
-    def coords_small_box(self):
-        return {
-            'phase_idx': list(range(1786)),
-            'multipoles': [0, 2],
-            's': self.separation,
-        }
-
-    @property
-    def coords_model(self):
-        return {
-            'multipoles': [0, 2],
-            's': self.separation,
-        }
-
-    @property
-    def model_fn(self):
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/tpcf/cosmo+hod/optuna_log/last-v54.ckpt'
-        # return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/optuna/asinh/last-v48.ckpt'
-        return f'/pscratch/sd/e/epaillas/emc/v1.1/trained_models/GalaxyCorrelationFunctionMultipoles/cosmo+hod/asinh/last-v7.ckpt'
-
-    def create_lhc(self, n_hod=20, cosmos=None, phase_idx=0, seed_idx=0):
-        x, x_names = self.create_lhc_x(cosmos=cosmos, n_hod=n_hod)
-        sep, y = self.create_lhc_y(n_hod=n_hod, cosmos=cosmos, phase_idx=phase_idx, seed_idx=seed_idx)
-        return sep, x, x_names, y
-
-    def create_lhc_y(self, n_hod=100, cosmos=None, phase_idx=0, seed_idx=0):
-        import numpy as np
-        from pycorr import TwoPointCorrelationFunction
-        base_dir = '/pscratch/sd/e/epaillas/emc/training_sets/tpcf/cosmo+hod_bugfix/z0.5/yuan23_prior/'
-        if cosmos is None:
-            cosmos = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
+        Parameters
+        ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        save_to : str, optional
+            Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
+            Default is None.
+        rebin : int, optional
+            Rebinning factor for the statistics. Default is 4.
+        ells : list, optional
+            List of multipoles to compute the statistics for. Default is [0, 2, 4].
+        overwrite_s : np.ndarray, optional
+            If not None, overwrite the final separation values with this array. 
+            This is primarily useful to ensure consistency between the covariance and the data dims.
+            Default is None.
+            
+        Returns
+        -------
+        xarray.DataArray
+            Covariance array. 
+        """
+        logger = cls.get_logger()
+        
+        # Directories
+        base_dir = Path(paths['measurements_dir']) / 'small' / stat_name
+        data_fns = list(base_dir.glob('tpcf_ph*_hod466.npy')) # NOTE: File name format hardcoded !
+        
+        y = []
+        for data_fn in data_fns:
+            data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
+            s, multipoles = data(ells=ells, return_sep=True) 
+            y.append(np.concatenate(multipoles))
+        y = np.array(y)
+        s = overwrite_s if overwrite_s is not None else s
+                
+        y = xarray.DataArray(
+            data = y.reshape(y.shape[0], len(ells), -1),
+            coords = {
+                "phase_idx": list(range(y.shape[0])),
+                "ells": ells,
+                "s": s,
+            },
+            attrs = {
+                "sample": ["phase_idx"],
+                "features": ["ells", "s"],
+            },
+            name = "covariance_y",
+        )
+        
+        logger.info(f'Loaded covariance with shape: {y.shape}')
+        
+        cout = xarray.Dataset(data_vars = {'covariance_y': y})
+        if save_to is not None:
+            Path(save_to).mkdir(parents=True, exist_ok=True)
+            save_fn = Path(save_to) / f'{stat_name}.npy'
+            np.save(save_fn, dataset_to_dict(cout))
+            logger.info(f'Saving compressed covariance file to {save_fn}')
+        return cout
+    
+    @classmethod
+    def compress_data(
+        cls, 
+        paths: dict,
+        stat_name: str = 'tpcf', 
+        add_covariance: bool = False,
+        save_to: str = None,
+        rebin: int = 4, 
+        ells: list = [0, 2, 4],
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict = None,
+    ) -> dict:
+        """
+        Compress the data from the tpcf raw measurement files.
+        
+        Parameters
+        ----------
+        paths : dict
+            Dictionary containing the paths to the data directories.
+        stat_name : str, optional
+            Name of the statistic to compress.
+            Defines the name of the subfolder in the measurements directory, and the
+            saved filename if save_to is provided.
+            Defaults to the class's stat_name. 
+        add_covariance : bool, optional
+            If True, add the covariance to the compressed data. Default is False.
+        save_to : str, optional
+            Path of the directory where to save the compressed file. If None, it is not saved.
+            Default is None.
+        rebin : int, optional
+            Rebinning factor for the statistics. Default is 4.
+        ells : list, optional
+            List of multipoles to compute the statistics for. Default is [0, 2, 4].
+        cosmos : list, optional
+            List of cosmological parameters to use. If None, use all cosmological parameters.
+            Default is None.
+        n_hod : int, optional
+            Number of HOD parameters to use. Default is 100.
+        phase : int, optional
+            Phase index to read the data from. Default is 0.
+        seed : int, optional
+            Seed index to read the data from. Default is 0.
+        test_filters : dict, optional
+            Dictionary of selection criteria to split data into train and test sets,
+            passed to `split_vars`. Each key-value pair specifies a dimension and its
+            selection values (e.g., {'cosmo_idx': [0, 1, 2]}). If None, no train/test
+            split is performed. Default is None.
+            
+        Returns
+        -------
+        xarray.Dataset
+            Compressed dataset containing 'x' and 'y' DataArrays. 
+            If add_covariance is True, also contains 'covariance_y' DataArray.
+        """
+        logger = cls.get_logger()
+        
+        base_dir = paths['measurements_dir'] + f'base/{stat_name}/'
+        
         y = []
         for cosmo_idx in cosmos:
-            print(cosmo_idx)
-            data_dir = base_dir + f'c{cosmo_idx:03}_ph{phase_idx:03}/seed0/'
+            data_dir = base_dir + f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/'
             for hod_idx in range(n_hod):
-                data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy"
-                data = TwoPointCorrelationFunction.load(data_fn)[::4]
-                s, multipoles = data(ells=(0, 2), return_sep=True)
+                data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy" # NOTE: File name format hardcoded !
+                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
+                s, multipoles = data(ells=ells, return_sep=True) 
                 y.append(np.concatenate(multipoles))
-        return s, np.array(y)
-
-    def create_lhc_x(self, cosmos=None, n_hod=100):
-        import pandas
-        import numpy as np
-        if cosmos is None:
-            cosmos = list(range(0, 5)) + list(range(13, 14)) + list(range(100, 127)) + list(range(130, 182))
-        lhc_x = []
-        for cosmo_idx in cosmos:
-            data_dir = '/pscratch/sd/e/epaillas/emc/cosmo+hod_params/'
-            data_fn = data_dir + f'AbacusSummit_c{cosmo_idx:03}.csv'
-            lhc_x_i = pandas.read_csv(data_fn)
-            lhc_x_names = list(lhc_x_i.columns)
-            lhc_x_names = [name.replace(' ', '').replace('#', '') for name in lhc_x_names]
-            lhc_x.append(lhc_x_i.values[:n_hod, :])
-        lhc_x = np.concatenate(lhc_x)
-        return lhc_x, lhc_x_names
-
-    def create_small_box_y(self):
-        raise NotImplementedError
-
-    def get_emulator_error(self, select_filters=None, slice_filters=None):
-        """
-        Calculate the emulator error from a subset of the Latin hypercube,
-        which we treat as the test set.
+        y = np.array(y)
+        y = xarray.DataArray(
+            data = y.reshape(len(cosmos), n_hod, len(ells), -1),
+            coords = {
+                'cosmo_idx': cosmos,
+                'hod_idx': list(range(n_hod)),
+                'ells': ells,
+                's': s,
+            },
+            attrs = {
+                'sample': ['cosmo_idx', 'hod_idx'],
+                'features': ['ells', 's'],
+            },
+            name = 'y',
+        )
+        x = cls.compress_x(paths=paths, cosmos=cosmos, n_hod=n_hod, phase=phase, seed=seed)
         
-        We make a new instance of the class with the test set filters and
-        compare the emulator prediction to the true values.
-        """
-        import numpy as np
-        if select_filters is None:
-            select_filters = self.select_filters
-            select_filters['cosmo_idx'] = list(range(0, 5)) + list(range(13, 14))
-            select_filters['hod_idx'] = list(range(250))
-        if slice_filters is None:
-            slice_filters = self.slice_filters
-        # instantiate class with test set filters
-        observable = self.__class__(select_filters=select_filters, slice_filters=slice_filters)
-        test_x = observable.lhc_x
-        test_y = observable.lhc_y
-        # reshape to (n_samples, n_features)
-        n_samples = len(select_filters['cosmo_idx']) * len(select_filters['hod_idx'])
-        test_x = test_x.reshape(n_samples, -1)
-        test_y = test_y.reshape(n_samples, -1)
-        pred_y = observable.get_model_prediction(test_x, batch=True)
-        return np.median(np.abs(test_y - pred_y), axis=0)
+        logger.info(f'Loaded data with shape: {x.shape}, {y.shape}')
         
+        cout = xarray.Dataset(
+            data_vars = {
+                'x': x,
+                'y': y,
+            },
+        )
+        if add_covariance:
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, rebin=rebin, ells=ells, overwrite_s=s)
+            cout = xarray.merge([cout, cov_y], join='outer')
+            
+        if test_filters is not None:
+            for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
+                v_in.name = v_in.name + '_test'
+                v_out.name = v_out.name + '_train'
+                v_in.attrs['nan_dims'] = list(test_filters.keys()) # Mark filtered dimensions that will be filled with NaNs
+                v_out.attrs['nan_dims'] = list(test_filters.keys())
+                cout = xarray.merge([cout, v_in, v_out], join='outer')
+        
+        if save_to is not None:
+            Path(save_to).mkdir(parents=True, exist_ok=True)
+            save_fn = Path(save_to) / f'{stat_name}.npy'
+            np.save(save_fn, dataset_to_dict(cout))
+            logger.info(f'Saving compressed data to {save_fn}')
+        return cout
+    
+    def compute_phase_correction(self, rebin: int = 4, ells: list = [0, 2, 4]):
+        """
+        Correction factor to bring the fixed phase precictions (p000) to the ensemble average.
+        
+        Parameters
+        ----------
+        rebin : int
+            Rebinning factor for the statistics. Default is 4.
+        ells : list
+            List of multipoles to compute the correction for. Default is [0, 2, 4].
+        
+        Returns
+        -------
+        np.ndarray
+            Correction factor for the fixed phase predictions.
+        """
+        from pathlib import Path
+        import numpy as np
+        from pycorr import TwoPointCorrelationFunction
+        
+        base_dir = self.paths['measurements_dir'] + f'base/{self.stat_name}/'
+        
+        multipoles_mean = []
+        for phase in range(25): # NOTE: Hardcoded !
+            data_dir = f'{base_dir}/c000_ph{phase:03}/seed0' # NOTE: Hardcoded !
+            multipoles_hods = []
+            for hod in range(50): # NOTE: Hardcoded !
+                data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
+                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
+                s, multipoles = data(ells=ells, return_sep=True) 
+                multipoles_hods.append(multipoles)
+            multipoles_hods = np.array(multipoles_hods).mean(axis=0)
+            multipoles_mean.append(multipoles_hods)
+        multipoles_mean = np.array(multipoles_mean).mean(axis=0)
+
+        data_dir = f'{base_dir}/c000_ph000/seed0'  # NOTE: Hardcoded !
+        multipoles_ph0 = []
+        for hod in range(50): # NOTE: Hardcoded !
+            data_fn = Path(data_dir) / f'tpcf_hod{hod:03}.npy' # NOTE: File name format hardcoded !
+            data = TwoPointCorrelationFunction.load(data_fn)[::4]
+            s, multipoles = data(ells=ells, return_sep=True) 
+            multipoles_ph0.append(multipoles)
+        multipoles_ph0 = np.array(multipoles_ph0).mean(axis=0)
+        delta = ((multipoles_mean + 1) - (multipoles_ph0 + 1))/(multipoles_ph0 + 1)
+        return delta.reshape(-1)
+
+    def apply_phase_correction(self, prediction):
+        """
+        Apply the phase correction to the predictions.
+        We apply this to (1 + prediction) to avoid zero-crossings.
+
+        Parameters
+        ----------
+        prediction : np.ndarray
+            Array of predictions.
+
+        Returns
+        -------
+        np.ndarray
+            Corrected predictions.
+        """
+        return (1 + prediction) * (1 + self.phase_correction) - 1

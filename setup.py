@@ -1,19 +1,50 @@
-import os
-import sys
-from setuptools import setup, find_packages
+from setuptools import setup, Extension
+from Cython.Build import cythonize
+import numpy
+
 import subprocess
+subprocess.call(["make"])
 
+galaxy_clustering_src_name = "acm.estimators.galaxy_clustering.src"
+galaxy_clustering_src_path = "acm/estimators/galaxy_clustering/src"
 
-package_basename = 'acm'
-package_dir = os.path.join(os.path.dirname(__file__), package_basename)
-sys.path.insert(0, package_dir)
+fastmodules = Extension(
+    name = galaxy_clustering_src_name + ".fastmodules",
+    sources = [galaxy_clustering_src_path + "/fastmodules.pyx"],
+    libraries = ["m"],
+    extra_compile_args = ["-ffast-math"],
+    include_dirs = [numpy.get_include()],
+)
 
-# compile C code under src/
-subprocess.call(['make'])
+minkowski = Extension(
+    name = galaxy_clustering_src_name + ".minkowski",
+    sources = [galaxy_clustering_src_path + "/minkowski.pyx"],
+    libraries = ["m"],
+    extra_compile_args = ['-O3', '-ffast-math'],
+    include_dirs = [numpy.get_include()],
+)
 
-# install package
+pydive = Extension(
+    name = galaxy_clustering_src_name + ".pydive",
+    sources = [galaxy_clustering_src_path + "/pydive.pyx"],
+    include_dirs = [
+        numpy.get_include(), 
+        '/global/u1/d/dforero/lib/CGAL-5.4/include',
+    ],
+    libraries = ['m', 'gsl', 'gslcblas', 'gmp', 'mpfr'],
+    language = 'c++',
+    extra_compile_args = ['-fPIC', '-fopenmp'],
+    extra_link_args = ['-fopenmp']
+)
+
+extensions = [
+    fastmodules, 
+    minkowski,
+    # pydive, #include_dirs private
+]
+
+print(f"Building extensions: {[ext.name.split('.')[-1] for ext in extensions]}")
+
 setup(
-    name=package_basename,
-    packages=find_packages(),
-    include_package_data=True,
+    ext_modules = cythonize(extensions),
 )

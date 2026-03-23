@@ -1,0 +1,121 @@
+[build-system]
+requires = [
+    "setuptools", 
+    "wheel", 
+    "cython",
+    "numpy < 2.0.0", # Avoid numpy 2.0.0 for now for type errors in Cython
+]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "acm"
+description = "Alternative Clustering Methods"
+readme = "README.md"
+version = "0.2.0"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+requires-python = ">=3.9"
+dependencies = [ # Base requirements
+    "numpy",
+    "scipy",
+    "pandas", 
+    "xarray", 
+    "pyyaml",
+    "matplotlib",
+    "getdist",
+]
+
+
+[project.optional-dependencies]
+# Environements
+cosmodesi = [
+    # Estimators
+    'jax',
+    'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
+
+    # HOD and cutsky
+    'astropy',
+    'abacusutils',  # abacusnbody
+    'cosmoprimo[class,camb,astropy,extras] @ git+https://github.com/cosmodesi/cosmoprimo',
+    'mockfactory @ git+https://github.com/cosmodesi/mockfactory',
+    'fitsio',
+    'healpy',
+    'desitarget',
+    'regressis @ git+https://github.com/echaussidon/regressis',
+]
+# Estimators (backends)
+jaxpower = [
+    'jax-power @ git+https://github.com/adematti/jax-power.git',
+]
+pypower = [
+    'pypower @ git+https://github.com/cosmodesi/pypower', 
+]
+pyrecon = [
+    'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
+]
+polybin3d = [
+    'polybin3d[mkl_fft] @ git+https://github.com/oliverphilcox/PolyBin3D',
+]
+# Documentation and testing
+docs = [
+    "sphinx >= 4.2",
+    "sphinx-book-theme >= 0.3",
+    "myst_nb >= 0.17.1",
+]
+testing = [
+    "pytest",
+    "coverage",
+    "pytest-docstyle",
+    "pytest-emoji",
+    "pylint",
+    "ruff",
+    "black",
+    "isort",
+    "mypy",
+    "ciqar",
+    "ty",
+    "pytest-cov"
+]
+# Estimators
+knn = [
+    "numba",
+]
+mst = [
+    "mistreeplus @ git+https://github.com/knaidoo29/mistreeplus.git",
+]
+wst = [
+    "kymatio",
+]
+# Model & inference
+sunbird = [ 
+    'sunbird[inference] @ git+https://github.com/florpi/sunbird',
+]
+lensing = [
+    'asdf',
+    'treecorr',
+]
+
+
+[project.urls]
+Repository = "https://github.com/epaillas/acm.git"
+Documentation = "https://acm.readthedocs.io"
+
+[tool.setuptools.packages.find]
+namespaces = false
+
+[tool.setuptools.package-data]
+acm = [
+    "**/*.yml",
+    "**/*.yaml",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning::",  # ignore deprecations from all modules
+    "default::DeprecationWarning:mymodule.*:",  # except from mymodule
+]
