@@ -24,7 +24,7 @@ def get_cli_args():
     parser.add_argument("--n_phase", type=int, default=2000)
     parser.add_argument("--start_seed", type=int, default=0)
     parser.add_argument("--n_seed", type=int, default=1)
-    parser.add_argument('--todo_stats', nargs='+', default=['spectrum'])
+    parser.add_argument("-s", "--statistics", nargs='+', default=['spectrum'])
     parser.add_argument(
         '--save_dir',
         type=str,
@@ -482,7 +482,7 @@ if __name__ == '__main__':
 
     args = get_cli_args()
 
-    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.todo_stats)
+    is_distributed = any(td in ['spectrum', 'recon_spectrum', 'bispectrum'] for td in args.statistics)
     if is_distributed:
         os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION'] = '0.99'
         import jax
@@ -511,21 +511,21 @@ if __name__ == '__main__':
 
         hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
 
-        if 'spectrum' in args.todo_stats:
+        if 'spectrum' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'spectrum')
             output_fn = save_dir / f'mesh2_spectrum_poles_ph{phase_idx:03}.h5'
             box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
                 compute_spectrum(output_fn, hod_positions, **box_args)
 
-        if 'recon_spectrum' in args.todo_stats:
+        if 'recon_spectrum' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'recon_spectrum')
             output_fn = save_dir / f'mesh2_recon_spectrum_poles_ph{phase_idx:03}.h5'
             box_args = dict(boxsize=boxsize, boxcenter=0.0, meshsize=512, los='z', ells=(0, 2, 4))
             with create_sharding_mesh() as sharding_mesh:
                 compute_recon_spectrum(output_fn, hod_positions, **box_args)
 
-        if 'bispectrum' in args.todo_stats:
+        if 'bispectrum' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'bispectrum')
             output_fn = save_dir / f'mesh3_spectrum_poles_ph{phase_idx:03}.h5'
             if output_fn.exists():
@@ -535,21 +535,21 @@ if __name__ == '__main__':
             with create_sharding_mesh() as sharding_mesh:
                 compute_bispectrum(output_fn, hod_positions, **box_args)
 
-        #if 'dr_knn' in args.todo_stats:
+        #if 'dr_knn' in args.statistics:
         #    save_dir = '/pscratch/sd/p/pd2487/knn_measurements/small/'
         #    Path(save_dir).mkdir(parents=True, exist_ok=True)
         #    output_fn = Path(save_dir) / f'dr_knn_ph{phase_idx:03}.npy'
         #    box_args = dict(boxsize=boxsize, los='z')
         #    compute_dr_knn(output_fn, hod_positions, **box_args)
 
-        if 'dd_knn' in args.todo_stats:
+        if 'dd_knn' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'dd_knn')
 
             output_fn = Path(save_dir) / f'dd_knn_ph{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, los='z')
             compute_dd_knn(output_fn, hod_positions, **box_args)            
         
-        if 'wst' in args.todo_stats:
+        if 'wst' in args.statistics:
             for wst_args in [
                 # # {'J': 4, 'L': 4, 'q': 1, 'sigma': 0.8, 'meshsize': 90},
                 # {'J': 4, 'L': 4, 'q': 1, 'sigma': 1.0, 'meshsize': 20},
@@ -570,7 +570,7 @@ if __name__ == '__main__':
                 wst_args_copy.pop('meshsize')
                 wst_init = compute_wst(output_fn, hod_positions, init=wst_init, **box_args, **wst_args_copy)
 
-        if 'spherical_voids' in args.todo_stats:
+        if 'spherical_voids' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'spherical_voids')
             output_fn = {
                 'void': Path(save_dir) / f'sv_void_ph{phase_idx:03}.npy',
@@ -582,7 +582,7 @@ if __name__ == '__main__':
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
             compute_spherical_voids(output_fn, hod_positions, los='z', **box_args)
 
-        if 'recon_spherical_voids' in args.todo_stats:
+        if 'recon_spherical_voids' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'recon_spherical_voids')
             output_fn = {
                 'void': Path(save_dir) / f'sv_recon_void_ph{phase_idx:03}.npy',
@@ -594,21 +594,21 @@ if __name__ == '__main__':
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
             compute_spherical_voids(output_fn, hod_positions, los='z', recon=True, **box_args)
 
-        if 'tpcf_smu' in args.todo_stats:
+        if 'tpcf_smu' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'tpcf')
             Path(save_dir).mkdir(parents=True, exist_ok=True)
             output_fn = Path(save_dir) / f'tpcf_smu_phase{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
             compute_tpcf_smu(output_fn, hod_positions, **box_args)
 
-        if 'tpcf_rppi' in args.todo_stats:
+        if 'tpcf_rppi' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'projected_tpcf')
 
             output_fn = Path(save_dir) / f'tpcf_rppi_ph{phase_idx:03}.npy'
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
             compute_tpcf_rppi(output_fn, hod_positions, **box_args)
 
-        if 'density_split_correlation' in args.todo_stats:
+        if 'density_split_correlation' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'density_split')
             output_fn = {
                 'xiqg': Path(save_dir) / f'dsc_xiqg_poles_ph{phase_idx:03}.h5',
@@ -622,7 +622,7 @@ if __name__ == '__main__':
             compute_density_split(output_fn, hod_positions, smoothing_radius=10,
                 do_correlation=True, do_power=False, **box_args)
 
-        if 'density_split_power' in args.todo_stats:
+        if 'density_split_power' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'density_split_power')
             output_fn = {
                 'pkqg': Path(save_dir) / f'dsc_pkqg_poles_ph{phase_idx:03}.h5',
@@ -636,7 +636,7 @@ if __name__ == '__main__':
             compute_density_split(output_fn, hod_positions, smoothing_radius=10,
                 do_correlation=False, do_power=True, **box_args)
 
-        if 'minkowski' in args.todo_stats:
+        if 'minkowski' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'minkowski')
 
             output_fn = Path(save_dir) / f'minkowski_ph{phase_idx:03}.npy'
