@@ -223,7 +223,8 @@ def compute_recon_tpcf_smu(output_fn, positions, los='z', **attrs):
     )
     xi.save(output_fn)
 
-def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2, 4), los='z', **attrs):
+def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2, 4),
+    los='z', do_correlation=False, do_power=True, **attrs):
     """Compute density-split statistics using the ACM package."""
     from acm.estimators.galaxy_clustering.density_split import DensitySplit
 
@@ -236,13 +237,12 @@ def compute_density_split(output_fn, positions, smoothing_radius=10, ells=(0, 2,
     muedges = np.linspace(-1, 1, 241)
     edges = (sedges, muedges)
 
-    ccf = ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True)
-    acf = ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True)
-
-    np.save(output_fn['xiqg'], ccf)
-    print(f'Saving {output_fn["xiqg"]}')
-    np.save(output_fn['xiqq'], acf)
-    print(f'Saving {output_fn["xiqq"]}')
+    if do_correlation:
+        ds.quantile_data_correlation(positions, edges=edges, los=los, nthreads=4, gpu=True, save_fn=output_fn['xiqg'])
+        ds.quantile_correlation(edges=edges, los=los, nthreads=4, gpu=True, save_fn=output_fn['xiqq'])
+    if do_power:
+        ds.quantile_data_power(positions, edges={'step': 0.001}, ells=ells, los=los, save_fn=output_fn['pkqg'])
+        ds.quantile_power(edges={'step': 0.001}, ells=ells, los=los, save_fn=output_fn['pkqq'])
 
 def compute_wst(output_fn, positions, init=None, **attrs):
     """Compute the wavelet scattering transform using the ACM package."""
@@ -608,15 +608,33 @@ if __name__ == '__main__':
             box_args = dict(boxsize=boxsize, boxcenter=0.0)
             compute_tpcf_rppi(output_fn, hod_positions, **box_args)
 
-        if 'density_split' in args.todo_stats:
+        if 'density_split_correlation' in args.todo_stats:
             save_dir = get_save_dir(args.save_dir, 'density_split')
             output_fn = {
-                'xiqg': Path(save_dir) / f'dsc_xiqg_poles_ph{phase_idx:03}.npy',
-                'xiqq': Path(save_dir) / f'dsc_xiqq_poles_ph{phase_idx:03}.npy'
+                'xiqg': Path(save_dir) / f'dsc_xiqg_poles_ph{phase_idx:03}.h5',
+                'xiqq': Path(save_dir) / f'dsc_xiqq_poles_ph{phase_idx:03}.h5'
             }
+            if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
+                logger.info(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
+                continue
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
             box_args = get_box_args(boxsize, cellsize=3.9)
-            compute_density_split(output_fn, hod_positions, smoothing_radius=10, **box_args)
+            compute_density_split(output_fn, hod_positions, smoothing_radius=10,
+                do_correlation=True, do_power=False, **box_args)
+
+        if 'density_split_power' in args.todo_stats:
+            save_dir = get_save_dir(args.save_dir, 'density_split_power')
+            output_fn = {
+                'pkqg': Path(save_dir) / f'dsc_pkqg_poles_ph{phase_idx:03}.h5',
+                'pkqq': Path(save_dir) / f'dsc_pkqq_poles_ph{phase_idx:03}.h5'
+            }
+            if output_fn['pkqg'].exists() and output_fn['pkqq'].exists():
+                logger.info(f'Skipping {output_fn["pkqg"]} and {output_fn["pkqq"]}, already exists.')
+                continue
+            hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
+            box_args = get_box_args(boxsize, cellsize=3.9)
+            compute_density_split(output_fn, hod_positions, smoothing_radius=10,
+                do_correlation=False, do_power=True, **box_args)
 
         if 'minkowski' in args.todo_stats:
             save_dir = get_save_dir(args.save_dir, 'minkowski')
@@ -625,6 +643,5 @@ if __name__ == '__main__':
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
             box_args = get_box_args(boxsize, cellsize=3.9)
             compute_minkowski(output_fn, hod_positions, **box_args)
-
 
 
