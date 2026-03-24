@@ -305,7 +305,8 @@ class BoxHOD:
                 self.ball.tracers[tracer][key] = hod_params[key]
         self.ball.tracers[tracer]['ic'] = 1
         self.in_density = True  # Flag if mock is within density threshold
-        # set want_nfw (unique for ELG cutsky)
+        
+        # set want_nfw (unique for ELG cutsky) TODO: move this in cutsky script with want_nfw moved as run_hod kwargs
         if tracer == 'ELG' and self.sim_geometry == 'cutsky':
             # TODO: create functional ELG cutsky mocks implementation
             warnings.warn("WARNING: ELG cutsky mocks are not currently supported. Unexpected behavior may occur.")
