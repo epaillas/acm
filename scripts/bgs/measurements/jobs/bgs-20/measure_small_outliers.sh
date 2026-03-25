@@ -18,7 +18,7 @@ source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
 # Load the old pyrecon module for densitysplit
 module swap pyrecon/mpi pyrecon/main
 
-cd /global/homes/s/sbouchar/acm-repo/scripts/bgs/measurements
+cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 
 LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/small/outliers/log_small_c000_phxxx_seed0.log"
 OUTLIERS='jobs/bgs-20/outliers/all_outliers_simtype-small_ells-02_sigma-6.0.npy'

@@ -28,7 +28,7 @@ COSMO=${COSMO_LIST[$ID]} # Cosmology to be used
 SIMNAME=$(printf "AbacusSummit_base_c%03d_ph000" ${COSMO}) # Simulation name
 PATH2LOG=${LOG_FOLDER}${SIMNAME}.log
 
-cd '/global/homes/s/sbouchar/01- Packages/abacusutils/' # Needed to avoid ImportErrors due to relative imports
+cd '/global/homes/s/sbouchar/01-Packages/abacusutils/' # Needed to avoid ImportErrors due to relative imports
 python -m abacusnbody.hod.prepare_sim --path2config $PATH2CONFIG --path2log $PATH2LOG --alt_simname $SIMNAME --overwrite 0
 
 # Launch with : sbatch --array=0-84 ...
@@ -37,5 +37,5 @@ python -m abacusnbody.hod.prepare_sim --path2config $PATH2CONFIG --path2log $PAT
 # Tests
 # PATH2CONFIG=/global/homes/s/sbouchar/acm/scripts/bgs/prepare_simulations/config.yaml
 # PATH2LOG=/pscratch/sd/s/sbouchar/summit_subsamples_v2/logs/AbacusSummit_base_c000_ph000.log
-# cd '/global/homes/s/sbouchar/01- Packages/abacusutils/'
+# cd '/global/homes/s/sbouchar/01-Packages/abacusutils/'
 # python -m abacusnbody.hod.prepare_sim --path2config $PATH2CONFIG --path2log $PATH2LOG
