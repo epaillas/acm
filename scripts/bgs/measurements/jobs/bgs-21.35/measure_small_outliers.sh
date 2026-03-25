@@ -22,7 +22,8 @@ cd /global/homes/s/sbouchar/acm-repo/scripts/bgs/measurements
 
 LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements/logs/small/outliers/log_small_c000_phxxx_seed0.log"
 OUTLIERS='jobs/bgs-21.35/outliers/all_outliers_simtype-small_ells-02_sigma-6.0.npy'
+# OUTLIERS='jobs/bgs-21.35/outliers/all_corrupted_fourier_small.npy'
 
-python measure_box.py --config jobs/bgs-21.35/config.yaml --gpu --sim_type small --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}"
+python measure_box.py --config jobs/bgs-21.35/config.yaml --gpu --sim_type small --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}" #--measurements power_spectrum density_split_power
 
 # Launch with : sbatch ... 
