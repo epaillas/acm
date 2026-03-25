@@ -15,7 +15,7 @@
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
 
-cd /global/homes/s/sbouchar/acm-repo/scripts/bgs/inference/
+cd /global/homes/s/sbouchar/acm/scripts/bgs/inference/
 
 CONFIG=jobs/bgs-20/config_validation.yaml
 HOD_MODEL=base-AB-CB-VB-s
