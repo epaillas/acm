@@ -15,7 +15,7 @@
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
 
-python /global/homes/s/sbouchar/acm-repo/scripts/bgs/training/optimize_model.py \
+python /global/homes/s/sbouchar/acm/scripts/bgs/training/optimize_model.py \
     --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs-21.35/input_data \
     --study_dir /pscratch/sd/s/sbouchar/acm/bgs-21.35/trained_models/study \
     --save_dir /pscratch/sd/s/sbouchar/acm/bgs-21.35/trained_models \
