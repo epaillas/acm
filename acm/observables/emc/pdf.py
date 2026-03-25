@@ -17,3 +17,6 @@ class GalaxyOverdensityPDF(BaseObservableEMC):
     """
     def __init__(self, **kwargs):
         super().__init__(stat_name='pdf', **kwargs)
+
+# Alias
+pdf = GalaxyOverdensityPDF
