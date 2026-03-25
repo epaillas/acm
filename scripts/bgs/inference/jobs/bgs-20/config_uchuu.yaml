@@ -1,6 +1,6 @@
 module: acm.observables.bgs
 statistics: ['tpcf']
-fit_type: secondgen
+fit_type: uchuu
 cosmo_model: base-w0wa-fixed-omega_b
 hod_model: base-AB-CB-VB-s
 add_cov_emu: true

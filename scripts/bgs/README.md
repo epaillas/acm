@@ -73,12 +73,18 @@ The outliers are identified in `find_outliers.py`.
 > The `visual_tools.py` file contains some plotting functions to visualize the measurements and outliers.
 
 ### Training
+The training and optimization of the emulator are done in `optimize_model.py`, using the `sunbird` package. The training is done for each statistic independently, keeping the first 6 cosmologies as a test set and the rest as a training set.
 
-> TBD
+> [!NOTE]
+> The `train_model.py` script is an older version of the training script for a non-optimized emulator, and is not used in the current pipeline. It is kept in the repository for reference, but it is not recommended to use it for training the emulator. 
 
 ### Inference
+The inference is done in `inference_pocomc.py`, using the `pocomc` package to sample the posterior distribution of the cosmological parameters given the measurements and the emulator predictions.
 
-> TBD
+The `bgs_mocks.py` and `utils.py` files contain some functions to handle the BGS mocks and utilities for the inference and output visualization.
+
+> [!NOTE]
+> The `jobs/` folder contains sub-folder with config files and submission scripts for the inference, for several cases (here different magnitude cuts). The config files are used to define the input parameters for the inference script. The submission scripts are used to submit the inference jobs on the cluster using `SLURM`. A similar folder is available for the measurements.
 
 ## Data
 
