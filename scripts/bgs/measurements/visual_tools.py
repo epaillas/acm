@@ -7,6 +7,7 @@ Usage:
 """
 from pathlib import Path
 
+import lsstypes
 import numpy as np
 import ipywidgets as widgets
 import matplotlib.pyplot as plt
@@ -117,7 +118,7 @@ def get_hod_folders(dir: Path, cosmologies: list[int], phases: list[int], seeds:
     return hod_fns
 
 #%% Density functions
-def get_densities(dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, hod_idx: int = None) -> np.ndarray:
+def get_densities(dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, hod_idx: int = None) -> list:
     """
     Get densities from measurement files for given cosmologies, phases, and seeds from the directory of the measurements.
     
@@ -138,8 +139,8 @@ def get_densities(dir: Path|str, cosmologies: list, phases: list, seeds: list, s
 
     Returns
     -------
-    np.ndarray
-        An array of density values from the measurement files.
+    list
+        A list of density values from the measurement files.
     """
     densities = []
     for cosmology in cosmologies:
@@ -157,12 +158,10 @@ def get_densities(dir: Path|str, cosmologies: list, phases: list, seeds: list, s
                     for fn in fn_list:
                         d = np.load(fn, allow_pickle=True).item()
                         densities.append(d)
-                        
-    densities = np.array(densities)
     return densities
 
 #%% TPCF functions
-def get_tpcf(dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, hod_idx: int = None) -> np.ndarray:
+def get_tpcf(dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, hod_idx: int = None) -> list:
     """
     Get two-point correlation functions from measurement files for given cosmologies, phases, and seeds from the directory of the measurements.
     
@@ -183,8 +182,8 @@ def get_tpcf(dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_ty
 
     Returns
     -------
-    np.ndarray
-        An array of two-point correlation function objects from the measurement files.
+    list
+        A list of two-point correlation function objects from the measurement files.
     """
     tpcfs = []
     for cosmology in cosmologies:
@@ -203,10 +202,9 @@ def get_tpcf(dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_ty
                     cf = sum(cf_list)
                     if len(cf_list) > 0:
                         tpcfs.append(cf)
-    tpcfs = np.array(tpcfs)
     return tpcfs
 
-def plot_tpcf(ax: plt.Axes, measurements: np.ndarray, ells: list[int] = [0, 2, 4], add_handles: bool = True, **kwargs) -> None:
+def plot_tpcf(ax: plt.Axes, measurements: list, ells: list[int] = [0, 2, 4], add_handles: bool = True, **kwargs) -> None:
     """
     Plot two-point correlation functions on a given axis.
     
@@ -214,8 +212,8 @@ def plot_tpcf(ax: plt.Axes, measurements: np.ndarray, ells: list[int] = [0, 2, 4
     ----------
     ax : plt.Axes
         Matplotlib axis to plot on.
-    measurements : np.ndarray
-        Array of two-point correlation function objects to plot.
+    measurements : list
+        List of two-point correlation function objects to plot.
     ells : list[int], optional
         List of multipole moments to plot, by default [0, 2, 4].
     add_handles : bool, optional
@@ -248,7 +246,7 @@ def plot_tpcf(ax: plt.Axes, measurements: np.ndarray, ells: list[int] = [0, 2, 4
     return ax
 
 #%% DensitySplit functions
-def get_ds_cf(stat_name: str, dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, quantiles: list = [0,1,2,3,4], hod_idx: int = None) -> np.ndarray:
+def get_ds_cf(stat_name: str, dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, quantiles: list = [0,1,2,3,4], hod_idx: int = None) -> list:
     """
     Get density split correlation functions from measurement files for given cosmologies, phases, and seeds from the directory of the measurements.
     
@@ -273,8 +271,8 @@ def get_ds_cf(stat_name: str, dir: Path|str, cosmologies: list, phases: list, se
     
     Returns
     -------
-    np.ndarray
-        An array of density split correlation function objects from the measurement files.
+    list
+        A list of density split correlation function objects from the measurement files.
     """
     ds_cfs = []
     for cosmology in cosmologies:
@@ -297,10 +295,9 @@ def get_ds_cf(stat_name: str, dir: Path|str, cosmologies: list, phases: list, se
                             cf_list.append(cf)
                     if len(cf_list) > 0:
                         ds_cfs.append(cf_list)
-    ds_cfs = np.array(ds_cfs)
     return ds_cfs
 
-def plot_ds_cf(ax: plt.Axes, measurements: np.ndarray, quantiles: list = [0, 1, 2, 3, 4] , ell: int = 0, add_handles: bool = True, **kwargs) -> None:
+def plot_ds_cf(ax: plt.Axes, measurements: list, quantiles: list = [0, 1, 2, 3, 4] , ell: int = 0, add_handles: bool = True, **kwargs) -> None:
     """
     Plot density split correlation functions on a given axis.
     
@@ -308,8 +305,8 @@ def plot_ds_cf(ax: plt.Axes, measurements: np.ndarray, quantiles: list = [0, 1, 
     ----------
     ax : plt.Axes
         Matplotlib axis to plot on.
-    measurements : np.ndarray
-        Array of density split correlation function objects to plot.
+    measurements : list
+        List of density split correlation function objects to plot.
     quantiles : list, optional
         List of quantiles to plot. Defaults to [0, 1, 2, 3, 4] .
     ell : int, optional
@@ -332,6 +329,188 @@ def plot_ds_cf(ax: plt.Axes, measurements: np.ndarray, quantiles: list = [0, 1, 
             c =  _c if _c is not None else f'C{i}'
             s, poles = cf[q](ells=[ell], return_sep=True)
             ax.plot(s, poles[0]*s**2, c=c, **kwargs)
+    
+    handles = []
+    for i, q in enumerate(quantiles):
+        color = _c if _c is not None else f'C{i}'
+        kwargs['alpha'] = 1.0 # Make legend handles fully opaque
+        handles.append(plt.Line2D([0], [0], color=color, label=f'DS={q}', **kwargs)) 
+    if add_handles:
+        ax.legend(handles=handles, title='Quantiles', bbox_to_anchor=(1.05, 1), loc='upper left')
+    
+    return ax
+
+#%% Power spectrum functions
+def get_power_spectra(dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, hod_idx: int = None) -> list:
+    """
+    Get power spectra from measurement files for given cosmologies, phases, and seeds from the directory of the measurements.
+    
+    Parameters
+    ----------
+    dir : Path | str
+        Directory of the measurements.
+    cosmologies : list[int]
+        List of cosmologies to get the power spectra for.
+    phases : list[int]
+        List of phases to get the power spectra for.
+    seeds : list[int]
+        List of seeds to get the power spectra for.
+    sim_type : str
+        Abacus simulation type (e.g. 'base').
+    hod_idx : int, optional
+        HOD realization index to get the power spectra for. If None, gets all HOD realizations. Defaults to None.
+
+    Returns
+    -------
+    list
+        A list of power spectrum objects from the measurement files.
+    """
+    power_spectra = []
+    for cosmology in cosmologies:
+        for phase in phases:
+            for seed in seeds:
+                dir_ = Path(dir) / sim_type / f'c{cosmology:03d}_ph{phase:03d}' / f'seed{seed}'
+                
+                if hod_idx is not None:
+                    hod_folders = [dir_ / f'hod{hod_idx:03d}']
+                else:
+                    hod_folders = sorted(dir_.glob('hod*')) # Get all the HOD realizations
+
+                for hod in hod_folders:
+                    fn_list = sorted(hod.glob('power_spectrum_*.h5'))
+                    ps_list = [lsstypes.read(fn) for fn in fn_list]
+                    ps = sum(ps_list)
+                    if len(ps_list) > 0:
+                        power_spectra.append(ps)
+    return power_spectra
+
+def plot_power_spectra(ax: plt.Axes, measurements: list, ells: list = [0, 2], add_handles: bool = True, **kwargs) -> None:
+    """
+    Plot power spectra on a given axis.
+    
+    Parameters
+    ----------
+    ax : plt.Axes
+        Matplotlib axis to plot on.
+    measurements : list
+        List of power spectrum objects to plot.
+    add_handles : bool, optional
+        Whether to add legend handles for the power spectra. Defaults to True.
+    **kwargs
+        Additional keyword arguments to pass to the plot function.
+    
+    Returns
+    -------
+    plt.Axes
+        The matplotlib axis with the plotted power spectra.
+    """
+    kwargs.setdefault('alpha', 0.1)
+    _c = kwargs.pop('c', None) # Ensure default color cycling if not specified
+    
+    for ps in measurements:
+        poles = [ps.get(ell) for ell in ells]
+        for i, ell in enumerate(ells):
+            k = poles[i].coords('k')
+            pk = poles[i].value()
+            c =  _c if _c is not None else f'C{i}'
+            ax.plot(k, pk*k**2, c=c, **kwargs)
+    
+    handles = []
+    for i, ell in enumerate(ells):
+        color = _c if _c is not None else f'C{i}'
+        kwargs['alpha'] = 1.0 # Make legend handles fully opaque
+        handles.append(plt.Line2D([0], [0], color=color, label=rf'$\ell={{{ell}}}$', **kwargs)) 
+    if add_handles:
+        ax.legend(handles=handles)
+    
+    return ax
+
+#%% Fourier-space density split functions
+def get_ds_power_spectra(stat_name: str, dir: Path|str, cosmologies: list, phases: list, seeds: list, sim_type: str, quantiles: list = [0,1,2,3,4], hod_idx: int = None) -> list:
+    """
+    Get density split power spectra from measurement files for given cosmologies, phases, and seeds from the directory of the measurements.
+    
+    Parameters
+    ----------
+    stat_name : str
+        Name of the statistic to load (e.g. 'quantile_power').
+    dir : Path | str
+        Directory of the measurements.
+    cosmologies : list[int]
+        List of cosmologies to get the density split power spectra for.
+    phases : list[int]
+        List of phases to get the density split power spectra for.
+    seeds : list[int]
+        List of seeds to get the density split power spectra for.
+    sim_type : str
+        Abacus simulation type (e.g. 'base').
+    quantiles : list, optional
+        List of quantiles to load, by default [0,1,2,3,4].
+    hod_idx : int, optional
+        HOD realization to load. If None, loads all HOD realizations. Defaults to None.
+    
+    Returns
+    -------
+    list
+        A list of density split power spectrum objects from the measurement files.
+    """
+    ds_power_spectra = []
+    for cosmology in cosmologies:
+        for phase in phases:
+            for seed in seeds:
+                dir_ = Path(dir) / sim_type / f'c{cosmology:03d}_ph{phase:03d}' / f'seed{seed}'
+                
+                if hod_idx is not None:
+                    hod_folders = [dir_ / f'hod{hod_idx:03d}']
+                else:
+                    hod_folders = sorted(dir_.glob('hod*')) # Get all the HOD realizations
+
+                for hod in hod_folders:
+                    fn_list = sorted(hod.glob(f'{stat_name}_los_*.h5'))
+                    ps_list = []
+                    for q in quantiles:
+                        pss = [lsstypes.read(fn).get(quantiles=q) for fn in fn_list]
+                        ps = sum(pss)
+                        if len(pss) > 0:
+                            ps_list.append(ps)
+                    if len(ps_list) > 0:
+                        ds_power_spectra.append(ps_list)
+    return ds_power_spectra
+
+def plot_ds_power_spectra(ax: plt.Axes, measurements: list, quantiles: list = [0, 1, 2, 3, 4] , ell: int = 0, add_handles: bool = True, **kwargs) -> None:
+    """
+    Plot density split power spectra on a given axis.
+    
+    Parameters
+    ----------
+    ax : plt.Axes
+        Matplotlib axis to plot on.
+    measurements : list
+        List of density split power spectrum objects to plot.
+    quantiles : list, optional
+        List of quantiles to plot. Defaults to [0, 1, 2, 3, 4] .
+    ell : int, optional
+        Multipole moment to plot. Defaults to 0.
+    add_handles : bool, optional
+        Whether to add legend handles for the quantiles and multipoles. Defaults to True.
+    **kwargs
+        Additional keyword arguments to pass to the plot function.
+    
+    Returns
+    -------
+    plt.Axes
+        The matplotlib axis with the plotted density split power spectra.
+    """
+    kwargs.setdefault('alpha', 0.1)
+    _c = kwargs.pop('c', None) # Ensure default color cycling if not specified
+    
+    for ps_list in measurements:
+        for i, q in enumerate(quantiles):
+            pss = ps_list[i]
+            k = pss.get(ell).coords('k')
+            pk = pss.get(ell).value()
+            c =  _c if _c is not None else f'C{i}'
+            ax.plot(k, pk*k**2, c=c, **kwargs)
     
     handles = []
     for i, q in enumerate(quantiles):
@@ -366,6 +545,9 @@ def plot_interactive(
             stat_name = stat_name,
             quantiles = kwargs.pop('quantiles', [0,1,2,3,4]),
         )
+    elif stat_name == "power_spectrum":
+        loader = get_power_spectra
+        plotter = plot_power_spectra
     else:
         raise ValueError(f"Unknown stat_name: {stat_name}")
 
