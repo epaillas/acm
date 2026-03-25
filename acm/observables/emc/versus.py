@@ -14,11 +14,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
     """
     Base class for VERSUS void size function observables in the EMC pipeline.
-    
     """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-    
     @classmethod
     def compress_covariance(
         cls,
@@ -726,4 +722,9 @@ class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrela
         return super().compress_data(**kwargs)
 
 # Aliases 
-# TODO
+sv_vsf = VERSUSVoidSizeFunction
+sv_recon_vsf = ReconstructedVERSUSVoidSizeFunction
+sv_xivg = VERSUSVoidGalaxyCorrelationFunctionMultipoles
+sv_recon_xivg = ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles
+sv_xivv = VERSUSVoidAutoCorrelationFunctionMultipoles
+sv_recon_xivv = ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles
