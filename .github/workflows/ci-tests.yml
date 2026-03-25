@@ -2,7 +2,11 @@ name: CI for pull request, notify test regression
 
 on:
   pull_request:
-    branches: [ "cosmodesi" ]
+    branches: 
+      - main
+      - dev
+      - release/* # for release branches
+      - cosmodesi # temporary backward compatibility 
     types: [opened, synchronize, reopened]
 
   push:
