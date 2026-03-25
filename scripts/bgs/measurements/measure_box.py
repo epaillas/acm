@@ -518,7 +518,7 @@ if __name__ == "__main__":
                             save_fn_qd = get_save_fn(save_dir, measurement='quantile_data_correlation', los=los, exist_ok=overwrite)
                             save_fn_qq = get_save_fn(save_dir, measurement='quantile_correlation', los=los, exist_ok=overwrite)
                             if save_fn_qd is None and save_fn_qq is None:
-                                logger.info(f'Quantile files exist. Skipping...')
+                                logger.info(f'Quantile correlation files exist. Skipping...')
                             else:
                                 # NOTE : hardcoded settings for simplification
                                 kwargs = dict(
