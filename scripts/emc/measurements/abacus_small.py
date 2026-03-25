@@ -30,6 +30,12 @@ def get_cli_args():
         type=str,
         default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/'
     )
+    parser.add_argument(
+        '--overwrite',
+        action='store_true',
+        default=False,
+        help='Overwrite existing output files'
+    )
 
     args = parser.parse_args()
     return args
@@ -528,7 +534,7 @@ if __name__ == '__main__':
         if 'bispectrum' in args.statistics:
             save_dir = get_save_dir(args.save_dir, 'bispectrum')
             output_fn = save_dir / f'mesh3_spectrum_poles_ph{phase_idx:03}.h5'
-            if output_fn.exists():
+            if output_fn.exists() and not args.overwrite:
                 print(f'{output_fn} already exists, skipping.')
                 continue
             box_args = get_box_args(boxsize, cellsize=10)
@@ -562,7 +568,7 @@ if __name__ == '__main__':
                 save_dir = wst_base_dir / f'J{wst_args["J"]}_L{wst_args["L"]}_q{wst_args["q"]}_sigma{wst_args["sigma"]}/'
                 save_dir.mkdir(parents=True, exist_ok=True)
                 output_fn = Path(save_dir) / f'wst_ph{phase_idx:03}.npy'
-                if output_fn.exists():
+                if output_fn.exists() and not args.overwrite:
                     logger.info(f'Skipping {output_fn}, already exists.')
                     continue
                 box_args = dict(boxsize=boxsize, meshsize=np.repeat(wst_args['meshsize'], 3))
@@ -614,7 +620,7 @@ if __name__ == '__main__':
                 'xiqg': Path(save_dir) / f'dsc_xiqg_poles_ph{phase_idx:03}.h5',
                 'xiqq': Path(save_dir) / f'dsc_xiqq_poles_ph{phase_idx:03}.h5'
             }
-            if output_fn['xiqg'].exists() and output_fn['xiqq'].exists():
+            if output_fn['xiqg'].exists() and output_fn['xiqq'].exists() and not args.overwrite:
                 logger.info(f'Skipping {output_fn["xiqg"]} and {output_fn["xiqq"]}, already exists.')
                 continue
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
@@ -628,7 +634,7 @@ if __name__ == '__main__':
                 'pkqg': Path(save_dir) / f'dsc_pkqg_poles_ph{phase_idx:03}.h5',
                 'pkqq': Path(save_dir) / f'dsc_pkqq_poles_ph{phase_idx:03}.h5'
             }
-            if output_fn['pkqg'].exists() and output_fn['pkqq'].exists():
+            if output_fn['pkqg'].exists() and output_fn['pkqq'].exists() and not args.overwrite:
                 logger.info(f'Skipping {output_fn["pkqg"]} and {output_fn["pkqq"]}, already exists.')
                 continue
             hod_positions, boxsize = get_hod_positions(hod_fn, los='z')
