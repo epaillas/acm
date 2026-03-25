@@ -175,7 +175,6 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         if add_covariance:
             cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
             cout = xarray.merge([cout, cov_y], join='outer')
-
             
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
