@@ -72,7 +72,7 @@ The project follows the [git-flow](https://nvie.com/posts/a-successful-git-branc
 > 
 > **Do not rebase any collaborative branch that has already been published, as this can cause issues for other collaborators.** 
 
-To keep track of the branches objectives, we enforce the following syntax:
+To keep track of the branch objectives, we enforce the following syntax:
 - `feature/<cool-new-feature>` for new features, to be merged into `dev` when ready
 - `hotfix/<sorry-imessedup>` for urgent bug fixes, to be merged into `main` *and* `dev` when ready
 - `docs/**` for documentation improvements
