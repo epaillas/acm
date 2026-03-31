@@ -1,10 +1,10 @@
+from pathlib import Path
+
 import xarray
 import numpy as np
-import glob
-from pathlib import Path
-from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
-from jaxpower import read
+
+from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
@@ -592,3 +592,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, lax
+    
+# Aliases
+vide_ccf = VIDEVoidGalaxyCorrelationFunctionMultipoles
+vide_vsf = VIDEVoidSizeFunction

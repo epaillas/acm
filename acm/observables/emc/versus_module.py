@@ -1,5 +1,3 @@
-import xarray
-import numpy as np
 from pathlib import Path
 
 import xarray
@@ -16,11 +14,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
     """
     Base class for VERSUS void size function observables in the EMC pipeline.
-    
     """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-    
     @classmethod
     def compress_covariance(
         cls,
@@ -713,7 +707,7 @@ class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrela
     Class for the Emulator's Mock Challenge VERSUS void-void correlation function multipoles with density field reconstruction.
     """
     recon = True
-    
+
     def __init__(self, stat_name='sv_recon_xivv', **kwargs):
         super().__init__(stat_name=stat_name, **kwargs)
 
@@ -727,3 +721,10 @@ class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(BaseVERSUSCorrela
         kwargs.setdefault('stat_name', 'sv_recon_xivv')
         return super().compress_data(**kwargs)
 
+# Aliases 
+sv_vsf = VERSUSVoidSizeFunction
+sv_recon_vsf = ReconstructedVERSUSVoidSizeFunction
+sv_xivg = VERSUSVoidGalaxyCorrelationFunctionMultipoles
+sv_recon_xivg = ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles
+sv_xivv = VERSUSVoidAutoCorrelationFunctionMultipoles
+sv_recon_xivv = ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles

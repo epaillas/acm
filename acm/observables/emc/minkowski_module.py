@@ -1,57 +1,46 @@
+from pathlib import Path
+
 import xarray
 import numpy as np
-from pathlib import Path
-from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
-from jaxpower import read
+
+from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 from acm.utils.xarray import dataset_to_dict, split_vars
 
-class GalaxyBispectrumMultipoles(BaseObservableEMC):
+
+class MinkowskiFunctionals(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, stat_name='bispectrum', n_test=6*500, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name='minkowski', **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
     
     @classmethod
     def compress_covariance(
         cls,
         paths: dict,
-        stat_name: str = 'bispectrum',
+        stat_name: str = 'minkowski',
         save_to: str = None,
-        kmin: float = 0.016,
-        kmax: float = 0.285, 
-        rebin: int = 3,
-        ells: list = [0, 2],
     ) -> xarray.DataArray:
         """
-        Class method to compress the covariance array from the raw measurement files.
-        Provided within the class for convenience.
+        Compress the covariance array from the raw measurement files.
         
         Parameters
         ----------
         paths : dict
             Dictionary containing the paths to the data directories.
         stat_name : str, optional
-            Name of the statistic to compress the covariance for. 
+            Name of the statistic to compress.
             Defines the name of the subfolder in the measurements directory, and the
             saved filename if save_to is provided.
             Defaults to the class's stat_name. 
         save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
-        kmin : float, optional
-            Minimum k value to consider. Default is 0.01.
-        kmax : float, optional
-            Maximum k value to consider. Default is 0.7.
-        rebin : int, optional
-            Rebinning factor for the statistics. Default is 4.
-        ells : list, optional
-            List of multipoles to compute the statistics for. Default is [0, 2, 4].
             
         Returns
         -------
@@ -62,29 +51,34 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         
         # Directories
         base_dir = Path(paths['measurements_dir']) / 'small' / stat_name
-        data_fns = list(base_dir.glob('mesh3_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
-        
+        data_fns = list(base_dir.glob('minkowski_ph*.npy')) # NOTE: File name format hardcoded !
+
+        threshold_index = np.load(
+            '/pscratch/sd/e/epaillas/emc/Threshold_index_for_MFs_with_Rg5_7_10_15.npy',
+            allow_pickle=True
+        ).item()
+
         y = []
-        for data_fn in data_fns:
-            data = read(data_fn)
-            data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
-            poles = [data.get(ell) for ell in ells]
-            k = poles[0].coords('k')
-            weights = k.prod(axis=1) / 1e5
-            y.append(np.concatenate([weights * pole.value().real for pole in poles]))
+        for filename in data_fns:
+            logger.info(f'Compressing {filename}')
+            data = np.load(filename, allow_pickle=True).item()
+            mf = []
+            for i in [5, 7, 10, 15]:
+                Rg = f'Rg{i}'
+                for j in range(4):
+                    mf.append(data[Rg][threshold_index[f'Threshold_index_{Rg}'][j], j ] * (10 * i) ** j) 
+            y.append(np.concatenate(mf))
         y = np.array(y)
-        bin_idx = np.arange(len(k))
         
         y = xarray.DataArray(
-            data = y.reshape(y.shape[0], len(ells), -1),
+            data = y.reshape(y.shape[0], -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "ells": ells,
-                "bin_idx": bin_idx,
+                'bin_idx': list(range(y.shape[-1])),
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["ells", "bin_idx"],
+                "features": ["bin_idx"],
             },
             name = "covariance_y",
         )
@@ -103,29 +97,24 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     def compress_data(
         cls, 
         paths: dict,
-        stat_name: str = 'bispectrum',
+        stat_name: str = 'minkowski',
         add_covariance: bool = False,
         save_to: str = None,
-        kmin: float = 0.016,
-        kmax: float = 0.285, 
-        rebin: int = 3,
-        ells: list = [0, 2],
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
+        test_filters: dict = None
     ) -> dict:
         """
-        Class method to compress the data from the raw measurement files.
-        Provided within the class for convenience.
+        Compress the data from the tpcf raw measurement files.
         
         Parameters
         ----------
         paths : dict
             Dictionary containing the paths to the data directories.
         stat_name : str, optional
-            Name of the statistic to compress the data for.
+            Name of the statistic to compress.
             Defines the name of the subfolder in the measurements directory, and the
             saved filename if save_to is provided.
             Defaults to the class's stat_name. 
@@ -134,14 +123,6 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
-        kmin : float, optional
-            Minimum k value to consider. Default is 0.01.
-        kmax : float, optional
-            Maximum k value to consider. Default is 0.27.
-        rebin : int, optional
-            Rebinning factor for the statistics. Default is 4.
-        ells : list, optional
-            List of multipoles to compute the statistics for. Default is [0, 2, 4].
         cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
@@ -166,35 +147,40 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         
         base_dir = Path(paths['measurements_dir'],  f'base/{stat_name}/')
         
+        threshold_index = np.load(
+            '/pscratch/sd/e/epaillas/emc/Threshold_index_for_MFs_with_Rg5_7_10_15.npy',
+            allow_pickle=True
+        ).item()
+
         y = []
         hods = {}
         for cosmo_idx in cosmos:
             hods[cosmo_idx] = []
             logger.info(f'Compressing c{cosmo_idx:03d}')
-            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/mesh3_spectrum_poles_c{cosmo_idx:03d}_hod*.h5'
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/minkowski_c{cosmo_idx:03d}_hod*.npy'
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
             logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
             for filename in filenames:
-                data = read(filename)
-                data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
-                poles = [data.get(ell) for ell in (0, 2)]
-                k = poles[0].coords('k')
-                weights = k.prod(axis=1) / 1e5
-                y.append(np.concatenate([weights * pole.value().real for pole in poles]))
+                data = np.load(filename, allow_pickle=True).item()
+                mf = []
+                for i in [5, 7, 10, 15]:
+                    Rg = f'Rg{i}'
+                    for j in range(4):
+                        mf.append(data[Rg][threshold_index[f'Threshold_index_{Rg}'][j], j ] * (10 * i) ** j) 
+                y.append(np.concatenate(mf))
         y = np.array(y)
-        bin_idx = np.arange(len(k))
+        
         y = xarray.DataArray(
-            data = y.reshape(len(cosmos), n_hod, len(ells), -1),
+            data = y.reshape(len(cosmos), n_hod, -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'ells': ells,
-                'bin_idx': bin_idx,
+                'bin_idx': list(range(y.shape[-1])),
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['ells', 'bin_idx'],
+                'features': ['bin_idx'],
             },
             name = 'y',
         )
@@ -209,7 +195,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, rebin=rebin, ells=ells)
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
             cout = xarray.merge([cout, cov_y], join='outer')
             
         if test_filters is not None:
@@ -231,7 +217,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
-        Plot the reconstructed galaxy bispectrum multipoles data, model, and residuals.
+        Plot multi-scale Minkowski functionals predictions against data.
 
         Parameters
         ----------
@@ -242,39 +228,41 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
 
         Returns
         -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
-            Figure and axes of the plot.
+        fig, lax : matplotlib.figure.Figure, np.ndarray
+            Figure and axes array of the plot.
         """
-        ells = self._dataset.y.coords['ells'].values.tolist()
+        plt.rcParams.update({
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+        })
 
-        height_ratios = [max(len(ells), 3)] + [1] * len(ells)
+        height_ratios = [3, 1]
         figsize = (6, 1.5 * sum(height_ratios))
         fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
             gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
         fig.subplots_adjust(hspace=0.1)
-        show_legend = True
+        show_legend = False
 
-        for i, ell in enumerate(ells):
-            lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
-            lax[0].set_ylabel(r'$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]', fontsize=15)
+        lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
+        lax[0].set_ylabel(r'$\textrm{Minkowski functionals}$', fontsize=15)
 
-            self.select_filters.update({'multipoles': ell})
+        bin_idx = self.bin_idx.values
+        data = self.y
+        model = self.get_model_prediction(model_params)
+        
+        cov = self.get_covariance_matrix(volume_factor=64)
+        error = np.sqrt(np.diag(cov))
 
-            bin_idx = self.bin_idx.values
-            data = self.y
-            model = self.get_model_prediction(model_params)
+        lax[0].errorbar(bin_idx, data, error, marker='o', ms=3, ls='', 
+            color=f'C0', elinewidth=1.0, capsize=None)
+        lax[0].plot(bin_idx, model, ls='-', color=f'C1')
+        lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
 
-            cov = self.get_covariance_matrix(volume_factor=64)
-            error = np.sqrt(np.diag(cov))
+        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
+        lax[1].set_ylabel(r'$\Delta \textrm{MF} / \sigma_\textrm{MF}$', fontsize=15)
+        lax[1].set_ylim(-4, 4)
 
-            lax[0].errorbar(bin_idx, data, error, marker='o', ms=4, ls='', 
-                color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
-            lax[0].plot(bin_idx, model, ls='-', color=f'C{i}')
-            lax[i + 1].plot(bin_idx, (data - model) / error, ls='-', color=f'C{i}')
-
-            for offset in [-2, 2]: lax[i + 1].axhline(offset, color='k', ls='--')
-            lax[i + 1].set_ylabel(rf'$\Delta B_{{{ell:d}}} / \sigma_{{ B_{{{ell:d}}} }}$', fontsize=15)
-            lax[i + 1].set_ylim(-4, 4)
         for ax in lax:
             ax.grid(True)
             ax.tick_params(axis='both', labelsize=14)
@@ -284,3 +272,6 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             plt.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, lax
+    
+# Alias
+minkowski = MinkowskiFunctionals

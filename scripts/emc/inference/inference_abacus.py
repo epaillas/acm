@@ -3,9 +3,9 @@ from sunbird.inference import priors as sunbird_priors
 from sunbird.cosmology.model_params import get_model_params
 from sunbird.inference.samples import Chain
 
-import acm.observables.emc as emc
 from acm.observables import CombinedObservable
 from acm.utils.covariance import get_covariance_correction
+from acm.utils.modules import get_class_from_module
 from acm import setup_logging
 
 from cosmoprimo import fiducial
@@ -14,6 +14,32 @@ from pathlib import Path
 import numpy as np
 import argparse
 import logging
+
+
+LEGACY_TO_ALIAS = {
+    'GalaxyCorrelationFunctionMultipoles': 'tpcf',
+    'ProjectedGalaxyCorrelationFunction': 'projected_tpcf',
+    'GalaxyPowerSpectrumMultipoles': 'spectrum',
+    'GalaxyBispectrumMultipoles': 'bispectrum',
+    'ReconstructedGalaxyPowerSpectrumMultipoles': 'recon_spectrum',
+    'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
+    'DensitySplitQuantileCorrelationFunctionMultipoles': 'ds_xiqq',
+    'MinkowskiFunctionals': 'minkowski',
+    'GalaxyOverdensityPDF': 'pdf',
+    'WaveletScatteringTransform': 'wst',
+    'VIDEVoidGalaxyCorrelationFunctionMultipoles': 'vide_ccf',
+    'VIDEVoidSizeFunction': 'vide_vsf',
+    'VERSUSVoidSizeFunction': 'sv_vsf',
+    'ReconstructedVERSUSVoidSizeFunction': 'sv_recon_vsf',
+    'VERSUSVoidGalaxyCorrelationFunctionMultipoles': 'sv_xivg',
+    'ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles': 'sv_recon_xivg',
+    'VERSUSVoidAutoCorrelationFunctionMultipoles': 'sv_xivv',
+    'ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles': 'sv_recon_xivv',
+}
+
+
+def resolve_statistic_name(statistic: str) -> str:
+    return LEGACY_TO_ALIAS.get(statistic, statistic)
 
 
 def get_priors(cosmo=True, hod=True):
@@ -77,18 +103,19 @@ def get_filters(observable_name):
     select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
     slice_filters = {}
     """Get the select and slice coordinates for the observable."""
-    if observable_name == 'GalaxyCorrelationFunctionMultipoles':
+    observable_name = resolve_statistic_name(observable_name)
+    if observable_name == 'tpcf':
         select_filters.update({'multipoles': [0, 2]})
         slice_filters.update({'s': [0.0, 150]})
-    elif observable_name == 'GalaxyPowerSpectrumMultipoles':
+    elif observable_name == 'spectrum':
         select_filters.update({'multipoles': [0, 2, 4]})
-    elif observable_name == 'GalaxyBispectrumMultipoles':
+    elif observable_name == 'bispectrum':
         select_filters.update({'multipoles': [0, 2]})
         slice_filters.update({'k': [0.0, 0.7]})
-    elif observable_name == 'ReconstructedGalaxyPowerSpectrumMultipoles':
+    elif observable_name == 'recon_spectrum':
         select_filters.update({'multipoles': [0, 2, 4]})
         slice_filters.update({'k': [0.0, 0.7]})
-    elif observable_name == 'DensitySplitPowerSpectrumMultipoles':
+    elif observable_name in {'ds_xiqg', 'ds_xiqq'}:
         select_filters.update({'statistics': ['quantile_data_power']})
     return select_filters, slice_filters
 
@@ -98,8 +125,9 @@ def get_observable(observable_names):
         observable_names = [observable_names]
     observables = []
     for observable_name in observable_names:
+        observable_name = resolve_statistic_name(observable_name)
         select_filters, slice_filters = get_filters(observable_name)
-        obs = getattr(emc, observable_name)(
+        obs = get_class_from_module(args.module, observable_name)(
             numpy_output=True,
             squeeze_output=True,
             select_filters=select_filters,
@@ -207,7 +235,8 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--statistics', nargs='+', help='List of statistics to use, e.g. GalaxyPowerSpectrumMultipoles')
+    parser.add_argument('--module', type=str, default='acm.observables.emc', help='Module to load the observable classes from.')
+    parser.add_argument('-s', '--statistics', nargs='+', help='List of statistics to use, e.g. spectrum')
     parser.add_argument("--cosmo_idx", type=int, default=0)
     parser.add_argument("--hod_idx", type=int, default=0)
     parser.add_argument('--add_cov_emu', action='store_true', help='Whether to add emulator covariance or not.')

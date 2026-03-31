@@ -1,56 +1,36 @@
+from pathlib import Path
+
 import xarray
 import numpy as np
-import glob
-from pathlib import Path
-from .base import BaseObservableEMC
 import matplotlib.pyplot as plt
 from jaxpower import read
+
+from .base import BaseObservableEMC
 from acm.utils.default import cosmo_list # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
 from acm.utils.decorators import temporary_class_state
 from acm.utils.xarray import dataset_to_dict, split_vars
 
 
-class WaveletScatteringTransform(BaseObservableEMC):
+class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, stat_name='wst', n_test=6*125, **kwargs):
+    def __init__(self, stat_name='spectrum', n_test=6*250, **kwargs):
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
-    
-    @staticmethod
-    def renorm_wst(inpt, config='J5_L3_q0.8_sigma0.4'):
-        if config == 'J5_L3_q0.8_sigma0.4':
-            s0 = inpt[0]
-            s12 =  inpt[1:].reshape(21,4)
-            outp = np.zeros_like(s12)
-            outp[:6,:] = s12[:6,:]/s0
-            outp[6:11,:] = s12[6:11,:]/s12[0,:]
-            outp[11:15,:] = s12[11:15,:]/s12[1,:]
-            outp[15:18,:] = s12[15:18,:]/s12[2,:]
-            outp[18:20,:] = s12[18:20,:]/s12[3,:]
-            outp[20:,:] = s12[20:,:]/s12[4,:]
-            sfin = np.hstack((1.0,outp.flatten())) 
-            return sfin
-        else:
-            s0 = inpt[0]
-            s12 =  inpt[1:].reshape(15,5)
-            outp = np.zeros_like(s12)
-            outp[:5,:] = s12[:5,:]/s0
-            outp[5:9,:] = s12[5:9,:]/s12[0,:]
-            outp[9:12,:] = s12[9:12,:]/s12[1,:]
-            outp[12:14,:] = s12[12:14,:]/s12[2,:]
-            outp[14:,:] = s12[14:,:]/s12[3,:]
-            sfin = np.hstack((1.0,outp.flatten()))  
-        return sfin  
     
     @classmethod
     def compress_covariance(
         cls,
         paths: dict,
-        stat_name: str = 'wst',
+        stat_name: str = 'spectrum',
         save_to: str = None,
+        kmin: float = 0.0126,
+        kmax: float = 0.7, 
+        rebin: int = 13,
+        ells: list = [0, 2, 4],
+        overwrite_k: np.ndarray = None
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -67,6 +47,18 @@ class WaveletScatteringTransform(BaseObservableEMC):
         save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
+        kmin : float, optional
+            Minimum k value to consider. Default is 0.01.
+        kmax : float, optional
+            Maximum k value to consider. Default is 0.7.
+        rebin : int, optional
+            Rebinning factor for the statistics. Default is 4.
+        ells : list, optional
+            List of multipoles to compute the statistics for. Default is [0, 2, 4].
+        overwrite_k : np.ndarray, optional
+            If not None, overwrite the final separation values with this array. 
+            This is primarily useful to ensure consistency between the covariance and the data dims.
+            Default is None.
             
         Returns
         -------
@@ -77,46 +69,28 @@ class WaveletScatteringTransform(BaseObservableEMC):
         
         # Directories
         base_dir = Path(paths['measurements_dir']) / 'small' / stat_name
-        
-        # Define WST configurations to concatenate
-        configs = [
-            'J4_L4_q1_sigma0.8',
-            # 'J4_L4_q1_sigma1.0',
-            'J5_L3_q0.8_sigma0.4',
-        ]
-
-        # WST coefficient indices to mask due to instabilities
-        mask = [95, 96, 97, 98, 99, 116, 117, 118, 119, 131, 132, 133, 134, 141, 142, 143, 144, 146, 147, 148, 149]
-        
-        # Get phase files from first configuration
-        first_config_dir = base_dir / configs[0]
-        data_fns = list(first_config_dir.glob('wst_ph*.npy'))
+        data_fns = list(base_dir.glob('mesh2_spectrum_poles_ph*.h5')) # NOTE: File name format hardcoded !
         
         y = []
         for data_fn in data_fns:
-            phase_filename = data_fn.name
-            concatenated_coeffs = []
-            for config_folder in configs:
-                config_dir = base_dir / config_folder
-                filename = config_dir / phase_filename
-                data = np.load(filename, allow_pickle=True)
-                normalized = cls.renorm_wst(data, config=config_folder)[1:]  # Exclude first element
-                concatenated_coeffs.append(normalized)
-            # Concatenate coefficients from all three configurations
-            concatenated_coeffs = np.concatenate(concatenated_coeffs)
-            # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
-            y.append(concatenated_coeffs)
+            data = read(data_fn)
+            data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
+            poles = [data.get(ell) for ell in (0, 2, 4)]
+            k = poles[0].coords('k')
+            y.append(np.concatenate(poles))
         y = np.array(y)
+        k = overwrite_k if overwrite_k is not None else k
                 
         y = xarray.DataArray(
-            data = y.reshape(y.shape[0], -1),
+            data = y.reshape(y.shape[0], len(ells), -1),
             coords = {
                 "phase_idx": list(range(y.shape[0])),
-                "bin_idx": np.arange(y.shape[1]),
+                "ells": ells,
+                "k": k,
             },
             attrs = {
                 "sample": ["phase_idx"],
-                "features": ["bin_idx"],
+                "features": ["ells", "k"],
             },
             name = "covariance_y",
         )
@@ -133,11 +107,15 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @classmethod
     def compress_data(
-        cls, 
+        cls,
         paths: dict,
-        stat_name: str = 'wst',
+        stat_name: str = 'spectrum', 
         add_covariance: bool = False,
         save_to: str = None,
+        kmin: float = 0.0126,
+        kmax: float = 0.7, 
+        rebin: int = 13,
+        ells: list = [0, 2, 4],
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase: int = 0,
@@ -145,7 +123,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         test_filters: dict = None
     ) -> dict:
         """
-        Compress the data from raw measurement files.
+        Compress the data from the tpcf raw measurement files.
         
         Parameters
         ----------
@@ -161,6 +139,14 @@ class WaveletScatteringTransform(BaseObservableEMC):
         save_to : str, optional
             Path of the directory where to save the compressed file. If None, it is not saved.
             Default is None.
+        kmin : float, optional
+            Minimum k value to consider. Default is 0.01.
+        kmax : float, optional
+            Maximum k value to consider. Default is 0.7.
+        rebin : int, optional
+            Rebinning factor for the statistics. Default is 4.
+        ells : list, optional
+            List of multipoles to compute the statistics for. Default is [0, 2, 4].
         cosmos : list, optional
             List of cosmological parameters to use. If None, use all cosmological parameters.
             Default is None.
@@ -184,53 +170,33 @@ class WaveletScatteringTransform(BaseObservableEMC):
         logger = cls.get_logger()
         
         base_dir = Path(paths['measurements_dir'],  f'base/{stat_name}/')
-
-        # Define WST configurations to concatenate
-        configs = [
-            'J4_L4_q1_sigma0.8',
-            # 'J4_L4_q1_sigma1.0',
-            'J5_L3_q0.8_sigma0.4',
-        ]
-
-        # WST coefficient indices to mask due to instabilities
-        mask = [95, 96, 97, 98, 99, 116, 117, 118, 119, 131, 132, 133, 134, 141, 142, 143, 144, 146, 147, 148, 149]
         
         y = []
         hods = {}
         for cosmo_idx in cosmos:
-            logger.info(f'Compressing c{cosmo_idx:03}')
-            
-            # Get HOD indices from first configuration
-            first_config_dir = base_dir / configs[0] / f'c{cosmo_idx:03}_ph{phase:03}' / f'seed{seed}'
-            filenames = sorted(first_config_dir.glob(f'wst_c{cosmo_idx:03}_hod*.npy'))[:n_hod]
-            hod_indices = [int(f.stem.split('hod')[-1]) for f in filenames]
-            hods[cosmo_idx] = hod_indices
-            logger.info(f'Number of HODs: {len(hod_indices)}')
-            
-            # Load and concatenate data from all configurations for each HOD
-            for hod_idx in hod_indices:
-                concatenated_coeffs = []
-                for config_folder in configs:
-                    config_dir = base_dir / config_folder / f'c{cosmo_idx:03}_ph{phase:03}' / f'seed{seed}'
-                    filename = config_dir / f'wst_c{cosmo_idx:03}_hod{hod_idx:03}.npy'
-                    data = np.load(filename, allow_pickle=True)
-                    normalized = cls.renorm_wst(data, config=config_folder)[1:]  # Exclude first element
-                    concatenated_coeffs.append(normalized)
-                # Concatenate coefficients from all three configurations
-                concatenated_coeffs = np.concatenate(concatenated_coeffs)
-                # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
-                y.append(concatenated_coeffs)
+            logger.info(f'Compressing c{cosmo_idx:03d}')
+            handle = f'c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/mesh2_spectrum_poles_c{cosmo_idx:03d}_hod*.h5'
+            filenames = sorted(base_dir.glob(handle))[:n_hod]
+            hods[cosmo_idx] = [int(f.stem.split('hod')[-1]) for f in filenames]
+            logger.info(f'Number of HODs: {len(hods[cosmo_idx])}')
+            for filename in filenames:
+                data = read(filename)
+                data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax))
+                poles = [data.get(ell) for ell in (0, 2, 4)]
+                k = poles[0].coords('k')
+                y.append(np.concatenate(poles))
         y = np.array(y)
         y = xarray.DataArray(
-            data = y.reshape(len(cosmos), n_hod, -1),
+            data = y.reshape(len(cosmos), n_hod, len(ells), -1),
             coords = {
                 'cosmo_idx': cosmos,
                 'hod_idx': list(range(n_hod)),
-                'bin_idx': np.arange(y.shape[-1]),
+                'ells': ells,
+                'k': k,
             },
             attrs = {
                 'sample': ['cosmo_idx', 'hod_idx'],
-                'features': ['bin_idx'],
+                'features': ['ells', 'k'],
             },
             name = 'y',
         )
@@ -245,7 +211,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, rebin=rebin, ells=ells, overwrite_k=k)
             cout = xarray.merge([cout, cov_y], join='outer')
             
         if test_filters is not None:
@@ -264,10 +230,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str = None):
         """
-        Plot the training set for the observable.
+        Plot the covariance set for the observable.
         
         Parameters
         ----------
@@ -275,26 +240,31 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
+        ells = self._dataset.y.coords['ells'].values.tolist()
+        k = self.k.values
 
-        fig, ax = plt.subplots(figsize=(5, 4))
+        fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
 
-        for data in self.y:
-            ax.plot(data, color='gray', alpha=0.5, lw=0.1)
+        for ell in ells:
+            self.select_filters.update({'ells': ell})
 
-        ax.set_xlabel('bin index')
-        ax.set_ylabel('WST coefficient')
+            for data in self.covariance_y:
+                lax[ell//2].plot(k, k * data, color=f'C{ell // 2}', alpha=0.5, lw=0.1)
+
+            lax[ell//2].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
+        lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches='tight')
             self.logger.info(f'Saving training set figure to {save_fn}')
             
-        return fig, ax
-
+        return fig, lax
+    
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(self, model_params: dict, save_fn: str = None):
         """
-        Plot multi-scale Minkowski functionals predictions against data.
+        Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
         Parameters
         ----------
@@ -305,34 +275,40 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
         Returns
         -------
-        fig, lax : matplotlib.figure.Figure, np.ndarray
-            Figure and axes array of the plot.
+        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+            Figure and axes of the plot.
         """
-        height_ratios = [3, 1]
+
+        ells = self._dataset.y.coords['ells'].values.tolist()
+
+        height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
         fig, lax = plt.subplots(len(height_ratios), sharex=True, sharey=False,
             gridspec_kw={'height_ratios': height_ratios}, figsize=figsize, squeeze=True)
         fig.subplots_adjust(hspace=0.1)
-        show_legend = False
+        show_legend = True
+        
+        for i, ell in enumerate(ells):
+            lax[-1].set_xlabel(r'$k\, [h {\rm Mpc}^{-1}$]', fontsize=15)
+            lax[0].set_ylabel(r'$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$', fontsize=15)
 
-        lax[-1].set_xlabel(r'$\textrm{bin index}$]', fontsize=15)
-        lax[0].set_ylabel(r'$\textrm{WST coefficient}$', fontsize=15)
+            self.select_filters.update({'ells': ell})
 
-        bin_idx = self.bin_idx.values
-        data = self.y
-        model = self.get_model_prediction(model_params)
+            k = self.k.values
+            data = self.y
+            model = self.get_model_prediction(model_params)
+            
+            cov = self.get_covariance_matrix(volume_factor=64)
+            error = np.sqrt(np.diag(cov))
 
-        cov = self.get_covariance_matrix(volume_factor=64)
-        error = np.sqrt(np.diag(cov))
+            lax[0].errorbar(k, k * data, k * error, marker='o', ms=4, ls='', 
+                color=f'C{i}', elinewidth=1.0, capsize=None, label=f'$\ell={ell}$')
+            lax[0].plot(k, k * model, ls='-', color=f'C{i}')
+            lax[i + 1].plot(k, (data - model) / error, ls='-', color=f'C{i}')
 
-        lax[0].errorbar(bin_idx, data, error, marker='o', ms=3, ls='', 
-            color=f'C0', elinewidth=1.0, capsize=None)
-        lax[0].plot(bin_idx, model, ls='-', color=f'C1')
-        lax[1].plot(bin_idx, (data - model) / error, ls='-', color=f'C0')
-
-        for offset in [-2, 2]: lax[1].axhline(offset, color='k', ls='--')
-        lax[1].set_ylabel(r'$\Delta \textrm{WST} / \sigma_\textrm{WST}$', fontsize=15)
-        lax[1].set_ylim(-4, 4)
+            for offset in [-2, 2]: lax[i + 1].axhline(offset, color='k', ls='--')
+            lax[i + 1].set_ylabel(rf'$\Delta P_{{{ell:d}}} / \sigma_{{ P_{{{ell:d}}} }}$', fontsize=15)
+            lax[i + 1].set_ylim(-4, 4)
 
         for ax in lax:
             ax.grid(True)
@@ -344,38 +320,5 @@ class WaveletScatteringTransform(BaseObservableEMC):
             self.logger.info(f'Saving plot to {save_fn}')
         return fig, lax
 
-    @set_plot_style
-    @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_covariance_set(self, save_fn: str = None):
-        """
-        Plot the covariance matrix for the observable.
-
-        Parameters
-        ----------
-        save_fn : str
-            Filename to save the plot. If None, the plot is not saved.
-
-        Returns
-        -------
-        fig, ax : matplotlib.figure.Figure, matplotlib.axes.Axes
-            Figure and axes of the plot.
-        """
-        fig, ax = plt.subplots(figsize=(5, 4))
-
-        for data in self.covariance_y:
-            ax.plot(data, color='gray', alpha=0.5, lw=0.1)
-
-        mean = np.mean(self.covariance_y, axis=0)
-        ax.plot(mean, color='k', lw=1.0)
-
-        ax.set_xlabel('bin index')
-        ax.set_ylabel('WST coefficient')
-
-        cov = np.cov(self.covariance_y, rowvar=False)
-        prec = np.linalg.inv(cov)
-
-        if save_fn is not None:
-            fig.savefig(save_fn, dpi=300, bbox_inches='tight')
-            self.logger.info(f'Saving training set figure to {save_fn}')
-            
-        return fig, ax
+# Alias
+spectrum = GalaxyPowerSpectrumMultipoles
