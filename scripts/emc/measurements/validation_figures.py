@@ -1,5 +1,5 @@
-import acm.observables.emc as emc
 from acm import setup_logging
+from acm.utils.modules import get_class_from_module
 from pathlib import Path
 import argparse
 
@@ -30,7 +30,7 @@ def plot_training_set(observable_name):
     #     'param_dir': None
     # }
     observable_name = resolve_statistic_name(observable_name)
-    observable = getattr(emc, observable_name, None)(numpy_output=True)
+    observable = get_class_from_module(args.module, observable_name)(numpy_output=True)
     save_fn = Path(args.save_dir) / f'{observable.stat_name}_training_set.png'
     observable.plot_training_set(save_fn=save_fn)
 
@@ -41,7 +41,7 @@ def plot_covariance_set(observable_name):
     #     'param_dir': None
     # }
     observable_name = resolve_statistic_name(observable_name)
-    observable = getattr(emc, observable_name, None)(select_filters={}, numpy_output=True)
+    observable = get_class_from_module(args.module, observable_name)(select_filters={}, numpy_output=True)
     save_fn = Path(args.save_dir) / f'{observable.stat_name}_covariance_set.png'
     observable.plot_covariance_set(save_fn=save_fn)
 
@@ -51,6 +51,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description='Generate validation figures for EMC measurements.'
+    )
+    parser.add_argument(
+        '--module',
+        type=str,
+        default='acm.observables.emc',
+        help='Module to load the observable classes from.'
     )
     parser.add_argument(
         '-s', '--statistics',

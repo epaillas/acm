@@ -3,9 +3,9 @@ from sunbird.inference import priors as sunbird_priors
 from sunbird.cosmology.model_params import get_model_params
 from sunbird.inference.samples import Chain
 
-import acm.observables.emc as emc
 from acm.observables import CombinedObservable
 from acm.utils.covariance import get_covariance_correction
+from acm.utils.modules import get_class_from_module
 from acm import setup_logging
 
 from cosmoprimo import fiducial
@@ -112,7 +112,7 @@ def get_observable(stat_names):
         observable_name = class_names[stat_name]
         select_filters, slice_filters = get_filters(observable_name)
         select_indices = selected_bins[stat_name]
-        obs = getattr(emc, observable_name)(
+        obs = get_class_from_module(args.module, observable_name)(
             numpy_output=True,
             squeeze_output=True,
             select_filters=select_filters,
@@ -218,6 +218,7 @@ if __name__ == "__main__":
     logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--module', type=str, default='acm.observables.emc', help='Module to load the observable classes from.')
     parser.add_argument("--greedy_fn", type=Path, default=Path("/global/u1/e/epaillas/code/acm/scripts/emc/fisher/selected_bins.npy"))
     parser.add_argument("--cosmo_idx", type=int, default=0)
     parser.add_argument("--hod_idx", type=int, default=0)

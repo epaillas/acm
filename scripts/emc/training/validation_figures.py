@@ -1,5 +1,5 @@
-import acm.observables.emc as emc
 from acm import setup_logging
+from acm.utils.modules import get_class_from_module
 import argparse
 from pathlib import Path
 
@@ -28,7 +28,7 @@ def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
     Plot the model prediction for a given observable and cosmology/HOD index.
     """
     observable_name = resolve_statistic_name(observable_name)
-    observable = getattr(emc, observable_name, None)(
+    observable = get_class_from_module(args.module, observable_name)(
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
         numpy_output=True,
         squeeze_output=True,
@@ -42,7 +42,7 @@ def plot_emulator_residuals(observable_name):
     Plot the emulator residuals for a given observable.
     """
     observable_name = resolve_statistic_name(observable_name)
-    observable = getattr(emc, observable_name, None)(
+    observable = get_class_from_module(args.module, observable_name)(
         select_filters={},
     )
     save_fn = Path(save_dir) / f'{observable.stat_name}_emulator_residuals.png'
@@ -52,6 +52,7 @@ def plot_emulator_residuals(observable_name):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Compress EMC measurement files.')
+    parser.add_argument('--module', type=str, default='acm.observables.emc', help='Module to load the observable classes from.')
     parser.add_argument(
         '-s', '--statistics', nargs='+',
         default=[
