@@ -4,10 +4,30 @@ import argparse
 from pathlib import Path
 
 
+LEGACY_TO_ALIAS = {
+    'GalaxyCorrelationFunctionMultipoles': 'tpcf',
+    'ProjectedGalaxyCorrelationFunction': 'projected_tpcf',
+    'GalaxyPowerSpectrumMultipoles': 'spectrum',
+    'GalaxyBispectrumMultipoles': 'bispectrum',
+    'ReconstructedGalaxyPowerSpectrumMultipoles': 'recon_spectrum',
+    'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
+    'DensitySplitQuantileCorrelationFunctionMultipoles': 'ds_xiqq',
+    'DensitySplitGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
+    'MinkowskiFunctionals': 'minkowski',
+    'GalaxyOverdensityPDF': 'pdf',
+    'WaveletScatteringTransform': 'wst',
+}
+
+
+def resolve_statistic_name(statistic: str) -> str:
+    return LEGACY_TO_ALIAS.get(statistic, statistic)
+
+
 def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
     """
     Plot the model prediction for a given observable and cosmology/HOD index.
     """
+    observable_name = resolve_statistic_name(observable_name)
     observable = getattr(emc, observable_name, None)(
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
         numpy_output=True,
@@ -21,6 +41,7 @@ def plot_emulator_residuals(observable_name):
     """
     Plot the emulator residuals for a given observable.
     """
+    observable_name = resolve_statistic_name(observable_name)
     observable = getattr(emc, observable_name, None)(
         select_filters={},
     )
@@ -34,12 +55,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '-s', '--statistics', nargs='+',
         default=[
-            'ProjectedGalaxyCorrelationFunction',
-            'GalaxyPowerSpectrumMultipoles',
-            'ReconstructedGalaxyPowerSpectrumMultipoles',
-            'GalaxyBispectrumMultipoles',
-            'DensitySplitGalaxyCorrelationFunctionMultipoles',
-            'MinkowskiFunctionals',
+            'projected_tpcf',
+            'spectrum',
+            'recon_spectrum',
+            'bispectrum',
+            'ds_xiqg',
+            'minkowski',
         ],
         help='List of statistics to compress.'
     )

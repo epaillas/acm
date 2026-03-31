@@ -17,15 +17,15 @@ import logging
 
 
 class_names = {
-    'wp': 'ProjectedGalaxyCorrelationFunction',
-    'pk': 'GalaxyPowerSpectrumMultipoles',
-    'bk': 'GalaxyBispectrumMultipoles',
-    'recon_pk': 'ReconstructedGalaxyPowerSpectrumMultipoles',
-    'wst': 'WaveletScatteringTransform',
-    'minkowski': 'MinkowskiFunctionals',
-    'ds_xiqg': 'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles',
-    'ds_xiqq': 'DensitySplitQuantileCorrelationFunctionMultipoles',
-    'pdf': 'GalaxyOverdensityPDF',
+    'wp': 'projected_tpcf',
+    'pk': 'spectrum',
+    'bk': 'bispectrum',
+    'recon_pk': 'recon_spectrum',
+    'wst': 'wst',
+    'minkowski': 'minkowski',
+    'ds_xiqg': 'ds_xiqg',
+    'ds_xiqq': 'ds_xiqq',
+    'pdf': 'pdf',
 }
 
 
@@ -90,32 +90,33 @@ def get_filters(observable_name):
     select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
     slice_filters = {}
     """Get the select and slice coordinates for the observable."""
-    if observable_name == 'GalaxyCorrelationFunctionMultipoles':
+    if observable_name == 'tpcf':
         select_filters.update({'multipoles': [0, 2]})
         slice_filters.update({'s': [0.0, 150]})
-    elif observable_name == 'GalaxyPowerSpectrumMultipoles':
+    elif observable_name == 'spectrum':
         select_filters.update({'multipoles': [0, 2, 4]})
-    elif observable_name == 'GalaxyBispectrumMultipoles':
+    elif observable_name == 'bispectrum':
         select_filters.update({'multipoles': [0, 2]})
         slice_filters.update({'k': [0.0, 0.7]})
-    elif observable_name == 'ReconstructedGalaxyPowerSpectrumMultipoles':
+    elif observable_name == 'recon_spectrum':
         select_filters.update({'multipoles': [0, 2, 4]})
         slice_filters.update({'k': [0.0, 0.7]})
-    elif observable_name == 'DensitySplitPowerSpectrumMultipoles':
+    elif observable_name in {'ds_xiqg', 'ds_xiqq'}:
         select_filters.update({'statistics': ['quantile_data_power']})
     return select_filters, slice_filters
 
 def get_observable(stat_names):
     """Get the observable class from a list of stat_name."""
-    select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
     observables = []
     for stat_name in stat_names:
         observable_name = class_names[stat_name]
+        select_filters, slice_filters = get_filters(observable_name)
         select_indices = selected_bins[stat_name]
         obs = getattr(emc, observable_name)(
             numpy_output=True,
             squeeze_output=True,
             select_filters=select_filters,
+            slice_filters=slice_filters,
             select_indices=select_indices,
         )
         observables.append(obs)
