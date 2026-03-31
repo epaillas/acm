@@ -20,6 +20,7 @@ def get_cli_args():
     parser.add_argument("--n_hod", type=int, default=1)
     parser.add_argument("--start_cosmo", type=int, default=0)
     parser.add_argument("--n_cosmo", type=int, default=1)
+    parser.add_argument("--phase", type=int, nargs='+', default=None)
     parser.add_argument("--start_phase", type=int, default=3000)
     parser.add_argument("--n_phase", type=int, default=2000)
     parser.add_argument("--start_seed", type=int, default=0)
@@ -503,7 +504,10 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     setup_logging()
 
-    phases = list(range(args.start_phase, args.start_phase + args.n_phase))
+    if args.phase is not None:
+        phases = args.phase
+    else:
+        phases = list(range(args.start_phase, args.start_phase + args.n_phase))
 
     fid_cosmo = AbacusSummit(0)
     redshift = 0.5
