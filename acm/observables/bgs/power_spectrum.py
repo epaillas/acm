@@ -24,7 +24,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
     def compress_covariance(
         cls,
         paths: dict,
-        stat_name: str = 'spectrum', 
+        stat_name: str = 'power_spectrum', 
         cosmo_idx: int = 0,
         hod_idx: int = 157,
         seed: int = 0,
@@ -44,13 +44,13 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(small_dir.glob(f'c{cosmo_idx:03d}_ph*'))]
         for phase in phases:
             fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
-            fns = [fn_dir / f'{stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+            fns = [fn_dir / f'{stat_name}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
             data = lsstypes.mean([lsstypes.read(fn).select(k=slice(0, None, rebin)).select(k=(kmin, kmax)) for fn in fns if fn.exists()])
             if data == 0:
                 raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot compute covariance.')
             poles = [data.get(ell) for ell in ells]
             k = poles[0].coords('k')
-            y.append([pole.value() for pole in poles])
+            y.append(np.concatenate(poles))
         y = np.array(y)
         k = overwrite_k if overwrite_k is not None else k
         
@@ -82,7 +82,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
     def compress_data(
         cls,
         paths: dict,
-        stat_name: str = 'spectrum', 
+        stat_name: str = 'power_spectrum', 
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
@@ -116,14 +116,15 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
             )[:n_hod] # Restrict to n_hod if needed
             
             for fn_dir in hod_fns:
-                fns = [fn_dir / f'{stat_name}_los_{l}.npy' for l in los] # NOTE: Hardcoded !
+                logger.debug(f'Loading data for c{cosmo_idx:03d}_hod{fn_dir.stem.split("hod")[-1]}')
+                fns = [fn_dir / f'{stat_name}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
                     raise FileNotFoundError(f'No measurement files found in {fn_dir}, cannot load data.')
                 data = lsstypes.mean([lsstypes.read(fn).select(k=slice(0, None, rebin)).select(k=(kmin, kmax)) for fn in existing_fns])
                 poles = [data.get(ell) for ell in ells]
                 k = poles[0].coords('k')
-                y.append([pole.value() for pole in poles])
+                y.append(np.concatenate(poles))
         y = np.array(y)
         
         y = xarray.DataArray(
