@@ -82,7 +82,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         
         self.spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
-        if save_fn:
+        if save_fn and jax.process_index() == 0:
             self.save(save_fn)
         
         self.logger.info(f'Power spectrum computed in {time.time() - t0:.2f} s.')
@@ -105,7 +105,6 @@ class PowerSpectrumMultipoles(BaseEstimator):
         """
         fn = Path(fn) # Ensure fn is a Path object
         tmp_fn = fn.with_name(fn.stem + '.tmp' + fn.suffix)
-        if jax.process_index() == 0:
-            self.spectrum.write(tmp_fn)
-            self.logger.info(f'Saving power spectrum to {fn}')
-            tmp_fn.replace(fn) # Atomic move to avoid partial writes
+        self.spectrum.write(tmp_fn)
+        self.logger.info(f'Saving power spectrum to {fn}')
+        tmp_fn.replace(fn) # Atomic move to avoid partial writes
