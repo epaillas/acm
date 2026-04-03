@@ -93,15 +93,25 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         y = []
         phases = [int(fn.stem.split('_ph')[-1]) for fn in sorted(small_dir.glob(f'c{cosmo_idx:03d}_ph*'))] # List of available phases from files
         
+        data_size = None # To check consistency of data size across files, initialized at first file read
         for phase in phases:
             y_quantiles = []
             for q in quantiles:
                 fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
                 fns = [fn_dir / f'{measurement_root}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
+                
                 if len(existing_fns) == 0:
                     raise FileNotFoundError(f'No measurement files found in {fn_dir} for quantile {q}, cannot compute covariance.')
-                data = lsstypes.mean([lsstypes.read(fn).select(k=slice(0, None, rebin)).select(k=(kmin, kmax)).get(quantiles=q) for fn in existing_fns])
+                
+                data = lsstypes.mean([lsstypes.read(fn) for fn in existing_fns])
+                data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax)).get(quantiles=q)
+                
+                if data_size is None:
+                    data_size = data.size
+                if data.size != data_size:
+                    raise ValueError(f'Inconsistent data size across mocks: expected {data_size}, got {data.size} in {fn_dir}. Cannot compute covariance.')
+                
                 poles = [data.get(ell) for ell in ells]
                 k = poles[0].coords('k')
                 y_quantiles.append(np.concatenate(poles))
@@ -221,6 +231,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         n_hod = len(x.hod_idx) # Edge case if n_hod was None
         
         y = []
+        data_size = None # To check consistency of data size across files, initialized at first file read
         for cosmo_idx in cosmos:
             # Get the HODs folders available for this cosmology
             hod_fns = cls.get_hod_from_files(
@@ -235,10 +246,19 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
             for fn_dir in hod_fns:
                 y_quantiles = []
                 fns = [fn_dir / f'{measurement_root}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
+                existing_fns = [fn for fn in fns if fn.exists()]
+                if len(existing_fns) == 0:
+                    raise FileNotFoundError(f'No measurement files found in {fn_dir}.')
+                
                 for q in quantiles:
-                    data = lsstypes.mean([lsstypes.read(fn).select(k=slice(0, None, rebin)).select(k=(kmin, kmax)).get(quantiles=q) for fn in fns if fn.exists()])
-                    if data == 0:
-                        raise FileNotFoundError(f'No measurement files found in {fn_dir} for quantile {q}, cannot load data.')
+                    data = lsstypes.mean([lsstypes.read(fn) for fn in existing_fns])
+                    data = data.select(k=slice(0, None, rebin)).select(k=(kmin, kmax)).get(quantiles=q)
+                    
+                    if data_size is None:
+                        data_size = data.size
+                    if data.size != data_size:
+                        raise ValueError(f'Inconsistent data size across mocks: expected {data_size}, got {data.size} in {fn_dir}. Cannot compute covariance.')
+                
                     poles = [data.get(ell) for ell in ells]
                     k = poles[0].coords('k')
                     y_quantiles.append(np.concatenate(poles))
