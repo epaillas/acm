@@ -115,7 +115,9 @@ class DensitySplit(BaseEstimator):
                 corr = from_pycorr(correlations[quantile])
                 leaves.append(corr)
             tree = ObservableTree(leaves, quantiles=list(range(self.nquantiles)), attrs=attrs)
-            tree.write(path)
+            tmp_filename = path.with_name(path.stem + '.tmp' + path.suffix)
+            tree.write(tmp_filename)
+            tmp_filename.replace(path) # Atomic move to avoid partial writes
         elif path.suffix == '.npy':
             np.save(filename, correlations)
         else:             raise ValueError(
@@ -142,7 +144,9 @@ class DensitySplit(BaseEstimator):
             for quantile in range(self.nquantiles):
                 leaves.append(powers[quantile])  # assumes power is calculated with jax-power
             tree = ObservableTree(leaves, quantiles=list(range(self.nquantiles)), attrs=attrs)
-            tree.write(filename)
+            tmp_filename = path.with_name(path.stem + '.tmp' + path.suffix)
+            tree.write(tmp_filename)
+            tmp_filename.replace(path) # Atomic move to avoid partial writes
         elif path.suffix == '.npy':
             np.save(filename, powers)
         else:
