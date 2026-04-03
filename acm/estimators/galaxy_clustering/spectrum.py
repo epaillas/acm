@@ -1,6 +1,7 @@
+import time
+from pathlib import Path
 from typing import Optional
 
-import time
 import jax
 from jaxpower import FKPField, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum, compute_fkp2_shotnoise, compute_fkp2_normalization, compute_box2_normalization
 
@@ -81,9 +82,9 @@ class PowerSpectrumMultipoles(BaseEstimator):
         
         self.spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
-        if save_fn and jax.process_index() == 0:
-            self.logger.info(f'Saving power spectrum to {save_fn}')
-            self.spectrum.write(save_fn)
+        if save_fn:
+            self.save(save_fn)
+        
         self.logger.info(f'Power spectrum computed in {time.time() - t0:.2f} s.')
         return self.spectrum
     
@@ -93,3 +94,18 @@ class PowerSpectrumMultipoles(BaseEstimator):
         k = poles[0].coords('k')
         poles = [pole.value() for pole in poles]
         return k, poles
+    
+    def save(self, fn: str):
+        """Save the computed power spectrum to a file. Only process 0 will write to disk.
+
+        Parameters
+        ----------
+        fn : str
+            Path to save the power spectrum. Only process 0 will write to disk.
+        """
+        fn = Path(fn) # Ensure fn is a Path object
+        tmp_fn = fn.with_name(fn.stem + '.tmp' + fn.suffix)
+        if jax.process_index() == 0:
+            self.spectrum.write(tmp_fn)
+            self.logger.info(f'Saving power spectrum to {fn}')
+            tmp_fn.replace(fn) # Atomic move to avoid partial writes
