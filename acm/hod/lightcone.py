@@ -330,7 +330,9 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
             existing_hod_path: str = None, 
             target_nz_filename: str = None,
-            full_sky: bool = None):
+            full_sky: bool = False,
+            apply_rsd: bool = True,
+            ):
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
         This does not yet apply the angular or radial masks, which should be done
@@ -354,6 +356,8 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             number density that the HOD boxes require to allow for a radial mask to be applied later.
         full_sky: bool
             If True, the survey volunme is scaled to the full sky rather than an octant
+        apply_rsd : bool
+            If True, redshift space distortions are applied to the mock. If False, RSD is not applied.
         Returns
         -------
         dict
@@ -388,7 +392,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
                                               position='Position', velocity='Velocity',
                                               boxsize=boxsize, boxcenter=[boxsize/2, boxsize/2, boxsize/2])
             lightcone_shell = self.box_to_cutsky(box=box, zmin=self.zrange[0], zmax=self.zrange[1], 
-                                          zrsd=zsnap, apply_rsd=True) 
+                                          zrsd=zsnap, apply_rsd=apply_rsd) 
             for key in self.keys_lightcone:
                 self.catalog[key].extend(lightcone_shell[key])
             del box_positions, box_velocities, box, lightcone_shell
