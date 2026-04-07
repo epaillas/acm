@@ -804,14 +804,10 @@ class CutskyHOD(BaseCutskyCatalog):
         dict
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
-        
         if apply_rsd and 'RSDPosition' not in self.keys_cutsky:
-            
             self.keys_cutsky.append('RSDPosition')
-            
         elif 'RSDPosition' in self.keys_cutsky:
-            
-            self.keys_cutsky.remove('RSDPosition') 
+            self.keys_cutsky.remove('RSDPosition')
 
         self.catalog = self.init_cutsky()
         
@@ -1213,4 +1209,3 @@ class CutskyRandoms(BaseCutskyCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-

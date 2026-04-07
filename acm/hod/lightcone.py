@@ -363,15 +363,11 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         dict
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """  
-        
         if apply_rsd and 'RSDPosition' not in self.keys_lightcone:
-            
             self.keys_lightcone.append('RSDPosition')
-            
         elif 'RSDPosition' in self.keys_lightcone:
-            
-            self.keys_lightcone.remove('RSDPosition') 
-            
+            self.keys_lightcone.remove('RSDPosition')
+
         self.catalog = self.init_lightcone()
 
         boxsize = 2*self.boxsize if self.sim_type == 'base' else self.boxsize
