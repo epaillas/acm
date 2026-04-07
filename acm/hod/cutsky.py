@@ -804,6 +804,15 @@ class CutskyHOD(BaseCutskyCatalog):
         dict
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
+        
+        if apply_rsd and 'RSDPosition' not in self.keys_cutsky:
+            
+            self.keys_cutsky.append('RSDPosition')
+            
+        elif 'RSDPosition' in self.keys_cutsky:
+            
+            self.keys_cutsky.remove('RSDPosition') 
+
         self.catalog = self.init_cutsky()
         
         # construct one redshift shell at a time from the snapshots
