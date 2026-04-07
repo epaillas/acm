@@ -16,7 +16,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
     Class for the Emulator's Mock Challenge galaxy correlation
     function multipoles.
     """
-    def __init__(self, stat_name='wst', n_test=6*125, **kwargs):
+    def __init__(self, stat_name='wst', n_test=6*250, **kwargs):
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
     
     @staticmethod
