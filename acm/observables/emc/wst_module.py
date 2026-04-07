@@ -81,7 +81,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         # Define WST configurations to concatenate
         configs = [
             'J4_L4_q1_sigma0.8',
-            # 'J4_L4_q1_sigma1.0',
+            'J4_L4_q1_sigma1.0',
             'J5_L3_q0.8_sigma0.4',
         ]
 
@@ -188,7 +188,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         # Define WST configurations to concatenate
         configs = [
             'J4_L4_q1_sigma0.8',
-            # 'J4_L4_q1_sigma1.0',
+            'J4_L4_q1_sigma1.0',
             'J5_L3_q0.8_sigma0.4',
         ]
 
@@ -202,7 +202,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
             
             # Get HOD indices from first configuration
             first_config_dir = base_dir / configs[0] / f'c{cosmo_idx:03}_ph{phase:03}' / f'seed{seed}'
-            filenames = sorted(first_config_dir.glob(f'wst_c{cosmo_idx:03}_hod*.npy'))[:n_hod]
+            filenames = sorted(first_config_dir.glob(f'wst_c{cosmo_idx:03}_hod???.npy'))[:n_hod]
             hod_indices = [int(f.stem.split('hod')[-1]) for f in filenames]
             hods[cosmo_idx] = hod_indices
             logger.info(f'Number of HODs: {len(hod_indices)}')
