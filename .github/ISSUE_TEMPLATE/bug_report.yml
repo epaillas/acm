@@ -52,7 +52,7 @@ body:
       label: Environment Check
       options:
         - label: I encountered the bug on NERSC resources
-        - label: I run the the cosmodesi environment
+        - label: I run the cosmodesi environment
 
   - type: textarea
     id: additional-context
@@ -66,5 +66,5 @@ body:
       label: Is there an existing issue for this?
       description: Please search to see if an issue already exists for the bug you encountered.
       options:
-      - label: I have searched the existing issues
-        required: true
+        - label: I have searched the existing issues
+          required: true
