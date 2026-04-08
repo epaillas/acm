@@ -106,6 +106,9 @@ class DensitySplit(BaseEstimator):
         filename : str or path-like
             Output filename where the ObservableTree will be written.
         """
+        if jax.process_index() != 0: # Only process 0 saves to disk
+            return # Exit early for non-zero processes
+        
         path = Path(filename)
         self.logger.info(f'Saving to {filename}')
 
@@ -115,7 +118,9 @@ class DensitySplit(BaseEstimator):
                 corr = from_pycorr(correlations[quantile])
                 leaves.append(corr)
             tree = ObservableTree(leaves, quantiles=list(range(self.nquantiles)), attrs=attrs)
-            tree.write(path)
+            tmp_filename = path.with_name(path.stem + '.tmp' + path.suffix)
+            tree.write(tmp_filename)
+            tmp_filename.replace(path) # Atomic move to avoid partial writes
         elif path.suffix == '.npy':
             np.save(filename, correlations)
         else:             raise ValueError(
@@ -123,7 +128,7 @@ class DensitySplit(BaseEstimator):
                 "Supported extensions are: .hdf5, .h5, .npy"
             )
 
-    def save_powers(self, powers, filename, attrs=None):
+    def save_powers(self, powers: list, filename: str, attrs = None) -> None:
         """
         Save a list of per-quantile power-spectrum objects to an lsstypes ObservableTree.
 
@@ -134,15 +139,20 @@ class DensitySplit(BaseEstimator):
         filename : str or path-like
             Output filename where the ObservableTree will be written.
         """
+        if jax.process_index() != 0: # Only process 0 saves to disk
+            return # Exit early for non-zero processes
+        
         path = Path(filename)
         self.logger.info(f'Saving to {filename}')
-
+        
         if path.suffix in ['.hdf5', '.h5']:
             leaves = []
             for quantile in range(self.nquantiles):
                 leaves.append(powers[quantile])  # assumes power is calculated with jax-power
             tree = ObservableTree(leaves, quantiles=list(range(self.nquantiles)), attrs=attrs)
-            tree.write(filename)
+            tmp_filename = path.with_name(path.stem + '.tmp' + path.suffix)
+            tree.write(tmp_filename)
+            tmp_filename.replace(path) # Atomic move to avoid partial writes
         elif path.suffix == '.npy':
             np.save(filename, powers)
         else:

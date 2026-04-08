@@ -1,6 +1,7 @@
+import time
+from pathlib import Path
 from typing import Optional
 
-import time
 import jax
 from jaxpower import FKPField, BinMesh2SpectrumPoles, get_mesh_attrs, compute_mesh2_spectrum, compute_fkp2_shotnoise, compute_fkp2_normalization, compute_box2_normalization
 
@@ -26,8 +27,16 @@ class PowerSpectrumMultipoles(BaseEstimator):
             donate_argnums=[0]
         )
 
-    def compute_spectrum(self, edges: dict = {'step': 0.001}, ells: tuple = (0, 2, 4), los: str = 'z',
-            interlacing: int = 3, compensate: bool = True, resampler='tsc', save_fn: Optional[str] = None):
+    def compute_spectrum(
+        self, 
+        edges: dict = {'step': 0.001}, 
+        ells: tuple = (0, 2, 4), 
+        los: str = 'z',
+        interlacing: int = 3, 
+        compensate: bool = True, 
+        resampler='tsc', 
+        save_fn: Optional[str] = None
+    ):
         """
         Calculate the power spectrum multipoles.
         
@@ -81,15 +90,58 @@ class PowerSpectrumMultipoles(BaseEstimator):
         
         self.spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
-        if save_fn and jax.process_index() == 0:
-            self.logger.info(f'Saving power spectrum to {save_fn}')
-            self.spectrum.write(save_fn)
+        if save_fn:
+            self.save(save_fn)
+        
         self.logger.info(f'Power spectrum computed in {time.time() - t0:.2f} s.')
         return self.spectrum
     
-    def get_multipoles(self, kmin: Optional[float] = None, kmax: Optional[float] = None, rebin: int = 1):
+    def get_multipoles(
+        self, 
+        kmin: Optional[float] = None, 
+        kmax: Optional[float] = None, 
+        rebin: int = 1,
+        return_k: bool = False,
+    ):
+        """
+        Get the power spectrum multipoles, optionally rebinned and with k-range selection.
+        
+        Parameters
+        ----------
+        kmin : float, optional
+            Minimum k value to include. Default is None (no minimum).
+        kmax : float, optional
+            Maximum k value to include. Default is None (no maximum).
+        rebin : int, optional
+            Factor by which to rebin the k-bins. Default is 1 (no rebinning).
+        return_k : bool, optional
+            Whether to return the k values along with the multipoles. Default is False.
+        """
         spectrum = self.spectrum.select(k=slice(0, None, rebin))
+        if kmin is not None and kmax is not None:
+            spectrum = spectrum.select(k=(kmin, kmax))
+            
         poles = [spectrum.get(ell) for ell in spectrum.ells]
         k = poles[0].coords('k')
         poles = [pole.value() for pole in poles]
-        return k, poles
+        
+        if return_k:
+            return k, poles
+        return poles
+    
+    def save(self, fn: str) -> None:
+        """Save the computed power spectrum to a file. Only process 0 will write to disk.
+
+        Parameters
+        ----------
+        fn : str
+            Path to save the power spectrum.
+        """
+        if jax.process_index() != 0: # Only process 0 saves to disk
+            return # Exit early for non-zero processes
+        
+        fn = Path(fn) # Ensure fn is a Path object
+        tmp_fn = fn.with_name(fn.stem + '.tmp' + fn.suffix)
+        self.spectrum.write(tmp_fn)
+        self.logger.info(f'Saving power spectrum to {fn}')
+        tmp_fn.replace(fn) # Atomic move to avoid partial writes
