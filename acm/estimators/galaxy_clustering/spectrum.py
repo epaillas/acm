@@ -101,12 +101,33 @@ class PowerSpectrumMultipoles(BaseEstimator):
         kmin: Optional[float] = None, 
         kmax: Optional[float] = None, 
         rebin: int = 1,
+        return_k: bool = False,
     ):
+        """
+        Get the power spectrum multipoles, optionally rebinned and with k-range selection.
+        
+        Parameters
+        ----------
+        kmin : float, optional
+            Minimum k value to include. Default is None (no minimum).
+        kmax : float, optional
+            Maximum k value to include. Default is None (no maximum).
+        rebin : int, optional
+            Factor by which to rebin the k-bins. Default is 1 (no rebinning).
+        return_k : bool, optional
+            Whether to return the k values along with the multipoles. Default is False.
+        """
         spectrum = self.spectrum.select(k=slice(0, None, rebin))
+        if kmin is not None and kmax is not None:
+            spectrum = spectrum.select(k=(kmin, kmax))
+            
         poles = [spectrum.get(ell) for ell in spectrum.ells]
         k = poles[0].coords('k')
         poles = [pole.value() for pole in poles]
-        return k, poles
+        
+        if return_k:
+            return k, poles
+        return poles
     
     def save(self, fn: str) -> None:
         """Save the computed power spectrum to a file. Only process 0 will write to disk.
