@@ -125,7 +125,7 @@ class DensitySplit(BaseEstimator):
                 "Supported extensions are: .hdf5, .h5, .npy"
             )
 
-    def save_powers(self, powers, filename, attrs=None):
+    def save_powers(self, powers: list, filename: str, attrs = None) -> None:
         """
         Save a list of per-quantile power-spectrum objects to an lsstypes ObservableTree.
 
@@ -136,9 +136,12 @@ class DensitySplit(BaseEstimator):
         filename : str or path-like
             Output filename where the ObservableTree will be written.
         """
+        if jax.process_index() != 0: # Only process 0 saves to disk
+            return # Exit early for non-zero processes
+        
         path = Path(filename)
         self.logger.info(f'Saving to {filename}')
-
+        
         if path.suffix in ['.hdf5', '.h5']:
             leaves = []
             for quantile in range(self.nquantiles):

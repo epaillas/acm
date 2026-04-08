@@ -27,8 +27,16 @@ class PowerSpectrumMultipoles(BaseEstimator):
             donate_argnums=[0]
         )
 
-    def compute_spectrum(self, edges: dict = {'step': 0.001}, ells: tuple = (0, 2, 4), los: str = 'z',
-            interlacing: int = 3, compensate: bool = True, resampler='tsc', save_fn: Optional[str] = None):
+    def compute_spectrum(
+        self, 
+        edges: dict = {'step': 0.001}, 
+        ells: tuple = (0, 2, 4), 
+        los: str = 'z',
+        interlacing: int = 3, 
+        compensate: bool = True, 
+        resampler='tsc', 
+        save_fn: Optional[str] = None
+    ):
         """
         Calculate the power spectrum multipoles.
         
@@ -82,27 +90,35 @@ class PowerSpectrumMultipoles(BaseEstimator):
         
         self.spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
-        if save_fn and jax.process_index() == 0:
+        if save_fn:
             self.save(save_fn)
         
         self.logger.info(f'Power spectrum computed in {time.time() - t0:.2f} s.')
         return self.spectrum
     
-    def get_multipoles(self, kmin: Optional[float] = None, kmax: Optional[float] = None, rebin: int = 1):
+    def get_multipoles(
+        self, 
+        kmin: Optional[float] = None, 
+        kmax: Optional[float] = None, 
+        rebin: int = 1,
+    ):
         spectrum = self.spectrum.select(k=slice(0, None, rebin))
         poles = [spectrum.get(ell) for ell in spectrum.ells]
         k = poles[0].coords('k')
         poles = [pole.value() for pole in poles]
         return k, poles
     
-    def save(self, fn: str):
+    def save(self, fn: str) -> None:
         """Save the computed power spectrum to a file. Only process 0 will write to disk.
 
         Parameters
         ----------
         fn : str
-            Path to save the power spectrum. Only process 0 will write to disk.
+            Path to save the power spectrum.
         """
+        if jax.process_index() != 0: # Only process 0 saves to disk
+            return # Exit early for non-zero processes
+        
         fn = Path(fn) # Ensure fn is a Path object
         tmp_fn = fn.with_name(fn.stem + '.tmp' + fn.suffix)
         self.spectrum.write(tmp_fn)
