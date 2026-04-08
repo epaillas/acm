@@ -764,6 +764,7 @@ class CutskyHOD(BaseCutskyCatalog):
         release: str = 'Y1',
         target_nz_filename: str | None = None,
         custom_xyz_file: str | None = None,
+        apply_rsd: bool = True,
         nfw_draw_path: str = '/global/cfs/projectdirs/desi/users/arocher/nfw.npy'
     ) -> dict:
         """
@@ -792,6 +793,8 @@ class CutskyHOD(BaseCutskyCatalog):
         custom_xyz_file : str
             If not None, a custom file is read for the positions of the tracers that define
             the survey volume bounds
+        apply_rsd : bool
+            If True, redshift space distortions are applied to the mock. If False, RSD is not applied.
         nfw_draw_path: str, optional
             Samples from an NFW profile used for ELG cutsky mocks. Defaults to a location containing NFW
             samples on NERSC
@@ -801,6 +804,11 @@ class CutskyHOD(BaseCutskyCatalog):
         dict
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
+        if apply_rsd and 'RSDPosition' not in self.keys_cutsky:
+            self.keys_cutsky.append('RSDPosition')
+        elif 'RSDPosition' in self.keys_cutsky:
+            self.keys_cutsky.remove('RSDPosition')
+
         self.catalog = self.init_cutsky()
         
         # construct one redshift shell at a time from the snapshots
@@ -859,7 +867,7 @@ class CutskyHOD(BaseCutskyCatalog):
                 zmin=zranges[0],
                 zmax=zranges[1],
                 zrsd=zsnap,
-                apply_rsd=True
+                apply_rsd=apply_rsd
             )
 
             for key in self.keys_cutsky:
@@ -1201,4 +1209,3 @@ class CutskyRandoms(BaseCutskyCatalog):
         d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
         self.catalog['Z'] = d2r(self.catalog['Distance'])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
-
