@@ -13,7 +13,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 from .base import BaseObservableBGS
 
 K_MIN = 2 * np.pi / 500 # lower limit fixed by small boxsize
-K_MAX = 2 * np.pi * 400 / 2000 # Higher limit fixed by Nyquist frequency of the base boxsize (to be safe, we take the larger boxsize, which has a lower Nyquist frequency) with 400^3 grid
+K_MAX = np.pi * 512 / 2200 # Higher limit fixed by Nyquist frequency of the base boxsize (to be safe, we take the larger boxsize created, which has a lower Nyquist frequency) with 512^3 grid
 
 class DensitySplitSpectrumBaseClass(BaseObservableBGS):
     """
@@ -71,7 +71,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         kmin : float, optional
             Minimum k value to consider for the covariance. Default is K_MIN, which is fixed by the small boxsize.
         kmax : float, optional
-            Maximum k value to consider for the covariance. Default is K_MAX, which is fixed by the Nyquist frequency of the base boxsize with 400^3 grid.
+            Maximum k value to consider for the covariance. Default is K_MAX, which is fixed by the Nyquist frequency of the base boxsize with 512^3 grid.
         ells : list, optional
             List of multipoles to compute the statistics for. Default is [0, 2].
         quantiles : list, optional
