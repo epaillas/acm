@@ -106,6 +106,9 @@ class DensitySplit(BaseEstimator):
         filename : str or path-like
             Output filename where the ObservableTree will be written.
         """
+        if jax.process_index() != 0: # Only process 0 saves to disk
+            return # Exit early for non-zero processes
+        
         path = Path(filename)
         self.logger.info(f'Saving to {filename}')
 
