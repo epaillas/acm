@@ -13,7 +13,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 from .base import BaseObservableBGS
 
 K_MIN = 2 * np.pi / 500 # lower limit fixed by small boxsize
-K_MAX = 2 * np.pi * 512 / 2000 # Higher limit fixed by Nyquist frequency of the base boxsize (to be safe, we take the larger boxsize, which has a lower Nyquist frequency) with 512^3 grid
+K_MAX = np.pi * 512 / 2200 # Higher limit fixed by Nyquist frequency of the base boxsize (to be safe, we take the larger boxsize created, which has a lower Nyquist frequency) with 512^3 grid
 
 class PowerSpectrumMultipoles(BaseObservableBGS):
     def __init__(self, stat_name='spectrum', **kwargs):
@@ -24,7 +24,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
     def compress_covariance(
         cls,
         paths: dict,
-        stat_name: str = 'power_spectrum', 
+        stat_name: str = 'spectrum', 
         cosmo_idx: int = 0,
         hod_idx: int = 157,
         seed: int = 0,
@@ -45,7 +45,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         data_size = None # To check consistency of data size across mocks
         for phase in phases:
             fn_dir = small_dir / f'c{cosmo_idx:03d}_ph{phase:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
-            fns = [fn_dir / f'{stat_name}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
+            fns = [fn_dir / f'power_spectrum_los_{l}.h5' for l in los] # NOTE: Hardcoded !
             existing_fns = [fn for fn in fns if fn.exists()]
             
             if len(existing_fns) == 0:
@@ -93,7 +93,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
     def compress_data(
         cls,
         paths: dict,
-        stat_name: str = 'power_spectrum', 
+        stat_name: str = 'spectrum', 
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
@@ -129,7 +129,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
             
             for fn_dir in hod_fns:
                 logger.debug(f'Loading data for c{cosmo_idx:03d}_hod{fn_dir.stem.split("hod")[-1]}')
-                fns = [fn_dir / f'{stat_name}_los_{l}.h5' for l in los] # NOTE: Hardcoded !
+                fns = [fn_dir / f'power_spectrum_los_{l}.h5' for l in los] # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 
                 if len(existing_fns) == 0:
