@@ -1,5 +1,6 @@
 import xarray as xr
 
+
 def dataset_to_dict(dataset: xr.Dataset) -> dict:
     """Convert an xarray.Dataset to a dictionary with numpy arrays.
 
@@ -16,13 +17,16 @@ def dataset_to_dict(dataset: xr.Dataset) -> dict:
     data_dict = {}
     for var_name in dataset.data_vars:
         data_dict[var_name] = {
-            'data': dataset[var_name].values,
-            'dims': dataset[var_name].dims,
-            'coords': {coord: dataset[coord].values for coord in dataset[var_name].coords},
-            'attrs': getattr(dataset[var_name], 'attrs', None),
-            'name': getattr(dataset[var_name], 'name', None),
+            "data": dataset[var_name].values,
+            "dims": dataset[var_name].dims,
+            "coords": {
+                coord: dataset[coord].values for coord in dataset[var_name].coords
+            },
+            "attrs": getattr(dataset[var_name], "attrs", None),
+            "name": getattr(dataset[var_name], "name", None),
         }
     return data_dict
+
 
 def dataset_from_dict(data_dict: dict) -> xr.Dataset:
     """Convert a dictionary with numpy arrays to an xarray.Dataset.
@@ -41,25 +45,26 @@ def dataset_from_dict(data_dict: dict) -> xr.Dataset:
     data_vars = {}
     for var_name, var_info in data_dict.items():
         data_vars[var_name] = xr.DataArray(
-            data=var_info['data'],
-            dims=var_info.get('dims', None),
-            coords=var_info['coords'],
-            attrs=var_info.get('attrs', None),
-            name=var_info.get('name', None)
+            data=var_info["data"],
+            dims=var_info.get("dims", None),
+            coords=var_info["coords"],
+            attrs=var_info.get("attrs", None),
+            name=var_info.get("name", None),
         )
     return xr.Dataset(data_vars=data_vars)
+
 
 def split_vars(*data_vars, **kwargs):
     """
     Splits variables of a DataSet in two: the selected values, and the non-selected values.
-    
+
     Parameters
     ----------
     *data_vars : xr.DataArray
         The data variables to split.
     **kwargs : dict
         The selection criteria (e.g., dim=value) to pass to sel and drop_sel.
-    
+
     Yields
     -------
     v_in : xr.DataArray

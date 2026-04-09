@@ -1,19 +1,23 @@
 import time
-import numpy as np
+from pathlib import Path
+from typing import Optional, Tuple
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 import xarray as xr
-from pathlib import Path
-from typing import Tuple, Optional
 from lsstypes import ObservableLeaf
+
 from .base import BaseEstimator
 
-jax.config.update('jax_enable_x64', True)
+jax.config.update("jax_enable_x64", True)
+
 
 # JIT-compiled per-slice routine
 @jax.jit
-def minkowski_slice_jax(delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thres_mask: float
-                        ) -> Tuple[jnp.ndarray, jnp.int32]:
+def minkowski_slice_jax(
+    delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thres_mask: float
+) -> Tuple[jnp.ndarray, jnp.int32]:
     """
     delta_slices: shape (2, Y, Z) float32
     thresholds: shape (T,) float32
@@ -46,7 +50,11 @@ def minkowski_slice_jax(delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thre
     # full (t < ds_min) and partial ((t >= ds_min) & (t < ds_max)) masks
     # both have shape (T,Y,Z)
     full_mask = (thr < ds_min[None, :, :]) & mask_valid[None, :, :]
-    partial_mask = (thr >= ds_min[None, :, :]) & (thr < ds_max[None, :, :]) & mask_valid[None, :, :]
+    partial_mask = (
+        (thr >= ds_min[None, :, :])
+        & (thr < ds_max[None, :, :])
+        & mask_valid[None, :, :]
+    )
 
     # contributions for full_mask: M0 gains +1 for each (threshold,pixel) that is full
     M0_full = jnp.sum(full_mask, axis=(1, 2)).astype(jnp.float64)  # (T,)
@@ -54,26 +62,38 @@ def minkowski_slice_jax(delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thre
     # For partial positions compute n3,n2,n1,n0 as in original code.
     # ds_bool shape (T,8,Y,Z): ds > threshold
     # To reduce memory we compute ds_bool as (8,T,Y,Z) or (T,8,Y,Z). Use (T,8,Y,Z) for clarity.
-    ds_bool = (ds[None, :, :, :] > thr[:, None, :, :])  # (T,8,Y,Z), dtype=bool
+    ds_bool = ds[None, :, :, :] > thr[:, None, :, :]  # (T,8,Y,Z), dtype=bool
 
     # n3 = ds0 > t  => ds_bool[:,0,:,:]
     n3 = ds_bool[:, 0, :, :].astype(jnp.int32)  # (T,Y,Z)
 
     # n2 = (ds0 or ds1) + (ds0 or ds2) + (ds0 or ds4)
     n2 = (
-        (jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 1, :, :]).astype(jnp.int32)) +
-        (jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 2, :, :]).astype(jnp.int32)) +
-        (jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 4, :, :]).astype(jnp.int32))
+        (jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 1, :, :]).astype(jnp.int32))
+        + (jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 2, :, :]).astype(jnp.int32))
+        + (jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 4, :, :]).astype(jnp.int32))
     )  # (T,Y,Z)
 
     # n1 = (ds0 or ds1 or ds2 or ds3) + (ds0 or ds2 or ds4 or ds6) + (ds0 or ds4 or ds1 or ds5)
     n1 = (
-        (jnp.logical_or(jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 1, :, :]),
-                        jnp.logical_or(ds_bool[:, 2, :, :], ds_bool[:, 3, :, :])).astype(jnp.int32)) +
-        (jnp.logical_or(jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 2, :, :]),
-                        jnp.logical_or(ds_bool[:, 4, :, :], ds_bool[:, 6, :, :])).astype(jnp.int32)) +
-        (jnp.logical_or(jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 4, :, :]),
-                        jnp.logical_or(ds_bool[:, 1, :, :], ds_bool[:, 5, :, :])).astype(jnp.int32))
+        (
+            jnp.logical_or(
+                jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 1, :, :]),
+                jnp.logical_or(ds_bool[:, 2, :, :], ds_bool[:, 3, :, :]),
+            ).astype(jnp.int32)
+        )
+        + (
+            jnp.logical_or(
+                jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 2, :, :]),
+                jnp.logical_or(ds_bool[:, 4, :, :], ds_bool[:, 6, :, :]),
+            ).astype(jnp.int32)
+        )
+        + (
+            jnp.logical_or(
+                jnp.logical_or(ds_bool[:, 0, :, :], ds_bool[:, 4, :, :]),
+                jnp.logical_or(ds_bool[:, 1, :, :], ds_bool[:, 5, :, :]),
+            ).astype(jnp.int32)
+        )
     )  # (T,Y,Z)
 
     # n0 = or of all 8
@@ -112,22 +132,17 @@ class MinkowskiFunctionals(BaseEstimator):
     Usage is similar to the original MinkowskiFunctionals class.
     """
 
-    def __init__(
-        self,
-        thres_mask: float,
-        batch_slices: int = 32,
-        **kwargs
-        ):
+    def __init__(self, thres_mask: float, batch_slices: int = 32, **kwargs):
         """
         batch_slices: how many slices to process per python loop iteration. Small batches
                       reduce peak memory and keep JAX compilation efficient.
-        """        
+        """
         super().__init__(**kwargs)
-                
+
         self.thres_mask = thres_mask
         self.batch_slices = batch_slices
 
-        self.query_positions = self.get_query_positions(method='lattice')
+        self.query_positions = self.get_query_positions(method="lattice")
 
     def run(self, thresholds, save_fn: Optional[str] = None):
         """
@@ -152,12 +167,14 @@ class MinkowskiFunctionals(BaseEstimator):
         """
         t0 = time.time()
         self.thresholds = np.asarray(thresholds)
-        self.delta_query = self.read_density_contrast(self.query_positions).reshape(self.meshsize)
+        self.delta_query = self.read_density_contrast(self.query_positions).reshape(
+            self.meshsize
+        )
 
         # ensure float32 input for memory (we still compute sums in float64 where needed)
         delta = self.delta_query.astype(np.float32)
         dims_x, dims_y, dims_z = delta.shape
-        len_thres = len(thresholds) 
+        len_thres = len(thresholds)
         thresholds_j = jnp.array(thresholds)
         delta_padded = np.concatenate((delta, delta[0:1, :, :]), axis=0)
 
@@ -175,7 +192,9 @@ class MinkowskiFunctionals(BaseEstimator):
             # Using numpy then convert to jnp to avoid building huge Python lists
             batch_size = batch_end - i
             # gather the required pairs
-            pair_indices = np.stack([np.arange(i, batch_end), np.arange(i, batch_end) + 1], axis=1)  # (B,2)
+            pair_indices = np.stack(
+                [np.arange(i, batch_end), np.arange(i, batch_end) + 1], axis=1
+            )  # (B,2)
             # build array (B,2,Y,Z)
             delta_pairs = delta_padded[pair_indices]  # shape (B,2,Y,Z)
             # convert to jnp
@@ -183,7 +202,11 @@ class MinkowskiFunctionals(BaseEstimator):
 
             # vectorize the slice function over the batch dimension using vmap
             # minkowski_slice_jax takes (2,Y,Z), thresholds, mask -> returns (T,4), vol_slice
-            vmapped = jax.vmap(lambda ds: minkowski_slice_jax(ds, thresholds_j, self.thres_mask), in_axes=0, out_axes=0)
+            vmapped = jax.vmap(
+                lambda ds: minkowski_slice_jax(ds, thresholds_j, self.thres_mask),
+                in_axes=0,
+                out_axes=0,
+            )
             # outputs: MFs_batch shape (B,T,4), vols_batch shape (B,)
             MFs_batch, vols_batch = vmapped(delta_pairs_j)
             # sum across batch axis
@@ -200,12 +223,18 @@ class MinkowskiFunctionals(BaseEstimator):
             norm = jnp.array([0.0, 0.0, 0.0, 0.0], dtype=jnp.float64)
             self.MFs3D = np.zeros_like(np.array(MFs3D))
         else:
-            factors = jnp.array([1.0 / l, 1.0 / (l * a), 1.0 / (l * a * a), 1.0 / (l * a * a * a)],
-                                dtype=jnp.float64)
+            factors = jnp.array(
+                [1.0 / l, 1.0 / (l * a), 1.0 / (l * a * a), 1.0 / (l * a * a * a)],
+                dtype=jnp.float64,
+            )
             MFs3D = MFs3D * factors[None, :]
-            self.MFs3D = np.array(MFs3D)  # convert back to numpy for easy printing/consumption
+            self.MFs3D = np.array(
+                MFs3D
+            )  # convert back to numpy for easy printing/consumption
 
-        self.logger.info(f'Processed {dims_x} slices in {time.time() - t0:.2f} s. Volume (valid pixels): {vol}')
+        self.logger.info(
+            f"Processed {dims_x} slices in {time.time() - t0:.2f} s. Volume (valid pixels): {vol}"
+        )
 
         if save_fn is not None:
             self.save(save_fn)
@@ -232,11 +261,13 @@ class MinkowskiFunctionals(BaseEstimator):
         ValueError
             If no Minkowski functionals are available or the extension is not recognized.
         """
-        if not hasattr(self, 'MFs3D'):
-            raise ValueError("No Minkowski functionals to save. Run the estimator first using run().")
+        if not hasattr(self, "MFs3D"):
+            raise ValueError(
+                "No Minkowski functionals to save. Run the estimator first using run()."
+            )
 
         path = Path(filename)
-        threshold = getattr(self, 'thresholds', np.arange(self.MFs3D.shape[0]))
+        threshold = getattr(self, "thresholds", np.arange(self.MFs3D.shape[0]))
         functional = np.arange(self.MFs3D.shape[1])
 
         attrs = dict(
@@ -245,36 +276,36 @@ class MinkowskiFunctionals(BaseEstimator):
             boxsize=self.boxsize,
             boxcenter=self.boxcenter,
             meshsize=self.meshsize,
-            description='Minkowski functionals'
+            description="Minkowski functionals",
         )
 
-        if path.suffix in ['.hdf5', '.h5']:
+        if path.suffix in [".hdf5", ".h5"]:
             leaf = ObservableLeaf(
                 mfs3d=self.MFs3D,
                 threshold=threshold,
                 functional=functional,
-                coords=['threshold', 'functional'],
-                attrs=attrs
+                coords=["threshold", "functional"],
+                attrs=attrs,
             )
             leaf.write(filename)
 
-        elif path.suffix in ['.nc', '.zarr']:
+        elif path.suffix in [".nc", ".zarr"]:
             data_array = xr.DataArray(
                 self.MFs3D,
-                dims=['threshold', 'functional'],
+                dims=["threshold", "functional"],
                 coords={
-                    'threshold': threshold,
-                    'functional': functional,
+                    "threshold": threshold,
+                    "functional": functional,
                 },
                 attrs=attrs,
-                name='mfs3d'
+                name="mfs3d",
             )
-            if path.suffix == '.nc':
+            if path.suffix == ".nc":
                 data_array.to_netcdf(filename)
-            elif path.suffix == '.zarr':
-                data_array.to_zarr(filename, mode='w')
+            elif path.suffix == ".zarr":
+                data_array.to_zarr(filename, mode="w")
 
-        elif path.suffix == '.npy':
+        elif path.suffix == ".npy":
             np.save(filename, self.MFs3D)
 
         else:

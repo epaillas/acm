@@ -1,12 +1,15 @@
 """
 Utility functions for covariance matrix & sanity checks.
 """
+
 import warnings
+
 import numpy as np
 from scipy.stats import norm
 
-#%% Covariance utils methods
-def get_covariance_correction(n_s, n_d, n_theta=None, method='percival'):
+
+# %% Covariance utils methods
+def get_covariance_correction(n_s, n_d, n_theta=None, method="percival"):
     """
     Correction factor to debias de inverse covariance matrix.
 
@@ -19,15 +22,18 @@ def get_covariance_correction(n_s, n_d, n_theta=None, method='percival'):
     Returns:
         float: Correction factor
     """
-    if method == 'percival':
-        B = (n_s - n_d - 2) / ((n_s - n_d - 1)*(n_s - n_d - 4))
-        return (n_s - 1)*(1 + B*(n_d - n_theta))/(n_s - n_d + n_theta - 1)
-    elif method == 'percival-fisher':
-        return (n_s - 1)/(n_s - n_d + n_theta - 1)
-    elif method == 'hartlap':
-        return (n_s - 1)/(n_s - n_d - 2)
+    if method == "percival":
+        B = (n_s - n_d - 2) / ((n_s - n_d - 1) * (n_s - n_d - 4))
+        return (n_s - 1) * (1 + B * (n_d - n_theta)) / (n_s - n_d + n_theta - 1)
+    elif method == "percival-fisher":
+        return (n_s - 1) / (n_s - n_d + n_theta - 1)
+    elif method == "hartlap":
+        return (n_s - 1) / (n_s - n_d - 2)
     else:
-        raise ValueError(f"Unknown method: {method}. Available methods are: 'percival', 'percival-fisher', 'hartlap'.")
+        raise ValueError(
+            f"Unknown method: {method}. Available methods are: 'percival', 'percival-fisher', 'hartlap'."
+        )
+
 
 def correlation_from_covariance(covariance):
     """
@@ -43,21 +49,23 @@ def correlation_from_covariance(covariance):
     np.ndarray
         Correlation matrix.
     """
-    
+
     v = np.sqrt(np.diag(covariance))
     outer_v = np.outer(v, v)
     correlation = covariance / outer_v
     correlation[covariance == 0] = 0
     return correlation
 
+
 def mad_1d(x, axis=None, keepdims=False):
     """Median absolute deviation with Gaussian-consistent scaling."""
     med = np.median(x, axis=axis, keepdims=True)
     mad = np.median(np.abs(x - med), axis=axis, keepdims=True)
-    mad = mad * 1/norm.ppf(3/4)
+    mad = mad * 1 / norm.ppf(3 / 4)
     if not keepdims:
         mad = np.squeeze(mad, axis=axis)
     return mad
+
 
 def gk_mad_covariance(residuals, eps=1e-12):
     """
@@ -90,12 +98,13 @@ def gk_mad_covariance(residuals, eps=1e-12):
     C = np.empty((n_bins, n_bins), dtype=X.dtype)
     for j in range(n_bins):
         C[j, j] = s2[j]
-        for k in range(j+1, n_bins):
-            sp = mad_1d(X[:, j] + X[:, k])**2
-            sm = mad_1d(X[:, j] - X[:, k])**2
+        for k in range(j + 1, n_bins):
+            sp = mad_1d(X[:, j] + X[:, k]) ** 2
+            sm = mad_1d(X[:, j] - X[:, k]) ** 2
             cov_jk = 0.25 * (sp - sm)
             C[j, k] = C[k, j] = cov_jk
     return C
+
 
 def orthogonal_gk_mad_covariance(residuals, eps=1e-12):
     """
@@ -141,20 +150,21 @@ def orthogonal_gk_mad_covariance(residuals, eps=1e-12):
     U = Z @ evecs
 
     # Robust variances along orthogonal directions
-    tau = mad_1d(U, axis=0)**2
+    tau = mad_1d(U, axis=0) ** 2
     tau = np.clip(tau, eps, None)
 
     # Assemble covariance in original units: C = S Q diag(tau) Q^T S
-    C = (evecs * tau) @ evecs.T           # Q diag(tau) Q^T
-    C = (C * s).T * s                     # S (...) S
-    C = 0.5 * (C + C.T)                   # symmetrize
+    C = (evecs * tau) @ evecs.T  # Q diag(tau) Q^T
+    C = (C * s).T * s  # S (...) S
+    C = 0.5 * (C + C.T)  # symmetrize
     return C
 
-#%% Covariance sanity checks methods
+
+# %% Covariance sanity checks methods
 def check_symmetric(matrix: np.ndarray, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
     """
     Check if a matrix is symmetric.
-    
+
     Parameters
     ----------
     matrix : np.ndarray
@@ -163,7 +173,7 @@ def check_symmetric(matrix: np.ndarray, rtol: float = 1e-5, atol: float = 1e-8) 
         Relative tolerance for the symmetry check. Default is 1e-5.
     atol : float, optional
         Absolute tolerance for the symmetry check. Default is 1e-8.
-    
+
     Returns
     -------
     bool
@@ -177,15 +187,15 @@ def check_symmetric(matrix: np.ndarray, rtol: float = 1e-5, atol: float = 1e-8) 
 def check_positive_definite(matrix: np.ndarray) -> bool:
     """
     Check if a matrix is positive-definite by attempting Cholesky decomposition.
-    
+
     A matrix is positive-definite if all its eigenvalues are positive.
     This is equivalent to checking if the Cholesky decomposition exists.
-    
+
     Parameters
     ----------
     matrix : np.ndarray
         The matrix to check for positive-definiteness.
-    
+
     Returns
     -------
     bool
@@ -208,14 +218,14 @@ def check_condition_number(matrix, precision_threshold: float = 10):
         The matrix to check.
     precision_threshold : float, optional
         The threshold for the number of significant digits below which the matrix is considered ill-conditioned. Default is 10.
-    
+
     Returns
     -------
     int
         0 if the matrix is singular,
         1 if the matrix is well-conditioned,
         2 if the matrix is ill-conditioned (number of significant digits < precision_threshold).
-        
+
     Notes
     -----
     For a condition number with an order of magnitude of 10^k, the precision is roughly reduced by k digits.
@@ -226,13 +236,13 @@ def check_condition_number(matrix, precision_threshold: float = 10):
     cond = np.linalg.cond(matrix)
     eps = np.finfo(float).eps
     cond *= eps
-    digits = -np.log10(cond) # Number of significant digits that can be trusted
+    digits = -np.log10(cond)  # Number of significant digits that can be trusted
     # print(f"Condition number: {cond}, Significant digits: {digits}")
-    if cond >= 1: # Can't be trusted at all
+    if cond >= 1:  # Can't be trusted at all
         return 0
-    elif digits < precision_threshold: # Ill-conditioned
+    elif digits < precision_threshold:  # Ill-conditioned
         return 2
-    else: # Well-conditioned
+    else:  # Well-conditioned
         return 1
 
 
@@ -246,13 +256,13 @@ def check_covariance_matrix(
 ) -> bool:
     """
     Perform sanity checks on a covariance matrix and raise warnings if checks fail.
-    
+
     This function checks that the matrix is:
     1. 2-dimensional
     2. Square
     3. Symmetric
     4. Positive-definite
-    
+
     Parameters
     ----------
     matrix : np.ndarray
@@ -264,21 +274,21 @@ def check_covariance_matrix(
     atol : float, optional
         Absolute tolerance for the symmetry check. Default is 1e-8.
     precision_threshold : float, optional
-        Threshold for the number of significant digits below which the matrix is considered ill-conditioned. 
+        Threshold for the number of significant digits below which the matrix is considered ill-conditioned.
         Default is 10.
-    
+
     Returns
     -------
     bool
         True if all checks pass, False otherwise.
-    
+
     Warnings
     --------
     UserWarning
         If any of the checks fail, a warning is raised with details.
     """
     all_passed = True
-    
+
     # Check if matrix is 2D
     if matrix.ndim != 2:
         if raise_warnings:
@@ -286,10 +296,10 @@ def check_covariance_matrix(
                 f"{name} matrix is not 2-dimensional (shape: {matrix.shape}). "
                 "This may cause issues in likelihood analysis.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         return False  # Can't proceed with other checks
-    
+
     # Check if matrix is square
     if matrix.shape[0] != matrix.shape[1]:
         if raise_warnings:
@@ -297,10 +307,10 @@ def check_covariance_matrix(
                 f"{name} matrix is not square (shape: {matrix.shape}). "
                 "Covariance matrices must be square.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         return False  # Can't proceed with other checks
-    
+
     # Check if matrix is symmetric
     if not check_symmetric(matrix, rtol=rtol, atol=atol):
         if raise_warnings:
@@ -309,17 +319,17 @@ def check_covariance_matrix(
                 "Covariance matrices should be symmetric. "
                 "This may indicate numerical issues or incorrect computation.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         all_passed = False
-    
+
     # Check if matrix is positive-definite
     if not check_positive_definite(matrix):
         # Get eigenvalues for more detailed diagnostics
         eigenvalues = np.linalg.eigvalsh(matrix)
         n_negative = np.sum(eigenvalues < 0)
         min_eigenvalue = np.min(eigenvalues)
-        
+
         if raise_warnings:
             warnings.warn(
                 f"{name} matrix is not positive-definite. "
@@ -327,12 +337,14 @@ def check_covariance_matrix(
                 "This will cause issues when inverting the matrix in likelihood analysis. "
                 "Consider checking the mock realizations or increasing the number of samples.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         all_passed = False
-    
+
     # Check condition number
-    cond_status = check_condition_number(matrix, precision_threshold=precision_threshold)
+    cond_status = check_condition_number(
+        matrix, precision_threshold=precision_threshold
+    )
     if cond_status == 0:
         if raise_warnings:
             warnings.warn(
@@ -340,7 +352,7 @@ def check_covariance_matrix(
                 "This will cause issues when inverting the matrix in likelihood analysis. "
                 "Using the diagonal covariance only may be a temporary workaround.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         all_passed = False
     elif cond_status == 2:
@@ -350,8 +362,8 @@ def check_covariance_matrix(
                 "This may lead to unreliable results when inverting the matrix in likelihood analysis. "
                 "Using the diagonal covariance only may be a temporary workaround.",
                 UserWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         all_passed = False
-    
+
     return all_passed

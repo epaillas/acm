@@ -1,37 +1,44 @@
-import time
 import logging
-from typing import Optional
+import time
 from pathlib import Path
+from typing import Optional
 
 import lsstypes as types
-import xarray as xr
-
 import numpy as np
 import numpy.typing as npt
+import xarray as xr
 
 
 class BaseEstimator:
     """
     Base estimator class.
     """
-    def __init__(self, backend: str = 'jaxpower', **kwargs) -> None:
+
+    def __init__(self, backend: str = "jaxpower", **kwargs) -> None:
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.info(f'Initializing {self.__class__.__name__}.')
-        
+        self.logger.info(f"Initializing {self.__class__.__name__}.")
+
         # Lazy import of backend classes to avoid forcing installation of all backends
-        if backend == 'jaxpower':
+        if backend == "jaxpower":
             from .backends.jaxpower import JaxpowerBackend
+
             self.backend = JaxpowerBackend(**kwargs)
-        elif backend == 'pypower':
+        elif backend == "pypower":
             from .backends.pypower import PypowerBackend
+
             self.backend = PypowerBackend(**kwargs)
-        elif backend == 'pyrecon':
+        elif backend == "pyrecon":
             from .backends.pyrecon import PyreconBackend
+
             self.backend = PyreconBackend(**kwargs)
         else:
-            raise ValueError(f"Unknown backend '{backend}'. Available backends: 'jaxpower', 'pypower', 'pyrecon'")
-        
-    def read_density_contrast(self, positions: npt.NDArray, resampler: str = 'cic') -> npt.NDArray:
+            raise ValueError(
+                f"Unknown backend '{backend}'. Available backends: 'jaxpower', 'pypower', 'pyrecon'"
+            )
+
+    def read_density_contrast(
+        self, positions: npt.NDArray, resampler: str = "cic"
+    ) -> npt.NDArray:
         """
         Get the density contrast at the input positions.
 
@@ -48,16 +55,20 @@ class BaseEstimator:
             Density contrast at the input positions.
         """
         t0 = time.time()
-        if self.backend.name == 'jaxpower':
+        if self.backend.name == "jaxpower":
             delta = self.backend.delta_mesh.read(positions, resampler=resampler)
-        elif self.backend.name == 'pypower':
-            offset = self.boxcenter - self.boxsize/2.
-            delta = self.backend.delta_mesh.readout(positions - offset, resampler=resampler)
-        elif self.backend.name == 'pyrecon':
-            if resampler != 'cic':
-                raise NotImplementedError('Pyrecon backend only supports CIC resampling.')
+        elif self.backend.name == "pypower":
+            offset = self.boxcenter - self.boxsize / 2.0
+            delta = self.backend.delta_mesh.readout(
+                positions - offset, resampler=resampler
+            )
+        elif self.backend.name == "pyrecon":
+            if resampler != "cic":
+                raise NotImplementedError(
+                    "Pyrecon backend only supports CIC resampling."
+                )
             delta = self.backend.delta_mesh.read_cic(positions)
-        self.logger.info(f'Read density contrast in {time.time() - t0:.2f} s.')
+        self.logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
         return delta
 
     def __getattr__(self, name: str):
@@ -75,25 +86,25 @@ class BaseEstimator:
             Attribute from the backend.
         """
         return self.backend.__getattribute__(name)
-    
+
     @staticmethod
     def read(filename: str, **kwargs):
         """
         Read estimator output from a file.
-        
+
         Format is automatically determined from file extension:
         - .hdf5, .h5 -> lsstypes
         - .nc -> xarray NetCDF
         - .zarr -> xarray Zarr
         - .npy -> numpy
-        
+
         Parameters
         ----------
         filename : str
             Path to the saved file.
         **kwargs
             Additional keyword arguments for the specific file format reader.
-            
+
         Returns
         -------
         data : ObservableLeaf, xarray.DataArray, xarray.Dataset, or numpy.ndarray
@@ -102,29 +113,29 @@ class BaseEstimator:
             - xarray NetCDF (.nc): DataArray with .values and coordinate attributes
             - xarray Zarr (.zarr): DataArray (if data_var specified) or Dataset
             - numpy (.npy): plain ndarray
-            
+
         Examples
         --------
         >>> data = MyEstimator.read('output.hdf5')  # lsstypes format
-        >>> data = MyEstimator.read('output.nc')     # xarray NetCDF format  
+        >>> data = MyEstimator.read('output.nc')     # xarray NetCDF format
         >>> data = MyEstimator.read('output.zarr', data_var='wst')  # xarray Zarr with specific variable
         >>> coeffs = MyEstimator.read('output.npy')  # numpy array
-        
+
         Raises
         ------
         ValueError
             If the file extension is not recognized.
         """
         path = Path(filename)
-        
+
         # Determine format from file extension
-        if path.suffix == '.hdf5' or path.suffix == '.h5':
+        if path.suffix == ".hdf5" or path.suffix == ".h5":
             return types.read(filename)
-        elif path.suffix == '.nc':
+        elif path.suffix == ".nc":
             return xr.open_dataarray(filename, **kwargs)
-        elif str(filename).endswith('.zarr'):
+        elif str(filename).endswith(".zarr"):
             return xr.open_zarr(filename, **kwargs)
-        elif path.suffix == '.npy':
+        elif path.suffix == ".npy":
             return np.load(filename, **kwargs)
         else:
             raise ValueError(
@@ -132,4 +143,3 @@ class BaseEstimator:
                 f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
                 f".zarr (xarray Zarr), .npy (numpy)."
             )
-        
