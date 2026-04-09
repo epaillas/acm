@@ -106,7 +106,7 @@ Repository = "https://github.com/epaillas/acm.git"
 Documentation = "https://acm.readthedocs.io"
 
 [tool.setuptools.dynamic]
-version = {file = "VERSION.txt"}
+version = {file = "VERSION"}
 
 [tool.setuptools]
 packages = ["acm"]
