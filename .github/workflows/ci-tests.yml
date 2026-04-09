@@ -12,7 +12,6 @@ jobs:
   job1:
     name : Ruff format code and import
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
     steps:
       - name: Checkout 
         uses: actions/checkout@v4
@@ -51,6 +50,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_COMMIT }}
         run: |
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+
+          if echo "$LAST_COMMIT_MSG" | grep -q "Ruff format code and import"; then
+            echo "Skipping: already formatted commit"
+            exit 0
+          fi        
           git status -v
           ruff check --select I --fix acm
           ruff format --config quality/ruff.toml acm
