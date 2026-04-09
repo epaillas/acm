@@ -42,7 +42,7 @@ jobs:
             git add acm
             git commit -m "Ruff format code and import"
             git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+            git push -v origin ${{ github.event.pull_request.head.ref }}
           else
             echo "No modification."
           fi
