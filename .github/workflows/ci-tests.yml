@@ -12,6 +12,7 @@ jobs:
   job1:
     name : Ruff format code and import
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     steps:
       - name: Checkout 
         uses: actions/checkout@v4
@@ -29,39 +30,39 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff
 
-      - name: Run Ruff
-        run: |
-          ruff check --select I --fix acm
-          ruff format --config quality/ruff.toml acm
-
-      - name: Create Pull Request if changes
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Ruff format code, import "
-          branch: ruff/auto-format
-          delete-branch: true
-          title: "🎨 Ruff auto-format"
-          body: |
-            Automatic formatting by CI (ruff).
-          base: ${{ github.event.pull_request.head.ref }}          
-          
-      # - name: Format
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.TOKEN_COMMIT }}
+      # - name: Run Ruff
       #   run: |
-      #     git status -v
       #     ruff check --select I --fix acm
       #     ruff format --config quality/ruff.toml acm
-      #     if [ -n "$(git status --porcelain)" ]; then
-      #       git config --global user.name "Ruff formatter"
-      #       git config --global user.email "formatter@ruff.org"
-      #       echo ${{ github.event.pull_request.head.ref }}
-      #       git add acm
-      #       git commit -a -m "Ruff format code and import"
-      #       git status -v
-      #       git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
-      #       git push -v origin ${{ github.event.pull_request.head.ref }}
-      #     else
-      #       echo "No modification."
-      #     fi
+
+      # - name: Create Pull Request if changes
+      #   uses: peter-evans/create-pull-request@v5
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     commit-message: "Ruff format code, import "
+      #     branch: ruff/auto-format
+      #     delete-branch: true
+      #     title: "🎨 Ruff auto-format"
+      #     body: |
+      #       Automatic formatting by CI (ruff).
+      #     base: ${{ github.event.pull_request.head.ref }}          
+          
+      - name: Format
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN_COMMIT }}
+        run: |
+          git status -v
+          ruff check --select I --fix acm
+          ruff format --config quality/ruff.toml acm
+          if [ -n "$(git status --porcelain)" ]; then
+            git config --global user.name "Ruff formatter"
+            git config --global user.email "formatter@ruff.org"
+            echo ${{ github.event.pull_request.head.ref }}
+            git add acm
+            git commit -a -m "Ruff format code and import"
+            git status -v
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+            git push -v origin ${{ github.event.pull_request.head.ref }}
+          else
+            echo "No modification."
+          fi
