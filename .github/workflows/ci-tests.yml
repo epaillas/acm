@@ -32,15 +32,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TOKEN_COMMIT }}
         run: |
+          git status -v
           ruff check --select I --fix acm
           ruff format --config quality/ruff.toml acm
           if [ -n "$(git status --porcelain)" ]; then
             git config --global user.name "Ruff formatter"
             git config --global user.email "formatter@ruff.org"
-            git status
             echo ${{ github.event.pull_request.head.ref }}
             git add acm
-            git commit -m "Ruff format code and import"
+            git commit -a -m "Ruff format code and import"
+            git status -v
             git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
             git push -v origin ${{ github.event.pull_request.head.ref }}
           else
