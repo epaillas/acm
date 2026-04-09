@@ -28,23 +28,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install ruff
-
-      # - name: Run Ruff
-      #   run: |
-      #     ruff check --select I --fix acm
-      #     ruff format --config quality/ruff.toml acm
-
-      # - name: Create Pull Request if changes
-      #   uses: peter-evans/create-pull-request@v5
-      #   with:
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     commit-message: "Ruff format code, import "
-      #     branch: ruff/auto-format
-      #     delete-branch: true
-      #     title: "🎨 Ruff auto-format"
-      #     body: |
-      #       Automatic formatting by CI (ruff).
-      #     base: ${{ github.event.pull_request.head.ref }}          
           
       - name: Format
         env:
@@ -71,3 +54,38 @@ jobs:
           else
             echo "No modification."
           fi
+
+  job2:
+    name : Run pytest
+    needs: job1 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v4
+
+      - name: Configuration
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Cache installation
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip- 
+
+      - name: mpi Installation
+        run: |
+          sudo apt install -y openmpi-bin libopenmpi-dev
+
+      - name: Installation package with editable mode
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[testing,sunbird,cosmodesi,jaxpower]
+
+      - name: Process tests
+        run: |
+          source quality/acm_quality_init.sh
+          pytest tests/acm -vv -s
