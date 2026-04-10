@@ -96,7 +96,10 @@ On any closed PR to `main`, the version of the package will be automatically bum
 > [!NOTE]
 > A workflow is also triggered on any PR to `main` to ensure exactly one of the bump type tags is present. If not, the workflow will fail and the PR cannot be merged until the issue is resolved.
 
-After any PR merged to `main`, the `main` branch will be automatically merged back to `dev` to ensure the `dev` branch is up to date with the latest release. 
+After any PR merged to `main` with a version update, the `main` branch will be automatically merged back to `dev` to ensure the `dev` branch is up to date with the latest release. 
+
+> [!WARNING]
+> A merge to `main` without a version update will neither trigger a version bump nor a merge back to `dev`.
 
 > [!TIP]
 > To avoid conflicts, ensure your `dev` branch is up to date with the latest `main` branch before submitting a PR.
