@@ -70,6 +70,9 @@ jobs:
     if: needs.job_format.outputs.push_fmt != 'true'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout 
+        uses: actions/checkout@v4
+
       - name: Cache installation
         uses: actions/cache@v3
         with:
@@ -90,8 +93,38 @@ jobs:
       - name: Process tests
         run: |
           source quality/acm_quality_init.sh
-          pytest tests/acm -vv -s          
+          pytest tests/acm -vv -s
+          
+          
+  #     - name: Checkout 
+  #       uses: actions/checkout@v4
 
+  #     - name: Configuration
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.13"
+
+  #     - name: Cache installation
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: ~/.cache/pip
+  #         key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-pip- 
+
+  #     - name: mpi Installation
+  #       run: |
+  #         sudo apt install -y openmpi-bin libopenmpi-dev
+
+  #     - name: Installation package with editable mode
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install -e .[testing,sunbird,cosmodesi,jaxpower]
+
+  #     - name: Process tests
+  #       run: |
+  #         source quality/acm_quality_init.sh
+  #         pytest tests/acm -vv -s
 # jobs:
 #   job1:
 #     name : Ruff format code and import
