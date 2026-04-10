@@ -1,1 +1,1 @@
-from .reader import lookup_registry_path, list_registry_files
+from .reader import list_registry_files, lookup_registry_path
