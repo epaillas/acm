@@ -33,22 +33,15 @@ jobs:
     uses: ./.github/workflows/bump-version.yml
     with:
       bump_type: major
-  no-bump:
-    if: ${{ github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'bump:none') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: No version bump
-        run: echo "Pull request merged with bump:none label, no version bump will be performed."
 
   merge-dev: # Merge back main to dev to ensure the version change is propagated back to the dev branch
-    needs: [bump-patch, bump-minor, bump-major, no-bump] 
+    needs: [bump-patch, bump-minor, bump-major] 
     # Run only if any of the bump jobs were triggered, regardless of their success or failure
     if: |
       always() && (
         needs.bump-patch.result == 'success' ||
         needs.bump-minor.result == 'success' ||
-        needs.bump-major.result == 'success' ||
-        needs.no-bump.result == 'success'
+        needs.bump-major.result == 'success'
       )
     runs-on: ubuntu-latest
     steps:
