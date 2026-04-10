@@ -60,6 +60,16 @@ jobs:
     needs: job1 
     runs-on: ubuntu-latest
     steps:
+      - name: Check
+        run: |
+          echo "no pytest debug"
+          exit 0
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+
+          if echo "$LAST_COMMIT_MSG" | grep -q "Ruff format code and import"; then
+            echo "Skipping: already formatted commit"
+            exit 0
+          fi        
       - name: Checkout 
         uses: actions/checkout@v4
 

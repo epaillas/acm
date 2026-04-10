@@ -1,11 +1,11 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import xarray
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-import numpy as np
 
 from scipy.stats import median_abs_deviation, norm
 from sunbird.data.data_utils import transform_filters_to_slices
