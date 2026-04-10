@@ -1,26 +1,79 @@
-name: CI for pull request, notify test regression
+name: CI for pull request format and pytest
 
 on:
   pull_request:
-    branches: [ "cosmodesi","dev","main"]
+    branches: ["dev","main"]
     types: [opened, synchronize, reopened]
 
-  push:
-    branches: [ "test-ci" ]
+# see https://github.com/epaillas/acm/issues/201#issuecomment-4223934216
 
 jobs:
-  install:
+  job_format:
+    name : ruff format
+    runs-on: ubuntu-latest
+    outputs:
+       push_fmt: ${{ steps.format.outputs.push_fmt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+          
+      - name: Configuration
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          
+      - name: Cache installation
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip- 
+
+      - name: Installation package with editable mode
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Format
+        id: format
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN_COMMIT }}
+        run: |
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$LAST_COMMIT_MSG" | grep -q "ruff format"; then
+            echo "Format already done"
+            echo "push_fmt=false" >> $GITHUB_OUTPUT
+          else
+            echo "Try format"
+            ruff check --select I --fix acm
+            ruff format --config quality/ruff.toml acm
+            if  [ -n "$(git status --porcelain)" ]; then
+              git config --global user.name "Ruff formatter"
+              git config --global user.email "formatter@ruff.org"
+              git add acm
+              git commit -m "ruff format"
+              git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git
+              git push
+              echo "push_fmt=true" >> $GITHUB_OUTPUT
+            else
+              echo "push_fmt=false" >> $GITHUB_OUTPUT
+              echo "No formatting required."
+            fi            
+          fi
+
+  job_pytest:
+    name : pytest
+    needs: job_format
+    if: needs.job_format.outputs.push_fmt != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 
         uses: actions/checkout@v4
 
-      - name: Configuration
-        uses: actions/setup-python@v5
-        with:
-
-          python-version: "3.13"
-          
       - name: Cache installation
         uses: actions/cache@v3
         with:
@@ -42,3 +95,5 @@ jobs:
         run: |
           source quality/acm_quality_init.sh
           pytest tests/acm -vv -s
+          
+ 
