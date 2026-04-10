@@ -7,6 +7,7 @@ description: |
 on:
   pull_request:
     branches: [ "main" ]
+    types: [ opened, edited, labeled, unlabeled, synchronize ]
 
 jobs:
   require-version-bump-label:
