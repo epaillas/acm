@@ -1,3 +1,4 @@
+from acm.utils.plotting import set_plot_style
 import time
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from pandas import qcut
 from pycorr import TwoPointCorrelationFunction
 from pypower import CatalogFFTPower
 
-from acm.utils.plotting import set_plot_style
+
 
 from .base import BaseEstimator
 
