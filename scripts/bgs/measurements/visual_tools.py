@@ -14,15 +14,9 @@ import matplotlib.pyplot as plt
 from pycorr import TwoPointEstimator
 from IPython.display import display, clear_output
 
-#%% HOD plots functions
-def nested_set(dic, keys, value, extend=False):
-    for key in keys[:-1]:
-        dic = dic.setdefault(key, {})
-    if extend and isinstance(dic.get(keys[-1]), list) and isinstance(value, list):
-        dic[keys[-1]].extend(value)
-    else:
-        dic[keys[-1]] = value
+from outliers import nested_set
 
+#%% HOD plots functions
 def csv_to_structured_array(filename: str | Path, **kwargs) -> np.ndarray:
     """
     Load a CSV file into a structured array.
