@@ -47,7 +47,7 @@ def setup_logging(
         def format(self, record):
             self._style._fmt = (
                 "[%09.2f] " % (time.time() - t0)
-                + " %(asctime)s %(name)-28s %(levelname)-8s %(message)s"
+                + " %(asctime)s %(name)s %(levelname)s:(lineno)d %(message)s"
             )
             return super(MyFormatter, self).format(record)
 
