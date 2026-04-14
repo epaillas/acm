@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +11,7 @@ from acm.utils.decorators import temporary_class_state
 from acm.utils.default import cosmo_list  # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
 
+logger = logging.getLogger(__name__)
 
 class BaseObservableBGS(Observable):
     """
@@ -65,7 +67,7 @@ class BaseObservableBGS(Observable):
                 y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[
                     idx_test
                 ]
-                self.logger.warning(
+                logger.warning(
                     "DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future."
                 )
             else:

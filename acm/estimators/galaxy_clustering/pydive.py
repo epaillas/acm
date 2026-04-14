@@ -13,6 +13,7 @@ from acm.utils.plotting import set_plot_style
 from .base import BaseEstimator
 from .src.pydive import get_void_catalog_cgal, get_void_catalog_full
 
+logger = logging.getLogger(__name__)
 
 def _default_sample_function(void_cat, column="R"):
     limits = np.percentile(void_cat[column], np.linspace(0, 100, 7))
@@ -34,8 +35,7 @@ class DTVoid(BaseEstimator):
     """
 
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger("DTVoid")
-        self.logger.info("Initializing DTVoid.")
+        logger.info("Initializing DTVoid.")
         self.cosmo = kwargs.pop("cosmo", None)
         self.zrange = kwargs.pop("zrange", None)
         self.boxmin = kwargs.pop("boxmin", [0, 0, 0])
@@ -72,7 +72,7 @@ class DTVoid(BaseEstimator):
             free_path = ngal ** (-1 / 3)
             cpy_range = 3.5 * free_path
         else:
-            self.logger.info(f"No copy_range required with natively periodic DT.")
+            logger.info(f"No copy_range required with natively periodic DT.")
             cpy_range = 0
         max_r = np.inf
         while max_r > cpy_range:
@@ -101,9 +101,9 @@ class DTVoid(BaseEstimator):
                 ).all(axis=1)
                 voids = voids[box_mask]
                 max_r = voids[:, 3].max()
-                self.logger.info(f"Biggest void is of size {max_r} Mpc/h")
+                logger.info(f"Biggest void is of size {max_r} Mpc/h")
                 if max_r > cpy_range and periodic_mode != 0:
-                    self.logger.info(
+                    logger.info(
                         f"Rerunning void finder since largest void was larger than periodic padding."
                     )
             else:
@@ -118,7 +118,7 @@ class DTVoid(BaseEstimator):
         else:
             voids = pd.DataFrame(voids, columns=["x", "y", "z", "R"])
 
-        self.logger.info(f"Got DT spheres in total time {time.time() - tic} s")
+        logger.info(f"Got DT spheres in total time {time.time() - tic} s")
         return voids, gal_dtfe
 
     def compute_spheres(
@@ -180,7 +180,7 @@ class DTVoid(BaseEstimator):
             Cross-correlation function between samples and data.
         """
         nsplits = kwargs.pop("nsplits", 1)
-        self.logger.info(f"Using randoms split into {nsplits} parts.")
+        logger.info(f"Using randoms split into {nsplits} parts.")
         if self.has_randoms:
             if "randoms_positions" not in kwargs:
                 raise ValueError(
@@ -251,7 +251,7 @@ class DTVoid(BaseEstimator):
                 kwargs["boxsize"] = self.boxsize
         self._sample_correlation = []
         nsplits = kwargs.pop("nsplits", 1)
-        self.logger.info(f"Using randoms split into {nsplits} parts.")
+        logger.info(f"Using randoms split into {nsplits} parts.")
         for i, sample in enumerate(self.samples):
             if self.has_randoms:
                 split_rands = np.array_split(self.void_randoms[i][:, :3], nsplits)

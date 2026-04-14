@@ -12,6 +12,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 
 from .base import BaseObservableBGS
 
+logger = logging.getLogger(__name__)
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     """
@@ -346,7 +347,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             error = np.sqrt(np.diag(cov))
 
             if len(data.shape) > 1:
-                self.logger.warning(
+                logger.warning(
                     "Multiple samples found in the data. This might lead to unexpected plotting behavior."
                 )
 
@@ -383,7 +384,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
-            self.logger.info(f"Saving plot to {save_fn}")
+            logger.info(f"Saving plot to {save_fn}")
         return fig, ax
 
 

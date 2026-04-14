@@ -8,6 +8,8 @@ import numpy as np
 import numpy.typing as npt
 import xarray as xr
 
+logger = logging.getLogger(__name__)
+
 
 class BaseEstimator:
     """
@@ -15,9 +17,7 @@ class BaseEstimator:
     """
 
     def __init__(self, backend: str = "jaxpower", **kwargs) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.info(f"Initializing {self.__class__.__name__}.")
-
+        logger.info(f"Initializing {self.__class__.__name__}.")
         # Lazy import of backend classes to avoid forcing installation of all backends
         if backend == "jaxpower":
             from .backends.jaxpower import JaxpowerBackend
@@ -68,7 +68,7 @@ class BaseEstimator:
                     "Pyrecon backend only supports CIC resampling."
                 )
             delta = self.backend.delta_mesh.read_cic(positions)
-        self.logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
+        logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
         return delta
 
     def __getattr__(self, name: str):

@@ -6,6 +6,8 @@ import numpy as np
 import numpy.typing as npt
 from pyrecon import RealMesh
 
+logger = logging.getLogger(__name__)
+
 
 class PyreconBackend:
     """Backend using pyrecon for galaxy clustering measurements.
@@ -75,7 +77,7 @@ class PyreconBackend:
         ValueError
             If boxsize or meshsize are not provided.
         """
-        self.logger = logging.getLogger("PyreconBackend")
+        logger = logging.getLogger("PyreconBackend")
         self.name = "pyrecon"
 
         # Extract mesh parameters
@@ -128,9 +130,9 @@ class PyreconBackend:
         if randoms_positions is not None:
             self.assign_randoms(randoms_positions, weights=randoms_weights)
 
-        self.logger.info(f"Box size: {self.boxsize}")
-        self.logger.info(f"Box center: {self.boxcenter}")
-        self.logger.info(f"Box meshsize: {self.meshsize}")
+        logger.info(f"Box size: {self.boxsize}")
+        logger.info(f"Box center: {self.boxcenter}")
+        logger.info(f"Box meshsize: {self.meshsize}")
 
     def assign_data(
         self,
@@ -243,7 +245,7 @@ class PyreconBackend:
         t0 = time.time()
 
         if smoothing_radius:
-            self.logger.info(
+            logger.info(
                 f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel."
             )
             self.data_mesh.smooth_gaussian(
@@ -276,7 +278,7 @@ class PyreconBackend:
             self.mean = np.mean(self.data_mesh)
             self.delta_mesh = self.data_mesh / self.mean - 1.0
 
-        self.logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
+        logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
         return self.delta_mesh
 
     def get_query_positions(
@@ -309,7 +311,7 @@ class PyreconBackend:
         cellsize = self.cellsize
 
         if method == "lattice":
-            self.logger.info("Generating lattice query points within the box.")
+            logger.info("Generating lattice query points within the box.")
             xedges = np.arange(
                 boxcenter[0] - boxsize[0] / 2 - cellsize[0] / 2,
                 boxcenter[0] + boxsize[0] / 2,
@@ -334,7 +336,7 @@ class PyreconBackend:
             lattice_z = lattice_z.flatten()
             return np.vstack((lattice_x, lattice_y, lattice_z)).T
         elif method == "randoms":
-            self.logger.info("Generating random query points within the box.")
+            logger.info("Generating random query points within the box.")
             np.random.seed(seed)
             if nquery is None:
                 nquery = 5 * self.size_data

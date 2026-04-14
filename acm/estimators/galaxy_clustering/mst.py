@@ -8,6 +8,7 @@ from acm.utils.plotting import set_plot_style
 
 from .base import BaseEstimator
 
+logger = logging.getLogger(__name__)
 
 class MinimumSpanningTree(BaseEstimator):
     """
@@ -16,8 +17,7 @@ class MinimumSpanningTree(BaseEstimator):
     """
 
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger("MinimumSpanningTree")
-        self.logger.info("Initializing MinimumSpanningTree.")
+        logger.info("Initializing MinimumSpanningTree.")
         super().__init__(**kwargs)
 
     def setup(

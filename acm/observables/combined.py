@@ -10,6 +10,7 @@ from acm.utils.covariance import check_covariance_matrix
 
 from .base import Observable
 
+logger = logging.getLogger(__name__)
 
 class CombinedModel:
     """
@@ -58,14 +59,13 @@ class CombinedObservable:
         observables : list[Observable]
             List of observables to be combined, initialized with their respective filters.
         """
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.observables = observables
         self.slice_filters = [obs.slice_filters for obs in self.observables]
         self.select_filters = [obs.select_filters for obs in self.observables]
 
         is_reshaped = [obs.flat_output_dims == 2 for obs in self.observables]
         if not all(is_reshaped):
-            self.logger.warning(
+            logger.warning(
                 "Not all observables have flat_output_dims=2. Some outputs might not be properly reshaped, which might cause concatenation issues."
             )
 
@@ -350,5 +350,5 @@ class CombinedObservable:
                     pdf.savefig(fig, bbox_inches="tight", pad_inches=0.2)
                 else:
                     fig.show()
-        self.logger.info(f"Saving {save_fn}")
+        logger.info(f"Saving {save_fn}")
         return fig

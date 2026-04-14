@@ -7,6 +7,7 @@ import numpy as np
 import numpy.typing as npt
 from pypower import CatalogMesh
 
+logger = logging.getLogger(__name__)
 
 class PypowerBackend:
     """Backend using pypower for galaxy clustering measurements.
@@ -67,7 +68,7 @@ class PypowerBackend:
             - meshsize or nmesh : int or array_like
                 Number of mesh cells per dimension.
         """
-        self.logger = logging.getLogger("PypowerBackend")
+        logger = logging.getLogger("PypowerBackend")
         self.name = "pypower"
         if "meshsize" in kwargs:
             kwargs["nmesh"] = kwargs.pop("meshsize")
@@ -87,9 +88,9 @@ class PypowerBackend:
         self.cellsize = self.mesh.boxsize / self.mesh.nmesh
         self.boxsize = self.mesh.boxsize
         self.boxcenter = self.mesh.boxcenter
-        self.logger.info(f"Box size: {self.boxsize}")
-        self.logger.info(f"Box center: {self.boxcenter}")
-        self.logger.info(f"Box meshsize: {self.meshsize}")
+        logger.info(f"Box size: {self.boxsize}")
+        logger.info(f"Box center: {self.boxcenter}")
+        logger.info(f"Box meshsize: {self.meshsize}")
 
     @property
     def has_randoms(self) -> bool:
@@ -131,7 +132,7 @@ class PypowerBackend:
         t0 = time.time()
         data_mesh = self.mesh.to_mesh(field="data", compensate=compensate)
         if smoothing_radius:
-            self.logger.info(
+            logger.info(
                 f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel."
             )
             data_mesh = data_mesh.r2c().apply(
@@ -159,7 +160,7 @@ class PypowerBackend:
             delta_mesh = data_mesh / self.mean - 1
         self.data_mesh = data_mesh
         self.delta_mesh = delta_mesh
-        self.logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
+        logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
         return self.delta_mesh
 
     def get_query_positions(
@@ -191,7 +192,7 @@ class PypowerBackend:
         boxsize = self.boxsize
         cellsize = self.cellsize
         if method == "lattice":
-            self.logger.info("Generating lattice query points within the box.")
+            logger.info("Generating lattice query points within the box.")
             xedges = np.arange(
                 boxcenter[0] - boxsize[0] / 2 - cellsize[0] / 2,
                 boxcenter[0] + boxsize[0] / 2,
@@ -216,7 +217,7 @@ class PypowerBackend:
             lattice_z = lattice_z.flatten()
             return np.vstack((lattice_x, lattice_y, lattice_z)).T
         elif method == "randoms":
-            self.logger.info("Generating random query points within the box.")
+            logger.info("Generating random query points within the box.")
             np.random.seed(seed)
             if nquery is None:
                 nquery = 5 * self.size_data

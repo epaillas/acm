@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,6 +13,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 
 from .base import BaseObservableEMC
 
+logger = logging.getLogger(__name__)
 
 class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
     """
@@ -321,7 +323,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
-            self.logger.info(f"Saving plot to {save_fn}")
+            logger.info(f"Saving plot to {save_fn}")
         return fig, lax
 
 

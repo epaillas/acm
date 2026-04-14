@@ -18,6 +18,7 @@ from .cutsky import CutskyHOD, CutskyRandoms
 
 # warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
+logger = logging.getLogger(__name__)
 
 class BaseLightconeCatalog(ABC):
     """
@@ -70,9 +71,9 @@ class BaseLightconeCatalog(ABC):
             The lightcone catalog is modified in place.
         """
         data_nbar = self.get_data_nbar(self.catalog, full_sky)
-        self.logger.info(f"Raw data nbar: {data_nbar}")
+        logger.info(f"Raw data nbar: {data_nbar}")
 
-        self.logger.info("Applying radial mask.")
+        logger.info("Applying radial mask.")
 
         zmin_data = self.catalog["Z"].min()
         zmax_data = self.catalog["Z"].max()
@@ -149,7 +150,7 @@ class BaseLightconeCatalog(ABC):
         for key in self.catalog.keys():
             self.catalog[key] = self.catalog[key][select_mask]
         self.catalog["NZ"] = data_nz[select_mask]
-        self.logger.info(
+        logger.info(
             f"Downsampled data nbar: {self.get_data_nbar(self.catalog, full_sky)}"
         )
 
@@ -293,7 +294,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         BaseLightconeCatalog.__init__(self)
         self.DM_DICT_simtype = "lightcone"
         self.sim_geometry = "lightcone"
-        self.logger = logging.getLogger("LightconeHOD")
+        logger = logging.getLogger("LightconeHOD")
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
         self.cosmo_idx = cosmo_idx
@@ -390,7 +391,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         snaps = self.snap_redshifts[
             snap_min : snap_max + 2
         ]  # Include an extra snapshot at high-z to avoid edge effects
-        self.logger.info(f"Lightcone composed of snapshots at z: {snaps}.")
+        logger.info(f"Lightcone composed of snapshots at z: {snaps}.")
         return snaps
         # return [z for z in self.snap_redshifts if z >= self.zrange[0] and z <= self.zrange[1]]
 
@@ -447,7 +448,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             seed = None
 
         for i, (zsnap, ball) in enumerate(zip(self.snapshots, self.balls)):
-            self.logger.info(f"Processing snapshot at z = {zsnap}")
+            logger.info(f"Processing snapshot at z = {zsnap}")
 
             if self.load_existing_hod:
                 box_positions, box_velocities = self.load_hod(
@@ -605,7 +606,7 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             TODO: huge not yet supported with BoxHOD
         """
         BaseLightconeCatalog.__init__(self)
-        self.logger = logging.getLogger("LightconeRandoms")
+        logger = logging.getLogger("LightconeRandoms")
         self.rarange = (0.0, 360.0) if full_sky else (0.0, 90.0)
         self.decrange = (-90.0, 90.0) if full_sky else (0.0, 90.0)
         self.zrange = zrange

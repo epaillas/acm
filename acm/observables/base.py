@@ -1,6 +1,7 @@
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
+import logging
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,6 +17,8 @@ from acm.utils.decorators import temporary_class_state
 from acm.utils.logging import supress_logging
 from acm.utils.plotting import set_plot_style
 from acm.utils.xarray import dataset_from_dict
+
+logger = logging.getLogger(__name__)
 
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
@@ -105,7 +108,6 @@ class Observable:
             - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
             - 'model_dir': directory containing the trained model checkpoint (`stat_name`.ckpt)
         """
-        self.logger = self.get_logger()
 
         self.stat_name = stat_name
         self.numpy_output = numpy_output
@@ -127,7 +129,7 @@ class Observable:
             elif paths is not None and "model_dir" in paths:
                 try:
                     if checkpoint_fn is not None:
-                        self.logger.warning(
+                        logger.warning(
                             "DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead."
                         )
                         checkpoint_fn = Path(checkpoint_fn)
@@ -141,10 +143,10 @@ class Observable:
                     KeyError,
                     ValueError,
                 ) as e:
-                    self.logger.warning(f"Could not load model from checkpoint: {e}")
+                    logger.warning(f"Could not load model from checkpoint: {e}")
 
             self._dataset = dataset
-            self.logger.info(
+            logger.info(
                 "Datasets loaded with the following coordinates: {}".format(
                     list(self._dataset.data_vars.keys())
                 )
@@ -241,26 +243,12 @@ class Observable:
         model.eval().to("cpu")
         return model
 
-    @classmethod
-    def get_logger(cls) -> logging.Logger:
-        """
-        Returns the logger for the class.
-
-        Returns
-        -------
-        logging.Logger
-            The logger for the class.
-        """
-        return logging.getLogger(cls.__name__)
-
     def __repr__(self):  # pragma: no cover
         """
         Returns a string representation of the Observable object.
         """
         r = f"<{type(self).__name__}>"
         for key, value in self.__dict__.items():
-            if key == "logger":
-                continue
             display_key = "dataset" if key == "_dataset" else key
             r += f"\n  {display_key}: {repr(value)},"
         if r.endswith(","):
@@ -309,12 +297,12 @@ class Observable:
             dataset=copy(self._dataset),
             model=copy(getattr(self, "model", None)),
             silent_load=True,  # Avoid logging messages during copy
-        )  # NOTE: The logger is not copied to avoid issues with multiple loggers. It will be re-created in the new instance instead.
+        )
 
         # Copy all other class attributes
         cls_vars = vars(self)
         for key, value in cls_vars.items():
-            if key in ["stat_name", "_dataset", "model", "logger"]:
+            if key in ["stat_name", "_dataset", "model"]:
                 continue
             setattr(new_cls, key, copy(value))
         return new_cls
@@ -330,12 +318,12 @@ class Observable:
             dataset=deepcopy(self._dataset, memo),
             model=deepcopy(getattr(self, "model", None), memo),
             silent_load=True,  # Avoid logging messages during copy
-        )  # NOTE: The logger is not copied to avoid issues with multiple loggers. It will be re-created in the new instance instead.
+        )
 
         # Deep copy all other class attributes
         cls_vars = vars(self)
         for key, value in cls_vars.items():
-            if key in ["stat_name", "_dataset", "model", "logger"]:
+            if key in ["stat_name", "_dataset", "model"]:
                 continue
             setattr(new_cls, key, deepcopy(value, memo))
         return new_cls
@@ -364,7 +352,7 @@ class Observable:
                 continue
             dataarray = dataarray.dropna(dim=dim, how="all")
         if dataarray.size == 0:
-            self.logger.warning(
+            logger.warning(
                 f"All values dropped for {dataarray.name} due to NaN filters."
             )
         return dataarray
@@ -512,15 +500,15 @@ class Observable:
                     k for k in dataarray.attrs["features"] if k in f.keys()
                 ]
                 if dim_name in features_filters:
-                    self.logger.warning(
+                    logger.warning(
                         f"select_indices is applied on a dimension ({dim_name}) that is also filtered with {f_str}. This might lead to unexpected results."
                     )
                 elif dim_name == "features" and len(features_filters) > 0:
-                    self.logger.warning(
+                    logger.warning(
                         f"select_indices is applied on 'features' dimension while {f_str} are also applied on features. This might lead to unexpected results."
                     )
                 elif dim_name == "dims":
-                    self.logger.warning(
+                    logger.warning(
                         f"select_indices is applied while {f_str} are also applied. This might lead to unexpected results."
                     )
 
@@ -646,7 +634,7 @@ class Observable:
                     f"Missing keys: {missing}"
                 )
             if extra:
-                self.logger.warning(
+                logger.warning(
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
@@ -819,7 +807,7 @@ class Observable:
             raise ValueError(
                 f"Unknown method '{method}' for emulator covariance matrix computation."
             )
-        self.logger.info(
+        logger.info(
             f"Emulator covariance matrix computed using method '{method}' with diag={diag}."
         )
 
@@ -915,7 +903,7 @@ class Observable:
         model = self.get_model_prediction(model_params)
 
         if len(data.shape) > 1:
-            self.logger.warning(
+            logger.warning(
                 "Multiple samples found in the data. This might lead to unexpected plotting behavior."
             )
 
@@ -955,7 +943,7 @@ class Observable:
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
-            self.logger.info(f"Saving plot to {save_fn}")
+            logger.info(f"Saving plot to {save_fn}")
         return fig, ax
 
     @set_plot_style
@@ -1002,7 +990,7 @@ class Observable:
 
             outliers = np.where(emu_err / data_err > 10)[0].tolist()
             if len(outliers) > 0:
-                self.logger.info(
+                logger.info(
                     f"Emulator residuals are larger than 10 sigma in bins: {outliers} using method '{method}'."
                 )
 
@@ -1014,5 +1002,5 @@ class Observable:
         fig.tight_layout()
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
-            self.logger.info(f"Saving plot to {save_fn}")
+            logger.info(f"Saving plot to {save_fn}")
         return fig, ax

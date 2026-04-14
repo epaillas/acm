@@ -30,8 +30,8 @@ class Bispectrum(PolyBinEstimator, BSpec):
     """
 
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger("Bispectrum")
-        self.logger.info("Initializing Bispectrum.")
+        logger = logging.getLogger("Bispectrum")
+        logger.info("Initializing Bispectrum.")
         PolyBinEstimator.__init__(self, **kwargs)
 
     def set_binning(self, **kwargs):
@@ -40,7 +40,7 @@ class Bispectrum(PolyBinEstimator, BSpec):
     def Bk_ideal(self, **kwargs):
         t0 = time.time()
         bk = BSpec.Bk_ideal(self, data=self.delta_mesh.value, **kwargs)
-        self.logger.info(
+        logger.info(
             f"Computed ideal bispectrum in {time.time() - t0:.2f} seconds."
         )
         return bk
@@ -52,8 +52,8 @@ class PowerSpectrum(PolyBinEstimator, PSpec):
     """
 
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger("PowerSpectrum")
-        self.logger.info("Initializing PowerSpectrum.")
+        logger = logging.getLogger("PowerSpectrum")
+        logger.info("Initializing PowerSpectrum.")
         PolyBinEstimator.__init__(self, **kwargs)
 
     def set_binning(self, **kwargs):
@@ -62,7 +62,7 @@ class PowerSpectrum(PolyBinEstimator, PSpec):
     def Pk_ideal(self, **kwargs):
         t0 = time.time()
         pk = PSpec.Pk_ideal(self, data=self.delta_mesh.value, **kwargs)
-        self.logger.info(
+        logger.info(
             f"Computed ideal power spectrum in {time.time() - t0:.2f} seconds."
         )
         return pk

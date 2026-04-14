@@ -1,7 +1,9 @@
+import imp
 import time
 from functools import partial
 from pathlib import Path
 from typing import Any, Optional, Tuple, Union
+import logging
 
 import jax
 import jax.numpy as jnp
@@ -21,6 +23,7 @@ from .base import BaseEstimator
 
 jax.config.update("jax_enable_x64", True)
 
+logger = logging.getLogger(__name__)
 
 class JaxelVoids(BaseEstimator):
     """
@@ -123,10 +126,10 @@ class JaxelVoids(BaseEstimator):
         self.time = time.time()
         self._prepare_void_inputs_from_backend()
         self.voids, self.void_radii = self._find_voids_in_memory()
-        self.logger.info(
+        logger.info(
             f"Found {len(self.voids)} voids in {time.time() - self.time:.2f} s."
         )
-        self.logger.info(f"Mean void radius: {np.mean(self.void_radii):.2f} Mpc/h.")
+        logger.info(f"Mean void radius: {np.mean(self.void_radii):.2f} Mpc/h.")
         if save_fn is not None:
             self.save(save_fn, type="catalog")
         return self.voids, self.void_radii
@@ -156,7 +159,7 @@ class JaxelVoids(BaseEstimator):
             raise ValueError("No void catalog to save. Run find_voids() first.")
 
         path = Path(filename)
-        self.logger.info(f"Saving void catalog to {path}")
+        logger.info(f"Saving void catalog to {path}")
 
         voids = np.asarray(self.voids, dtype=float)
         void_radii = np.asarray(self.void_radii, dtype=float)
@@ -257,7 +260,7 @@ class JaxelVoids(BaseEstimator):
             Additional metadata to attach when supported by the output format.
         """
         path = Path(filename)
-        self.logger.info(f"Saving void-data correlation to {path}")
+        logger.info(f"Saving void-data correlation to {path}")
 
         base_attrs = {
             "estimator": "JaxelVoids",
@@ -870,7 +873,7 @@ class JaxelVoids(BaseEstimator):
             selected = non_edge_candidates[0]
 
         _, zone_id_used, vox, xi, yi, zi = selected
-        self.logger.info(
+        logger.info(
             f"Using zone {zone_id_used} with {len(vox)} voxels for 3D GIF."
         )
 

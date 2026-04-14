@@ -13,6 +13,8 @@ from cosmoprimo.fiducial import DESI, AbacusSummit
 
 from acm.utils.paths import lookup_registry_path
 
+logger = logging.getLogger(__name__)
+
 
 class BoxHOD:
     """
@@ -132,7 +134,7 @@ class BoxHOD:
         sim_params["sim_name"] = self.abacus_simname()
         sim_params["z_mock"] = self.redshift
         HOD_params = config["HOD_params"]
-        self.logger.info(f"Initializing AbacusHOD with parameters {sim_params}.")
+        logger.info(f"Initializing AbacusHOD with parameters {sim_params}.")
         self.ball = abacus_hod.AbacusHOD(sim_params, HOD_params)
         self.ball.params["Lbox"] = self.boxsize
         self.cosmo_fid = DESI()
@@ -204,14 +206,14 @@ class BoxHOD:
                     f"Invalid parameter: {param}. Valid list "
                     f"of parameters include: {list(self.ball.tracers[self.tracer].keys())}"
                 )
-        self.logger.info(f"Varied parameters: {params}.")
+        logger.info(f"Varied parameters: {params}.")
         self.varied_params = params
         default = {
             key: value
             for key, value in self.ball.tracers[self.tracer].items()
             if key not in params
         }
-        self.logger.info(f"Default parameters: {default}.")
+        logger.info(f"Default parameters: {default}.")
 
     def check_catalog(
         self, hod_dict: dict, n_target: float, rtol: float = 0.01
@@ -243,7 +245,7 @@ class BoxHOD:
             n_gal_mock *= self.q_par * self.q_perp**2
         n_gal_diff = n_gal_mock / min(n_target, self.n_gal) - 1
         if abs(n_gal_diff) > rtol:
-            self.logger.warning(
+            logger.warning(
                 f"Number density of mock does not match expectation ({n_gal_diff * 100:.0f}% offset). Adjust the halo catalogue subsampling!"
             )
 
@@ -251,7 +253,7 @@ class BoxHOD:
         f_sat_mock = 1 - hod_dict[self.tracer]["Ncent"] / N_gal_mock
         f_sat_diff = f_sat_mock / self.f_sat - 1
         if abs(f_sat_diff) > rtol:
-            self.logger.warning(
+            logger.warning(
                 f"Satellite fraction of mock does not match expectation ({f_sat_diff * 100:.0f}% offset). Adjust the particle catalogue subsampling!"
             )
 
@@ -355,14 +357,14 @@ class BoxHOD:
         if tracer_density is not None:
             n_target = np.array(tracer_density)
             if (n_target.size > 1) & (n_target.min() / self.n_gal > 1):
-                self.logger.info(
+                logger.info(
                     f"Catalogue below minimum density threshold (n={self.n_gal:.5f})"
                 )
                 self.in_density = False  # Flag that mock is below density threshold
                 if not process_underdense:
                     return None
             else:
-                self.logger.info(
+                logger.info(
                     f"Catalogue above minimum density threshold (n={self.n_gal:.5f})"
                 )
                 self.ball.tracers[tracer]["ic"] = min(1, n_target.max() / self.n_gal)
@@ -474,7 +476,7 @@ class BoxHOD:
         )
         myfits = fits.BinTableHDU(data=table, header=header)
         myfits.writeto(save_fn, overwrite=True)
-        self.logger.info(f"Saving {save_fn}.")
+        logger.info(f"Saving {save_fn}.")
 
     def param_mapping(self, hod_params: dict | list[str]) -> dict | list[str]:
         """

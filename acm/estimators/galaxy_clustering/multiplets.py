@@ -7,6 +7,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
 
+logger = logging.getLogger(__name__)
 
 class GalaxyMultiplets:
     """
@@ -32,8 +33,7 @@ class GalaxyMultiplets:
     """
 
     def __init__(self, r_max=7.0, r_perp_max=1.05, los="z", nthreads=4):
-        self.logger = logging.getLogger("GalaxyMultiplets")
-        self.logger.info("Initializing GalaxyMultiplets.")
+        logger.info("Initializing GalaxyMultiplets.")
 
         self.r_max = r_max
         self.r_perp_max = r_perp_max
@@ -77,7 +77,7 @@ class GalaxyMultiplets:
         pairs : ndarray, shape (M, 2)
             Array of galaxy pair indices
         """
-        self.logger.info(
+        logger.info(
             f"Finding pairs with r_max={self.r_max}, r_perp_max={self.r_perp_max}"
         )
 
@@ -92,7 +92,7 @@ class GalaxyMultiplets:
         kd_tree = cKDTree(positions, boxsize=boxsize[0])
         all_pairs = kd_tree.query_pairs(r=self.r_max, output_type="ndarray")
 
-        self.logger.info(f"Found {len(all_pairs)} pairs within r_max={self.r_max}")
+        logger.info(f"Found {len(all_pairs)} pairs within r_max={self.r_max}")
 
         # Separate boundary and non-boundary pairs
         sep_3d = np.sqrt(
@@ -141,8 +141,8 @@ class GalaxyMultiplets:
             else boundary_pairs
         )
 
-        self.logger.info(f"Found {len(pairs)} pairs satisfying all criteria")
-        self.logger.info(
+        logger.info(f"Found {len(pairs)} pairs satisfying all criteria")
+        logger.info(
             f"  Non-boundary: {len(non_boundary_pairs)}, Boundary: {len(boundary_pairs)}"
         )
 
@@ -164,7 +164,7 @@ class GalaxyMultiplets:
         groups_list : list of lists
             List where each element is a list of galaxy indices in that group
         """
-        self.logger.info("Forming multiplets via connected components")
+        logger.info("Forming multiplets via connected components")
 
         # Create adjacency matrix
         row = pairs[:, 0]
@@ -185,7 +185,7 @@ class GalaxyMultiplets:
         # Convert to sorted lists
         groups_list = [sorted(list(groups[g])) for g in sorted(groups)]
 
-        self.logger.info(f"Formed {len(groups_list)} multiplets")
+        logger.info(f"Formed {len(groups_list)} multiplets")
 
         return groups_list
 
@@ -276,7 +276,7 @@ class GalaxyMultiplets:
             - 'triplet_coords': centers of triplets (size=3)
             - 'quadruplet_coords': centers of quadruplets (size=4)
         """
-        self.logger.info("Starting multiplet identification")
+        logger.info("Starting multiplet identification")
 
         positions = np.asarray(positions)
         n_galaxies = len(positions)
@@ -290,10 +290,10 @@ class GalaxyMultiplets:
         self.singlet_ids = np.setdiff1d(all_ids, all_pair_ids)
         self.singlet_coords = positions[self.singlet_ids]
 
-        self.logger.info(
+        logger.info(
             f"Found {len(self.singlet_ids)} singlets ({len(self.singlet_ids) / n_galaxies * 100:.2f}%)"
         )
-        self.logger.info(
+        logger.info(
             f"{len(all_pair_ids) / n_galaxies * 100:.2f}% of galaxies are in multiplets"
         )
 
@@ -310,10 +310,10 @@ class GalaxyMultiplets:
         self.triplet_coords = self.group_centers[self.group_sizes == 3]
         self.quadruplet_coords = self.group_centers[self.group_sizes == 4]
 
-        self.logger.info(f"Multiplet counts:")
-        self.logger.info(f"  Pairs: {len(self.pair_coords)}")
-        self.logger.info(f"  Triplets: {len(self.triplet_coords)}")
-        self.logger.info(f"  Quadruplets: {len(self.quadruplet_coords)}")
+        logger.info(f"Multiplet counts:")
+        logger.info(f"  Pairs: {len(self.pair_coords)}")
+        logger.info(f"  Triplets: {len(self.triplet_coords)}")
+        logger.info(f"  Quadruplets: {len(self.quadruplet_coords)}")
 
         return {
             "singlet_ids": self.singlet_ids,
@@ -404,13 +404,13 @@ class GalaxyMultiplets:
         if self.singlet_coords is None:
             raise ValueError("Must run identify_multiplets() first")
 
-        self.logger.info("Computing cross-correlations for all multiplet types")
+        logger.info("Computing cross-correlations for all multiplet types")
 
         correlations = {}
 
         # Singlets
         if len(self.singlet_coords) > 0:
-            self.logger.info(
+            logger.info(
                 f"Computing singlet cross-correlation ({len(self.singlet_coords)} objects)"
             )
             est_singlet = self.compute_cross_correlation(
@@ -420,7 +420,7 @@ class GalaxyMultiplets:
 
         # Pairs
         if len(self.pair_coords) > 0:
-            self.logger.info(
+            logger.info(
                 f"Computing pair cross-correlation ({len(self.pair_coords)} objects)"
             )
             est_pair = self.compute_cross_correlation(
@@ -430,7 +430,7 @@ class GalaxyMultiplets:
 
         # Triplets
         if len(self.triplet_coords) > 0:
-            self.logger.info(
+            logger.info(
                 f"Computing triplet cross-correlation ({len(self.triplet_coords)} objects)"
             )
             est_triplet = self.compute_cross_correlation(
@@ -440,7 +440,7 @@ class GalaxyMultiplets:
 
         # Quadruplets
         if len(self.quadruplet_coords) > 0:
-            self.logger.info(
+            logger.info(
                 f"Computing quadruplet cross-correlation ({len(self.quadruplet_coords)} objects)"
             )
             est_quadruplet = self.compute_cross_correlation(

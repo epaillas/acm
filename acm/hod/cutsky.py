@@ -43,6 +43,7 @@ VALID_REGIONS = ["N", "DN", "DS", "N+SNGC", "SNGC", "SSGC", "DES", "NGC", "SGC"]
 
 # TODO : add docstrings !
 
+logger = logging.getLogger(__name__)
 
 class BaseCutskyCatalog(ABC):
     """
@@ -90,7 +91,7 @@ class BaseCutskyCatalog(ABC):
             The cutsky catalog is modified in place.
         """
         if self.mpicomm.rank == self.mpiroot:
-            self.logger.info(
+            logger.info(
                 f"Applying angular mask for region {region} and release {release}."
             )
         if custom_mask_path is None:
@@ -166,7 +167,7 @@ class BaseCutskyCatalog(ABC):
             The cutsky catalog is modified in place.
         """
         if self.mpicomm.rank == self.mpiroot:
-            self.logger.info(f"Applying radial mask using n(z) file {nz_filename}.")
+            logger.info(f"Applying radial mask using n(z) file {nz_filename}.")
 
         zmin_data = self.catalog["Z"].min()
         zmax_data = self.catalog["Z"].max()
@@ -662,8 +663,8 @@ class BaseCutskyCatalog(ABC):
 
         # Only root rank saves to disk
         if self.mpicomm.rank == self.mpiroot:
-            self.logger.info(f"Saving cutsky catalog to {filename}")
-            self.logger.info(
+            logger.info(f"Saving cutsky catalog to {filename}")
+            logger.info(
                 f"Total number of objects saved: {len(catalog_gathered[list(catalog_gathered.keys())[0]])}"
             )
             if str(filename).endswith(".fits"):
@@ -737,9 +738,9 @@ class CutskyHOD(BaseCutskyCatalog):
         super().__init__()
         self.DM_DICT_simtype = "box"
         self.sim_geometry = "cutsky"
-        self.logger = logging.getLogger("CutskyHOD")
+        logger = logging.getLogger("CutskyHOD")
         if self.mpicomm.rank == self.mpiroot:
-            self.logger.info(
+            logger.info(
                 f"Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks."
             )
         self.config_file = config_file
@@ -761,7 +762,7 @@ class CutskyHOD(BaseCutskyCatalog):
         if self.load_existing_hod:
             self.cosmo = AbacusSummit(self.cosmo_idx)
             if self.mpicomm.rank == self.mpiroot:
-                self.logger.info("Load existing hod instead of generating new ones.")
+                logger.info("Load existing hod instead of generating new ones.")
         else:
             if DM_DICT is None:
                 DM_DICT = lookup_registry_path(
@@ -893,7 +894,7 @@ class CutskyHOD(BaseCutskyCatalog):
 
         # Only root rank loads the HOD to avoid redundant I/O
         if self.mpicomm.rank == self.mpiroot:
-            self.logger.info(f"Loading existing HOD catalog from {mock_path}")
+            logger.info(f"Loading existing HOD catalog from {mock_path}")
             data = fitsio.read(mock_path)
             pos = np.vstack([data["x"], data["y"], data["z"]]).T.astype(np.float32)
             vel = np.vstack([data["vx"], data["vy"], data["vz"]]).T.astype(np.float32)
@@ -973,7 +974,7 @@ class CutskyHOD(BaseCutskyCatalog):
         # construct one redshift shell at a time from the snapshots
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
             if self.mpicomm.rank == self.mpiroot:
-                self.logger.info(
+                logger.info(
                     f"Processing snapshot at z = {zsnap} for redshift range {zranges}"
                 )
             target_nbar = self.get_target_nbar(
@@ -1174,7 +1175,7 @@ class CutskyHOD(BaseCutskyCatalog):
         )  # multiply velocities by this factor to convert to Mpc/h
         catalog["RSDPosition"] = catalog.rsd_position(f=rsd_factor)
         if self.mpicomm.rank == self.mpiroot:
-            self.logger.info(
+            logger.info(
                 f"Applied RSD at z={redshift} in {time.time() - t0:.2f} seconds."
             )
         return catalog
@@ -1346,7 +1347,7 @@ class CutskyRandoms(BaseCutskyCatalog):
             Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
         super().__init__(**kwargs)
-        self.logger = logging.getLogger("CutskyRandoms")
+        logger = logging.getLogger("CutskyRandoms")
         self.rarange = rarange
         self.decrange = decrange
         self.zrange = zrange

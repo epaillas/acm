@@ -16,8 +16,7 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
 
     def __init__(self, **kwargs):
         self.mask_mesh = RealMesh(**kwargs)
-        self.logger = logging.getLogger("MinkowskiFunctionals")
-        self.logger.info("Initializing MinkowskiFunctionals.")
+        logger.info("Initializing MinkowskiFunctionals.")
         super().__init__(**kwargs)
 
     def set_density_contrast(
@@ -77,7 +76,7 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
             self.delta_mesh = self.data_mesh / global_mean - 1.0
         else:
             self.delta_mesh = self.data_mesh / np.mean(self.data_mesh) - 1.0
-        self.logger.info(f"Set density contrast in {time.time() - t0:.2f} seconds.")
+        logger.info(f"Set density contrast in {time.time() - t0:.2f} seconds.")
         return self.delta_mesh
 
     def get_rho(
@@ -109,7 +108,7 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
         self.rho_mesh = 1.0 * self.data_mesh
         self.rho_mesh[~mask] = -3.0
         self.rho_used = self.rho_mesh[mask]
-        self.logger.info(f"Get rho in {time.time() - t0:.2f} seconds.")
+        logger.info(f"Get rho in {time.time() - t0:.2f} seconds.")
         return self.rho_mesh
 
     def run(
@@ -145,7 +144,7 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
                 nthreads,
             )
         self.MFs = mf.MFs3D
-        self.logger.info(
+        logger.info(
             f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds."
         )
         return self.MFs
@@ -171,7 +170,7 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
             np.float32(self.thresholds),
         )
         self.MFs = mf.MFs3D
-        self.logger.info(
+        logger.info(
             f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds."
         )
         return self.MFs

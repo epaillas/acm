@@ -46,16 +46,16 @@ class WaveletScatteringTransform(BaseEstimator):
         self.kymatio_backend = kymatio_backend
         if kymatio_backend == "torch":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.logger.info(
+            logger.info(
                 f"Using Kymatio with Torch backend on device: {self.device}"
             )
         else:
-            self.logger.info(f"Using Kymatio with JAX backend.")
+            logger.info(f"Using Kymatio with JAX backend.")
 
         self.query_positions = self.get_query_positions(method="lattice")
 
         if init_kymatio is not None:
-            self.logger.info(f"Pre-loading Kymatio initialization.")
+            logger.info(f"Pre-loading Kymatio initialization.")
             self.S = init_kymatio
         else:
             self.init_kymatio()
@@ -70,8 +70,8 @@ class WaveletScatteringTransform(BaseEstimator):
         HarmonicScattering3D = getattr(module, "HarmonicScattering3D")
 
         t0 = time.time()
-        self.logger.info("Initializing WaveletScatteringTransform.")
-        self.logger.info(
+        logger.info("Initializing WaveletScatteringTransform.")
+        logger.info(
             f"J={self.J}, L={self.L}, sigma_0={self.sigma_0}, max_order={self.max_order}"
         )
         self.S = HarmonicScattering3D(
@@ -83,7 +83,7 @@ class WaveletScatteringTransform(BaseEstimator):
         )
         if self.kymatio_backend == "torch":
             self.S.to(self.device)
-        self.logger.info(f"Initialized Kymatio in {time.time() - t0:.2f} s.")
+        logger.info(f"Initialized Kymatio in {time.time() - t0:.2f} s.")
 
     def _run_torch(self, delta_query: npt.NDArray) -> npt.NDArray:
         """
@@ -164,7 +164,7 @@ class WaveletScatteringTransform(BaseEstimator):
             self.smatavg = self._run_torch(self.delta_query)
         else:
             self.smatavg = self._run_jax(self.delta_query)
-        self.logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
+        logger.info(f"WST coefficients done in {time.time() - t0:.2f} s.")
 
         if save_fn is not None:
             self.save(save_fn)
@@ -217,7 +217,7 @@ class WaveletScatteringTransform(BaseEstimator):
                 "No WST coefficients to save. Run the transform first using run()."
             )
 
-        self.logger.info(f"Saving WST coefficients to {filename}")
+        logger.info(f"Saving WST coefficients to {filename}")
         path = Path(filename)
 
         # Create coordinate array
