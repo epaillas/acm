@@ -82,7 +82,6 @@ class JaxpowerBackend:
             - meshsize : int or array_like
                 Number of mesh cells per dimension.
         """
-        logger = logging.getLogger("JaxpowerBackend")
         self.name = "jaxpower"
         pos = [p for p in [data_positions, randoms_positions] if p is not None]
         self.mattrs = get_mesh_attrs(*pos, **kwargs)
