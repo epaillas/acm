@@ -6,9 +6,9 @@
 #SBATCH --qos debug
 #SBATCH --constraint gpu&hbm80g
 
-#SBATCH --time 00:10:00
+#SBATCH --time 00:30:00
 
-#SBATCH --job-name bgs_small_outliers
+#SBATCH --job-name bgs-20_measure_small_outliers
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.out
 #SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.err
 
@@ -20,10 +20,12 @@ module swap pyrecon/mpi pyrecon/main
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 
-LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/small/outliers/log_small_c000_phxxx_seed0.log"
-OUTLIERS='jobs/bgs-20/outliers/all_outliers_simtype-small_ells-02_sigma-6.0.npy'
-# OUTLIERS='jobs/bgs-20/outliers/all_corrupted_fourier_small.npy'
+SIMTYPE=small
+METHOD=missing_files
 
-python measure_box.py --config jobs/bgs-20/config.yaml --gpu --sim_type small --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}" #--measurements power_spectrum density_split_power
+LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/${SIMTYPE}/outliers/log_${SIMTYPE}_${METHOD}.log"
+OUTLIERS="jobs/bgs-20/outliers/${METHOD}-simtype_${SIMTYPE}-all_measurements.npy"
+
+python measure_box.py --config jobs/bgs-20/config.yaml --gpu --sim_type "${SIMTYPE}" --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}" #--measurements power_spectrum density_split_power
 
 # Launch with : sbatch ... 
