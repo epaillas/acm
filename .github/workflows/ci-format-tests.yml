@@ -59,6 +59,7 @@ jobs:
           fi
 
       - name: Push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
         run: |
           git add acm
           git commit -m "[skip ci] Ruff format"
