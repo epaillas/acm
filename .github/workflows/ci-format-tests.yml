@@ -1,12 +1,4 @@
 name: CI for pull request format and pytest
-description: |
-  This workflow runs on pull requests to the dev and main branches. 
-  It performs code formatting using ruff and runs pytest for testing. 
-  The workflow is designed to ensure code quality and consistency before merging changes into the main branches.
-  When running, the first job checks the code formatting and pushes any necessary changes back to the pull request branch.
-  The push will re-trigger the workflow - which will cancel the current one, 
-  but the second one will not run the formatting again as the commit message will be checked.
-  The second job only runs if the formatting job did not push any changes, ensuring that tests are only run on properly formatted code.
 
 on:
   pull_request:
@@ -19,10 +11,8 @@ concurrency:
 
 jobs:
   job_format:
-    name : ruff format
+    name : Ruff formatter
     runs-on: ubuntu-latest
-    outputs:
-      has_changes: ${{ steps.check_changes.outputs.has_changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,20 +59,15 @@ jobs:
           fi
 
       - name: Push changes
-        # Pushing will cancel the current workflow and trigger a new one, 
-        # but the new one wil allready have the code formatted, so it will not push any changes and will run the tests.
-        if: steps.check_changes.outputs.has_changes == 'true'
         run: |
           git add acm
-          git commit -m "ruff format"
+          git commit -m "[skip ci] Ruff format"
           git push
 
   job_pytest:
-    name : pytest
+    name : Pytest runner
     runs-on: ubuntu-latest
     needs: job_format
-    # Only run tests if the formatting job did not push any changes, ensuring that tests are only run on properly formatted code.
-    if: needs.job_format.outputs.has_changes == 'false' 
     steps:
       - name: Checkout 
         uses: actions/checkout@v4
