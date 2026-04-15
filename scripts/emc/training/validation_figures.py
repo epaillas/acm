@@ -4,16 +4,8 @@ import argparse
 import inspect
 from pathlib import Path
 
-
-def get_observable_cls(observable_name):
-    observable_cls = getattr(emc, observable_name, None)
-    if observable_cls is None:
-        raise ValueError(f'Unknown EMC observable: {observable_name}')
-    return observable_cls
-
-
 def get_observable_paths(observable_name, root_dir):
-    observable_cls = get_observable_cls(observable_name)
+    observable_cls = get_class_from_module(args.module, observable_name)
     stat_name = inspect.signature(observable_cls.__init__).parameters['stat_name'].default
     root_dir = Path(root_dir)
     return {
@@ -22,31 +14,12 @@ def get_observable_paths(observable_name, root_dir):
         'param_dir': None,
         'model_dir': root_dir / 'emc/models/v1.3/best',
     }
-  
-LEGACY_TO_ALIAS = {
-    'GalaxyCorrelationFunctionMultipoles': 'tpcf',
-    'ProjectedGalaxyCorrelationFunction': 'projected_tpcf',
-    'GalaxyPowerSpectrumMultipoles': 'spectrum',
-    'GalaxyBispectrumMultipoles': 'bispectrum',
-    'ReconstructedGalaxyPowerSpectrumMultipoles': 'recon_spectrum',
-    'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
-    'DensitySplitQuantileCorrelationFunctionMultipoles': 'ds_xiqq',
-    'DensitySplitGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
-    'MinkowskiFunctionals': 'minkowski',
-    'GalaxyOverdensityPDF': 'pdf',
-    'WaveletScatteringTransform': 'wst',
-}
-
-
-def resolve_statistic_name(statistic: str) -> str:
-    return LEGACY_TO_ALIAS.get(statistic, statistic)
 
 
 def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
     """
     Plot the model prediction for a given observable and cosmology/HOD index.
     """
-    observable_name = resolve_statistic_name(observable_name)
     observable = get_class_from_module(args.module, observable_name)(
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
         numpy_output=True,
@@ -61,7 +34,6 @@ def plot_emulator_residuals(observable_name):
     """
     Plot the emulator residuals for a given observable.
     """
-    observable_name = resolve_statistic_name(observable_name)
     observable = get_class_from_module(args.module, observable_name)(
         select_filters={},
         paths=get_observable_paths(observable_name, args.root_dir),
