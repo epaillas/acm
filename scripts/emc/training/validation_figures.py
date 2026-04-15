@@ -1,17 +1,38 @@
 import acm.observables.emc as emc
 from acm import setup_logging
 import argparse
+import inspect
 from pathlib import Path
+
+
+def get_observable_cls(observable_name):
+    observable_cls = getattr(emc, observable_name, None)
+    if observable_cls is None:
+        raise ValueError(f'Unknown EMC observable: {observable_name}')
+    return observable_cls
+
+
+def get_observable_paths(observable_name, root_dir):
+    observable_cls = get_observable_cls(observable_name)
+    stat_name = inspect.signature(observable_cls.__init__).parameters['stat_name'].default
+    root_dir = Path(root_dir)
+    return {
+        'data_dir': root_dir / 'emc/measurements/v1.3/abacus/compressed',
+        'measurements_dir': root_dir / 'emc/measurements/v1.3/abacus',
+        'param_dir': None,
+        'model_dir': root_dir / 'emc/models/v1.3/best',
+    }
 
 
 def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
     """
     Plot the model prediction for a given observable and cosmology/HOD index.
     """
-    observable = getattr(emc, observable_name, None)(
+    observable = get_observable_cls(observable_name)(
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
         numpy_output=True,
         squeeze_output=True,
+        paths=get_observable_paths(observable_name, args.root_dir),
     )
     save_fn = Path(save_dir) / f'{observable.stat_name}_model.png'
     model_params = observable.x
@@ -21,8 +42,9 @@ def plot_emulator_residuals(observable_name):
     """
     Plot the emulator residuals for a given observable.
     """
-    observable = getattr(emc, observable_name, None)(
+    observable = get_observable_cls(observable_name)(
         select_filters={},
+        paths=get_observable_paths(observable_name, args.root_dir),
     )
     save_fn = Path(save_dir) / f'{observable.stat_name}_emulator_residuals.png'
     observable.plot_emulator_residuals(save_fn)
@@ -42,6 +64,12 @@ if __name__ == "__main__":
             'MinkowskiFunctionals',
         ],
         help='List of statistics to compress.'
+    )
+    parser.add_argument(
+        '--root_dir',
+        type=str,
+        default='/global/cfs/cdirs/desicollab/users/epaillas/acm/',
+        help='Base directory for default EMC input and output paths.',
     )
     parser.add_argument('--save_dir', type=str, default='fig/',)
     args = parser.parse_args()
