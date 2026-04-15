@@ -35,7 +35,7 @@ Strict requirements are:
 - `getdist`
 
 > [!WARNING]
-> `Make` is required to compile some C files during the installation, so it should be available in your environment.
+> `Make` and `mpicc` are required to compile some C files during the installation, make sure they are available in your environment.
 
 To run the emulators, you will need:
 - [`sunbird`](https://github.com/florpi/sunbird)
@@ -64,6 +64,21 @@ python setup.py clean --all # Clean up build files
 ## Examples
 You can find notebooks examples in the `nb` folder.
 
+## Contributing
+The project follows the [git-flow](https://nvie.com/posts/a-successful-git-branching-model/) branching model, with a `main` branch for stable releases and a `dev` branch for ongoing development. To contribute to the project, you can fork the repository, create a new branch for your feature or bug fix, and submit a pull request to the `dev` branch.
 
-## TODO (Github)
-- [ ] Update the links to the doc  
+> [!TIP]
+> When relevant, before publishing your branch and creating a pull request, locally `rebase` the branch on the latest `dev` to avoid merge conflicts and to keep the commit history clean. 
+> 
+> **Do not rebase any collaborative branch that has already been published, as this can cause issues for other collaborators.** 
+
+To keep track of the branch objectives, we enforce the following syntax:
+- `feature/<cool-new-feature>` for new features, to be merged into `dev` when ready
+- `hotfix/<sorry-imessedup>` for urgent bug fixes, to be merged into `main` *and* `dev` when ready
+- `docs/**` for documentation improvements
+- `scripts/**` for the projects using `acm` that are hosted in the same repository, to be merged into `dev` when ready. Those scripts will be updated on `main` when the next release is made.
+
+> [!NOTE]
+> Personal branches exist on this repository, for specific collaborators that are not able to create forks. Those branches are not meant to be merged into `dev` and should be used for testing and development purposes only. They usually have the username of the collaborator as the branch name (e.g. `epaillas`). 
+
+If you are not sure about the purpose of a branch, please ask the maintainers.
