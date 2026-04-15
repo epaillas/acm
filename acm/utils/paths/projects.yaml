@@ -2,11 +2,11 @@ emc:
   cosmo_file: /pscratch/sd/e/epaillas/emc/AbacusSummit.csv
   hod_file: /pscratch/sd/n/ntbfin/emulator/hods/hod_params.npy
   measurements_dir: /global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.3/abacus/
-  data_dir: /Users/epaillas/code/acm/data/emc/measurements/v1.3/abacus/compressed/
+  data_dir: /global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.3/abacus/compressed/
   param_dir: /pscratch/sd/e/epaillas/emc/cosmo+hod_params/
   # hod_dir: /pscratch/sd/n/ntbfin/emulator/hods/z0.5/yuan23_prior # Path to the HOD files
   hod_dir: /pscratch/sd/n/ntbfin/emulator/hods/v1.3/z0.5/yuan23_prior/
-  model_dir: /Users/epaillas/code/acm/data/emc/models/v1.3/best/ # Path to the trained models
+  model_dir: /global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.3/best/ # Path to the trained models
   # model_dir: /global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/test/spectrum/weighted_mae/ # Path to the trained models
 
   
