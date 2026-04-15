@@ -13,7 +13,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 from .base import BaseObservableBGS
 
 K_MIN = 2 * np.pi / 500 # lower limit fixed by small boxsize
-K_MAX = np.pi * 512 / 2200 # Higher limit fixed by Nyquist frequency of the base boxsize (to be safe, we take the larger boxsize created, which has a lower Nyquist frequency) with 512^3 grid
+K_MAX = np.pi * 397 / 2200 # Higher limit fixed by Nyquist frequency of the base boxsize (to be safe, we take the larger boxsize created, which has a lower Nyquist frequency) with 397^3 grid
 
 class DensitySplitSpectrumBaseClass(BaseObservableBGS):
     """
