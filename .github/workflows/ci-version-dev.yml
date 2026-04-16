@@ -1,0 +1,23 @@
+name: Update dev version
+description: |
+  This workflow automatically bumps the dev version in the VERSION file when a pull request is 
+  merged into the dev branch. This allows us to have a separate versioning scheme for the
+  development branch, which can be useful for testing and pre-release versions 
+  before they are merged into main.
+
+on:
+  pull_request:
+    branches: [ "dev" ]
+    types: [ closed ]
+
+jobs:
+  bump-dev:
+    if: ${{ github.event.pull_request.merged == true }}
+    secrets: inherit
+    uses: ./.github/workflows/bump-version.yml
+    permissions:
+      pull-requests: read
+      contents: write
+    with:
+      bump_type: dev
+      add-tag: false
