@@ -1,4 +1,5 @@
 import logging
+import pickle
 from copy import copy, deepcopy
 from pathlib import Path
 
@@ -237,8 +238,17 @@ class Observable:
 
         # Load the model
         logger.info(f"Loading model from {checkpoint_fn}")
-        model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
-        model.eval().to("cpu")
+        try:
+            model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
+        except pickle.UnpicklingError as err:
+            if 'Weights only load failed' not in str(err):
+                raise
+            logger.warning(
+                "Retrying checkpoint load with weights_only=False for %s due to PyTorch weights-only unpickling restrictions.",
+                checkpoint_fn,
+            )
+            model = FCN.load_from_checkpoint(checkpoint_fn, strict=True, weights_only=False)
+        model.eval().to('cpu')
         return model
 
     @classmethod
