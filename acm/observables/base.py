@@ -187,8 +187,6 @@ class Observable:
         FileNotFoundError
             If no datasets are found for the given statistic name in the provided paths.
         """
-        logger = logging.getLogger(cls.__name__)
-
         # Try to read the paths with data inside
         datasets = []
         for key in ["data_dir", "covariance_dir", "error_dir"]:
@@ -225,8 +223,6 @@ class Observable:
         FCN
             The loaded FCN model.
         """
-        logger = logging.getLogger(cls.__name__)
-
         # Register the classes as safe globals if torch.serialization.add_safe_globals exists
         if SAFE_CLASSES:
             try:

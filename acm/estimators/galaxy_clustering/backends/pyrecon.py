@@ -77,7 +77,6 @@ class PyreconBackend:
         ValueError
             If boxsize or meshsize are not provided.
         """
-        logger = logging.getLogger("PyreconBackend")
         self.name = "pyrecon"
 
         # Extract mesh parameters

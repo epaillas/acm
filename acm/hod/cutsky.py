@@ -450,7 +450,6 @@ class BaseCutskyCatalog(ABC):
         )
         from mpytools import Catalog
 
-        logger = logging.getLogger("F.A.")
         rng = np.random.RandomState(seed=seed)
 
         if mpicomm.rank == mpiroot:
@@ -739,7 +738,6 @@ class CutskyHOD(BaseCutskyCatalog):
         super().__init__()
         self.DM_DICT_simtype = "box"
         self.sim_geometry = "cutsky"
-        logger = logging.getLogger("CutskyHOD")
         if self.mpicomm.rank == self.mpiroot:
             logger.info(
                 f"Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks."
@@ -1348,7 +1346,6 @@ class CutskyRandoms(BaseCutskyCatalog):
             Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
         super().__init__(**kwargs)
-        logger = logging.getLogger("CutskyRandoms")
         self.rarange = rarange
         self.decrange = decrange
         self.zrange = zrange

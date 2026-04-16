@@ -69,7 +69,6 @@ class PypowerBackend:
             - meshsize or nmesh : int or array_like
                 Number of mesh cells per dimension.
         """
-        logger = logging.getLogger("PypowerBackend")
         self.name = "pypower"
         if "meshsize" in kwargs:
             kwargs["nmesh"] = kwargs.pop("meshsize")

@@ -1,3 +1,6 @@
+from sklearn.externals.array_api_compat.cupy.fft import _n
+from sympy.combinatorics.galois import A4_in_S6
+from acm.estimators.galaxy_clustering.backends.jaxpower import logger
 import logging
 import time
 
@@ -5,6 +8,7 @@ from PolyBin3D import BSpec, PolyBin3D, PSpec
 
 from .base import BaseDensityMeshEstimator
 
+logger = logging.getLogger(_name__)
 
 class PolyBinEstimator(BaseDensityMeshEstimator):
     """
@@ -30,7 +34,6 @@ class Bispectrum(PolyBinEstimator, BSpec):
     """
 
     def __init__(self, **kwargs):
-        logger = logging.getLogger("Bispectrum")
         logger.info("Initializing Bispectrum.")
         PolyBinEstimator.__init__(self, **kwargs)
 
@@ -50,7 +53,6 @@ class PowerSpectrum(PolyBinEstimator, PSpec):
     """
 
     def __init__(self, **kwargs):
-        logger = logging.getLogger("PowerSpectrum")
         logger.info("Initializing PowerSpectrum.")
         PolyBinEstimator.__init__(self, **kwargs)
 

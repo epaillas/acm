@@ -295,7 +295,6 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         BaseLightconeCatalog.__init__(self)
         self.DM_DICT_simtype = "lightcone"
         self.sim_geometry = "lightcone"
-        logger = logging.getLogger("LightconeHOD")
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
         self.cosmo_idx = cosmo_idx
@@ -607,7 +606,6 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             TODO: huge not yet supported with BoxHOD
         """
         BaseLightconeCatalog.__init__(self)
-        logger = logging.getLogger("LightconeRandoms")
         self.rarange = (0.0, 360.0) if full_sky else (0.0, 90.0)
         self.decrange = (-90.0, 90.0) if full_sky else (0.0, 90.0)
         self.zrange = zrange
