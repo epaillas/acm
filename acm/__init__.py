@@ -1,6 +1,7 @@
+from importlib.metadata import PackageNotFoundError, version
+
 from .utils.logging import setup_logging
 
-from importlib.metadata import version, PackageNotFoundError
 try:
     __version__ = version("acm")
 except PackageNotFoundError:
