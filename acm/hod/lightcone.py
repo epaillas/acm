@@ -1,22 +1,21 @@
-from  abc import ABC
+import logging
 import os
-import yaml
-import numpy as np
+import warnings
+from abc import ABC
 from pathlib import Path
-from mpytools import CurrentMPIComm
-
 
 # cosmodesi/acm
 import mockfactory
+import numpy as np
+import yaml
 from cosmoprimo.fiducial import AbacusSummit
-from .cutsky import CutskyHOD, CutskyRandoms
-
 from mockfactory import RandomCutskyCatalog
 from mockfactory.utils import radecbox_area
-
+from mpytools import CurrentMPIComm
 from scipy.interpolate import InterpolatedUnivariateSpline
-import logging
-import warnings
+
+from .cutsky import CutskyHOD, CutskyRandoms
+
 # warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
@@ -40,10 +39,16 @@ class BaseLightconeCatalog(ABC):
         # the cutsky class
         pass
     """
-    
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, dz_new: float = 0.002):
+
+    def apply_radial_mask(
+        self,
+        nz_filename: str,
+        shape_only: bool = False,
+        full_sky: bool = False,
+        dz_new: float = 0.002,
+    ):
         """
-        Applies the radial selection function to a lightcone catalog based on 
+        Applies the radial selection function to a lightcone catalog based on
         an input n(z) file (number desity as a function of redshift).
 
         Parameters
@@ -56,44 +61,46 @@ class BaseLightconeCatalog(ABC):
         full_sky : bool
             If True, the survey volunme is scaled to the full sky rather than an octant
         dz_new : float
-            redshift interval used for redshift bin edges. Should be small compared to 
+            redshift interval used for redshift bin edges. Should be small compared to
             the expected fluctuations in the raw n(z)
-            
+
         Returns
         -------
         None
             The lightcone catalog is modified in place.
         """
         data_nbar = self.get_data_nbar(self.catalog, full_sky)
-        self.logger.info(f'Raw data nbar: {data_nbar}' )
-        
-        self.logger.info('Applying radial mask.')
+        self.logger.info(f"Raw data nbar: {data_nbar}")
 
-        zmin_data = self.catalog['Z'].min()
-        zmax_data = self.catalog['Z'].max()
+        self.logger.info("Applying radial mask.")
+
+        zmin_data = self.catalog["Z"].min()
+        zmax_data = self.catalog["Z"].max()
 
         # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
         zbin_mid = 0.5 * (zbin_min + zbin_max)
         if zbin_min[0] > zmin_data or zbin_max[-1] < zmax_data:
-            raise ValueError('Provided n(z) file does not cover redshift range of data')
-        
+            raise ValueError("Provided n(z) file does not cover redshift range of data")
+
         # nz(z) interpolator (piecewise linear)
         nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
-        
+
         # --- refine each coarse bin into dz=0.002 sub-bins ---
-        nsub = int(round((zbin_max[0] - zbin_min[0]) / dz_new))  # should be 5 for 0.01->0.002
+        nsub = int(
+            round((zbin_max[0] - zbin_min[0]) / dz_new)
+        )  # should be 5 for 0.01->0.002
         if not np.allclose(zbin_max - zbin_min, nsub * dz_new, rtol=0, atol=1e-12):
             raise ValueError("Your input bins are not an integer multiple of dz_new.")
-        
+
         # new bin edges per coarse bin: (Nbins, nsub+1)
         edges = zbin_min[:, None] + dz_new * np.arange(nsub + 1)[None, :]
-        
+
         # flatten into sub-bins
         zbin_min = edges[:, :-1].ravel()
-        zbin_max = edges[:,  1:].ravel()
-        
-        #impose lightcone redshift limits on zbins
+        zbin_max = edges[:, 1:].ravel()
+
+        # impose lightcone redshift limits on zbins
         select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
         zbin_min = zbin_min[select_zbins]
         zbin_max = zbin_max[select_zbins]
@@ -102,28 +109,31 @@ class BaseLightconeCatalog(ABC):
         zbin_mid = (zbin_min + zbin_max) / 2
         target_nz = nz_spline(zbin_mid)
 
-        #calculate volumes of shells
+        # calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
         dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
-        dedges =  np.insert(dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0]))
-        volume = 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
+        dedges = np.insert(
+            dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0])
+        )
+        volume = 4 / 3 * np.pi * (dedges[1:] ** 3 - dedges[:-1] ** 3)
         if not full_sky:
             volume = volume / 8
-        
+
         # Handle shells exterior to the Abacus boxes
         if np.any(dbin_max > self.boxsize):
-    
             exterior_indices = np.where(dbin_max > self.boxsize)[0]
-            exterior_shells = (dbin_max[exterior_indices] + dedges[exterior_indices]) / 2
+            exterior_shells = (
+                dbin_max[exterior_indices] + dedges[exterior_indices]
+            ) / 2
 
             # fraction of each shell inside the simulation volume
             filling_fractions = self.shell_filling_fraction(exterior_shells)
-            
+
             # Adjust volumes using volume filling fractions
             volume[exterior_indices] = volume[exterior_indices] * filling_fractions
 
         # calculate downsampling ratio
-        data_nz = np.histogram(self.catalog['Z'], bins=zedges)[0] / volume
+        data_nz = np.histogram(self.catalog["Z"], bins=zedges)[0] / volume
         ratio = target_nz / data_nz
         if shape_only:
             ratio /= np.max(ratio[~np.isinf(ratio)])
@@ -132,94 +142,120 @@ class BaseLightconeCatalog(ABC):
         # use the spline to get the number density at the redshift of every galaxy
         # then assign a random number to each and compare it to the ratio to determine
         # if the galaxy should be kept or not
-        data_nz = nz_spline(self.catalog['Z'])
-        select_mask = np.random.uniform(size=len(self.catalog['Z'])) < ratio_spline(self.catalog['Z'])
+        data_nz = nz_spline(self.catalog["Z"])
+        select_mask = np.random.uniform(size=len(self.catalog["Z"])) < ratio_spline(
+            self.catalog["Z"]
+        )
         for key in self.catalog.keys():
             self.catalog[key] = self.catalog[key][select_mask]
-        self.catalog['NZ'] = data_nz[select_mask]
-        self.logger.info(f'Downsampled data nbar: {self.get_data_nbar(self.catalog, full_sky)}' )
-    
+        self.catalog["NZ"] = data_nz[select_mask]
+        self.logger.info(
+            f"Downsampled data nbar: {self.get_data_nbar(self.catalog, full_sky)}"
+        )
+
     def get_data_nbar(self, data, full_sky: bool = False):
         """
         Compute the number density of the data catalog, which is defined
         by an octant of the spherical shell delimited by the redshift cuts.
         """
-        
+
         dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
-        
-        if self.sim_type=='base':
+
+        if self.sim_type == "base":
             # Abacus base
             # Monte Carlo sampling of Abacus lightcone volume
-            nsamples_per_box=self.monte_carlo_sampling_count
-            samples_x = np.random.uniform(low=0, high=2000, size = (3*nsamples_per_box))
-            samples_y = np.concatenate([np.random.uniform(low=0, high=2000, size = (nsamples_per_box)), 
-                                        np.random.uniform(low=2000, high=4000, size = (nsamples_per_box)), 
-                                        np.random.uniform(low=0, high=2000, size = (nsamples_per_box))])
-            samples_z = np.concatenate([np.random.uniform(low=0, high=2000, size = (2*nsamples_per_box)),  
-                                        np.random.uniform(low=2000, high=4000, size = (nsamples_per_box))])
-            samples = np.vstack([samples_x, 
-                                 samples_y, 
-                                 samples_z] )
+            nsamples_per_box = self.monte_carlo_sampling_count
+            samples_x = np.random.uniform(low=0, high=2000, size=(3 * nsamples_per_box))
+            samples_y = np.concatenate(
+                [
+                    np.random.uniform(low=0, high=2000, size=(nsamples_per_box)),
+                    np.random.uniform(low=2000, high=4000, size=(nsamples_per_box)),
+                    np.random.uniform(low=0, high=2000, size=(nsamples_per_box)),
+                ]
+            )
+            samples_z = np.concatenate(
+                [
+                    np.random.uniform(low=0, high=2000, size=(2 * nsamples_per_box)),
+                    np.random.uniform(low=2000, high=4000, size=(nsamples_per_box)),
+                ]
+            )
+            samples = np.vstack([samples_x, samples_y, samples_z])
             norm = np.linalg.norm(samples, axis=0)
-            num_in_lightcone = np.sum((norm>dmin) * (norm<dmax))
-            volume = 2000**3 * num_in_lightcone/nsamples_per_box
-            correction = 8 if full_sky else 1  # multiply by 8 if only using the full sky
-            nbar = len(data['Z']) / (volume * correction)
-            
+            num_in_lightcone = np.sum((norm > dmin) * (norm < dmax))
+            volume = 2000**3 * num_in_lightcone / nsamples_per_box
+            correction = (
+                8 if full_sky else 1
+            )  # multiply by 8 if only using the full sky
+            nbar = len(data["Z"]) / (volume * correction)
+
         else:
             # Abacus huge (assumes that shells are entirely contained within the survey box)
             # Monte carlo sampling would be more accurate if this is not the case
             # TODO: not yet supported with BoxHOD
-            volume = 4/3 * np.pi * (dmax**3 - dmin**3)
+            volume = 4 / 3 * np.pi * (dmax**3 - dmin**3)
             correction = 1 if full_sky else 8  # divide by 8 if only using a sky octant
-            nbar = len(data['Z']) / (volume / correction)
+            nbar = len(data["Z"]) / (volume / correction)
         return nbar
 
     def shell_filling_fraction(self, shells):
-    
+
         # Muller-Marsaglia octant sampling
         # evenly distribute points along an octant of a unit sphere
         num_samples = self.monte_carlo_sampling_count
-        sample_points = np.abs(np.random.normal(0,1, (3,num_samples)))
+        sample_points = np.abs(np.random.normal(0, 1, (3, num_samples)))
         sample_points /= np.linalg.norm(sample_points, axis=0)
-    
+
         # fraction of each shell inside the simulation volume
         vol_fractions = []
-    
-        if self.sim_type=='base':
+
+        if self.sim_type == "base":
             # Abacus base
             for shell_radius in shells:
                 # count how many points in the shell are in the L-shaped stack of periodic boxes
                 vol_fractions.append(
-                    np.sum((sample_points[0]<self.boxsize/shell_radius)*\
-                           (sample_points[1]<2*self.boxsize/shell_radius)*\
-                           (sample_points[2]<2*self.boxsize/shell_radius)*\
-                           ((sample_points[1]<=self.boxsize/shell_radius)+(sample_points[2]<=self.boxsize/shell_radius))\
-                          )/len(sample_points[0])
+                    np.sum(
+                        (sample_points[0] < self.boxsize / shell_radius)
+                        * (sample_points[1] < 2 * self.boxsize / shell_radius)
+                        * (sample_points[2] < 2 * self.boxsize / shell_radius)
+                        * (
+                            (sample_points[1] <= self.boxsize / shell_radius)
+                            + (sample_points[2] <= self.boxsize / shell_radius)
+                        )
+                    )
+                    / len(sample_points[0])
                 )
         else:
             # Abacus huge (TODO: not yet supported with BoxHOD)
             for shell_radius in shells:
                 # count how many points in the shell are in the box
                 vol_fractions.append(
-                    np.sum((sample_points[0]<self.boxsize/shell_radius)*\
-                           (sample_points[1]<self.boxsize/shell_radius)*\
-                           (sample_points[2]<self.boxsize/shell_radius)\
-                          )/len(sample_points[0])
-                ) 
+                    np.sum(
+                        (sample_points[0] < self.boxsize / shell_radius)
+                        * (sample_points[1] < self.boxsize / shell_radius)
+                        * (sample_points[2] < self.boxsize / shell_radius)
+                    )
+                    / len(sample_points[0])
+                )
 
-        return np.array(vol_fractions)   
-        
+        return np.array(vol_fractions)
+
+
 class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
     def __init__(
-        self, varied_params, config_file: str = None, cosmo_idx: int = 0, 
-        phase_idx: int = 0, zrange: list = [0.4, 0.8],
-        fixed_redshift_snapshot = None,
-        DM_DICT: dict = None, load_existing_hod: bool = False,
-        sim_type: str = 'base', tracer: str = 'LRG',
-        ):
+        self,
+        varied_params,
+        config_file: str = None,
+        cosmo_idx: int = 0,
+        phase_idx: int = 0,
+        zrange: list = [0.4, 0.8],
+        fixed_redshift_snapshot=None,
+        DM_DICT: dict = None,
+        load_existing_hod: bool = False,
+        sim_type: str = "base",
+        tracer: str = "LRG",
+    ):
         """
-        Initialize the CutskyHOD class. This checks the HOD parameters and 
+        Initialize the CutskyHOD class. This checks the HOD parameters and
         loads the relevant simulation data that will be used to sample the
         HOD galaxies from the snapshots later.
 
@@ -238,13 +274,13 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             List containing the redshift range for which to build the lightcone catalog.
             Should contain two elements: [zmin, zmax].
         fixed_redshift_snapshot : float, optional
-            Value that overrides zrange with a single redshift snapshot. Used for 
+            Value that overrides zrange with a single redshift snapshot. Used for
             debugging purposes. When set to None (defualt value), zrange is used instead.
         DM_DICT : dict, optional
             Dictionary containing the DM fields for the HOD sampling.
-            Defaults to None, which together with the user-specified tracer maps to 
+            Defaults to None, which together with the user-specified tracer maps to
             a value in utils.paths.
-        load_existing_hod : bool, optional 
+        load_existing_hod : bool, optional
             If True, load an existing HOD catalog instead of generating a new one
             (useful for quick debugging). Defaults to False.
         sim_type : str, optional
@@ -255,9 +291,9 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             The type of tracer to use for the HOD sampling. Defaults to 'LRG'.
         """
         BaseLightconeCatalog.__init__(self)
-        self.DM_DICT_simtype = 'lightcone'
-        self.sim_geometry = 'lightcone'
-        self.logger = logging.getLogger('LightconeHOD')
+        self.DM_DICT_simtype = "lightcone"
+        self.sim_geometry = "lightcone"
+        self.logger = logging.getLogger("LightconeHOD")
         self.load_existing_hod = load_existing_hod
         self.varied_params = varied_params
         self.cosmo_idx = cosmo_idx
@@ -266,17 +302,17 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         self.tracer = tracer
         self.zrange = zrange
         self.fixed_redshift_snapshot = fixed_redshift_snapshot
-        self.boxsize = 7500 if sim_type == 'huge' else 2000
+        self.boxsize = 7500 if sim_type == "huge" else 2000
         if config_file is None:
             config_dir = os.path.dirname(os.path.abspath(__file__))
             if tracer == "LRG":
-                self.config_file = Path(config_dir) /  'lightcone.yaml'
+                self.config_file = Path(config_dir) / "lightcone.yaml"
             else:
-                lightcone_yaml_file = 'lightcone_' + tracer + '.yaml'
+                lightcone_yaml_file = "lightcone_" + tracer + ".yaml"
                 self.config_file = Path(config_dir) / lightcone_yaml_file
-        self.setup_hod(DM_DICT=DM_DICT, tracer = tracer)
+        self.setup_hod(DM_DICT=DM_DICT, tracer=tracer)
         self.monte_carlo_sampling_count = 10000
-        self.keys_lightcone = ['RA', 'DEC', 'Z', 'RSDPosition', 'Distance', 'Position']
+        self.keys_lightcone = ["RA", "DEC", "Z", "RSDPosition", "Distance", "Position"]
 
     def init_lightcone(self):
         """Initialize the catalog dictionary."""
@@ -289,21 +325,51 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
     def snap_redshifts(self):
         """
         Provide the full list of redshift snapshots in Abacus lightcone simulations
-        
+
         Returns
         -------
         list
-            List of redshift snapshots 
+            List of redshift snapshots
         """
-        if self.tracer == 'LRG':
-            return [0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
-        elif self.tracer == 'QSO' or self.tracer == 'ELG':
+        if self.tracer == "LRG":
+            return [
+                0.400,
+                0.450,
+                0.500,
+                0.575,
+                0.650,
+                0.725,
+                0.800,
+                0.875,
+                0.950,
+                1.025,
+                1.100,
+            ]
+        elif self.tracer == "QSO" or self.tracer == "ELG":
             # fills shell between 0.763 and 2.627
-            return [0.800,  0.875,  0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400, 1.475, 1.550, 1.625, 1.700, 1.850, 2.000, 2.250, 2.500]
-        elif self.tracer == 'BGS':
-            raise ValueError('BGS lightcone snap_redshifts not yet implemented')
+            return [
+                0.800,
+                0.875,
+                0.950,
+                1.025,
+                1.100,
+                1.175,
+                1.250,
+                1.325,
+                1.400,
+                1.475,
+                1.550,
+                1.625,
+                1.700,
+                1.850,
+                2.000,
+                2.250,
+                2.500,
+            ]
+        elif self.tracer == "BGS":
+            raise ValueError("BGS lightcone snap_redshifts not yet implemented")
         else:
-            error_string = f'invalid tracer for lightcone snap_redshifts: {self.tracer}'
+            error_string = f"invalid tracer for lightcone snap_redshifts: {self.tracer}"
             raise ValueError(error_string)
 
     @property
@@ -315,24 +381,29 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         Returns
         -------
         snaps: list
-            List of redshift snapshots 
+            List of redshift snapshots
         """
         if self.fixed_redshift_snapshot is not None:
             return [self.fixed_redshift_snapshot]
         snap_min = np.abs(np.array(self.snap_redshifts) - self.zrange[0]).argmin()
         snap_max = np.abs(np.array(self.snap_redshifts) - self.zrange[1]).argmin()
-        snaps = self.snap_redshifts[snap_min:snap_max+2]  # Include an extra snapshot at high-z to avoid edge effects
-        self.logger.info(f'Lightcone composed of snapshots at z: {snaps}.')
+        snaps = self.snap_redshifts[
+            snap_min : snap_max + 2
+        ]  # Include an extra snapshot at high-z to avoid edge effects
+        self.logger.info(f"Lightcone composed of snapshots at z: {snaps}.")
         return snaps
         # return [z for z in self.snap_redshifts if z >= self.zrange[0] and z <= self.zrange[1]]
 
     def sample_hod(
-            self, hod_params: dict, nthreads: int = 1, seed: float = 0, 
-            existing_hod_path: str = None, 
-            target_nz_filename: str = None,
-            full_sky: bool = False,
-            apply_rsd: bool = True,
-            ):
+        self,
+        hod_params: dict,
+        nthreads: int = 1,
+        seed: float = 0,
+        existing_hod_path: str = None,
+        target_nz_filename: str = None,
+        full_sky: bool = False,
+        apply_rsd: bool = True,
+    ):
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
         This does not yet apply the angular or radial masks, which should be done
@@ -362,63 +433,82 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         -------
         dict
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
-        """  
-        if apply_rsd and 'RSDPosition' not in self.keys_lightcone:
-            self.keys_lightcone.append('RSDPosition')
-        elif 'RSDPosition' in self.keys_lightcone:
-            self.keys_lightcone.remove('RSDPosition')
+        """
+        if apply_rsd and "RSDPosition" not in self.keys_lightcone:
+            self.keys_lightcone.append("RSDPosition")
+        elif "RSDPosition" in self.keys_lightcone:
+            self.keys_lightcone.remove("RSDPosition")
 
         self.catalog = self.init_lightcone()
 
-        boxsize = 2*self.boxsize if self.sim_type == 'base' else self.boxsize
-        
-        if seed == 0: seed = None
+        boxsize = 2 * self.boxsize if self.sim_type == "base" else self.boxsize
 
-        for i, (zsnap, ball) in enumerate(zip(self.snapshots, self.balls)):  
+        if seed == 0:
+            seed = None
 
-            self.logger.info(f'Processing snapshot at z = {zsnap}')
-            
+        for i, (zsnap, ball) in enumerate(zip(self.snapshots, self.balls)):
+            self.logger.info(f"Processing snapshot at z = {zsnap}")
+
             if self.load_existing_hod:
-                box_positions, box_velocities = self.load_hod(mock_path=existing_hod_path)
+                box_positions, box_velocities = self.load_hod(
+                    mock_path=existing_hod_path
+                )
             else:
-                ball  = self.balls[i]
-                box_positions, box_velocities = self._sample_hod(ball, hod_params, nthreads=nthreads,
-                                                                 target_nbar=None, seed=seed)
-            #recenter box
+                ball = self.balls[i]
+                box_positions, box_velocities = self._sample_hod(
+                    ball, hod_params, nthreads=nthreads, target_nbar=None, seed=seed
+                )
+            # recenter box
             box_positions += 990
-            #remove outbounds
-            mask = (box_positions[:,0]>0)*(box_positions[:,1]>0)*(box_positions[:,2]>0)
+            # remove outbounds
+            mask = (
+                (box_positions[:, 0] > 0)
+                * (box_positions[:, 1] > 0)
+                * (box_positions[:, 2] > 0)
+            )
             box_positions = box_positions[mask]
             box_velocities = box_velocities[mask]
             if full_sky:
-                box_positions, box_velocities = self.make_full_sky(box_positions, box_velocities)
-            
-            box = mockfactory.BoxCatalog(data={'Position': box_positions, 'Velocity': box_velocities},
-                                              position='Position', velocity='Velocity',
-                                              boxsize=boxsize, boxcenter=[boxsize/2, boxsize/2, boxsize/2])
-            lightcone_shell = self.box_to_cutsky(box=box, zmin=self.zrange[0], zmax=self.zrange[1], 
-                                          zrsd=zsnap, apply_rsd=apply_rsd) 
+                box_positions, box_velocities = self.make_full_sky(
+                    box_positions, box_velocities
+                )
+
+            box = mockfactory.BoxCatalog(
+                data={"Position": box_positions, "Velocity": box_velocities},
+                position="Position",
+                velocity="Velocity",
+                boxsize=boxsize,
+                boxcenter=[boxsize / 2, boxsize / 2, boxsize / 2],
+            )
+            lightcone_shell = self.box_to_cutsky(
+                box=box,
+                zmin=self.zrange[0],
+                zmax=self.zrange[1],
+                zrsd=zsnap,
+                apply_rsd=apply_rsd,
+            )
             for key in self.keys_lightcone:
                 self.catalog[key].extend(lightcone_shell[key])
             del box_positions, box_velocities, box, lightcone_shell
         for key in self.keys_lightcone:
             self.catalog[key] = np.array(self.catalog[key])
         return self.catalog
-                        
+
     def make_full_sky(self, box_positions, box_velocities):
         x = box_positions[0]
         y = box_positions[1]
         z = box_positions[2]
         pos = np.c_[x, y, z]
         pos = np.concatenate(
-            [pos,
-             np.c_[-x, y, z],
-             np.c_[x, -y, z],
+            [
+                pos,
+                np.c_[-x, y, z],
+                np.c_[x, -y, z],
                 np.c_[x, y, -z],
                 np.c_[-x, -y, z],
                 np.c_[-x, y, -z],
                 np.c_[x, -y, -z],
-                np.c_[-x, -y, -z]
+                np.c_[-x, -y, -z],
             ]
         )
         x = box_velocities[0]
@@ -426,17 +516,18 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         z = box_velocities[2]
         vel = np.c_[x, y, z]
         vel = np.concatenate(
-            [pos,
-             np.c_[-x, y, z],
-             np.c_[x, -y, z],
+            [
+                pos,
+                np.c_[-x, y, z],
+                np.c_[x, -y, z],
                 np.c_[x, y, -z],
                 np.c_[-x, -y, z],
                 np.c_[-x, y, -z],
                 np.c_[x, -y, -z],
-                np.c_[-x, -y, -z]
+                np.c_[-x, -y, -z],
             ]
         )
-        
+
         return pos.T, vel.T
 
     """
@@ -445,10 +536,15 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         # See BaseLightconeCatalog.apply_angular_mask for TODO details
         BaseLightconeCatalog.apply_angular_mask(self)
     """
-    
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, ):
+
+    def apply_radial_mask(
+        self,
+        nz_filename: str,
+        shape_only: bool = False,
+        full_sky: bool = False,
+    ):
         """
-        Applies the radial selection function to a lightcone catalog based on 
+        Applies the radial selection function to a lightcone catalog based on
         an input n(z) file (number desity as a function of redshift).
 
         Parameters
@@ -466,17 +562,26 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             The lightcone catalog is modified in place.
         """
         BaseLightconeCatalog.apply_radial_mask(self, nz_filename, shape_only, full_sky)
-        
-    
+
+
 class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
     """
     Class to generate randoms in a lightcone region.
     """
-    def __init__(self, full_sky = False, zrange=(0.4, 0.6),
-        csize=None, nbar=None, seed=None, cosmo_idx=0, sim_type='base'):
+
+    def __init__(
+        self,
+        full_sky=False,
+        zrange=(0.4, 0.6),
+        csize=None,
+        nbar=None,
+        seed=None,
+        cosmo_idx=0,
+        sim_type="base",
+    ):
         """
         Initialize the CutskyRandoms class. This generates randoms in a cutsky region
-        that has a certain right ascension, declination and redshift range, but 
+        that has a certain right ascension, declination and redshift range, but
         the proper angular and radial mask needs to be applied later with the dedicated methods.
         Parameters
         ----------
@@ -498,42 +603,58 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             Type of simulation to use for the HOD sampling. Defaults to 'base' (2 Gpc/h).
             Other valid options include 'huge' (7.5 Gpc/h)
             TODO: huge not yet supported with BoxHOD
-            """
+        """
         BaseLightconeCatalog.__init__(self)
-        self.logger = logging.getLogger('LightconeRandoms')
-        self.rarange = (0., 360.) if full_sky else (0., 90.)
-        self.decrange = (-90., 90.) if full_sky else (0., 90.)
+        self.logger = logging.getLogger("LightconeRandoms")
+        self.rarange = (0.0, 360.0) if full_sky else (0.0, 90.0)
+        self.decrange = (-90.0, 90.0) if full_sky else (0.0, 90.0)
         self.zrange = zrange
         self.nbar = nbar
-        self.keys_cutsky = ['RA', 'DEC', 'Z', 'Distance', 'Position']
+        self.keys_cutsky = ["RA", "DEC", "Z", "Distance", "Position"]
         self.cosmo = AbacusSummit(cosmo_idx)
         r2d = self.cosmo.comoving_radial_distance
         self.drange = (r2d(zrange[0]), r2d(zrange[1]))
-        self.catalog = RandomCutskyCatalog(rarange=self.rarange, decrange=self.decrange,
-                                          drange=self.drange, csize=csize, nbar=nbar, seed=seed)
-        d2r = mockfactory.DistanceToRedshift(distance=self.cosmo.comoving_radial_distance)
-        self.catalog['Z'] = d2r(self.catalog['Distance'])
+        self.catalog = RandomCutskyCatalog(
+            rarange=self.rarange,
+            decrange=self.decrange,
+            drange=self.drange,
+            csize=csize,
+            nbar=nbar,
+            seed=seed,
+        )
+        d2r = mockfactory.DistanceToRedshift(
+            distance=self.cosmo.comoving_radial_distance
+        )
+        self.catalog["Z"] = d2r(self.catalog["Distance"])
         self.catalog = {key: self.catalog[key] for key in self.keys_cutsky}
         self.sim_type = sim_type
-        self.boxsize = 7500 if self.sim_type == 'huge' else 2000
+        self.boxsize = 7500 if self.sim_type == "huge" else 2000
         self.monte_carlo_sampling_count = 10000
 
-        if self.sim_type == 'base':
-            xyz_pos = self.catalog['Position']
-            mask = (xyz_pos[:,0] < 2000) * (xyz_pos[:,1] < 4000) * (xyz_pos[:,2] < 4000)
-            mask = mask * ( (xyz_pos[:,1] < 2000) + (xyz_pos[:,2] < 2000) )
+        if self.sim_type == "base":
+            xyz_pos = self.catalog["Position"]
+            mask = (
+                (xyz_pos[:, 0] < 2000) * (xyz_pos[:, 1] < 4000) * (xyz_pos[:, 2] < 4000)
+            )
+            mask = mask * ((xyz_pos[:, 1] < 2000) + (xyz_pos[:, 2] < 2000))
 
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][mask]
+
     """    
     def apply_angular_mask(self):
         # TODO: determine args
         BaseLightconeCatalog.apply_angular_mask(self)
     """
-    
-    def apply_radial_mask(self, nz_filename: str, shape_only: bool = False, full_sky: bool = False, ):
+
+    def apply_radial_mask(
+        self,
+        nz_filename: str,
+        shape_only: bool = False,
+        full_sky: bool = False,
+    ):
         """
-        Applies the radial selection function to a lightcone catalog based on 
+        Applies the radial selection function to a lightcone catalog based on
         an input n(z) file (number desity as a function of redshift).
 
         Parameters
