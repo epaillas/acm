@@ -1,10 +1,51 @@
-# taken from https://github.com/cosmodesi/desilike/blob/main/desilike/utils.py
+"""
+taken from https://github.com/cosmodesi/desilike/blob/main/desilike/utils.py
+
+This file contains logging related functions, such as setup_logging and get_logger_for_script.
+
+How to use it, two cases : module and script
+
+For module, at the top of the module, add
+'''
+import logging
+logger = logging.getLogger(__name__)
+
+
+logger.info("This is an info message from the module.")
+...
+'''
+
+For script, use this structure
+'''
+from acm.utils.logging import get_logger_for_script, setup_logging
+
+logger = get_logger_for_script(__file__)
+...
+
+def example_function():
+    logger.info("This is an info message from example_function.")
+    
+...
+
+if __name__ == '__main__':
+    setup_logging()
+
+    logger.info("Start of script")
+    <your processing code>
+    logger.info("End of script")
+'''
+
+"""
+
 import logging
 import os
+import os.path as osp
 import sys
 import time
 import traceback
 from contextlib import contextmanager
+
+NAME_PKG_GIT = "acm"
 
 
 def setup_logging(
@@ -49,8 +90,13 @@ def setup_logging(
                 "[%09.2f] " % (time.time() - t0)
                 + " %(asctime)s %(name)s:%(lineno)d %(levelname)s %(message)s"
             )
-            return super(MyFormatter, self).format(record)
-
+            super(MyFormatter, self).format(record)
+            msg = logging.Formatter.format(self, record)
+            if record.message != "":
+                parts = msg.split(record.message)
+                msg = msg.replace("\n", "\n" + parts[0])
+            return msg
+        
     fmt = MyFormatter(datefmt="%m-%d %H:%M ")
     if filename is not None:
         mkdir(os.path.dirname(filename))
@@ -100,3 +146,55 @@ def supress_logging(enabled=True, highest_level=logging.CRITICAL):
     yield
     if enabled:
         root.setLevel(origin_level)
+
+
+def get_logger_for_script(pfile):
+    """Return a logger with root logger is defined by the path of the file.
+
+    Problem for script the value of __name__ is "__main__", 
+    so we cannot use it to define the logger name. 
+    Instead, we can use the path of the file to define the logger name, 
+    so that we can have different loggers for different scripts.
+    
+    Note: this function should be called before setup_logging() 
+    
+    Parameters
+    ----------
+    pfile: path of the file, so always call with __file__ value
+    
+    """
+    #print(pfile)
+    str_logger = _get_logger_path(pfile)
+    #print("logger name: %s" % str_logger)
+    return logging.getLogger(str_logger)
+
+
+def _get_logger_path(pfile):
+    """Convert path string to logger name string
+    
+    For example, if pfile is "/home/user/acm/utils/logging.py", 
+    and NAME_PKG_GIT is "acm", then the logger name will be "acm.utils.logging"
+    
+    Parameters
+    ----------
+    pfile: path of the file, 
+    
+    return
+    ------
+    string like NAME_PKG_GIT.xx.yy.zz of script that call this function
+    """
+    l_sep = osp.sep
+    r_str = l_sep + NAME_PKG_GIT + l_sep
+    p_grand = pfile.find(r_str)
+    if p_grand > 0:
+        # -3 for size of ".py"
+        g_str = pfile[p_grand + 1 : -3].replace(l_sep, ".")
+    else:
+        # out package git
+        # -3 for size of ".py"
+        print("out package git")
+        if pfile[0] == l_sep:
+            g_str = pfile[1:-3].replace(l_sep, ".")
+        else:
+            g_str = pfile[0:-3].replace(l_sep, ".")
+    return g_str
