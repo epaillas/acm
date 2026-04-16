@@ -30,14 +30,6 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Cache installation
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
-          restore-keys: |
-            ${{ runner.os }}-pip- 
-
       - name: Installation package with editable mode
         run: |
           python -m pip install --upgrade pip
@@ -82,7 +74,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip- 
 
