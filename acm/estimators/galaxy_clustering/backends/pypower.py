@@ -9,6 +9,7 @@ from pypower import CatalogMesh
 
 logger = logging.getLogger(__name__)
 
+
 class PypowerBackend:
     """Backend using pypower for galaxy clustering measurements.
 
@@ -132,9 +133,7 @@ class PypowerBackend:
         t0 = time.time()
         data_mesh = self.mesh.to_mesh(field="data", compensate=compensate)
         if smoothing_radius:
-            logger.info(
-                f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel."
-            )
+            logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
             data_mesh = data_mesh.r2c().apply(
                 getattr(self, filter_shape)(r=smoothing_radius)
             )

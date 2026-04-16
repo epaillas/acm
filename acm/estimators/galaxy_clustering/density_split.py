@@ -1,6 +1,6 @@
+import logging
 import time
 from pathlib import Path
-import logging
 
 import jax
 import matplotlib
@@ -394,9 +394,7 @@ class DensitySplit(BaseEstimator):
             spectrum = spectrum.clone(norm=norm)
 
             self._quantile_data_power.append(spectrum)
-            logger.info(
-                f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s.")
         if save_fn is not None:
             self.save(self._quantile_data_power, save_fn, type="power")
         return self._quantile_data_power
@@ -486,9 +484,7 @@ class DensitySplit(BaseEstimator):
             spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
             self._quantile_power.append(spectrum)
-            logger.info(
-                f"Q{i} auto-spectrum calculated in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Q{i} auto-spectrum calculated in {time.time() - t0:.2f} s.")
         if save_fn is not None:
             self.save(self._quantile_power, save_fn, type="power")
         return self._quantile_power

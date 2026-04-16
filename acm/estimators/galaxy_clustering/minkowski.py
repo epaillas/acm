@@ -144,9 +144,7 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
                 nthreads,
             )
         self.MFs = mf.MFs3D
-        logger.info(
-            f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds."
-        )
+        logger.info(f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds.")
         return self.MFs
 
     def measure_v123(self, thres_mask=-2, thres_bins=200):
@@ -170,9 +168,7 @@ class MinkowskiFunctionals(BasePyreconMeshEstimator):
             np.float32(self.thresholds),
         )
         self.MFs = mf.MFs3D
-        logger.info(
-            f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds."
-        )
+        logger.info(f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds.")
         return self.MFs
 
     def plot_MFs(self, x=[], label="MFs", mf_cons=[1, 10**3, 10**5, 10**7]):

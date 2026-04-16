@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import subprocess
@@ -5,8 +6,6 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Optional, Tuple, Union
-import logging
-
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,6 +19,7 @@ from .base import BaseEstimator
 from .src import fastmodules
 
 logger = logging.getLogger(__name__)
+
 
 class VoxelVoids(BaseEstimator):
     """

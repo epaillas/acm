@@ -8,6 +8,8 @@ from acm.utils.plotting import set_plot_style
 from .base import BaseDensityMeshEstimator
 
 logger = logging.getLogger(__name__)
+
+
 class CountsInCells(BaseDensityMeshEstimator):
     """
     Class to compute counts in cells.

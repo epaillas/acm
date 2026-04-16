@@ -46,9 +46,7 @@ class WaveletScatteringTransform(BaseEstimator):
         self.kymatio_backend = kymatio_backend
         if kymatio_backend == "torch":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            logger.info(
-                f"Using Kymatio with Torch backend on device: {self.device}"
-            )
+            logger.info(f"Using Kymatio with Torch backend on device: {self.device}")
         else:
             logger.info(f"Using Kymatio with JAX backend.")
 

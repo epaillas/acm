@@ -14,6 +14,7 @@ from .base import BaseObservableBGS
 
 logger = logging.getLogger(__name__)
 
+
 class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     """
     Class for the application of the Two-point correlation function statistic of the ACM pipeline

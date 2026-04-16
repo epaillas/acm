@@ -13,6 +13,7 @@ from acm.utils.xarray import dataset_to_dict
 
 logger = logging.getLogger(__name__)
 
+
 class BaseObservableBGS(Observable):
     """
     Base class for the application of the ACM pipeline to the BGS dataset.

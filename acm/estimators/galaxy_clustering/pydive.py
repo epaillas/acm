@@ -15,6 +15,7 @@ from .src.pydive import get_void_catalog_cgal, get_void_catalog_full
 
 logger = logging.getLogger(__name__)
 
+
 def _default_sample_function(void_cat, column="R"):
     limits = np.percentile(void_cat[column], np.linspace(0, 100, 7))
     toret = []

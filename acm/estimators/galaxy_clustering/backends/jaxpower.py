@@ -16,6 +16,7 @@ from jaxpower import (
 
 logger = logging.getLogger(__name__)
 
+
 class JaxpowerBackend:
     """Backend using jaxpower for galaxy clustering measurements.
 
@@ -187,9 +188,7 @@ class JaxpowerBackend:
         kernel = 1.0
         if smoothing_radius is not None:
             if jax.process_index() == 0:
-                logger.info(
-                    f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel."
-                )
+                logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
             kernel = self.kernel_gaussian(
                 self.mattrs, smoothing_radius=smoothing_radius
             )
@@ -289,17 +288,13 @@ class JaxpowerBackend:
             x, y, z = self.mattrs.rcoords()
             xx, yy, zz = jnp.meshgrid(x, y, z)
             coords = jnp.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
-            logger.info(
-                f"Generated lattice query points in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Generated lattice query points in {time.time() - t0:.2f} s.")
         elif method == "randoms":
             np.random.seed(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
             coords = np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
-            logger.info(
-                f"Generated random query points in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         return coords.astype(np.float32)
 
     def kernel_gaussian(

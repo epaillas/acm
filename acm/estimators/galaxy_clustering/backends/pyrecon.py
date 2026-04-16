@@ -245,9 +245,7 @@ class PyreconBackend:
         t0 = time.time()
 
         if smoothing_radius:
-            logger.info(
-                f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel."
-            )
+            logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
             self.data_mesh.smooth_gaussian(
                 smoothing_radius, engine="fftw", save_wisdom=save_wisdom
             )

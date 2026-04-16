@@ -1,5 +1,5 @@
-from pathlib import Path
 import logging
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +15,7 @@ from acm.utils.default import cosmo_list  # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
 
 logger = logging.getLogger(__name__)
+
 
 class BaseObservableEMC(Observable):
     """

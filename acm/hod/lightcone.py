@@ -20,6 +20,7 @@ from .cutsky import CutskyHOD, CutskyRandoms
 
 logger = logging.getLogger(__name__)
 
+
 class BaseLightconeCatalog(ABC):
     """
     Base class for mock lightcone catalogs.

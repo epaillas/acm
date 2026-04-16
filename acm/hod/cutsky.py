@@ -45,6 +45,7 @@ VALID_REGIONS = ["N", "DN", "DS", "N+SNGC", "SNGC", "SSGC", "DES", "NGC", "SGC"]
 
 logger = logging.getLogger(__name__)
 
+
 class BaseCutskyCatalog(ABC):
     """
     Base class for cutsky catalogs. This class provides methods to apply angular and radial masks,

@@ -24,7 +24,7 @@ logger = get_logger_for_script(__file__)
 
 def example_function():
     logger.info("This is an info message from example_function.")
-    
+
 ...
 
 if __name__ == '__main__':
@@ -96,7 +96,7 @@ def setup_logging(
                 parts = msg.split(record.message)
                 msg = msg.replace("\n", "\n" + parts[0])
             return msg
-        
+
     fmt = MyFormatter(datefmt="%m-%d %H:%M ")
     if filename is not None:
         mkdir(os.path.dirname(filename))
@@ -151,34 +151,34 @@ def supress_logging(enabled=True, highest_level=logging.CRITICAL):
 def get_logger_for_script(pfile):
     """Return a logger with root logger is defined by the path of the file.
 
-    Problem for script the value of __name__ is "__main__", 
-    so we cannot use it to define the logger name. 
-    Instead, we can use the path of the file to define the logger name, 
+    Problem for script the value of __name__ is "__main__",
+    so we cannot use it to define the logger name.
+    Instead, we can use the path of the file to define the logger name,
     so that we can have different loggers for different scripts.
-    
-    Note: this function should be called before setup_logging() 
-    
+
+    Note: this function should be called before setup_logging()
+
     Parameters
     ----------
     pfile: path of the file, so always call with __file__ value
-    
+
     """
-    #print(pfile)
+    # print(pfile)
     str_logger = _get_logger_path(pfile)
-    #print("logger name: %s" % str_logger)
+    # print("logger name: %s" % str_logger)
     return logging.getLogger(str_logger)
 
 
 def _get_logger_path(pfile):
     """Convert path string to logger name string
-    
-    For example, if pfile is "/home/user/acm/utils/logging.py", 
+
+    For example, if pfile is "/home/user/acm/utils/logging.py",
     and NAME_PKG_GIT is "acm", then the logger name will be "acm.utils.logging"
-    
+
     Parameters
     ----------
-    pfile: path of the file, 
-    
+    pfile: path of the file,
+
     return
     ------
     string like NAME_PKG_GIT.xx.yy.zz of script that call this function

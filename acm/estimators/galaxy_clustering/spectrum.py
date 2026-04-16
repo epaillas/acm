@@ -1,7 +1,7 @@
+import logging
 import time
 from pathlib import Path
 from typing import Optional
-import logging
 
 import jax
 from jaxpower import (
@@ -17,6 +17,7 @@ from jaxpower import (
 from .base import BaseEstimator
 
 logger = logging.getLogger(__name__)
+
 
 class PowerSpectrumMultipoles(BaseEstimator):
     """
@@ -84,9 +85,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         )
 
         if self.has_randoms:
-            logger.info(
-                "Computing power spectrum using FKP estimator with randoms."
-            )
+            logger.info("Computing power spectrum using FKP estimator with randoms.")
             fkp = FKPField(self.data_mesh, self.randoms_mesh)
             norm = compute_fkp2_normalization(fkp, bin=self.bin)
             num_shotnoise = compute_fkp2_shotnoise(fkp, bin=self.bin)

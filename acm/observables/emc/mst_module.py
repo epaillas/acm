@@ -1,5 +1,5 @@
-from pathlib import Path
 import logging
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,6 +12,7 @@ from acm.utils.xarray import dataset_to_dict
 from .base import BaseObservableEMC
 
 logger = logging.getLogger(__name__)
+
 
 class MinimumSpanningTree(BaseObservableEMC):
     """

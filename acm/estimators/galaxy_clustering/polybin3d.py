@@ -40,9 +40,7 @@ class Bispectrum(PolyBinEstimator, BSpec):
     def Bk_ideal(self, **kwargs):
         t0 = time.time()
         bk = BSpec.Bk_ideal(self, data=self.delta_mesh.value, **kwargs)
-        logger.info(
-            f"Computed ideal bispectrum in {time.time() - t0:.2f} seconds."
-        )
+        logger.info(f"Computed ideal bispectrum in {time.time() - t0:.2f} seconds.")
         return bk
 
 
@@ -62,7 +60,5 @@ class PowerSpectrum(PolyBinEstimator, PSpec):
     def Pk_ideal(self, **kwargs):
         t0 = time.time()
         pk = PSpec.Pk_ideal(self, data=self.delta_mesh.value, **kwargs)
-        logger.info(
-            f"Computed ideal power spectrum in {time.time() - t0:.2f} seconds."
-        )
+        logger.info(f"Computed ideal power spectrum in {time.time() - t0:.2f} seconds.")
         return pk

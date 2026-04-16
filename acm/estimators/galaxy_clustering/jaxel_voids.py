@@ -1,9 +1,9 @@
 import imp
+import logging
 import time
 from functools import partial
 from pathlib import Path
 from typing import Any, Optional, Tuple, Union
-import logging
 
 import jax
 import jax.numpy as jnp
@@ -24,6 +24,7 @@ from .base import BaseEstimator
 jax.config.update("jax_enable_x64", True)
 
 logger = logging.getLogger(__name__)
+
 
 class JaxelVoids(BaseEstimator):
     """
@@ -873,9 +874,7 @@ class JaxelVoids(BaseEstimator):
             selected = non_edge_candidates[0]
 
         _, zone_id_used, vox, xi, yi, zi = selected
-        logger.info(
-            f"Using zone {zone_id_used} with {len(vox)} voxels for 3D GIF."
-        )
+        logger.info(f"Using zone {zone_id_used} with {len(vox)} voxels for 3D GIF.")
 
         filled = np.zeros(nmesh, dtype=bool)
         filled[xi, yi, zi] = True

@@ -9,6 +9,7 @@ from scipy.spatial import cKDTree
 
 logger = logging.getLogger(__name__)
 
+
 class GalaxyMultiplets:
     """
     Class to identify galaxy multiplets (singlets, pairs, triplets, quadruplets, etc.)

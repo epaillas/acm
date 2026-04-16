@@ -10,6 +10,7 @@ from .base import BaseEstimator
 
 logger = logging.getLogger(__name__)
 
+
 class MinimumSpanningTree(BaseEstimator):
     """
     Class to compute the minimum spanning tree statistics, following https://arxiv.org/abs/1907.00989

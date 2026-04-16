@@ -1,7 +1,7 @@
+import logging
 import time
 from pathlib import Path
 from typing import Optional, Tuple
-import logging
 
 import jax
 import jax.numpy as jnp
