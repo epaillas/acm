@@ -79,7 +79,7 @@ def exception_handler(exc_type, exc_value, exc_traceback):
     if exc_type is KeyboardInterrupt:
         log.critical("Interrupted by the user.")
     else:
-        log.critical("An error occured.")
+        log.critical("An error occurred.")
 
 
 def mkdir(dirname):
@@ -91,7 +91,7 @@ def mkdir(dirname):
 
 
 @contextmanager
-def supress_logging(enabled=True, highest_level=logging.CRITICAL):
+def suppress_logging(enabled=True, highest_level=logging.CRITICAL):
     """Context manager to temporarily suppress logging messages."""
     root = logging.getLogger()
     origin_level = root.getEffectiveLevel()

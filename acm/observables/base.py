@@ -14,7 +14,7 @@ from sunbird.emulators import FCN
 
 from acm.utils.covariance import check_covariance_matrix, orthogonal_gk_mad_covariance
 from acm.utils.decorators import temporary_class_state
-from acm.utils.logging import supress_logging
+from acm.utils.logging import suppress_logging
 from acm.utils.plotting import set_plot_style
 from acm.utils.xarray import dataset_from_dict
 
@@ -113,7 +113,7 @@ class Observable:
         self.squeeze_output = squeeze_output
         self.flat_output_dims = flat_output_dims
 
-        with supress_logging(enabled=silent_load):
+        with suppress_logging(enabled=silent_load):
             # Load dataset if not provided
             if dataset is None:
                 if paths is None:
