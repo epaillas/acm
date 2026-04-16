@@ -1,37 +1,30 @@
 from acm import setup_logging
 from acm.utils.modules import get_class_from_module
 import argparse
+import inspect
 from pathlib import Path
 
-
-LEGACY_TO_ALIAS = {
-    'GalaxyCorrelationFunctionMultipoles': 'tpcf',
-    'ProjectedGalaxyCorrelationFunction': 'projected_tpcf',
-    'GalaxyPowerSpectrumMultipoles': 'spectrum',
-    'GalaxyBispectrumMultipoles': 'bispectrum',
-    'ReconstructedGalaxyPowerSpectrumMultipoles': 'recon_spectrum',
-    'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
-    'DensitySplitQuantileCorrelationFunctionMultipoles': 'ds_xiqq',
-    'DensitySplitGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
-    'MinkowskiFunctionals': 'minkowski',
-    'GalaxyOverdensityPDF': 'pdf',
-    'WaveletScatteringTransform': 'wst',
-}
-
-
-def resolve_statistic_name(statistic: str) -> str:
-    return LEGACY_TO_ALIAS.get(statistic, statistic)
+def get_observable_paths(observable_name, root_dir):
+    observable_cls = get_class_from_module(args.module, observable_name)
+    stat_name = inspect.signature(observable_cls.__init__).parameters['stat_name'].default
+    root_dir = Path(root_dir)
+    return {
+        'data_dir': root_dir / 'emc/measurements/v1.3/abacus/compressed',
+        'measurements_dir': root_dir / 'emc/measurements/v1.3/abacus',
+        'param_dir': None,
+        'model_dir': root_dir / 'emc/models/v1.3/best',
+    }
 
 
 def plot_model(observable_name, cosmo_idx=0, hod_idx=0, multipole=0):
     """
     Plot the model prediction for a given observable and cosmology/HOD index.
     """
-    observable_name = resolve_statistic_name(observable_name)
     observable = get_class_from_module(args.module, observable_name)(
         select_filters={'cosmo_idx': cosmo_idx, 'hod_idx': hod_idx},
         numpy_output=True,
         squeeze_output=True,
+        paths=get_observable_paths(observable_name, args.root_dir),
     )
     save_fn = Path(save_dir) / f'{observable.stat_name}_model.png'
     model_params = observable.x
@@ -41,9 +34,9 @@ def plot_emulator_residuals(observable_name):
     """
     Plot the emulator residuals for a given observable.
     """
-    observable_name = resolve_statistic_name(observable_name)
     observable = get_class_from_module(args.module, observable_name)(
         select_filters={},
+        paths=get_observable_paths(observable_name, args.root_dir),
     )
     save_fn = Path(save_dir) / f'{observable.stat_name}_emulator_residuals.png'
     observable.plot_emulator_residuals(save_fn)
@@ -64,6 +57,12 @@ if __name__ == "__main__":
             'minkowski',
         ],
         help='List of statistics to compress.'
+    )
+    parser.add_argument(
+        '--root_dir',
+        type=str,
+        default='/global/cfs/cdirs/desicollab/users/epaillas/acm/',
+        help='Base directory for default EMC input and output paths.',
     )
     parser.add_argument('--save_dir', type=str, default='fig/',)
     args = parser.parse_args()

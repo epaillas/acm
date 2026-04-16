@@ -119,6 +119,12 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Train FCN for EMC observables.')
+    parser.add_argument(
+        '--root_dir',
+        type=str,
+        default='/global/cfs/cdirs/desicollab/users/epaillas/acm/',
+        help='Base directory for default EMC input and output paths.',
+    )
     parser.add_argument('--transform_input', type=str, choices=['log', 'arcsinh'], default=None, help='Transform to apply to inputs.')
     parser.add_argument('--transform_output', type=str, choices=['log', 'arcsinh'], default=None, help='Transform to apply to outputs.')
     parser.add_argument('-s', '--statistic', type=str, default='bispectrum', help='Statistic to train on.')
@@ -129,9 +135,10 @@ if __name__ == '__main__':
 
     setup_logging()
 
+    root_dir = Path(args.root_dir)
     paths = {
-        'data_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.3/abacus/compressed/',
-        'measurements_dir': '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/measurements/v1.3/abacus/',
+        'data_dir': root_dir / 'emc/measurements/v1.3/abacus/compressed',
+        'measurements_dir': root_dir / 'emc/measurements/v1.3/abacus',
         'param_dir': None
     }
 
@@ -140,7 +147,7 @@ if __name__ == '__main__':
     if args.model_dir is not None:
         model_dir = args.model_dir
     else:
-        model_dir = f'/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.3/best/{args.statistic}/'
+        model_dir = root_dir / 'emc/models/v1.3/best' / args.statistic
 
     TrainFCN(
         observable=observable,
