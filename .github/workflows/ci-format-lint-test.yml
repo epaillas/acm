@@ -84,7 +84,10 @@ jobs:
           pip install ty
 
       - name: Type checking
+        # First run is to get the number of errors without failing
+        # Second run is to get the output in GitHub format for annotations
         run: |
+          ty check acm --quiet --exit-zero
           ty check acm --output-format github
           echo "Exit code: $?"
 
