@@ -45,10 +45,10 @@ import traceback
 from contextlib import contextmanager
 from pathlib import Path
 
-
 NAME_LIB_GIT = __name__.split(".")[0]
 
 logger = logging.getLogger(__name__)
+
 
 def setup_logging(
     level=logging.INFO, stream=sys.stdout, filename=None, filemode="w", **kwargs
@@ -191,7 +191,7 @@ def _get_logger_path(pfile: str | Path, pkg_name: str = NAME_LIB_GIT) -> str:
 
     For example, if pfile is "/home/user/acm/utils/logging.py",
     and NAME_LIB_GIT is "acm", then the logger name will be "acm.utils.logging"
-    
+
     If pfile isn't in the package, return just name script to avoid long string
     In all cases, the full name is written in the logger.
 
@@ -201,7 +201,7 @@ def _get_logger_path(pfile: str | Path, pkg_name: str = NAME_LIB_GIT) -> str:
 
     return
     ------
-    string like NAME_PKG_GIT.xx.yy.zz of script that call this function or just name script 
+    string like NAME_PKG_GIT.xx.yy.zz of script that call this function or just name script
     """
     logger.info("Full name script: %s" % pfile)
     pfile = Path(pfile)  # Ensure pfile is a Path object
@@ -213,4 +213,3 @@ def _get_logger_path(pfile: str | Path, pkg_name: str = NAME_LIB_GIT) -> str:
     else:
         logger_name = parts[-1]  # just the script name
     return logger_name
-

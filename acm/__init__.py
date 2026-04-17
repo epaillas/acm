@@ -6,4 +6,3 @@ try:
     __version__ = version("acm")
 except PackageNotFoundError:
     __version__ = "unknown"
-
