@@ -1,7 +1,28 @@
+import argparse
+from pathlib import Path
+
 import pandas
 import numpy as np
 from scipy.stats import qmc
 from acm.utils.default import cosmo_list
+
+
+DEFAULT_SAVE_DIR = Path('/pscratch/sd/a/acasella/acm/dr2/HOD/')
+DEFAULT_N_HOD_VARIATIONS = 40
+PARAM_ORDER = [
+    'logM_cut',
+    'logM_1',
+    'sigma',
+    'alpha',
+    'kappa',
+    'alpha_c',
+    'alpha_s',
+    's',
+    'A_cen',
+    'A_sat',
+    'B_cen',
+    'B_sat',
+]
 
 class HODLatinHypercube:
     """
@@ -134,11 +155,26 @@ class HODLatinHypercube:
             df.to_csv(save_fn, index=False, float_format='%.5f')
 
 
+def get_cli_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--save-dir', type=Path, default=DEFAULT_SAVE_DIR)
+    parser.add_argument(
+        '--n-hod-variations',
+        type=int,
+        default=DEFAULT_N_HOD_VARIATIONS,
+    )
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
     import yaml
 
+    args = get_cli_args()
+    save_dir = args.save_dir
+    save_dir.mkdir(parents=True, exist_ok=True)
+
     # Load YAML file
-    with open("lrg.yaml", "r") as f:
+    with open(Path(__file__).with_name('lrg.yaml'), 'r') as f:
         hod_config = yaml.safe_load(f)
 
     # Convert to ranges dict
@@ -148,10 +184,13 @@ if __name__ == '__main__':
     }
 
     lhc = HODLatinHypercube(ranges)
-    params = lhc.sample(40)  # number of HOD variations
-    params = lhc.split_by_cosmo(cosmos=[0]) # split by cosmology
+    params = lhc.sample(args.n_hod_variations)
+    params = lhc.split_by_cosmo()
     
     lhc.save_params(
-        save_fn = ['/pscratch/sd/a/acasella/acm/dr2/HOD/test7_hod_params_c{cosmo:03}.csv'.format(cosmo=cosmo) for cosmo in [0]], 
-        order=['logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
+        save_fn=[
+            save_dir / f'test7_hod_params_{cosmo_key}.csv'
+            for cosmo_key in params
+        ],
+        order=PARAM_ORDER,
     )
