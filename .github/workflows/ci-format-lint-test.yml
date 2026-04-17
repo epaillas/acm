@@ -1,4 +1,4 @@
-name: CI for pull request format and pytest
+name: Format, Typecheck & Test
 
 on:
   pull_request:
