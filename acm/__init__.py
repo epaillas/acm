@@ -8,5 +8,5 @@ except PackageNotFoundError:
     __version__ = "unknown"
 
 
-def f(x: int = 'hello') -> int: # This should be flagged by ty
+def f(x: int = "hello") -> int:  # This should be flagged by ty
     return x
