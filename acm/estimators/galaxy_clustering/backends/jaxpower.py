@@ -94,7 +94,6 @@ class JaxpowerBackend:
             exchange=True,
             backend="jax",
         )
-        self.randoms_mesh = None
         self.has_randoms = False if randoms_positions is None else True
         self.size_data = len(data_positions)
         if self.has_randoms:
