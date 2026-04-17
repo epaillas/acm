@@ -8,7 +8,7 @@ from acm.utils.default import cosmo_list
 
 
 DEFAULT_SAVE_DIR = Path('/pscratch/sd/a/acasella/acm/dr2/HOD/')
-DEFAULT_N_HOD_VARIATIONS = 40
+DEFAULT_N_HOD = 40
 PARAM_ORDER = [
     'logM_cut',
     'logM_1',
@@ -159,9 +159,9 @@ def get_cli_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--save-dir', type=Path, default=DEFAULT_SAVE_DIR)
     parser.add_argument(
-        '--n-hod-variations',
+        '--n_hod',
         type=int,
-        default=DEFAULT_N_HOD_VARIATIONS,
+        default=DEFAULT_N_HOD,
     )
     return parser.parse_args()
 
@@ -184,7 +184,7 @@ if __name__ == '__main__':
     }
 
     lhc = HODLatinHypercube(ranges)
-    params = lhc.sample(args.n_hod_variations)
+    params = lhc.sample(args.n_hod)
     params = lhc.split_by_cosmo()
     
     lhc.save_params(
