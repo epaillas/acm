@@ -936,15 +936,6 @@ class Observable:
 
         return cov
 
-    @overload
-    def get_save_handle(self, save_dir: None = None) -> str: ...
-
-    @overload
-    def get_save_handle(self, save_dir: str) -> str: ...
-
-    @overload
-    def get_save_handle(self, save_dir: Path) -> Path: ...
-
     def get_save_handle(
         self, save_dir: str | Path | None = None
     ) -> str | Path:

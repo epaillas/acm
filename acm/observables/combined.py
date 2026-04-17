@@ -1,7 +1,7 @@
 import logging
 from contextlib import nullcontext
 from pathlib import Path
-from typing import overload
+from typing import cast
 
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
@@ -280,15 +280,6 @@ class CombinedObservable:
 
         return cov
 
-    @overload
-    def get_save_handle(self, save_dir: None = None) -> str: ...
-
-    @overload
-    def get_save_handle(self, save_dir: str) -> str: ...
-
-    @overload
-    def get_save_handle(self, save_dir: Path) -> Path: ...
-
     def get_save_handle(
         self, save_dir: str | Path | None = None
     ) -> str | Path:
@@ -312,7 +303,7 @@ class CombinedObservable:
             Returned as a Path instance if save_dir is provided as a Path.
         """
         statistic_handles = [
-            observable.get_save_handle() for observable in self.observables
+            cast(str, observable.get_save_handle()) for observable in self.observables
         ]
         statistic_handle = "+".join(statistic_handles)
 
