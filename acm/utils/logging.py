@@ -1,7 +1,6 @@
-"""
-taken from https://github.com/cosmodesi/desilike/blob/main/desilike/utils.py
+"""Manage logging.
 
-This file contains logging related functions, such as setup_logging and get_logger_for_script.
+taken from https://github.com/cosmodesi/desilike/blob/main/desilike/utils.py
 
 How to use it, two cases : module and script
 
@@ -44,9 +43,12 @@ import sys
 import time
 import traceback
 from contextlib import contextmanager
+from pathlib import Path
 
-NAME_PKG_GIT = "acm"
 
+NAME_LIB_GIT = __name__.split(".")[0]
+
+logger = logging.getLogger(__name__)
 
 def setup_logging(
     level=logging.INFO, stream=sys.stdout, filename=None, filemode="w", **kwargs
@@ -163,17 +165,35 @@ def get_logger_for_script(pfile):
     pfile: path of the file, so always call with __file__ value
 
     """
-    # print(pfile)
     str_logger = _get_logger_path(pfile)
-    # print("logger name: %s" % str_logger)
     return logging.getLogger(str_logger)
 
 
-def _get_logger_path(pfile):
-    """Convert path string to logger name string
+def _get_logger_path(pfile: str | Path, pkg_name: str = "acm") -> str:
+    pfile = Path(pfile)  # Ensure pfile is a Path object
+    pfile_no_ext = pfile.with_suffix("")  # remove the file extension
+    parts = pfile_no_ext.parts
+
+    if pkg_name in parts:
+        idx = parts.index(pkg_name)
+        module_parts = parts[idx:]  # keep only the parts after the package name
+    elif parts[0] == pfile.drive + pfile.root:
+        module_parts = parts[1:]  # remove the drive and root if it's an absolute path
+    else:
+        module_parts = parts
+
+    logger_name = ".".join(module_parts)
+    return logger_name
+
+
+def _get_logger_path(pfile: str | Path, pkg_name: str = NAME_LIB_GIT) -> str:
+    """Convert path string to logger name string.
 
     For example, if pfile is "/home/user/acm/utils/logging.py",
-    and NAME_PKG_GIT is "acm", then the logger name will be "acm.utils.logging"
+    and NAME_LIB_GIT is "acm", then the logger name will be "acm.utils.logging"
+    
+    If pfile isn't in the package, return just name script to avoid long string
+    In all cases, the full name is written in the logger.
 
     Parameters
     ----------
@@ -181,20 +201,16 @@ def _get_logger_path(pfile):
 
     return
     ------
-    string like NAME_PKG_GIT.xx.yy.zz of script that call this function
+    string like NAME_PKG_GIT.xx.yy.zz of script that call this function or just name script 
     """
-    l_sep = osp.sep
-    r_str = l_sep + NAME_PKG_GIT + l_sep
-    p_grand = pfile.find(r_str)
-    if p_grand > 0:
-        # -3 for size of ".py"
-        g_str = pfile[p_grand + 1 : -3].replace(l_sep, ".")
+    logger.info("Full name script: %s" % pfile)
+    pfile = Path(pfile)  # Ensure pfile is a Path object
+    parts = pfile.parts
+    if pkg_name in parts:
+        idx = parts.index(pkg_name)
+        module_parts = parts[idx:]  # keep only the parts after the package name
+        logger_name = ".".join(module_parts)
     else:
-        # out package git
-        # -3 for size of ".py"
-        print("out package git")
-        if pfile[0] == l_sep:
-            g_str = pfile[1:-3].replace(l_sep, ".")
-        else:
-            g_str = pfile[0:-3].replace(l_sep, ".")
-    return g_str
+        logger_name = parts[-1]  # just the script name
+    return logger_name
+
