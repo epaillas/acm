@@ -110,7 +110,7 @@ class BaseCutskyCatalog(ABC):
             
             # Fibonacci method 
             generate_fibonacci = np.arange(0, num_fibonacci_samples, dtype=float) + 0.5
-            mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
+            phi = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
             mask_dec = 180 / np.pi * phi - 90
             mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
 
