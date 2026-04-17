@@ -164,9 +164,9 @@ class PypowerBackend:
         return self.delta_mesh
 
     def get_query_positions(
-        self, 
-        method: str = "randoms", 
-        nquery: Optional[int] = None, 
+        self,
+        method: str = "randoms",
+        nquery: Optional[int] = None,
         seed: int = 42,
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
