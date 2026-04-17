@@ -87,7 +87,7 @@ class CombinedObservable:
                 idx = self.stat_name.index(item)
                 return self.observables[idx]
             except ValueError:  # If the item is not found in the list, raise an error
-                KeyError(f"Observable with name {item} not found.")
+                raise KeyError(f"Observable with name {item} not found.")
         else:
             raise TypeError(f"Item must be an int or str, not {type(item)}.")
 
