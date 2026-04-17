@@ -19,7 +19,7 @@ def set_plot_style(func):
 
 # %% Plotting functions
 def plot_parameters_histogram(
-    parameters: list, names: list[str], mapping: dict = None, **kwargs
+    parameters: list, names: list[str], mapping: dict | None = None, **kwargs
 ) -> tuple:
     """
     Plot histograms of specified parameters from a list of parameter arrays.
@@ -71,7 +71,7 @@ def plot_parameters_histogram(
 
 
 def plot_parameters_triangle(
-    parameters: list, names: list[str], mapping: dict = None, **kwargs
+    parameters: list, names: list[str], mapping: dict | None = None, **kwargs
 ) -> tuple:
     """
     Plot a triangle scatter plot of specified parameter names.

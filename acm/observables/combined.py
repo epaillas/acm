@@ -279,7 +279,7 @@ class CombinedObservable:
 
         return cov
 
-    def get_save_handle(self, save_dir: str | Path = None) -> str | Path:
+    def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
         """
         Creates a handle that combines the handles of the observables,
         separated by a '+'. They contain the statistic name and the filters used.
@@ -302,7 +302,7 @@ class CombinedObservable:
         statistic_handles = [
             observable.get_save_handle() for observable in self.observables
         ]
-        statistic_handle = "+".join(statistic_handles)
+        statistic_handle = "+".join(str(handle) for handle in statistic_handles)
 
         if save_dir is None:
             return statistic_handle
@@ -318,7 +318,7 @@ class CombinedObservable:
     def plot_observable(
         self,
         model_params: dict,
-        save_fn: str | Path = None,
+        save_fn: str | Path | None = None,
     ):
         """
         Plot a compilation of all summary statistics included at class instantiation.

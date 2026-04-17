@@ -124,6 +124,7 @@ class BaseObservableBGS(Observable):
         )
         if "emulator_covariance_y" in self.select_indices_on:
             emulator_covariance_y = self.apply_indices_selection(emulator_covariance_y)
+        emulator_covariance_y = self.ensure_dataarray(emulator_covariance_y)
         if self.squeeze_output:
             emulator_covariance_y = emulator_covariance_y.squeeze()
         if self.numpy_output:
@@ -144,9 +145,10 @@ class BaseObservableBGS(Observable):
         )  # Unfiltered covariance array !
 
         # Flatten on 2D for indexing
-        emulator_covariance_y = self.flatten_output(
-            emulator_covariance_y, flat_output_dims=2
-        )
+        if isinstance(emulator_covariance_y, xarray.DataArray):
+            emulator_covariance_y = self.flatten_output(
+                emulator_covariance_y, flat_output_dims=2
+            )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
@@ -165,6 +167,7 @@ class BaseObservableBGS(Observable):
         emulator_error = self.flatten_output(emulator_error, self.flat_output_dims)
         if "emulator_error" in self.select_indices_on:
             emulator_error = self.apply_indices_selection(emulator_error)
+        emulator_error = self.ensure_dataarray(emulator_error)
         if self.squeeze_output:
             emulator_error = emulator_error.squeeze()
         if self.numpy_output:
@@ -178,7 +181,7 @@ class BaseObservableBGS(Observable):
         cosmo_idx: int,
         phase: int = 0,
         seed: int = 0,
-        density_threshold: float = None,
+        density_threshold: float | None = None,
         return_fn: bool = False,
     ) -> np.ndarray:
         """
@@ -240,7 +243,7 @@ class BaseObservableBGS(Observable):
 
     @classmethod
     def compress_x(
-        cls, paths: dict, cosmos: list = cosmo_list, n_hod: int = None, **kwargs
+        cls, paths: dict, cosmos: list = cosmo_list, n_hod: int | None = None, **kwargs
     ) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
@@ -306,6 +309,7 @@ class BaseObservableBGS(Observable):
             x.append(x_i.values[hod_idx, :])
 
         x = np.concatenate(x)
+        assert n_hod is not None
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),
             coords={
@@ -329,7 +333,7 @@ class BaseObservableBGS(Observable):
         slice_filters=None,
         select_indices=None,
     )
-    def compress_emulator_error(self, save_to: str = None) -> xarray.Dataset:
+    def compress_emulator_error(self, save_to: str | None = None) -> xarray.Dataset:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
 

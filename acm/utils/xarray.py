@@ -1,7 +1,17 @@
+from typing import Any
+
 import xarray as xr
 
 
-def dataset_to_dict(dataset: xr.Dataset) -> dict:
+def _ensure_dataset(dataset: xr.Dataset | xr.DataArray) -> xr.Dataset:
+    """Return a Dataset view for serialization helpers."""
+    if isinstance(dataset, xr.DataArray):
+        name = dataset.name or "data"
+        return dataset.to_dataset(name=name)
+    return dataset
+
+
+def dataset_to_dict(dataset: xr.Dataset | xr.DataArray) -> Any:
     """Convert an xarray.Dataset to a dictionary with numpy arrays.
 
     Parameters
@@ -14,6 +24,7 @@ def dataset_to_dict(dataset: xr.Dataset) -> dict:
     dict
         A dictionary containing the data from the dataset with numpy arrays.
     """
+    dataset = _ensure_dataset(dataset)
     data_dict = {}
     for var_name in dataset.data_vars:
         data_dict[var_name] = {
@@ -28,7 +39,7 @@ def dataset_to_dict(dataset: xr.Dataset) -> dict:
     return data_dict
 
 
-def dataset_from_dict(data_dict: dict) -> xr.Dataset:
+def dataset_from_dict(data_dict: dict[str, Any]) -> xr.Dataset:
     """Convert a dictionary with numpy arrays to an xarray.Dataset.
 
     Parameters

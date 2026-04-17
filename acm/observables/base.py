@@ -31,22 +31,22 @@ class Observable:
     def __init__(
         self,
         stat_name: str,
-        dataset: xarray.Dataset = None,
-        model: FCN = None,
-        select_filters: dict = None,
-        slice_filters: dict = None,
-        select_indices: list = None,
+        dataset: xarray.Dataset | None = None,
+        model: FCN | None = None,
+        select_filters: dict | None = None,
+        slice_filters: dict | None = None,
+        select_indices: list | None = None,
         select_indices_on: list = [
             "y",
             "covariance_y",
             "emulator_error",
             "emulator_covariance_y",
         ],
-        flat_output_dims: int = None,
+        flat_output_dims: int | None = None,
         squeeze_output: bool = False,
         numpy_output: bool = False,
-        paths: dict = None,
-        checkpoint_fn: Path | str = None,
+        paths: dict | None = None,
+        checkpoint_fn: Path | str | None = None,
         silent_load: bool = False,
     ):
         """
@@ -301,6 +301,7 @@ class Observable:
 
             if name in self.select_indices_on:
                 data = self.apply_indices_selection(data)
+            data = self.ensure_dataarray(data)
 
             if self.squeeze_output:
                 data = data.squeeze()
@@ -382,6 +383,15 @@ class Observable:
         return dataarray
 
     @staticmethod
+    def ensure_dataarray(
+        dataarray: xarray.DataArray | xarray.Dataset,
+    ) -> xarray.DataArray:
+        """Narrow a filtered xarray object back to a DataArray when required."""
+        if isinstance(dataarray, xarray.Dataset):
+            raise TypeError("Expected a DataArray after filtering and flattening.")
+        return dataarray
+
+    @staticmethod
     def stack_on_attribute(
         attribute: str | dict, dataarray: xarray.DataArray, **kwargs
     ) -> xarray.DataArray:
@@ -423,7 +433,9 @@ class Observable:
 
         return da
 
-    def apply_filters(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+    def apply_filters(
+        self, dataarray: xarray.DataArray | xarray.Dataset
+    ) -> xarray.DataArray | xarray.Dataset:
         """
         Apply the class filters on a given DataArray or Dataset.
 
@@ -459,8 +471,11 @@ class Observable:
 
     @classmethod
     def flatten_output(
-        cls, dataarray: xarray.DataArray, flat_output_dims: int, unstack: bool = True
-    ) -> xarray.DataArray:
+        cls,
+        dataarray: xarray.DataArray | xarray.Dataset,
+        flat_output_dims: int | None,
+        unstack: bool = True,
+    ) -> xarray.DataArray | xarray.Dataset:
         """
         Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
         containing the list of dimensions to stack on.
@@ -484,6 +499,8 @@ class Observable:
         xarray.DataArray
             The flattened DataArray.
         """
+        if isinstance(dataarray, xarray.Dataset) or flat_output_dims is None:
+            return dataarray
         if unstack:
             dataarray = dataarray.unstack()
         if flat_output_dims == 2:
@@ -495,7 +512,9 @@ class Observable:
 
         return dataarray
 
-    def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+    def apply_indices_selection(
+        self, dataarray: xarray.DataArray | xarray.Dataset
+    ) -> xarray.DataArray | xarray.Dataset:
         """
         Apply the indices selection on the last dimension of a given DataArray.
         Should be called after filters are applied and after flattening the DataArray.
@@ -511,7 +530,7 @@ class Observable:
         xarray.DataArray
             The DataArray with the selected indices.
         """
-        if self.select_indices is None:
+        if self.select_indices is None or isinstance(dataarray, xarray.Dataset):
             return dataarray
 
         dim_name = dataarray.dims[-1]
@@ -622,8 +641,8 @@ class Observable:
         self,
         x,
         model=None,
-        coords: dict = None,
-        attrs: dict = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
         nofilters: bool = False,
     ):
         """
@@ -750,6 +769,7 @@ class Observable:
         cov_y = self.flatten_output(
             cov_y, flat_output_dims=2, unstack=False
         )  # No unstacking to avoid NaN
+        cov_y = self.ensure_dataarray(cov_y)
         cov_y = cov_y.values
 
         prefactor = prefactor / volume_factor
@@ -799,6 +819,7 @@ class Observable:
         cov_y = self.flatten_output(
             cov_y, flat_output_dims=2, unstack=False
         )  # No unstacking to avoid NaN
+        cov_y = self.ensure_dataarray(cov_y)
         cov_y = cov_y.values
 
         if method == "median":
@@ -844,7 +865,7 @@ class Observable:
 
         return cov
 
-    def get_save_handle(self, save_dir: str | Path = None) -> str | Path:
+    def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
         """
         Creates a handle that includes the statistics and filters used.
         This can be used to save anything related to this observable.
@@ -885,7 +906,7 @@ class Observable:
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(
-        self, model_params: dict, save_fn: str = None, **kwargs
+        self, model_params: dict, save_fn: str | Path | None = None, **kwargs
     ) -> tuple:  # pragma: no cover
         """
         Plot the observable with error bars and the model prediction, along with the residuals.
@@ -973,7 +994,7 @@ class Observable:
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_emulator_residuals(
-        self, save_fn: str = None, **kwargs
+        self, save_fn: str | Path | None = None, **kwargs
     ) -> tuple:  # pragma: no cover
         """
         Plot the emulator residuals.

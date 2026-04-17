@@ -8,7 +8,7 @@ def load_abacus_cosmologies(
     filename: str,
     cosmologies: list[int],
     parameters: list[str],
-    mapping: dict[str, str] = None,
+    mapping: dict[str, str] | None = None,
 ) -> dict:
     """
     Loads the AbacusSummit cosmology parameters from the AbacusSummit cosmologies csv file and selects
