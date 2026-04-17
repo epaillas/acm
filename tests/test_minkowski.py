@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from acm.estimators.galaxy_clustering.jaxmf import MinkowskiFunctionals
 from acm import setup_logging, get_logger_for_script
 
+# script logger  init
+setup_logging()
 logger = get_logger_for_script(__file__)
 
 def get_hod_fns(cosmo=1, phase=0, redshift=0.5, seed=0):
@@ -129,8 +131,6 @@ def test_minkowski():
 
 
 if __name__ == '__main__':
-    setup_logging()
-    
     # Load HOD catalog
     hod_fn = get_hod_fns(cosmo=0, phase=0, redshift=0.5)[0]
     positions, boxsize = get_hod_positions(hod_fn, los='z')

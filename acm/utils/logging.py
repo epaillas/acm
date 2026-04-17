@@ -18,6 +18,8 @@ For script, use this structure
 '''
 from acm.utils.logging import get_logger_for_script, setup_logging
 
+# script logger  init
+setup_logging()
 logger = get_logger_for_script(__file__)
 ...
 
@@ -27,15 +29,14 @@ def example_function():
 ...
 
 if __name__ == '__main__':
-    setup_logging()
 
-    logger.info("Start of script")
+    logger.info("Start processing")
     <your processing code>
-    logger.info("End of script")
+    logger.info("End processing")
 '''
 
 """
-
+import datetime
 import logging
 import os
 import os.path as osp
@@ -108,6 +109,7 @@ def setup_logging(
     handler.setFormatter(fmt)
     logging.basicConfig(level=level, handlers=[handler], **kwargs)
     sys.excepthook = exception_handler
+    logger.info(f"Start logger at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 def exception_handler(exc_type, exc_value, exc_traceback):
@@ -203,7 +205,7 @@ def _get_logger_path(pfile: str | Path, pkg_name: str = NAME_LIB_GIT) -> str:
     ------
     string like NAME_PKG_GIT.xx.yy.zz of script that call this function or just name script
     """
-    logger.info("Full name script: %s" % pfile)
+    logger.info(f"\nFull name script: {pfile}\n")
     pfile = Path(pfile)  # Ensure pfile is a Path object
     parts = pfile.parts
     if pkg_name in parts:
