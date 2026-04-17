@@ -2,6 +2,7 @@ import logging
 import pickle
 from copy import copy, deepcopy
 from pathlib import Path
+from typing import cast, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -391,12 +392,26 @@ class Observable:
             raise TypeError("Expected a DataArray after filtering and flattening.")
         return dataarray
 
+    @overload
     @staticmethod
     def stack_on_attribute(
         attribute: str | dict, dataarray: xarray.DataArray, **kwargs
-    ) -> xarray.DataArray:
+    ) -> xarray.DataArray: ...
+
+    @overload
+    @staticmethod
+    def stack_on_attribute(
+        attribute: str | dict, dataarray: xarray.Dataset, **kwargs
+    ) -> xarray.Dataset: ...
+
+    @staticmethod
+    def stack_on_attribute(
+        attribute: str | dict,
+        dataarray: xarray.DataArray | xarray.Dataset,
+        **kwargs,
+    ) -> xarray.DataArray | xarray.Dataset:
         """
-        Stacks a DataArray on the dimensions given.
+        Stack an xarray object on the dimensions given.
 
         Parameters
         ----------
@@ -404,15 +419,15 @@ class Observable:
             The dimension(s) to stack on.
             If a string, will be read from the DataArray attributes.
             Will be used as the dim to stack on (see xarray.DataArray.stack)
-        dataarray : xarray.DataArray
-            The DataArray to stack the dimensions on.
+        dataarray : xarray.DataArray | xarray.Dataset
+            The xarray object to stack the dimensions on.
         **kwargs
             Additional keyword arguments to pass to the stack method.
 
         Returns
         -------
-        xarray.DataArray
-            The stacked DataArray
+        xarray.DataArray | xarray.Dataset
+            The stacked xarray object.
         """
         if isinstance(attribute, str):
             if not attribute in dataarray.attrs or attribute in dataarray.dims:
@@ -427,27 +442,39 @@ class Observable:
         dim_name = list(dim.keys())[0]
 
         if len(dim[dim_name]) != 0:
-            da = dataarray.stack(**dim, **kwargs)
+            da = cast(
+                xarray.DataArray | xarray.Dataset,
+                dataarray.stack(**dim, **kwargs),
+            )
         else:
-            da = dataarray.expand_dims(dim_name)
+            da = cast(
+                xarray.DataArray | xarray.Dataset,
+                dataarray.expand_dims(dim_name),
+            )
 
         return da
+
+    @overload
+    def apply_filters(self, dataarray: xarray.DataArray) -> xarray.DataArray: ...
+
+    @overload
+    def apply_filters(self, dataarray: xarray.Dataset) -> xarray.Dataset: ...
 
     def apply_filters(
         self, dataarray: xarray.DataArray | xarray.Dataset
     ) -> xarray.DataArray | xarray.Dataset:
         """
-        Apply the class filters on a given DataArray or Dataset.
+        Apply the class filters on a given xarray object.
 
         Parameters
         ----------
-        dataarray : xarray.DataArray
-            The DataArray to apply the filters on.
+        dataarray : xarray.DataArray | xarray.Dataset
+            The xarray object to apply the filters on.
 
         Returns
         -------
-        xarray.DataArray
-            The filtered DataArray.
+        xarray.DataArray | xarray.Dataset
+            The filtered xarray object.
         """
         dimensions = dataarray.dims
 
@@ -463,11 +490,35 @@ class Observable:
         )
 
         if select_filters:
-            dataarray = dataarray.sel(**select_filters)
+            dataarray = cast(
+                xarray.DataArray | xarray.Dataset,
+                dataarray.sel(**select_filters),
+            )
         if slice_filters:
             slice_filters = transform_filters_to_slices(slice_filters)
-            dataarray = dataarray.sel(**slice_filters)
+            dataarray = cast(
+                xarray.DataArray | xarray.Dataset,
+                dataarray.sel(**slice_filters),
+            )
         return dataarray
+
+    @overload
+    @classmethod
+    def flatten_output(
+        cls,
+        dataarray: xarray.DataArray,
+        flat_output_dims: int | None,
+        unstack: bool = True,
+    ) -> xarray.DataArray: ...
+
+    @overload
+    @classmethod
+    def flatten_output(
+        cls,
+        dataarray: xarray.Dataset,
+        flat_output_dims: int | None,
+        unstack: bool = True,
+    ) -> xarray.Dataset: ...
 
     @classmethod
     def flatten_output(
@@ -477,7 +528,7 @@ class Observable:
         unstack: bool = True,
     ) -> xarray.DataArray | xarray.Dataset:
         """
-        Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
+        Flatten the output of a given xarray object by stacking all dimensions over attributes 'sample' and 'features',
         containing the list of dimensions to stack on.
 
         If flat_output_dims is 2, stacks on both 'sample' and 'features' attributes.
@@ -486,8 +537,8 @@ class Observable:
 
         Parameters
         ----------
-        dataarray : xarray.DataArray
-            The DataArray to flatten.
+        dataarray : xarray.DataArray | xarray.Dataset
+            The xarray object to flatten.
         flat_output_dims : int
             Number of dimensions to flatten the output on (1 or 2).
         unstack : bool
@@ -496,44 +547,61 @@ class Observable:
 
         Returns
         -------
-        xarray.DataArray
-            The flattened DataArray.
+        xarray.DataArray | xarray.Dataset
+            The flattened xarray object.
         """
-        if isinstance(dataarray, xarray.Dataset) or flat_output_dims is None:
+        if flat_output_dims is None:
             return dataarray
         if unstack:
-            dataarray = dataarray.unstack()
+            dataarray = cast(
+                xarray.DataArray | xarray.Dataset,
+                dataarray.unstack(),
+            )
         if flat_output_dims == 2:
             dataarray = cls.stack_on_attribute("sample", dataarray)
             dataarray = cls.stack_on_attribute("features", dataarray)
-            dataarray = dataarray.transpose("sample", "features")
+            dataarray = cast(
+                xarray.DataArray | xarray.Dataset,
+                dataarray.transpose("sample", "features"),
+            )
         elif flat_output_dims == 1:
-            dataarray = dataarray.stack(dims=[...])
+            dataarray = cast(
+                xarray.DataArray | xarray.Dataset,
+                dataarray.stack(dims=[...]),
+            )
 
         return dataarray
+
+    @overload
+    def apply_indices_selection(
+        self, dataarray: xarray.DataArray
+    ) -> xarray.DataArray: ...
+
+    @overload
+    def apply_indices_selection(self, dataarray: xarray.Dataset) -> xarray.Dataset: ...
 
     def apply_indices_selection(
         self, dataarray: xarray.DataArray | xarray.Dataset
     ) -> xarray.DataArray | xarray.Dataset:
         """
-        Apply the indices selection on the last dimension of a given DataArray.
-        Should be called after filters are applied and after flattening the DataArray.
+        Apply the indices selection on the last dimension of a given xarray object.
+        Should be called after filters are applied and after flattening the xarray object.
         Does nothing if select_indices is None.
 
         Parameters
         ----------
-        dataarray : xarray.DataArray
-            The DataArray to apply the indices selection on.
+        dataarray : xarray.DataArray | xarray.Dataset
+            The xarray object to apply the indices selection on.
 
         Returns
         -------
-        xarray.DataArray
-            The DataArray with the selected indices.
+        xarray.DataArray | xarray.Dataset
+            The xarray object with the selected indices.
         """
-        if self.select_indices is None or isinstance(dataarray, xarray.Dataset):
+        if self.select_indices is None:
             return dataarray
 
-        dim_name = dataarray.dims[-1]
+        dim_name = list(dataarray.dims)[-1]
 
         # Warn if select_indices is applied on a dimension that is also filtered
         for f_str in ["select_filters", "slice_filters"]:
@@ -555,7 +623,10 @@ class Observable:
                         f"select_indices is applied while {f_str} are also applied. This might lead to unexpected results."
                     )
 
-        return dataarray.isel({dim_name: self.select_indices})
+        return cast(
+            xarray.DataArray | xarray.Dataset,
+            dataarray.isel({dim_name: self.select_indices}),
+        )
 
     def get_coordinate_list(self, name: str) -> list:
         """

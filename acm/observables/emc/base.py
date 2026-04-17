@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,6 +52,16 @@ class BaseObservableEMC(Observable):
             "n_test", 6 * 500
         )  # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
+
+    @overload
+    def get_emulator_covariance_y(
+        self, nofilters: Literal[True]
+    ) -> xarray.DataArray: ...
+
+    @overload
+    def get_emulator_covariance_y(
+        self, nofilters: Literal[False] = False
+    ) -> xarray.DataArray | np.ndarray: ...
 
     def get_emulator_covariance_y(
         self, nofilters: bool = False
@@ -163,10 +174,9 @@ class BaseObservableEMC(Observable):
         )  # Unfiltered covariance array !
 
         # Flatten on 2D for indexing
-        if isinstance(emulator_covariance_y, xarray.DataArray):
-            emulator_covariance_y = self.flatten_output(
-                emulator_covariance_y, flat_output_dims=2
-            )
+        emulator_covariance_y = self.flatten_output(
+            emulator_covariance_y, flat_output_dims=2
+        )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 

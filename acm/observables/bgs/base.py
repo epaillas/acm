@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal, overload
 
 import numpy as np
 import pandas as pd
@@ -33,6 +34,16 @@ class BaseObservableBGS(Observable):
             squeeze_output=squeeze_output,
             **kwargs,
         )
+
+    @overload
+    def get_emulator_covariance_y(
+        self, nofilters: Literal[True]
+    ) -> xarray.DataArray: ...
+
+    @overload
+    def get_emulator_covariance_y(
+        self, nofilters: Literal[False] = False
+    ) -> xarray.DataArray | np.ndarray: ...
 
     def get_emulator_covariance_y(
         self, nofilters: bool = False
@@ -145,10 +156,9 @@ class BaseObservableBGS(Observable):
         )  # Unfiltered covariance array !
 
         # Flatten on 2D for indexing
-        if isinstance(emulator_covariance_y, xarray.DataArray):
-            emulator_covariance_y = self.flatten_output(
-                emulator_covariance_y, flat_output_dims=2
-            )
+        emulator_covariance_y = self.flatten_output(
+            emulator_covariance_y, flat_output_dims=2
+        )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
