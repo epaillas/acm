@@ -154,6 +154,7 @@ class PypowerBackend:
             delta_mesh[mask] /= alpha * randoms_mesh[mask]
             delta_mesh[~mask] = 0.0
             shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
+            self.random_mesh = randoms_mesh
         else:
             self.mean = np.mean(data_mesh)
             delta_mesh = data_mesh / self.mean - 1
@@ -163,7 +164,10 @@ class PypowerBackend:
         return self.delta_mesh
 
     def get_query_positions(
-        self, method: str = "randoms", nquery: Optional[int] = None, seed: int = 42
+        self,
+        method: str = "randoms",
+        nquery: Optional[int] = None,
+        seed: int = 42,
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
 

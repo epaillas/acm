@@ -157,3 +157,6 @@ filterwarnings = [
     "ignore::DeprecationWarning::",  # ignore deprecations from all modules
     "default::DeprecationWarning:mymodule.*:",  # except from mymodule
 ]
+
+[tool.ty.rules]
+unresolved-import = "ignore" # Ignore unresolved imports, as some dependencies may not be installed in all environments.
