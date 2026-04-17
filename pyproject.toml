@@ -126,13 +126,6 @@ include = [
     "acm/hod/*.py",
     "acm/estimators/galaxy_clustering/**/*.py",
     "acm/lensing/abacuslensing.py",
-]
-
-[tool.ty.overrides.rules]
-all = "ignore"
-
-[[tool.ty.overrides]]
-include = [
     "acm/observables/emc/*_module.py",
     "acm/observables/bgs/tpcf_module.py",
     "acm/observables/bgs/density_split_correlation.py",
