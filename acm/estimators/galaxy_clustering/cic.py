@@ -1,20 +1,24 @@
-import time
 import logging
+import time
+
 import matplotlib.pyplot as plt
-from .base import BaseDensityMeshEstimator
+
 from acm.utils.plotting import set_plot_style
+
+from .base import BaseDensityMeshEstimator
+
 
 class CountsInCells(BaseDensityMeshEstimator):
     """
     Class to compute counts in cells.
     """
+
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger('CountsInCells')
-        self.logger.info('Initializing CountsInCells.')
+        self.logger = logging.getLogger("CountsInCells")
+        self.logger.info("Initializing CountsInCells.")
         super().__init__(**kwargs)
 
-    def sample_pdf(self, query_positions=None, query_method='randoms',
-        nquery_factor=5):
+    def sample_pdf(self, query_positions=None, query_method="randoms", nquery_factor=5):
         """
         Get the quantiles of the overdensity density field.
 
@@ -35,10 +39,13 @@ class CountsInCells(BaseDensityMeshEstimator):
         t0 = time.time()
         if query_positions is None:
             if self.has_randoms:
-                raise ValueError('Query points must be provided when working with a non-uniform geometry.')
+                raise ValueError(
+                    "Query points must be provided when working with a non-uniform geometry."
+                )
             else:
-                query_positions = self.get_query_positions(method=query_method,
-                                                           nquery=nquery_factor*self._size_data)
+                query_positions = self.get_query_positions(
+                    method=query_method, nquery=nquery_factor * self._size_data
+                )
         self.query_method = query_method
         self.query_positions = query_positions
         self.delta_query = self.delta_mesh.read_cic(query_positions)
@@ -47,12 +54,15 @@ class CountsInCells(BaseDensityMeshEstimator):
     @set_plot_style
     def plot_quantiles(self, save_fn=None):
         fig, ax = plt.subplots(figsize=(4, 4))
-        hist, bin_edges, patches = ax.hist(self.delta_query, bins=200, density=True, lw=2.0)
-        ax.set_xlabel(r'$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$', fontsize=15)
-        ax.set_ylabel('PDF', fontsize=15)
+        hist, bin_edges, patches = ax.hist(
+            self.delta_query, bins=200, density=True, lw=2.0
+        )
+        ax.set_xlabel(r"$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$", fontsize=15)
+        ax.set_ylabel("PDF", fontsize=15)
         ax.set_xlim(-1.3, 3.0)
         ax.legend(handlelength=1.0)
         plt.tight_layout()
-        if save_fn: plt.savefig(save_fn, bbox_inches='tight')
+        if save_fn:
+            plt.savefig(save_fn, bbox_inches="tight")
         plt.show()
         return fig

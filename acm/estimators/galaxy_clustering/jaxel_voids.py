@@ -1,31 +1,32 @@
 import time
 from functools import partial
 from pathlib import Path
-from typing import Optional, Tuple, Any, Union
+from typing import Any, Optional, Tuple, Union
 
 import jax
-import numpy as np
 import jax.numpy as jnp
-import numpy.typing as npt
 import matplotlib
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
 import xarray as xr
 from lsstypes import ObservableLeaf
 from lsstypes.external import from_pycorr
 from pycorr import TwoPointCorrelationFunction
 
-from .base import BaseEstimator
 from acm.utils.plotting import set_plot_style
 
+from .base import BaseEstimator
 
-jax.config.update('jax_enable_x64', True)
+jax.config.update("jax_enable_x64", True)
 
 
 class JaxelVoids(BaseEstimator):
     """
     GPU-capable voxel-void finder based on JAX arrays and in-memory processing.
     """
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the JAX voxel-void estimator.
 
@@ -41,7 +42,7 @@ class JaxelVoids(BaseEstimator):
         This estimator currently supports only ``backend='jaxpower'``.
         """
         super().__init__(**kwargs)
-        if self.backend.name != 'jaxpower':
+        if self.backend.name != "jaxpower":
             raise NotImplementedError(
                 "JaxelVoids currently supports only backend='jaxpower'."
             )
@@ -59,20 +60,26 @@ class JaxelVoids(BaseEstimator):
         RuntimeError
             If density contrast has not been computed yet.
         """
-        if not hasattr(self.backend, 'delta_mesh'):
-            raise RuntimeError('Density contrast is not set. Call set_density_contrast() before find_voids().')
+        if not hasattr(self.backend, "delta_mesh"):
+            raise RuntimeError(
+                "Density contrast is not set. Call set_density_contrast() before find_voids()."
+            )
 
         delta_mesh = self.backend.delta_mesh
-        delta_array = delta_mesh.value if hasattr(delta_mesh, 'value') else delta_mesh
+        delta_array = delta_mesh.value if hasattr(delta_mesh, "value") else delta_mesh
         self.delta_mesh_array = jnp.asarray(delta_array)
 
-        threshold_value = getattr(self.backend, 'randoms_threshold_value', 0.01)
-        threshold_method = getattr(self.backend, 'randoms_threshold_method', 'noise')
+        threshold_value = getattr(self.backend, "randoms_threshold_value", 0.01)
+        threshold_method = getattr(self.backend, "randoms_threshold_method", "noise")
         self.ran_min = threshold_value
 
         if self.has_randoms:
             randoms_real = self.backend.randoms_mesh.paint(
-                resampler='cic', compensate=False, interlacing=False, halo_add=0, out='real'
+                resampler="cic",
+                compensate=False,
+                interlacing=False,
+                halo_add=0,
+                out="real",
             )
             randoms_value = jnp.asarray(randoms_real.value)
             threshold_randoms = self.backend._get_threshold_randoms(
@@ -84,7 +91,9 @@ class JaxelVoids(BaseEstimator):
         else:
             self.valid_mask = jnp.ones_like(self.delta_mesh_array, dtype=bool)
 
-        self.delta_mesh_array = jnp.where(self.valid_mask, self.delta_mesh_array, jnp.inf)
+        self.delta_mesh_array = jnp.where(
+            self.valid_mask, self.delta_mesh_array, jnp.inf
+        )
 
     def find_voids(
         self,
@@ -114,13 +123,17 @@ class JaxelVoids(BaseEstimator):
         self.time = time.time()
         self._prepare_void_inputs_from_backend()
         self.voids, self.void_radii = self._find_voids_in_memory()
-        self.logger.info(f"Found {len(self.voids)} voids in {time.time() - self.time:.2f} s.")
+        self.logger.info(
+            f"Found {len(self.voids)} voids in {time.time() - self.time:.2f} s."
+        )
         self.logger.info(f"Mean void radius: {np.mean(self.void_radii):.2f} Mpc/h.")
         if save_fn is not None:
-            self.save(save_fn, type='catalog')
+            self.save(save_fn, type="catalog")
         return self.voids, self.void_radii
 
-    def save_catalog(self, filename: Union[str, Path], attrs: Optional[dict] = None) -> None:
+    def save_catalog(
+        self, filename: Union[str, Path], attrs: Optional[dict] = None
+    ) -> None:
         """Save the current void catalog to disk.
 
         Format is automatically determined from file extension:
@@ -139,24 +152,26 @@ class JaxelVoids(BaseEstimator):
         ValueError
             If no void catalog is available or extension is unsupported.
         """
-        if not hasattr(self, 'voids') or not hasattr(self, 'void_radii'):
-            raise ValueError('No void catalog to save. Run find_voids() first.')
+        if not hasattr(self, "voids") or not hasattr(self, "void_radii"):
+            raise ValueError("No void catalog to save. Run find_voids() first.")
 
         path = Path(filename)
-        self.logger.info(f'Saving void catalog to {path}')
+        self.logger.info(f"Saving void catalog to {path}")
 
         voids = np.asarray(self.voids, dtype=float)
         void_radii = np.asarray(self.void_radii, dtype=float)
-        core_dens = np.asarray(getattr(self, 'core_dens', np.full(len(void_radii), np.nan)), dtype=float)
+        core_dens = np.asarray(
+            getattr(self, "core_dens", np.full(len(void_radii), np.nan)), dtype=float
+        )
         n_voids = int(void_radii.shape[0])
-        zone_ptr = getattr(self, 'zone_ptr', np.zeros(1, dtype=np.int64))
+        zone_ptr = getattr(self, "zone_ptr", np.zeros(1, dtype=np.int64))
         zone_sizes = np.diff(zone_ptr).astype(int)
 
         default_attrs = dict(
-            estimator='JaxelVoids',
+            estimator="JaxelVoids",
             backend=self.backend.name,
-            ran_min=float(getattr(self, 'ran_min', np.nan)),
-            min_dens_cut=float(getattr(self, 'min_dens_cut', np.nan)),
+            ran_min=float(getattr(self, "ran_min", np.nan)),
+            min_dens_cut=float(getattr(self, "min_dens_cut", np.nan)),
             boxsize=np.asarray(self.boxsize, dtype=float).tolist(),
             boxcenter=np.asarray(self.boxcenter, dtype=float).tolist(),
             meshsize=np.asarray(self.meshsize, dtype=int).tolist(),
@@ -168,7 +183,7 @@ class JaxelVoids(BaseEstimator):
             default_attrs.update(attrs)
         attrs = default_attrs
 
-        if path.suffix in ['.hdf5', '.h5']:
+        if path.suffix in [".hdf5", ".h5"]:
             leaf = ObservableLeaf(
                 x=voids[:, 0],
                 y=voids[:, 1],
@@ -177,42 +192,42 @@ class JaxelVoids(BaseEstimator):
                 core_dens=core_dens,
                 zone_size=zone_sizes,
                 void=np.arange(n_voids, dtype=int),
-                coords=['void'],
+                coords=["void"],
                 attrs=attrs,
             )
             leaf.write(str(path))
 
-        elif path.suffix in ['.nc', '.zarr']:
+        elif path.suffix in [".nc", ".zarr"]:
             dataset = xr.Dataset(
                 data_vars={
-                    'x': (('void',), voids[:, 0]),
-                    'y': (('void',), voids[:, 1]),
-                    'z': (('void',), voids[:, 2]),
-                    'radius': (('void',), void_radii),
-                    'core_dens': (('void',), core_dens),
-                    'zone_size': (('void',), zone_sizes),
+                    "x": (("void",), voids[:, 0]),
+                    "y": (("void",), voids[:, 1]),
+                    "z": (("void",), voids[:, 2]),
+                    "radius": (("void",), void_radii),
+                    "core_dens": (("void",), core_dens),
+                    "zone_size": (("void",), zone_sizes),
                 },
                 coords={
-                    'void': np.arange(n_voids, dtype=int),
+                    "void": np.arange(n_voids, dtype=int),
                 },
                 attrs=attrs,
             )
-            if path.suffix == '.nc':
+            if path.suffix == ".nc":
                 dataset.to_netcdf(str(path))
             else:
-                dataset.to_zarr(str(path), mode='w')
+                dataset.to_zarr(str(path), mode="w")
 
-        elif path.suffix == '.npy':
+        elif path.suffix == ".npy":
             np.save(
                 str(path),
                 {
-                    'x': voids[:, 0],
-                    'y': voids[:, 1],
-                    'z': voids[:, 2],
-                    'radius': void_radii,
-                    'core_dens': core_dens,
-                    'zone_size': zone_sizes,
-                    'attrs': attrs,
+                    "x": voids[:, 0],
+                    "y": voids[:, 1],
+                    "z": voids[:, 2],
+                    "radius": void_radii,
+                    "core_dens": core_dens,
+                    "zone_size": zone_sizes,
+                    "attrs": attrs,
                 },
                 allow_pickle=True,
             )
@@ -242,24 +257,24 @@ class JaxelVoids(BaseEstimator):
             Additional metadata to attach when supported by the output format.
         """
         path = Path(filename)
-        self.logger.info(f'Saving void-data correlation to {path}')
+        self.logger.info(f"Saving void-data correlation to {path}")
 
         base_attrs = {
-            'estimator': 'JaxelVoids',
-            'backend': self.backend.name,
-            'boxsize': np.asarray(self.boxsize, dtype=float).tolist(),
-            'meshsize': np.asarray(self.meshsize, dtype=int).tolist(),
-            'has_randoms': bool(self.has_randoms),
+            "estimator": "JaxelVoids",
+            "backend": self.backend.name,
+            "boxsize": np.asarray(self.boxsize, dtype=float).tolist(),
+            "meshsize": np.asarray(self.meshsize, dtype=int).tolist(),
+            "has_randoms": bool(self.has_randoms),
         }
         if attrs is not None:
             base_attrs.update(attrs)
 
-        if path.suffix in ['.hdf5', '.h5']:
+        if path.suffix in [".hdf5", ".h5"]:
             corr_leaf = from_pycorr(correlation)
-            if hasattr(corr_leaf, 'attrs') and isinstance(corr_leaf.attrs, dict):
+            if hasattr(corr_leaf, "attrs") and isinstance(corr_leaf.attrs, dict):
                 corr_leaf.attrs.update(base_attrs)
             corr_leaf.write(path)
-        elif path.suffix == '.npy':
+        elif path.suffix == ".npy":
             np.save(path, correlation)
         else:
             raise ValueError(
@@ -271,7 +286,7 @@ class JaxelVoids(BaseEstimator):
         self,
         filename: Union[str, Path],
         data: Optional[Any] = None,
-        type: str = 'catalog',
+        type: str = "catalog",
         attrs: Optional[dict] = None,
     ) -> None:
         """Dispatch saving to catalog or correlation serializers.
@@ -288,18 +303,26 @@ class JaxelVoids(BaseEstimator):
         attrs : dict, optional
             Extra metadata passed to the specific save routine.
         """
-        if type == 'catalog':
+        if type == "catalog":
             self.save_catalog(filename, attrs=attrs)
-        elif type == 'correlation':
-            corr = data if data is not None else getattr(self, '_void_data_correlation', None)
+        elif type == "correlation":
+            corr = (
+                data
+                if data is not None
+                else getattr(self, "_void_data_correlation", None)
+            )
             if corr is None:
-                raise ValueError('No void-data correlation to save. Run void_data_correlation() first.')
+                raise ValueError(
+                    "No void-data correlation to save. Run void_data_correlation() first."
+                )
             self.save_correlations(corr, filename, attrs=attrs)
         else:
-            raise ValueError(f"Unknown type '{type}'. Available types: 'catalog', 'correlation'.")
+            raise ValueError(
+                f"Unknown type '{type}'. Available types: 'catalog', 'correlation'."
+            )
 
     @staticmethod
-    @partial(jax.jit, static_argnames=('nsteps',))
+    @partial(jax.jit, static_argnames=("nsteps",))
     def _compute_roots(
         delta: jnp.ndarray,
         valid_mask: jnp.ndarray,
@@ -346,8 +369,12 @@ class JaxelVoids(BaseEstimator):
         idx_zp = jnp.roll(idx, -1, axis=2)
         idx_zm = jnp.roll(idx, 1, axis=2)
 
-        candidates_delta = jnp.stack([delta, delta_xp, delta_xm, delta_yp, delta_ym, delta_zp, delta_zm], axis=0)
-        candidates_idx = jnp.stack([idx, idx_xp, idx_xm, idx_yp, idx_ym, idx_zp, idx_zm], axis=0)
+        candidates_delta = jnp.stack(
+            [delta, delta_xp, delta_xm, delta_yp, delta_ym, delta_zp, delta_zm], axis=0
+        )
+        candidates_idx = jnp.stack(
+            [idx, idx_xp, idx_xm, idx_yp, idx_ym, idx_zp, idx_zm], axis=0
+        )
 
         min_choice = jnp.argmin(candidates_delta, axis=0)
         next_idx = jnp.take_along_axis(candidates_idx, min_choice[None, ...], axis=0)[0]
@@ -422,11 +449,11 @@ class JaxelVoids(BaseEstimator):
             return np.empty((0, 3), dtype=float), np.empty((0,), dtype=float)
 
         valid_voxel_ids = np.flatnonzero(flat_valid)
-        sort_order = np.argsort(valid_roots, kind='mergesort')
+        sort_order = np.argsort(valid_roots, kind="mergesort")
         sorted_roots = valid_roots[sort_order]
         sorted_voxel_ids = valid_voxel_ids[sort_order]
-        left = np.searchsorted(sorted_roots, selected_roots, side='left')
-        right = np.searchsorted(sorted_roots, selected_roots, side='right')
+        left = np.searchsorted(sorted_roots, selected_roots, side="left")
+        right = np.searchsorted(sorted_roots, selected_roots, side="right")
 
         # Store zone membership in CSR format:
         #   zone_voxels[zone_ptr[i] : zone_ptr[i+1]]  gives the flat voxel
@@ -475,7 +502,9 @@ class JaxelVoids(BaseEstimator):
         hi = int(self.zone_ptr[i + 1])
         return self.zone_voxels[lo:hi]
 
-    def voxel_position(self, voxel: npt.NDArray) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
+    def voxel_position(
+        self, voxel: npt.NDArray
+    ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         """Map flattened voxel indices to Cartesian coordinates.
 
         Parameters
@@ -507,7 +536,7 @@ class JaxelVoids(BaseEstimator):
             xpos += boxcenter[0] - boxsize[0] / 2.0
             ypos += boxcenter[1] - boxsize[1] / 2.0
             zpos += boxcenter[2] - boxsize[2] / 2.0
-        
+
         offset = boxcenter - boxsize / 2.0
         xpos += offset[0]
         ypos += offset[1]
@@ -539,31 +568,35 @@ class JaxelVoids(BaseEstimator):
             Configured pycorr object containing measured correlation statistics.
         """
         if self.has_randoms:
-            if 'randoms_positions' not in kwargs:
-                raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
-            kwargs['randoms_positions1'] = kwargs['randoms_positions']
-            kwargs['randoms_positions2'] = kwargs['randoms_positions']
-            kwargs.pop('randoms_positions')
-            if 'data_weights' in kwargs:
-                kwargs['data_weights2'] = kwargs.pop('data_weights')
-            if 'randoms_weights' in kwargs:
-                kwargs['randoms_weights2'] = kwargs.pop('randoms_weights')
+            if "randoms_positions" not in kwargs:
+                raise ValueError(
+                    "Randoms positions must be provided when working with a non-uniform geometry."
+                )
+            kwargs["randoms_positions1"] = kwargs["randoms_positions"]
+            kwargs["randoms_positions2"] = kwargs["randoms_positions"]
+            kwargs.pop("randoms_positions")
+            if "data_weights" in kwargs:
+                kwargs["data_weights2"] = kwargs.pop("data_weights")
+            if "randoms_weights" in kwargs:
+                kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
         else:
-            if 'boxsize' not in kwargs:
-                kwargs['boxsize'] = self.boxsize
+            if "boxsize" not in kwargs:
+                kwargs["boxsize"] = self.boxsize
         self._void_data_correlation = TwoPointCorrelationFunction(
             data_positions1=self.voids,
             data_positions2=data_positions,
-            mode='smu',
-            position_type='pos',
+            mode="smu",
+            position_type="pos",
             **kwargs,
         )
         if save_fn is not None:
-            self.save(save_fn, data=self._void_data_correlation, type='correlation')
+            self.save(save_fn, data=self._void_data_correlation, type="correlation")
         return self._void_data_correlation
 
     @set_plot_style
-    def plot_void_size_distribution(self, save_fn: Optional[Union[str, Path]] = None) -> matplotlib.figure.Figure:
+    def plot_void_size_distribution(
+        self, save_fn: Optional[Union[str, Path]] = None
+    ) -> matplotlib.figure.Figure:
         """Plot the histogram of void effective radii.
 
         Parameters
@@ -578,11 +611,11 @@ class JaxelVoids(BaseEstimator):
         """
         fig, ax = plt.subplots(figsize=(4, 4))
         ax.hist(self.void_radii, bins=25, lw=2.0, alpha=0.5)
-        ax.set_xlabel(r'$R_{\rm void}\, [h^{-1}{\rm Mpc}]$', fontsize=15)
-        ax.set_ylabel(r'$N$', fontsize=15)
+        ax.set_xlabel(r"$R_{\rm void}\, [h^{-1}{\rm Mpc}]$", fontsize=15)
+        ax.set_ylabel(r"$N$", fontsize=15)
         plt.tight_layout()
         if save_fn:
-            plt.savefig(save_fn, bbox_inches='tight')
+            plt.savefig(save_fn, bbox_inches="tight")
         plt.show()
         return fig
 
@@ -609,13 +642,13 @@ class JaxelVoids(BaseEstimator):
         fig, ax = plt.subplots(figsize=(4, 4))
         s, multipoles = self._void_data_correlation(ells=(0, 2, 4), return_sep=True)
         for ell in ells:
-            ax.plot(s, multipoles[ell // 2], lw=2.0, label=f'$\\ell = {ell}$')
-        ax.set_xlabel(r'$s\, [h^{-1}{\rm Mpc}]$', fontsize=15)
-        ax.set_ylabel(r'$\xi_\ell(s)$', fontsize=15)
-        ax.legend(fontsize=15, loc='best', handlelength=1.0)
+            ax.plot(s, multipoles[ell // 2], lw=2.0, label=f"$\\ell = {ell}$")
+        ax.set_xlabel(r"$s\, [h^{-1}{\rm Mpc}]$", fontsize=15)
+        ax.set_ylabel(r"$\xi_\ell(s)$", fontsize=15)
+        ax.legend(fontsize=15, loc="best", handlelength=1.0)
         plt.tight_layout()
         if save_fn:
-            plt.savefig(save_fn, bbox_inches='tight')
+            plt.savefig(save_fn, bbox_inches="tight")
         return fig
 
     @set_plot_style
@@ -647,21 +680,21 @@ class JaxelVoids(BaseEstimator):
         # print(zones_mesh.shape)
         fig, ax = plt.subplots()
         cmap = matplotlib.cm.tab20
-        cmap.set_bad(color='white')
+        cmap.set_bad(color="white")
         ax.imshow(
             zones_mesh[:, :],
-            origin='lower',
+            origin="lower",
             cmap=cmap,
             extent=[0, boxsize[0], 0, boxsize[1]],
-            interpolation='gaussian',
+            interpolation="gaussian",
         )
         ax.set_xlim(0, 250)
         ax.set_ylim(0, 250)
-        ax.set_xlabel(r'$x\, [h^{-1}{\rm Mpc}]$', fontsize=15)
-        ax.set_ylabel(r'$y\, [h^{-1}{\rm Mpc}]$', fontsize=15)
+        ax.set_xlabel(r"$x\, [h^{-1}{\rm Mpc}]$", fontsize=15)
+        ax.set_ylabel(r"$y\, [h^{-1}{\rm Mpc}]$", fontsize=15)
         plt.tight_layout()
         if save_fn:
-            plt.savefig(save_fn, bbox_inches='tight')
+            plt.savefig(save_fn, bbox_inches="tight")
         return fig
 
     @set_plot_style
@@ -700,26 +733,26 @@ class JaxelVoids(BaseEstimator):
 
         fig, ax = plt.subplots()
         cmap = matplotlib.cm.tab20
-        cmap.set_bad(color='white')
+        cmap.set_bad(color="white")
 
         image = ax.imshow(
             zones_mesh[:, :, 0],
-            origin='lower',
+            origin="lower",
             cmap=cmap,
             extent=[0, boxsize[0], 0, boxsize[1]],
-            interpolation='gaussian',
+            interpolation="gaussian",
             animated=True,
         )
         ax.set_xlim(0, 500)
         ax.set_ylim(0, 500)
-        ax.set_xlabel(r'$x\, [h^{-1}{\rm Mpc}]$', fontsize=15)
-        ax.set_ylabel(r'$y\, [h^{-1}{\rm Mpc}]$', fontsize=15)
+        ax.set_xlabel(r"$x\, [h^{-1}{\rm Mpc}]$", fontsize=15)
+        ax.set_ylabel(r"$y\, [h^{-1}{\rm Mpc}]$", fontsize=15)
 
-        title = ax.set_title('z-slice 0', fontsize=13)
+        title = ax.set_title("z-slice 0", fontsize=13)
 
         def update(zindex: int):
             image.set_data(zones_mesh[:, :, zindex])
-            title.set_text(f'z-slice {zindex}')
+            title.set_text(f"z-slice {zindex}")
             return image, title
 
         anim = animation.FuncAnimation(
@@ -730,8 +763,8 @@ class JaxelVoids(BaseEstimator):
             blit=True,
         )
 
-        out = Path(save_fn) if save_fn else Path('void_slice.gif')
-        anim.save(out, writer='pillow', dpi=300)
+        out = Path(save_fn) if save_fn else Path("void_slice.gif")
+        anim.save(out, writer="pillow", dpi=300)
 
         plt.tight_layout()
         return fig
@@ -790,7 +823,9 @@ class JaxelVoids(BaseEstimator):
         nmesh = tuple(int(x) for x in self.meshsize)
         nxy = nmesh[1] * nmesh[2]
 
-        def zone_indices(voxels: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        def zone_indices(
+            voxels: np.ndarray,
+        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
             xi_ = voxels // nxy
             rem_ = voxels % nxy
             yi_ = rem_ // nmesh[2]
@@ -816,7 +851,9 @@ class JaxelVoids(BaseEstimator):
                 non_edge_candidates.append((voxels.size, zid, voxels, xi_c, yi_c, zi_c))
 
         if not non_edge_candidates:
-            raise ValueError('No non-edge void found. All zones touch simulation-box boundaries or are empty.')
+            raise ValueError(
+                "No non-edge void found. All zones touch simulation-box boundaries or are empty."
+            )
 
         non_edge_candidates.sort(key=lambda x: x[0], reverse=True)
 
@@ -833,13 +870,15 @@ class JaxelVoids(BaseEstimator):
             selected = non_edge_candidates[0]
 
         _, zone_id_used, vox, xi, yi, zi = selected
-        self.logger.info(f'Using zone {zone_id_used} with {len(vox)} voxels for 3D GIF.')
+        self.logger.info(
+            f"Using zone {zone_id_used} with {len(vox)} voxels for 3D GIF."
+        )
 
         filled = np.zeros(nmesh, dtype=bool)
         filled[xi, yi, zi] = True
 
         facecolors = np.zeros(filled.shape + (4,), dtype=float)
-        color = matplotlib.colors.to_rgba('#6eaed6', alpha=0.92)
+        color = matplotlib.colors.to_rgba("#6eaed6", alpha=0.92)
         facecolors[filled] = color
 
         xmin = max(int(np.min(xi)) - padding_cells, 0)
@@ -854,7 +893,7 @@ class JaxelVoids(BaseEstimator):
         sz = max(zmax - zmin, 1)
 
         fig = plt.figure(figsize=(6, 6))
-        ax = fig.add_subplot(111, projection='3d')
+        ax = fig.add_subplot(111, projection="3d")
         ax.set_box_aspect((sx, sy, sz))
         ax.voxels(
             filled,
@@ -866,7 +905,10 @@ class JaxelVoids(BaseEstimator):
         ax.set_zlim(zmin, zmax)
 
         if show_axes:
-            offset = np.asarray(self.boxcenter, dtype=float) - np.asarray(self.boxsize, dtype=float) / 2.0
+            offset = (
+                np.asarray(self.boxcenter, dtype=float)
+                - np.asarray(self.boxsize, dtype=float) / 2.0
+            )
             cellsize = np.asarray(self.cellsize, dtype=float)
 
             xticks = np.linspace(xmin, xmax, 4)
@@ -877,13 +919,13 @@ class JaxelVoids(BaseEstimator):
             ax.set_yticks(yticks)
             ax.set_zticks(zticks)
 
-            ax.set_xticklabels([f'{(x * cellsize[0] + offset[0]):.0f}' for x in xticks])
-            ax.set_yticklabels([f'{(y * cellsize[1] + offset[1]):.0f}' for y in yticks])
-            ax.set_zticklabels([f'{(z * cellsize[2] + offset[2]):.0f}' for z in zticks])
+            ax.set_xticklabels([f"{(x * cellsize[0] + offset[0]):.0f}" for x in xticks])
+            ax.set_yticklabels([f"{(y * cellsize[1] + offset[1]):.0f}" for y in yticks])
+            ax.set_zticklabels([f"{(z * cellsize[2] + offset[2]):.0f}" for z in zticks])
 
-            ax.set_xlabel(r'$x\,[h^{-1}{\rm Mpc}]$', labelpad=8)
-            ax.set_ylabel(r'$y\,[h^{-1}{\rm Mpc}]$', labelpad=8)
-            ax.set_zlabel(r'$z\,[h^{-1}{\rm Mpc}]$', labelpad=8)
+            ax.set_xlabel(r"$x\,[h^{-1}{\rm Mpc}]$", labelpad=8)
+            ax.set_ylabel(r"$y\,[h^{-1}{\rm Mpc}]$", labelpad=8)
+            ax.set_zlabel(r"$z\,[h^{-1}{\rm Mpc}]$", labelpad=8)
 
             ax.grid(True, alpha=0.25)
             ax.xaxis.pane.set_alpha(0.02)
@@ -905,8 +947,8 @@ class JaxelVoids(BaseEstimator):
             blit=False,
         )
 
-        out = Path(save_fn) if save_fn else Path('void_3d.gif')
-        anim.save(out, writer='pillow', dpi=dpi)
+        out = Path(save_fn) if save_fn else Path("void_3d.gif")
+        anim.save(out, writer="pillow", dpi=dpi)
 
         plt.tight_layout()
         return fig
