@@ -24,7 +24,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "mst",
-        save_to: str = None,
+        save_to: str | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -102,12 +102,12 @@ class MinimumSpanningTree(BaseObservableEMC):
         paths: dict,
         stat_name: str = "mst",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 300,
         phase_idx: int = 0,
         seed_idx: int = 0,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from raw measurement files.
 
@@ -210,7 +210,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
@@ -236,7 +236,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot Minimum Spanning Tree predictions against data.
 
@@ -306,7 +306,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance matrix for the observable.
 

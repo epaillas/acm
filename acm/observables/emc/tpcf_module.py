@@ -24,11 +24,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "tpcf",
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 4,
         ells: list = [0, 2, 4],
-        overwrite_s: np.ndarray = None,
-    ) -> xarray.DataArray:
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -104,15 +104,15 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str = "tpcf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 4,
         ells: list = [0, 2, 4],
         cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> dict:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 

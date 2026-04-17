@@ -29,14 +29,14 @@ class DensitySplitBaseClass(BaseObservableEMC):
         stat_name: str,
         paths: dict,
         measurement_root: str,
-        save_to: str = None,
+        save_to: str | None = None,
         smin: float = 0.0,
         smax: float = 150,
         rebin: int = 4,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        overwrite_s: np.ndarray = None,
-    ):
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -129,7 +129,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         measurement_root: str,
         stat_name: str,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 4,
         smin: float = 0.0,
         smax: float = 150,
@@ -139,8 +139,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ):
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the densitysplit raw measurement files.
 
@@ -262,7 +262,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
 
@@ -299,16 +299,70 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("measurement_root", "dsc_xiqg")
-        kwargs.setdefault("stat_name", "ds_xiqg")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "ds_xiqg",
+        paths: dict | None = None,
+        measurement_root: str = "dsc_xiqg",
+        save_to: str | None = None,
+        smin: float = 0.0,
+        smax: float = 150,
+        rebin: int = 4,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name,
+            paths=paths,
+            measurement_root=measurement_root,
+            save_to=save_to,
+            smin=smin,
+            smax=smax,
+            rebin=rebin,
+            ells=ells,
+            quantiles=quantiles,
+            overwrite_s=overwrite_s,
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("measurement_root", "dsc_xiqg")
-        kwargs.setdefault("stat_name", "ds_xiqg")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        measurement_root: str = "dsc_xiqg",
+        stat_name: str = "ds_xiqg",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        rebin: int = 4,
+        smin: float = 0.0,
+        smax: float = 150,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            measurement_root=measurement_root,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            rebin=rebin,
+            smin=smin,
+            smax=smax,
+            ells=ells,
+            quantiles=quantiles,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
@@ -320,16 +374,70 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("measurement_root", "dsc_xiqq")
-        kwargs.setdefault("stat_name", "ds_xiqq")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "ds_xiqq",
+        paths: dict | None = None,
+        measurement_root: str = "dsc_xiqq",
+        save_to: str | None = None,
+        smin: float = 0.0,
+        smax: float = 150,
+        rebin: int = 4,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name,
+            paths=paths,
+            measurement_root=measurement_root,
+            save_to=save_to,
+            smin=smin,
+            smax=smax,
+            rebin=rebin,
+            ells=ells,
+            quantiles=quantiles,
+            overwrite_s=overwrite_s,
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("measurement_root", "dsc_xiqq")
-        kwargs.setdefault("stat_name", "ds_xiqq")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        measurement_root: str = "dsc_xiqq",
+        stat_name: str = "ds_xiqq",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        rebin: int = 4,
+        smin: float = 0.0,
+        smax: float = 150,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            measurement_root=measurement_root,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            rebin=rebin,
+            smin=smin,
+            smax=smax,
+            ells=ells,
+            quantiles=quantiles,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 # Aliases

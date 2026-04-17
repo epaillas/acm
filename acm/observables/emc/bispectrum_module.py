@@ -27,12 +27,12 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "bispectrum",
-        save_to: str = None,
+        save_to: str | None = None,
         kmin: float = 0.016,
         kmax: float = 0.285,
         rebin: int = 3,
         ells: list = [0, 2],
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Class method to compress the covariance array from the raw measurement files.
         Provided within the class for convenience.
@@ -112,7 +112,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str = "bispectrum",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         kmin: float = 0.016,
         kmax: float = 0.285,
         rebin: int = 3,
@@ -121,8 +121,8 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> dict:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Class method to compress the data from the raw measurement files.
         Provided within the class for convenience.
@@ -244,7 +244,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the reconstructed galaxy bispectrum multipoles data, model, and residuals.
 

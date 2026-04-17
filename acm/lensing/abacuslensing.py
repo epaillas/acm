@@ -27,6 +27,8 @@ class AbacusLensingMap(ABC):
             mask_{snap_idx:05d}.asdf
     """
 
+    map_type: str
+
     def __init__(
         self,
         snap_idx: int = 47,

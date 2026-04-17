@@ -119,46 +119,38 @@ acm = [
 
 [[tool.ty.overrides]]
 include = [
+    "acm/estimators/weak_lensing/correlation.py",
+    "acm/estimators/galaxy_clustering/backends/*.py",
+    "acm/estimators/galaxy_clustering/density_split.py",
+    "acm/estimators/galaxy_clustering/jaxel_voids.py",
+    "acm/estimators/galaxy_clustering/minkowski.py",
+    "acm/estimators/galaxy_clustering/mst.py",
+    "acm/estimators/galaxy_clustering/multiplets.py",
+    "acm/estimators/galaxy_clustering/pydive.py",
+    "acm/estimators/galaxy_clustering/polybin3d.py",
+    "acm/estimators/galaxy_clustering/spectrum.py",
+    "acm/estimators/galaxy_clustering/voxel_voids.py",
     "acm/hod/box.py",
     "acm/hod/cutsky.py",
     "acm/hod/footprint.py",
     "acm/hod/lightcone.py",
-    "acm/hod/parameters.py",
-    "acm/estimators/galaxy_clustering/base.py",
-    "acm/estimators/galaxy_clustering/cic.py",
-    "acm/estimators/galaxy_clustering/cumulants.py",
-    "acm/estimators/galaxy_clustering/density_split.py",
-    "acm/estimators/galaxy_clustering/jaxel_voids.py",
-    "acm/estimators/galaxy_clustering/jaxmf.py",
-    "acm/estimators/galaxy_clustering/knn.py",
-    "acm/estimators/galaxy_clustering/minkowski.py",
-    "acm/estimators/galaxy_clustering/mst.py",
-    "acm/estimators/galaxy_clustering/multiplets.py",
-    "acm/estimators/galaxy_clustering/polybin3d.py",
-    "acm/estimators/galaxy_clustering/pydive.py",
-    "acm/estimators/galaxy_clustering/spectrum.py",
-    "acm/estimators/galaxy_clustering/voxel_voids.py",
-    "acm/estimators/galaxy_clustering/wst.py",
-    "acm/estimators/galaxy_clustering/backends/jaxpower.py",
-    "acm/estimators/galaxy_clustering/backends/pypower.py",
-    "acm/estimators/galaxy_clustering/backends/pyrecon.py",
     "acm/lensing/abacuslensing.py",
-    "acm/observables/emc/*_module.py",
     "acm/observables/bgs/tpcf_module.py",
-    "acm/observables/bgs/density_split_correlation.py",
-]
-
-[tool.ty.overrides.rules]
-all = "ignore"
-
-[[tool.ty.overrides]]
-include = [
-    "acm/estimators/weak_lensing/correlation.py",
+    "acm/observables/emc/*_module.py",
     "acm/observables/base.py",
 ]
 
 [tool.ty.overrides.rules]
 unresolved-import = "ignore"
+
+[[tool.ty.overrides]]
+include = [
+    "acm/estimators/galaxy_clustering/knn.py",
+]
+
+[tool.ty.overrides.rules]
+unresolved-import = "ignore"
+not-iterable = "ignore"
 
 [tool.pytest.ini_options]
 filterwarnings = [

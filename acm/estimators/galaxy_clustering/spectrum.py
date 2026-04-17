@@ -43,7 +43,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         interlacing: int = 3,
         compensate: bool = True,
         resampler="tsc",
-        save_fn: Optional[str] = None,
+        save_fn: Optional[str | Path] = None,
     ):
         """
         Calculate the power spectrum multipoles.
@@ -155,7 +155,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
             return k, poles
         return poles
 
-    def save(self, fn: str) -> None:
+    def save(self, fn: str | Path) -> None:
         """Save the computed power spectrum to a file. Only process 0 will write to disk.
 
         Parameters

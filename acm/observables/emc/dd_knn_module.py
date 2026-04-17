@@ -28,7 +28,7 @@ class DDkNN(BaseObservableEMC):
         paths: dict,
         stat_name: str = "dd_knn",
         cdf_floor: float = 0.05,
-        save_to: str = None,
+        save_to: str | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -106,14 +106,14 @@ class DDkNN(BaseObservableEMC):
         paths: dict,
         stat_name: str = "dd_knn",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
         cdf_floor: float = 0.05,
-        test_filters: dict = None,
-    ) -> dict:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from raw measurement files.
 
@@ -235,7 +235,7 @@ class DDkNN(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
@@ -261,7 +261,7 @@ class DDkNN(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot DD-kNN CDFs  predictions against data.
 
@@ -333,7 +333,7 @@ class DDkNN(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance matrix for the observable.
 

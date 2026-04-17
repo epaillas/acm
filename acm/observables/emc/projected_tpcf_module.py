@@ -27,8 +27,8 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "projected_tpcf",
-        save_to: str = None,
-    ) -> xarray.DataArray:
+        save_to: str | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -94,13 +94,13 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         paths: dict,
         stat_name: str = "projected_tpcf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> dict:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 
@@ -205,7 +205,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the projected galaxy correlation function data, model, and residuals.
 

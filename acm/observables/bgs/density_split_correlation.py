@@ -31,12 +31,12 @@ class DensitySplitBaseClass(BaseObservableBGS):
         hod_idx: int = 157,
         seed: int = 0,
         los: list[str] = ["x", "y", "z"],
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 1,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        overwrite_s: np.ndarray = None,
-    ) -> xarray.DataArray:
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -75,8 +75,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Dataset containing the covariance array.
         """
         logger = cls.get_logger()
 
@@ -151,15 +151,15 @@ class DensitySplitBaseClass(BaseObservableBGS):
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         los: list[str] = ["x", "y", "z"],
         rebin: int = 1,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
         cosmos: list = cosmo_list,
-        n_hod: int = None,
-        density_threshold: float = None,
-        test_filters: dict = None,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
         """
@@ -319,7 +319,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
     def plot_observable(
         self,
         model_params: dict,
-        save_fn: str = None,
+        save_fn: str | None = None,
         quantiles: list = [0, 1, 3, 4],
         ell: int = 0,
         **kwargs,
@@ -432,20 +432,74 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs["measurement_root"] = kwargs.pop(
-            "measurement_root", "quantile_data_correlation"
+    def compress_covariance(
+        cls,
+        paths: dict,
+        stat_name: str = "ds_xiqg",
+        measurement_root: str = "quantile_data_correlation",
+        cosmo_idx: int = 0,
+        hod_idx: int = 157,
+        seed: int = 0,
+        los: list[str] = ["x", "y", "z"],
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_covariance(
+            paths=paths,
+            stat_name=stat_name,
+            measurement_root=measurement_root,
+            cosmo_idx=cosmo_idx,
+            hod_idx=hod_idx,
+            seed=seed,
+            los=los,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+            quantiles=quantiles,
+            overwrite_s=overwrite_s,
         )
-        kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqg")
-        return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs["measurement_root"] = kwargs.pop(
-            "measurement_root", "quantile_data_correlation"
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "ds_xiqg",
+        measurement_root: str = "quantile_data_correlation",
+        phase: int = 0,
+        seed: int = 0,
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        los: list[str] = ["x", "y", "z"],
+        rebin: int = 1,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        cosmos: list = cosmo_list,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
+        **kwargs,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            measurement_root=measurement_root,
+            phase=phase,
+            seed=seed,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            los=los,
+            rebin=rebin,
+            ells=ells,
+            quantiles=quantiles,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            density_threshold=density_threshold,
+            test_filters=test_filters,
+            **kwargs,
         )
-        kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqg")
-        return super().compress_data(**kwargs)
 
 
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
@@ -457,20 +511,74 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs["measurement_root"] = kwargs.pop(
-            "measurement_root", "quantile_correlation"
+    def compress_covariance(
+        cls,
+        paths: dict,
+        stat_name: str = "ds_xiqq",
+        measurement_root: str = "quantile_correlation",
+        cosmo_idx: int = 0,
+        hod_idx: int = 157,
+        seed: int = 0,
+        los: list[str] = ["x", "y", "z"],
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_covariance(
+            paths=paths,
+            stat_name=stat_name,
+            measurement_root=measurement_root,
+            cosmo_idx=cosmo_idx,
+            hod_idx=hod_idx,
+            seed=seed,
+            los=los,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+            quantiles=quantiles,
+            overwrite_s=overwrite_s,
         )
-        kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqq")
-        return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs["measurement_root"] = kwargs.pop(
-            "measurement_root", "quantile_correlation"
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "ds_xiqq",
+        measurement_root: str = "quantile_correlation",
+        phase: int = 0,
+        seed: int = 0,
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        los: list[str] = ["x", "y", "z"],
+        rebin: int = 1,
+        ells: list = [0, 2],
+        quantiles: list = [0, 1, 3, 4],
+        cosmos: list = cosmo_list,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
+        **kwargs,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            measurement_root=measurement_root,
+            phase=phase,
+            seed=seed,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            los=los,
+            rebin=rebin,
+            ells=ells,
+            quantiles=quantiles,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            density_threshold=density_threshold,
+            test_filters=test_filters,
+            **kwargs,
         )
-        kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqq")
-        return super().compress_data(**kwargs)
 
 
 # Aliases

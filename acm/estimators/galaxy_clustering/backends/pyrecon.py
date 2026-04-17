@@ -251,26 +251,29 @@ class PyreconBackend:
             )
 
         if self.has_randoms:
+            randoms_mesh = self.randoms_mesh
+            if randoms_mesh is None or randoms_mesh.value is None:
+                raise ValueError("Randoms were requested but no randoms mesh is set.")
             if check:
-                mask_nonzero = self.randoms_mesh.value > 0.0
+                mask_nonzero = randoms_mesh.value > 0.0
                 nnonzero = mask_nonzero.sum()
                 if nnonzero < 2:
                     raise ValueError("Very few randoms.")
 
             if smoothing_radius:
-                self.randoms_mesh.smooth_gaussian(
+                randoms_mesh.smooth_gaussian(
                     smoothing_radius, engine="fftw", save_wisdom=save_wisdom
                 )
 
             sum_data, sum_randoms = (
                 np.sum(self.data_mesh.value),
-                np.sum(self.randoms_mesh.value),
+                np.sum(randoms_mesh.value),
             )
             alpha = sum_data * 1.0 / sum_randoms
-            self.delta_mesh = self.data_mesh - alpha * self.randoms_mesh
+            self.delta_mesh = self.data_mesh - alpha * randoms_mesh
             self.ran_min = ran_min * sum_randoms / self._size_randoms
-            mask = self.randoms_mesh > self.ran_min
-            self.delta_mesh[mask] /= alpha * self.randoms_mesh[mask]
+            mask = randoms_mesh > self.ran_min
+            self.delta_mesh[mask] /= alpha * randoms_mesh[mask]
             self.delta_mesh[~mask] = 0.0
         else:
             self.mean = np.mean(self.data_mesh)
@@ -339,3 +342,6 @@ class PyreconBackend:
             if nquery is None:
                 nquery = 5 * self.size_data
             return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
+        raise ValueError(
+            f"Unknown method '{method}'. Available methods: 'lattice', 'randoms'."
+        )

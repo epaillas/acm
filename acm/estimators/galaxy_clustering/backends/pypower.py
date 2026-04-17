@@ -221,6 +221,9 @@ class PypowerBackend:
             if nquery is None:
                 nquery = 5 * self.size_data
             return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
+        raise ValueError(
+            f"Unknown method '{method}'. Available methods: 'lattice', 'randoms'."
+        )
 
     class TopHat(object):
         """Top-hat filter in Fourier space.

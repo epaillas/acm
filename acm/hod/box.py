@@ -3,6 +3,7 @@ import os
 import sys
 import warnings
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import yaml
@@ -28,14 +29,14 @@ class BoxHOD:
         self,
         varied_params: list[str],
         tracer: str = "LRG",
-        config_file: str | None = None,
+        config_file: str | Path | None = None,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         sim_type: str = "base",
         redshift: float = 0.5,
-        DM_DICT: dict = None,
-        DM_DICT_simtype: str = None,
-        sim_geometry: str = None,
+        DM_DICT: dict | None = None,
+        DM_DICT_simtype: str | None = None,
+        sim_geometry: str | None = None,
     ):
         """
         Initialize the BoxHOD class.
@@ -94,7 +95,11 @@ class BoxHOD:
             else:
                 box_yaml_file = "box_" + tracer + ".yaml"
                 config_file = Path(config_dir) / box_yaml_file
-        config = yaml.safe_load(open(config_file))
+        if config_file is None:
+            raise ValueError("config_file must be provided")
+        config_path = Path(config_file)
+        with config_path.open() as handle:
+            config = yaml.safe_load(handle)
         if DM_DICT is None:
             if DM_DICT_simtype is None:
                 DM_DICT_simtype = "box"
@@ -197,7 +202,7 @@ class BoxHOD:
             If the parameters are invalid.
         """
         params = list(params)
-        params = self.param_mapping(params)  # re-map custom keys to Abacus keys
+        params = cast(list[str], self.param_mapping(params))  # re-map custom keys to Abacus keys
         for param in params:
             if param not in self.ball.tracers[self.tracer].keys():
                 raise ValueError(
@@ -267,7 +272,7 @@ class BoxHOD:
         use_logsigma: bool = True,
         nfw_draw_path: str = "/global/cfs/projectdirs/desi/users/arocher/nfw.npy",
         save_distortions: bool = False,
-    ) -> dict:
+    ) -> dict | None:
         """
         Run the HOD model with the given parameters.
 
@@ -321,7 +326,7 @@ class BoxHOD:
             seed = None
         # if tracer not in ['LRG']:
         #    raise ValueError('Only LRGs are currently supported.')
-        hod_params = self.param_mapping(hod_params)
+        hod_params = cast(dict, self.param_mapping(hod_params))
         if set(hod_params.keys()) != set(self.varied_params):
             raise ValueError(
                 "Invalid HOD parameters. Must match the varied parameters."
@@ -379,7 +384,7 @@ class BoxHOD:
         self.check_catalog(hod_dict, 1 if tracer_density is None else n_target.max())
 
         # Catalogue positions not distorted by AP to allow freedom of applying to any axis at a later stage
-        hod_dict = self.postprocess_catalog(hod_dict)
+        hod_dict = cast(dict, self.postprocess_catalog(hod_dict))
         if save_fn is not None:
             self.save_catalog(save_fn, hod_dict, save_distortions=save_distortions)
         return hod_dict
@@ -387,7 +392,7 @@ class BoxHOD:
     def postprocess_catalog(
         self,
         hod_dict: dict,
-    ) -> dict:
+    ) -> dict | None:
         """
         Add distortion effects and format the HOD catalog.
 
@@ -552,8 +557,12 @@ class BoxHOD:
             Box size after applying AP distortions, or original box size if no distortions are applied.
         """
         if not add_ap:
-            return boxsize
+            return np.asarray(boxsize) if isinstance(boxsize, list) else boxsize
         elif any(v is None for v in [los, q_par, q_perp]):
+            raise ValueError(
+                "los, q_par and q_perp must be provided when add_ap is True."
+            )
+        if los is None or q_par is None or q_perp is None:
             raise ValueError(
                 "los, q_par and q_perp must be provided when add_ap is True."
             )
@@ -629,6 +638,10 @@ class BoxHOD:
                     "hubble, az, boxsize and los must be provided to add RSD distortions."
                 )
             cls.logger.debug("Applying RSD distortions to positions.")
+            if hubble is None or az is None or boxsize is None or los is None:
+                raise ValueError(
+                    "hubble, az, boxsize and los must be provided to add RSD distortions."
+                )
             tracer_dict = cls._add_rsd(
                 tracer_dict, hubble=hubble, az=az, boxsize=boxsize, los=los
             )
@@ -641,6 +654,10 @@ class BoxHOD:
                     "q_par, q_perp and los must be provided to add AP distortions."
                 )
             cls.logger.debug("Applying AP distortions to positions.")
+            if q_par is None or q_perp is None or los is None:
+                raise ValueError(
+                    "q_par, q_perp and los must be provided to add AP distortions."
+                )
             tracer_dict = cls._add_ap(tracer_dict, q_par=q_par, q_perp=q_perp, los=los)
 
         positions = np.column_stack([tracer_dict[key] for key in ["X", "Y", "Z"]])

@@ -153,8 +153,8 @@ class Observable:
             )
 
         # Set the filters
-        self.select_filters = select_filters
-        self.slice_filters = slice_filters
+        self.select_filters = select_filters if select_filters is not None else {}
+        self.slice_filters = slice_filters if slice_filters is not None else {}
         self.select_indices = select_indices
         self.select_indices_on = (
             select_indices_on if select_indices_on else []

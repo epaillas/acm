@@ -49,14 +49,14 @@ class MinimumSpanningTree(BaseEstimator):
         """
         self.sigmaJ = sigmaJ
         if np.isscalar(boxsize):
-            self.boxsize = np.array([boxsize, boxsize, boxsize])
+            self.boxsize = np.array([boxsize, boxsize, boxsize], dtype=float)
         else:
-            self.boxsize = boxsize
+            self.boxsize = np.asarray(boxsize, dtype=float)
         self.Nthpoint = Nthpoint
         if np.isscalar(origin):
-            self.origin = np.array([origin, origin, origin])
+            self.origin = np.array([origin, origin, origin], dtype=float)
         else:
-            self.origin = origin
+            self.origin = np.asarray(origin, dtype=float)
         self.split = split
         self.iterations = iterations
         self.quartiles = quartiles

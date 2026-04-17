@@ -3,6 +3,7 @@ import os
 import warnings
 from abc import ABC
 from pathlib import Path
+from typing import Any
 
 # cosmodesi/acm
 import mockfactory
@@ -15,6 +16,7 @@ from mpytools import CurrentMPIComm
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from .cutsky import CutskyHOD, CutskyRandoms
+from acm.utils.paths import lookup_registry_path
 
 # warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
@@ -23,6 +25,14 @@ class BaseLightconeCatalog(ABC):
     """
     Base class for mock lightcone catalogs.
     """
+
+    catalog: dict[str, Any]
+    logger: logging.Logger
+    cosmo: Any
+    boxsize: float
+    sim_type: str
+    zrange: list[float] | tuple[float, float]
+    monte_carlo_sampling_count: int
 
     @CurrentMPIComm.enable
     def __init__(self, mpicomm=None, mpiroot=0):
@@ -244,12 +254,12 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
     def __init__(
         self,
         varied_params,
-        config_file: str = None,
+        config_file: str | Path | None = None,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         zrange: list = [0.4, 0.8],
         fixed_redshift_snapshot=None,
-        DM_DICT: dict = None,
+        DM_DICT: dict | None = None,
         load_existing_hod: bool = False,
         sim_type: str = "base",
         tracer: str = "LRG",
@@ -310,6 +320,8 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             else:
                 lightcone_yaml_file = "lightcone_" + tracer + ".yaml"
                 self.config_file = Path(config_dir) / lightcone_yaml_file
+        if DM_DICT is None:
+            DM_DICT = lookup_registry_path("Abacus.yaml", tracer, self.DM_DICT_simtype)
         self.setup_hod(DM_DICT=DM_DICT, tracer=tracer)
         self.monte_carlo_sampling_count = 10000
         self.keys_lightcone = ["RA", "DEC", "Z", "RSDPosition", "Distance", "Position"]
@@ -398,12 +410,16 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         self,
         hod_params: dict,
         nthreads: int = 1,
-        seed: float = 0,
-        existing_hod_path: str = None,
-        target_nz_filename: str = None,
-        full_sky: bool = False,
+        seed: float | None = 0,
+        existing_hod_path: str | None = None,
+        region: str = "NGC",
+        release: str = "Y1",
+        target_nz_filename: str | None = None,
+        custom_xyz_file: str | None = None,
         apply_rsd: bool = True,
-    ):
+        nfw_draw_path: str = "/global/cfs/projectdirs/desi/users/arocher/nfw.npy",
+        **kwargs,
+    ) -> dict[str, Any]:
         """
         Sample HOD galaxies from the snapshots and build a cutsky catalog.
         This does not yet apply the angular or radial masks, which should be done
@@ -434,6 +450,10 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         dict
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
+        full_sky = kwargs.pop("full_sky", False)
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+
         if apply_rsd and "RSDPosition" not in self.keys_lightcone:
             self.keys_lightcone.append("RSDPosition")
         elif "RSDPosition" in self.keys_lightcone:
@@ -456,7 +476,11 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             else:
                 ball = self.balls[i]
                 box_positions, box_velocities = self._sample_hod(
-                    ball, hod_params, nthreads=nthreads, target_nbar=None, seed=seed
+                    ball,
+                    hod_params,
+                    nthreads=nthreads,
+                    seed=0 if seed is None else seed,
+                    nfw_draw_path=nfw_draw_path,
                 )
             # recenter box
             box_positions += 990
@@ -541,8 +565,9 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         self,
         nz_filename: str,
         shape_only: bool = False,
-        full_sky: bool = False,
-    ):
+        dz_new: float = 0.002,
+        **kwargs,
+    ) -> None:
         """
         Applies the radial selection function to a lightcone catalog based on
         an input n(z) file (number desity as a function of redshift).
@@ -561,7 +586,17 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         None
             The lightcone catalog is modified in place.
         """
-        BaseLightconeCatalog.apply_radial_mask(self, nz_filename, shape_only, full_sky)
+        full_sky = kwargs.pop("full_sky", False)
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+
+        BaseLightconeCatalog.apply_radial_mask(
+            self,
+            nz_filename,
+            shape_only=shape_only,
+            full_sky=full_sky,
+            dz_new=dz_new,
+        )
 
 
 class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
@@ -651,8 +686,9 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
         self,
         nz_filename: str,
         shape_only: bool = False,
-        full_sky: bool = False,
-    ):
+        dz_new: float = 0.002,
+        **kwargs,
+    ) -> None:
         """
         Applies the radial selection function to a lightcone catalog based on
         an input n(z) file (number desity as a function of redshift).
@@ -671,4 +707,14 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
         None
             The lightcone catalog is modified in place.
         """
-        BaseLightconeCatalog.apply_radial_mask(self, nz_filename, shape_only, full_sky)
+        full_sky = kwargs.pop("full_sky", False)
+        if kwargs:
+            raise TypeError(f"Unexpected keyword arguments: {sorted(kwargs)}")
+
+        BaseLightconeCatalog.apply_radial_mask(
+            self,
+            nz_filename,
+            shape_only=shape_only,
+            full_sky=full_sky,
+            dz_new=dz_new,
+        )

@@ -18,13 +18,15 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
     Base class for VERSUS void size function observables in the EMC pipeline.
     """
 
+    recon = False
+
     @classmethod
     def compress_covariance(
         cls,
         stat_name: str,
         paths: dict,
-        save_to: str = None,
-    ) -> xarray.DataArray:
+        save_to: str | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -93,13 +95,13 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         paths: dict,
         stat_name: str,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> xarray.DataArray:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the VERSUS VSF raw measurement files.
 
@@ -203,7 +205,7 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
@@ -230,7 +232,7 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance set for the observable.
 
@@ -258,7 +260,7 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the data, model, and residuals.
 
@@ -333,6 +335,8 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
     """
 
+    recon = False
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -341,10 +345,10 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         cls,
         stat_name: str,
         paths: dict,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 1,
         ells: list = [0, 2],
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -418,15 +422,15 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 1,
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> xarray.DataArray:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the VERSUS CCF or ACF raw measurement files.
 
@@ -537,7 +541,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
@@ -566,7 +570,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance set for the observable.
 
@@ -596,7 +600,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the data, model, and residuals.
 
@@ -685,14 +689,44 @@ class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("stat_name", "sv_vsf")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "sv_vsf",
+        paths: dict | None = None,
+        save_to: str | None = None,
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name,
+            paths=paths,
+            save_to=save_to,
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("stat_name", "sv_vsf")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "sv_vsf",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
@@ -706,14 +740,42 @@ class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("stat_name", "sv_recon_vsf")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "sv_recon_vsf",
+        paths: dict | None = None,
+        save_to: str | None = None,
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name, paths=paths, save_to=save_to
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("stat_name", "sv_recon_vsf")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "sv_recon_vsf",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 class VERSUSVoidGalaxyCorrelationFunctionMultipoles(
@@ -729,14 +791,48 @@ class VERSUSVoidGalaxyCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("stat_name", "sv_xivg")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "sv_xivg",
+        paths: dict | None = None,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name, paths=paths, save_to=save_to, rebin=rebin, ells=ells
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("stat_name", "sv_xivg")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "sv_xivg",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 class VERSUSVoidAutoCorrelationFunctionMultipoles(
@@ -752,14 +848,48 @@ class VERSUSVoidAutoCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("stat_name", "sv_xivv")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "sv_xivv",
+        paths: dict | None = None,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name, paths=paths, save_to=save_to, rebin=rebin, ells=ells
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("stat_name", "sv_xivv")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "sv_xivv",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(
@@ -775,14 +905,52 @@ class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("stat_name", "sv_recon_xivg")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "sv_recon_xivg",
+        paths: dict | None = None,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name,
+            paths=paths,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("stat_name", "sv_recon_xivg")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "sv_recon_xivg",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(
@@ -798,14 +966,52 @@ class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
-        kwargs.setdefault("stat_name", "sv_recon_xivv")
-        return super().compress_covariance(**kwargs)
+    def compress_covariance(
+        cls,
+        stat_name: str = "sv_recon_xivv",
+        paths: dict | None = None,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+    ) -> xarray.Dataset:
+        if paths is None:
+            raise ValueError("paths must be provided")
+        return super().compress_covariance(
+            stat_name=stat_name,
+            paths=paths,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+        )
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
-        kwargs.setdefault("stat_name", "sv_recon_xivv")
-        return super().compress_data(**kwargs)
+    def compress_data(
+        cls,
+        paths: dict,
+        stat_name: str = "sv_recon_xivv",
+        add_covariance: bool = False,
+        save_to: str | None = None,
+        rebin: int = 1,
+        ells: list = [0, 2],
+        cosmos: list = cosmo_list,
+        n_hod: int = 100,
+        phase: int = 0,
+        seed: int = 0,
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
+        return super().compress_data(
+            paths=paths,
+            stat_name=stat_name,
+            add_covariance=add_covariance,
+            save_to=save_to,
+            rebin=rebin,
+            ells=ells,
+            cosmos=cosmos,
+            n_hod=n_hod,
+            phase=phase,
+            seed=seed,
+            test_filters=test_filters,
+        )
 
 
 # Aliases

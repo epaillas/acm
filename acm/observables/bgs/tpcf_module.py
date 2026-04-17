@@ -32,11 +32,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         hod_idx: int = 157,
         seed: int = 0,
         los: list[str] = ["x", "y", "z"],
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 3,
         ells: list = [0, 2],
-        overwrite_s: np.ndarray = None,
-    ) -> xarray.DataArray:
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -137,14 +137,14 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         los: list[str] = ["x", "y", "z"],
         rebin: int = 3,
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
-        n_hod: int = None,
-        density_threshold: float = None,
-        test_filters: dict = None,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
         """
@@ -290,7 +290,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(
-        self, model_params: dict, save_fn: str = None, ells: list = [0, 2], **kwargs
+        self,
+        model_params: dict,
+        save_fn: str | None = None,
+        ells: list = [0, 2],
+        **kwargs,
     ) -> tuple:
         """
         Plot the observable with error bars and the model prediction, along with the residuals.

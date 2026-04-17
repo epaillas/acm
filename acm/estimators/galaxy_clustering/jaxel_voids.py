@@ -8,6 +8,7 @@ import jax.numpy as jnp
 import matplotlib
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import numpy as np
 import numpy.typing as npt
 import xarray as xr
@@ -65,7 +66,7 @@ class JaxelVoids(BaseEstimator):
                 "Density contrast is not set. Call set_density_contrast() before find_voids()."
             )
 
-        delta_mesh = self.backend.delta_mesh
+        delta_mesh = getattr(self.backend, "delta_mesh")
         delta_array = delta_mesh.value if hasattr(delta_mesh, "value") else delta_mesh
         self.delta_mesh_array = jnp.asarray(delta_array)
 
@@ -74,7 +75,10 @@ class JaxelVoids(BaseEstimator):
         self.ran_min = threshold_value
 
         if self.has_randoms:
-            randoms_real = self.backend.randoms_mesh.paint(
+            randoms_field = getattr(self.backend, "randoms_mesh", None)
+            if randoms_field is None:
+                raise ValueError("Randoms were requested but no randoms mesh is set.")
+            randoms_real = randoms_field.paint(
                 resampler="cic",
                 compensate=False,
                 interlacing=False,
@@ -82,8 +86,11 @@ class JaxelVoids(BaseEstimator):
                 out="real",
             )
             randoms_value = jnp.asarray(randoms_real.value)
-            threshold_randoms = self.backend._get_threshold_randoms(
-                self.backend.randoms_mesh,
+            get_threshold_randoms = getattr(self.backend, "_get_threshold_randoms", None)
+            if get_threshold_randoms is None:
+                raise ValueError("Backend does not provide randoms thresholding.")
+            threshold_randoms = get_threshold_randoms(
+                randoms_field,
                 threshold_value=threshold_value,
                 threshold_method=threshold_method,
             )
@@ -218,17 +225,18 @@ class JaxelVoids(BaseEstimator):
                 dataset.to_zarr(str(path), mode="w")
 
         elif path.suffix == ".npy":
+            payload: Any = {
+                "x": voids[:, 0],
+                "y": voids[:, 1],
+                "z": voids[:, 2],
+                "radius": void_radii,
+                "core_dens": core_dens,
+                "zone_size": zone_sizes,
+                "attrs": attrs,
+            }
             np.save(
                 str(path),
-                {
-                    "x": voids[:, 0],
-                    "y": voids[:, 1],
-                    "z": voids[:, 2],
-                    "radius": void_radii,
-                    "core_dens": core_dens,
-                    "zone_size": zone_sizes,
-                    "attrs": attrs,
-                },
+                np.array(payload, dtype=object),
                 allow_pickle=True,
             )
 
@@ -408,7 +416,8 @@ class JaxelVoids(BaseEstimator):
 
         nvox = int(np.prod(nmesh))
         nsteps = int(np.ceil(np.log2(max(nvox, 2)))) + 1
-        roots = self._compute_roots(delta, valid_mask, nsteps)
+        compute_roots = getattr(JaxelVoids, "_compute_roots")
+        roots = compute_roots(delta, valid_mask, nsteps)
 
         flat_valid = np.asarray(valid_mask).reshape(-1)
         roots_np = np.asarray(roots)
@@ -596,7 +605,7 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def plot_void_size_distribution(
         self, save_fn: Optional[Union[str, Path]] = None
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Plot the histogram of void effective radii.
 
         Parameters
@@ -624,7 +633,7 @@ class JaxelVoids(BaseEstimator):
         self,
         ells: Tuple[int, ...] = (0,),
         save_fn: Optional[Union[str, Path]] = None,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Plot multipoles of the void-data correlation function.
 
         Parameters
@@ -655,7 +664,7 @@ class JaxelVoids(BaseEstimator):
     def plot_slice(
         self,
         save_fn: Optional[Union[str, Path]] = None,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Visualize a 2D projected slice of watershed zones.
 
         Parameters
@@ -679,13 +688,13 @@ class JaxelVoids(BaseEstimator):
         zones_mesh = zones_mesh[:, :, 0]  # Take a thin slice in z
         # print(zones_mesh.shape)
         fig, ax = plt.subplots()
-        cmap = matplotlib.cm.tab20
+        cmap = plt.get_cmap("tab20")
         cmap.set_bad(color="white")
         ax.imshow(
             zones_mesh[:, :],
             origin="lower",
             cmap=cmap,
-            extent=[0, boxsize[0], 0, boxsize[1]],
+            extent=(0.0, float(boxsize[0]), 0.0, float(boxsize[1])),
             interpolation="gaussian",
         )
         ax.set_xlim(0, 250)
@@ -702,7 +711,7 @@ class JaxelVoids(BaseEstimator):
         self,
         save_fn: Optional[Union[str, Path]] = None,
         interval: int = 120,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Create a GIF scanning zone-map slices along the z-axis.
 
         This method uses the same zone-map construction and styling as
@@ -732,14 +741,14 @@ class JaxelVoids(BaseEstimator):
         zones_mesh = np.ma.masked_where(zones_mesh == 0, zones_mesh).reshape(nmesh)
 
         fig, ax = plt.subplots()
-        cmap = matplotlib.cm.tab20
+        cmap = plt.get_cmap("tab20")
         cmap.set_bad(color="white")
 
         image = ax.imshow(
             zones_mesh[:, :, 0],
             origin="lower",
             cmap=cmap,
-            extent=[0, boxsize[0], 0, boxsize[1]],
+            extent=(0.0, float(boxsize[0]), 0.0, float(boxsize[1])),
             interpolation="gaussian",
             animated=True,
         )
@@ -781,7 +790,7 @@ class JaxelVoids(BaseEstimator):
         dpi: int = 200,
         padding_cells: int = 2,
         show_axes: bool = False,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Create a rotating 3D GIF focused on a single voxel-void zone.
 
         Parameters
@@ -833,7 +842,7 @@ class JaxelVoids(BaseEstimator):
             return xi_, yi_, zi_
 
         def touches_edge(xi_: np.ndarray, yi_: np.ndarray, zi_: np.ndarray) -> bool:
-            return (
+            return bool(
                 np.any(xi_ == 0)
                 or np.any(xi_ == nmesh[0] - 1)
                 or np.any(yi_ == 0)

@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 
 from acm.utils.plotting import set_plot_style
 
-from .base import BaseDensityMeshEstimator
+from .base import BaseEstimator
 
 
-class CountsInCells(BaseDensityMeshEstimator):
+class CountsInCells(BaseEstimator):
     """
     Class to compute counts in cells.
     """

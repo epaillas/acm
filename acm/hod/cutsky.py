@@ -2,6 +2,7 @@ import logging
 import time
 from abc import ABC
 from pathlib import Path
+from typing import Any, cast
 
 import fitsio
 import healpy as hp
@@ -50,6 +51,14 @@ class BaseCutskyCatalog(ABC):
     compute number density, and check if coordinates are within a specified photometric region.
     It is intended to be subclassed for specific cutsky catalog implementations.
     """
+
+    catalog: dict[str, Any]
+    logger: logging.Logger
+    cosmo: Any
+    sky_fraction: float
+    mpicomm: Any
+    mpiroot: int
+    tracer: str
 
     @CurrentMPIComm.enable
     def __init__(self, mpicomm=None, mpiroot=0):
@@ -114,8 +123,8 @@ class BaseCutskyCatalog(ABC):
 
             # Fibonacci method
             generate_fibonacci = np.arange(0, num_fibonacci_samples, dtype=float) + 0.5
-            mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
-            mask_dec = 180 / np.pi * phi - 90
+            mask_theta = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
+            mask_dec = 90 - np.degrees(mask_theta)
             mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
 
             # Sky fraction calculation
@@ -306,6 +315,8 @@ class BaseCutskyCatalog(ABC):
                     mask &= ~mask_ra
             return np.nan * np.ones(ra.size), mask
         else:
+            if DR9Footprint is None or build_healpix_map is None:
+                raise ImportError("regressis is required to evaluate this photometric region")
             # Precompute the healpix number
             nside = 256
             _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)
@@ -450,10 +461,15 @@ class BaseCutskyCatalog(ABC):
 
         logger = logging.getLogger("F.A.")
         rng = np.random.RandomState(seed=seed)
+        mpicomm = self.mpicomm if mpicomm is None else mpicomm
 
         if mpicomm.rank == mpiroot:
             self.catalog = Catalog.from_dict(self.catalog, mpicomm=mpicomm)
-        self.catalog = Catalog.scatter(self.catalog, mpiroot=mpiroot, mpicomm=mpicomm)
+        self.catalog = cast(Any, Catalog).scatter(
+            self.catalog,
+            mpiroot=mpiroot,
+            mpicomm=mpicomm,
+        )
 
         if "TRACER" not in self.catalog.columns():
             if mpicomm.rank == mpiroot:
@@ -671,7 +687,11 @@ class BaseCutskyCatalog(ABC):
                 myfits = fits.BinTableHDU(data=table)
                 myfits.writeto(filename, overwrite=True)
             elif str(filename).endswith(".npy"):
-                np.save(filename, catalog_gathered)
+                np.save(
+                    filename,
+                    np.array(catalog_gathered, dtype=object),
+                    allow_pickle=True,
+                )
             else:
                 raise ValueError("Unsupported file format. Use .fits or .npy.")
 
@@ -693,7 +713,7 @@ class CutskyHOD(BaseCutskyCatalog):
         load_existing_hod: bool = False,
         sim_type: str = "base",
         tracer: str = "LRG",
-        DM_DICT: dict = None,
+        DM_DICT: dict | None = None,
         **kwargs,
     ):
         """
@@ -807,7 +827,7 @@ class CutskyHOD(BaseCutskyCatalog):
         hod_params: dict,
         nthreads: int = 1,
         seed: float = 0,
-        target_nbar: float = None,
+        target_nbar: float | None = None,
         nfw_draw_path: str = "/global/cfs/projectdirs/desi/users/arocher/nfw.npy",
     ):
         """
@@ -1053,8 +1073,12 @@ class CutskyHOD(BaseCutskyCatalog):
         list
             List of shifts to be applied to the box positions.
         """
-        mappings_max = np.int32(np.ceil((pos_max - self.boxpad) / self.boxsize))
-        mappings_min = np.int32(np.floor((pos_min + self.boxpad) / self.boxsize))
+        mappings_max = np.asarray(
+            np.ceil((pos_max - self.boxpad) / self.boxsize), dtype=np.int32
+        )
+        mappings_min = np.asarray(
+            np.floor((pos_min + self.boxpad) / self.boxsize), dtype=np.int32
+        )
         shifts = []
         mappings = [np.arange(mappings_min[i], mappings_max[i] + 1) for i in range(3)]
         for i in mappings[0]:
@@ -1096,7 +1120,7 @@ class CutskyHOD(BaseCutskyCatalog):
             - new_vel: np.ndarray of velocities in the replicated boxes.
         """
         if shifts is None:
-            shifts = self.get_box_shifts()
+            shifts = self.get_box_shifts(pos_min, pos_max)
         new_pos = []
         new_vel = []
         for shift in shifts:
@@ -1110,7 +1134,12 @@ class CutskyHOD(BaseCutskyCatalog):
         return new_pos, new_vel
 
     def box_to_cutsky(
-        self, box, zmin: float, zmax: float, apply_rsd: bool = False, zrsd: float = None
+        self,
+        box,
+        zmin: float,
+        zmax: float,
+        apply_rsd: bool = False,
+        zrsd: float | None = None,
     ):
         """
         Convert a box catalog with cartesian positions and velocities to a cutsky catalog
@@ -1136,6 +1165,8 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         cutsky = {}
         if apply_rsd:
+            if zrsd is None:
+                raise ValueError("zrsd must be provided when apply_rsd is True")
             cutsky = self.apply_rsd(box, zrsd)
         else:
             cutsky = box

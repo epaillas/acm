@@ -1,8 +1,15 @@
+import importlib
+from typing import cast
+
 import numpy as np
 import pandas
 from scipy.stats import qmc
 
 from acm.utils.default import cosmo_list
+
+Numeric = int | float
+ParameterTable = dict[str, list[Numeric]]
+SplitParameterTable = dict[str, ParameterTable]
 
 
 class HODLatinHypercube:
@@ -11,7 +18,9 @@ class HODLatinHypercube:
     a Latin hypercube.
     """
 
-    def __init__(self, ranges, seed: int = 42, order: list[str] = None):
+    def __init__(
+        self, ranges, seed: int = 42, order: list[str] | None = None
+    ) -> None:
         """
         Parameters
         ----------
@@ -27,8 +36,10 @@ class HODLatinHypercube:
         self.pmins = np.array([ranges[key][0] for key in ranges])
         self.pmaxs = np.array([ranges[key][1] for key in ranges])
         self.order = order
+        self.params: ParameterTable | SplitParameterTable = {}
+        self.is_split = False
 
-    def sample(self, n: int, save_fn: str = None):
+    def sample(self, n: int, save_fn: str | None = None) -> ParameterTable:
         """
         Sample HOD parameters from the prior.
 
@@ -52,7 +63,9 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def split_by_cosmo(self, cosmos: list = None, save_fn: list = None):
+    def split_by_cosmo(
+        self, cosmos: list[int] | None = None, save_fn: list[str] | None = None
+    ) -> SplitParameterTable:
         """
         Split the sampled parameters by cosmology.
 
@@ -71,13 +84,14 @@ class HODLatinHypercube:
         """
         if cosmos is None:
             cosmos = cosmo_list
-        split_params = {}
+        params = cast(ParameterTable, self.params)
+        split_params: SplitParameterTable = {}
         for i, cosmo in enumerate(cosmos):
             split = [
-                np.array_split(self.params[key], len(cosmos))[i] for key in self.params
+                np.array_split(params[key], len(cosmos))[i] for key in params
             ]
             split_params[f"c{cosmo:03}"] = {
-                key: list(split[i]) for i, key in enumerate(self.params)
+                key: list(split[i]) for i, key in enumerate(params)
             }
         self.params = split_params
         self.is_split = True
@@ -85,7 +99,9 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def add_cosmo_params(self, cosmo_params: dict, save_fn: list = None):
+    def add_cosmo_params(
+        self, cosmo_params: dict[str, dict[str, float]], save_fn: list[str] | None = None
+    ) -> SplitParameterTable:
         """
         Add cosmology parameters to HOD parameters for each key in self.params.
 
@@ -101,20 +117,27 @@ class HODLatinHypercube:
         params : dict
             Dictionary with the updated parameters.
         """
-        for key, hod in self.params.items():
+        if not self.is_split:
+            raise ValueError("Parameters must be split by cosmology before adding cosmology parameters.")
+
+        params = cast(SplitParameterTable, self.params)
+        for key, hod in params.items():
             n_hod = len(
                 hod[next(iter(hod))]
             )  # number of HOD samples for this cosmology
-            cosmo = {
+            cosmo: ParameterTable = {
                 k: [v] * n_hod for k, v in cosmo_params[key].items()
             }  # Repeat each cosmology parameter n_hod times
             cosmo.update(hod)
-            self.params[key] = cosmo
+            params[key] = cosmo
+        self.params = params
         if save_fn:
             self.save_params(save_fn)
-        return self.params
+        return params
 
-    def save_params(self, save_fn: str | list[str], order: list[str] = None):
+    def save_params(
+        self, save_fn: str | list[str], order: list[str] | None = None
+    ) -> None:
         """
         Save the sampled parameters to disk.
 
@@ -129,9 +152,13 @@ class HODLatinHypercube:
             Defaults to None.
         """
         if order is None:
-            order = getattr(self, "order", None)  # on-the-fly attribute access
+            order = self.order
 
         if self.is_split:
+            if not isinstance(save_fn, list):
+                raise ValueError(
+                    "A list of filenames is required when parameters are split by cosmology."
+                )
             if len(self.params) != len(save_fn):
                 raise ValueError(
                     "Number of filenames must match number of cosmologies."
@@ -141,13 +168,17 @@ class HODLatinHypercube:
                 df = df[[k for k in order if k in df.columns]] if order else df
                 df.to_csv(save_fn, index=False, float_format="%.5f")
         else:
+            if isinstance(save_fn, list):
+                raise ValueError(
+                    "A single filename is required when parameters are not split by cosmology."
+                )
             df = pandas.DataFrame(self.params)
             df = df[[k for k in order if k in df.columns]] if order else df
             df.to_csv(save_fn, index=False, float_format="%.5f")
 
 
 if __name__ == "__main__":
-    from sunbird.inference.priors import Yuan23
+    Yuan23 = importlib.import_module("sunbird.inference.priors").Yuan23
 
     ranges = Yuan23().ranges
 

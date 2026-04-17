@@ -26,9 +26,9 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "vide_ccf",
-        save_to: str = None,
+        save_to: str | None = None,
         ells: list = [0, 2, 4],
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -98,12 +98,12 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str = "vide_ccf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         ells: list = [0, 2, 4],
-        test_filters: dict = None,
-    ) -> dict:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 
@@ -201,7 +201,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
@@ -234,7 +234,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance set for the observable.
 
@@ -268,7 +268,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the data, model, and residuals.
 
@@ -361,8 +361,8 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "vide_vsf",
-        save_to: str = None,
-    ) -> xarray.DataArray:
+        save_to: str | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -424,11 +424,11 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         paths: dict,
         stat_name: str = "vide_vsf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
-        test_filters: dict = None,
-    ) -> dict:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 
@@ -497,9 +497,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(
-                paths=paths, stat_name=stat_name, cosmos=cosmos, n_hod=n_hod
-            )
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
             cout = xarray.merge([cout, cov_y], join="outer")
 
         if test_filters is not None:
@@ -520,7 +518,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
@@ -547,7 +545,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance set for the observable.
 
@@ -575,7 +573,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the data, model, and residuals.
 

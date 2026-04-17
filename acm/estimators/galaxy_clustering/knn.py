@@ -1,6 +1,6 @@
 import numpy as np
-import scipy.spatial
 from numba import njit, prange
+from scipy.spatial import cKDTree
 
 from .base import BaseEstimator
 
@@ -20,12 +20,12 @@ class KthNearestNeighbor(BaseEstimator):
 
         # If any value is < 0, don't use periodic boxes
         if np.any(periodic <= 0):
-            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize)
+            xtree = cKDTree(data, leafsize=leafsize)
             boxsize_for_conversion = np.array(
                 [np.inf, np.inf, np.inf], dtype=np.float32
             )
         else:
-            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize, boxsize=periodic)
+            xtree = cKDTree(data, leafsize=leafsize, boxsize=periodic)
             boxsize_for_conversion = periodic.astype(np.float32)
 
         # Query the tree (this is parallel)

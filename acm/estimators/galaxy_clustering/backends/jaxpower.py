@@ -175,9 +175,12 @@ class JaxpowerBackend:
         )
         data_mesh = self.data_mesh.paint(**kw, out="real")
         if self.has_randoms:
-            randoms_mesh = self.randoms_mesh.paint(**kw, out="real")
+            randoms_field = self.randoms_mesh
+            if randoms_field is None:
+                raise ValueError("Randoms were requested but no randoms mesh is set.")
+            randoms_mesh = randoms_field.paint(**kw, out="real")
             threshold_randoms = self._get_threshold_randoms(
-                self.randoms_mesh,
+                randoms_field,
                 threshold_value=randoms_threshold_value,
                 threshold_method=randoms_threshold_method,
             )
@@ -300,7 +303,11 @@ class JaxpowerBackend:
             self.logger.info(
                 f"Generated random query points in {time.time() - t0:.2f} s."
             )
-        return coords.astype(np.float32)
+        else:
+            raise ValueError(
+                f"Unknown method '{method}'. Available methods: 'lattice', 'randoms'."
+            )
+        return np.asarray(coords, dtype=np.float32)
 
     def kernel_gaussian(
         self, mattrs: MeshAttrs, smoothing_radius: float = 10.0

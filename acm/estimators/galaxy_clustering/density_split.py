@@ -496,15 +496,16 @@ class DensitySplit(BaseEstimator):
         fig, ax = plt.subplots(figsize=(4, 4))
         cmap = matplotlib.cm.get_cmap("coolwarm")
         colors = cmap(np.linspace(0.01, 0.99, 5))
-        hist, bin_edges, patches = ax.hist(
+        hist, bin_edges, bar_container = ax.hist(
             self.delta_query, bins=200, density=True, lw=2.0, color="grey"
         )
+        patches = getattr(bar_container, "patches", [])
         imin = 0
         for i in range(len(self.quantiles)):
             dmax = self.delta_query[self.quantiles_idx == i].max()
             imax = np.digitize([dmax], bin_edges)[0] - 1
-            for index in range(imin, imax):
-                patches[index].set_facecolor(colors[i])
+            for patch in patches[imin:imax]:
+                patch.set_facecolor(colors[i])
             imin = imax
             ax.plot(np.nan, np.nan, color=colors[i], label=rf"${{\rm Q}}_{i}$", lw=4.0)
         ax.set_xlabel(r"$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$", fontsize=15)
