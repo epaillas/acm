@@ -15,10 +15,9 @@ readme = "README.md"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [ # Base requirements
     "numpy",
     "scipy",
@@ -118,13 +117,31 @@ acm = [
     "**/*.yaml",
 ]
 
-[tool.ty.environment]
-python-version = "3.10"
-
 [[tool.ty.overrides]]
 include = [
-    "acm/hod/*.py",
-    "acm/estimators/galaxy_clustering/**/*.py",
+    "acm/hod/box.py",
+    "acm/hod/cutsky.py",
+    "acm/hod/footprint.py",
+    "acm/hod/lightcone.py",
+    "acm/hod/parameters.py",
+    "acm/estimators/galaxy_clustering/base.py",
+    "acm/estimators/galaxy_clustering/cic.py",
+    "acm/estimators/galaxy_clustering/cumulants.py",
+    "acm/estimators/galaxy_clustering/density_split.py",
+    "acm/estimators/galaxy_clustering/jaxel_voids.py",
+    "acm/estimators/galaxy_clustering/jaxmf.py",
+    "acm/estimators/galaxy_clustering/knn.py",
+    "acm/estimators/galaxy_clustering/minkowski.py",
+    "acm/estimators/galaxy_clustering/mst.py",
+    "acm/estimators/galaxy_clustering/multiplets.py",
+    "acm/estimators/galaxy_clustering/polybin3d.py",
+    "acm/estimators/galaxy_clustering/pydive.py",
+    "acm/estimators/galaxy_clustering/spectrum.py",
+    "acm/estimators/galaxy_clustering/voxel_voids.py",
+    "acm/estimators/galaxy_clustering/wst.py",
+    "acm/estimators/galaxy_clustering/backends/jaxpower.py",
+    "acm/estimators/galaxy_clustering/backends/pypower.py",
+    "acm/estimators/galaxy_clustering/backends/pyrecon.py",
     "acm/lensing/abacuslensing.py",
     "acm/observables/emc/*_module.py",
     "acm/observables/bgs/tpcf_module.py",

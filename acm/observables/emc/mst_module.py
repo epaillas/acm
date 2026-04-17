@@ -92,7 +92,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            np.save(save_fn, dataset_to_dict(cout.to_dataset(name=cout.name)))
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 

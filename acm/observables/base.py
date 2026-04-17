@@ -936,7 +936,18 @@ class Observable:
 
         return cov
 
-    def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
+    @overload
+    def get_save_handle(self, save_dir: None = None) -> str: ...
+
+    @overload
+    def get_save_handle(self, save_dir: str) -> str: ...
+
+    @overload
+    def get_save_handle(self, save_dir: Path) -> Path: ...
+
+    def get_save_handle(
+        self, save_dir: str | Path | None = None
+    ) -> str | Path:
         """
         Creates a handle that includes the statistics and filters used.
         This can be used to save anything related to this observable.

@@ -319,7 +319,8 @@ class BaseObservableBGS(Observable):
             x.append(x_i.values[hod_idx, :])
 
         x = np.concatenate(x)
-        assert n_hod is not None
+        if n_hod is None:
+            raise ValueError("Cannot compress x without at least one cosmology.")
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),
             coords={

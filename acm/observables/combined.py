@@ -1,6 +1,7 @@
 import logging
 from contextlib import nullcontext
 from pathlib import Path
+from typing import overload
 
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
@@ -279,7 +280,18 @@ class CombinedObservable:
 
         return cov
 
-    def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
+    @overload
+    def get_save_handle(self, save_dir: None = None) -> str: ...
+
+    @overload
+    def get_save_handle(self, save_dir: str) -> str: ...
+
+    @overload
+    def get_save_handle(self, save_dir: Path) -> Path: ...
+
+    def get_save_handle(
+        self, save_dir: str | Path | None = None
+    ) -> str | Path:
         """
         Creates a handle that combines the handles of the observables,
         separated by a '+'. They contain the statistic name and the filters used.
@@ -302,7 +314,7 @@ class CombinedObservable:
         statistic_handles = [
             observable.get_save_handle() for observable in self.observables
         ]
-        statistic_handle = "+".join(str(handle) for handle in statistic_handles)
+        statistic_handle = "+".join(statistic_handles)
 
         if save_dir is None:
             return statistic_handle

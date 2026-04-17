@@ -443,7 +443,8 @@ class BaseObservableEMC(Observable):
 
         x = np.concatenate(x)
         x_names = x_cosmo_names + x_hod_names
-        assert n_hod is not None
+        if n_hod is None:
+            raise ValueError("Cannot compress x without at least one cosmology.")
 
         x = xarray.DataArray(
             x.reshape(len(cosmos), n_hod, -1),

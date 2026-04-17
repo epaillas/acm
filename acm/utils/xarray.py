@@ -3,15 +3,7 @@ from typing import Any
 import xarray as xr
 
 
-def _ensure_dataset(dataset: xr.Dataset | xr.DataArray) -> xr.Dataset:
-    """Return a Dataset view for serialization helpers."""
-    if isinstance(dataset, xr.DataArray):
-        name = dataset.name or "data"
-        return dataset.to_dataset(name=name)
-    return dataset
-
-
-def dataset_to_dict(dataset: xr.Dataset | xr.DataArray) -> Any:
+def dataset_to_dict(dataset: xr.Dataset) -> Any:
     """Convert an xarray.Dataset to a dictionary with numpy arrays.
 
     Parameters
@@ -24,7 +16,6 @@ def dataset_to_dict(dataset: xr.Dataset | xr.DataArray) -> Any:
     dict
         A dictionary containing the data from the dataset with numpy arrays.
     """
-    dataset = _ensure_dataset(dataset)
     data_dict = {}
     for var_name in dataset.data_vars:
         data_dict[var_name] = {
