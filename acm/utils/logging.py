@@ -36,6 +36,7 @@ if __name__ == '__main__':
 '''
 
 """
+
 import datetime
 import logging
 import os
@@ -109,7 +110,9 @@ def setup_logging(
     handler.setFormatter(fmt)
     logging.basicConfig(level=level, handlers=[handler], **kwargs)
     sys.excepthook = exception_handler
-    logger.info(f"Start logger at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(
+        f"Start logger at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
 
 
 def exception_handler(exc_type, exc_value, exc_traceback):
