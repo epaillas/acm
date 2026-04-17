@@ -1,11 +1,14 @@
 from functools import wraps
+
 from acm.utils.default import is_nersc
+
 
 def temporary_class_state(**attrs):
     """
     Decorator factory to temporarily modify class attributes during a method call.
     Restores original values after method execution (even if exceptions occur).
     """
+
     def decorator(method):
         @wraps(method)
         def wrapper(self, *args, **kwargs):
@@ -13,7 +16,7 @@ def temporary_class_state(**attrs):
             original_attrs = {key: getattr(self, key) for key in attrs}
             for key, value in attrs.items():
                 setattr(self, key, value)
-                
+
             try:
                 return method(self, *args, **kwargs)
             finally:
@@ -22,7 +25,9 @@ def temporary_class_state(**attrs):
                     setattr(self, key, value)
 
         return wrapper
+
     return decorator
+
 
 def require_nersc(enabled: bool = True):
     def decorator(func):
@@ -33,5 +38,7 @@ def require_nersc(enabled: bool = True):
                     f"The function '{func.__name__}' can only be executed in a NERSC environment."
                 )
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator

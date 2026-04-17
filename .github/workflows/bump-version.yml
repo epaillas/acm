@@ -1,0 +1,37 @@
+name: Bump version on call
+description: |
+  This workflow updates the version in the VERSION file based on the bump type (patch, minor, major, dev) passed as an input.
+
+on:
+  workflow_call:
+    inputs:
+      bump_type:
+        required: true
+        type: string
+      add-tag:
+        required: false
+        default: true
+        type: boolean
+
+jobs: 
+  bump-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.PUSH_KEY }}
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install bump2version
+        run: pip install bump2version
+      - name: Bump version
+        run: bump2version ${{ inputs.bump_type }} ${{ (inputs.add-tag == false && '--no-tag') || '' }}
+      - name: Push changes
+        run: |
+          git push --follow-tags

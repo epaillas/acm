@@ -1,0 +1,20 @@
+name: Has version-bump label
+description: |
+  This workflow checks that any pull request targeting the main branch has one of the following labels: 
+  bump:patch, bump:minor, bump:major, or bump:none. This ensures that all pull requests have 
+  a clear indication of how they will affect the versioning when merged.
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [ opened, edited, labeled, unlabeled, synchronize ]
+
+jobs:
+  require-version-bump-label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mheap/github-action-required-labels@v5
+        with:
+          mode: exactly
+          count: 1
+          labels: "bump:patch, bump:minor, bump:major, bump:none"

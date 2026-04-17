@@ -1,6 +1,7 @@
 import argparse
 import importlib
 
+
 def add_observables_to_parser(parser: argparse.ArgumentParser):
     """
     Adds observable parser arguments to a given argparse parser.
@@ -10,13 +11,17 @@ def add_observables_to_parser(parser: argparse.ArgumentParser):
     ----------
     parser : argparse.ArgumentParser
         The parser to which the observable arguments will be added.
-    
+
     Returns
     -------
     argparse.ArgumentParser
         The parser with added observables argument and epilog.
     """
-    parser.add_argument("--observables", nargs=argparse.REMAINDER, help="Additional arguments for observable parser to provide at the end (see below)")
+    parser.add_argument(
+        "--observables",
+        nargs=argparse.REMAINDER,
+        help="Additional arguments for observable parser to provide at the end (see below)",
+    )
 
     parser.epilog = """
 Observable parser arguments (can be repeated for multiple observables):
@@ -33,15 +38,16 @@ Observable parser arguments (can be repeated for multiple observables):
     """
     return parser
 
+
 def parse_observable(argv: list):
     """
     Parses a single observable's arguments from a list of command line arguments.
-    
+
     Parameters
     ----------
     argv : list
         List of command line arguments for a single observable.
-    
+
     Returns
     -------
     argparse.Namespace
@@ -49,14 +55,56 @@ def parse_observable(argv: list):
     """
     parser = argparse.ArgumentParser(description="Observable parser", add_help=False)
     parser.add_argument("-n", "--stat_name", type=str, required=True)
-    parser.add_argument("-p", "--paths", nargs="*", help='Paths to the data files for the observable as key-value pairs, e.g. -p path1 /path/to/file1 path2 /path/to/file2')
-    parser.add_argument("-sf", "--select_filters", nargs="*", help='Selection filters as key-value pairs, e.g. -sf cosmo_idx 0 hod_idx 96')
-    parser.add_argument("-lf", "--slice_filters", nargs="*", help='Slice filters as key-value pairs, e.g. -lf s "[10,20]"')
-    parser.add_argument("-si", "--select_indices", type=int, nargs='+', help='List of indices to select from the data arrays')
-    parser.add_argument("-so", "--select_indices_on", type=str, nargs='+', help='List of data variables to apply the indices selection on.')
-    parser.add_argument("-d", "--flat_output_dims", type=int, help='Number of leading dimensions to flatten in the output')
-    parser.add_argument("-np", "--numpy_output", action='store_true', help='If set, output will be converted to numpy arrays')
-    parser.add_argument("-s", "--squeeze_output", action='store_true', help='If set, output will be squeezed to remove single-dimensional entries')
+    parser.add_argument(
+        "-p",
+        "--paths",
+        nargs="*",
+        help="Paths to the data files for the observable as key-value pairs, e.g. -p path1 /path/to/file1 path2 /path/to/file2",
+    )
+    parser.add_argument(
+        "-sf",
+        "--select_filters",
+        nargs="*",
+        help="Selection filters as key-value pairs, e.g. -sf cosmo_idx 0 hod_idx 96",
+    )
+    parser.add_argument(
+        "-lf",
+        "--slice_filters",
+        nargs="*",
+        help='Slice filters as key-value pairs, e.g. -lf s "[10,20]"',
+    )
+    parser.add_argument(
+        "-si",
+        "--select_indices",
+        type=int,
+        nargs="+",
+        help="List of indices to select from the data arrays",
+    )
+    parser.add_argument(
+        "-so",
+        "--select_indices_on",
+        type=str,
+        nargs="+",
+        help="List of data variables to apply the indices selection on.",
+    )
+    parser.add_argument(
+        "-d",
+        "--flat_output_dims",
+        type=int,
+        help="Number of leading dimensions to flatten in the output",
+    )
+    parser.add_argument(
+        "-np",
+        "--numpy_output",
+        action="store_true",
+        help="If set, output will be converted to numpy arrays",
+    )
+    parser.add_argument(
+        "-s",
+        "--squeeze_output",
+        action="store_true",
+        help="If set, output will be squeezed to remove single-dimensional entries",
+    )
     args = parser.parse_args(argv)
     # Edge case: if select_filters or slice_filters are provided as one element, try to eval them as dicts (otherwise, they should be pairs of key, value)
     if args.paths and len(args.paths) == 1:
@@ -66,6 +114,7 @@ def parse_observable(argv: list):
     if args.slice_filters and len(args.slice_filters) == 1:
         args.slice_filters = try_eval(args.slice_filters[0])
     return args
+
 
 def split_observables(argv: list):
     """
@@ -82,12 +131,14 @@ def split_observables(argv: list):
     for arg in argv:
         if isinstance(arg, dict):
             for k, v in arg.items():
-                current_chunk.append(f'--{k}')
-                current_chunk.append(str(v)) # Has to be a string to be parsed by argparse
+                current_chunk.append(f"--{k}")
+                current_chunk.append(
+                    str(v)
+                )  # Has to be a string to be parsed by argparse
             chunks.append(current_chunk)
             current_chunk = []
             continue
-        if arg.startswith('--stat_name') or arg.startswith('-n'):
+        if arg.startswith("--stat_name") or arg.startswith("-n"):
             if current_chunk:
                 chunks.append(current_chunk)
                 current_chunk = []
@@ -95,6 +146,7 @@ def split_observables(argv: list):
     if current_chunk:
         chunks.append(current_chunk)
     return chunks
+
 
 def parse_observables_arg(args: argparse.Namespace):
     """
@@ -112,7 +164,7 @@ def parse_observables_arg(args: argparse.Namespace):
     """
     if not args.observables:
         return args
-    
+
     # Parse each observable with its specific arguments
     observable_args = []
     chunks = split_observables(args.observables)
@@ -121,6 +173,7 @@ def parse_observables_arg(args: argparse.Namespace):
         observable_args.append(obs_args)
     args.observables = observable_args
     return args
+
 
 def try_eval(value: str):
     """
@@ -135,11 +188,12 @@ def try_eval(value: str):
     -------
     any
         The evaluated value or the original string if evaluation fails.
-    """ 
+    """
     try:
         return eval(value)
     except:
         return value
+
 
 def to_pairs(lst: list | dict):
     """
@@ -158,10 +212,19 @@ def to_pairs(lst: list | dict):
     if isinstance(lst, dict):
         return list(lst.items())
     if len(lst) % 2 != 0:
-        raise ValueError("List must contain an even number of elements to form key-value pairs.")
+        raise ValueError(
+            "List must contain an even number of elements to form key-value pairs."
+        )
     return [(lst[i], lst[i + 1]) for i in range(0, len(lst), 2)]
 
-def args_to_observables(args: list[argparse.Namespace], module: str = None, mapping: dict = None, pop_args: list = None, **kwargs) -> list:
+
+def args_to_observables(
+    args: list[argparse.Namespace],
+    module: str = None,
+    mapping: dict = None,
+    pop_args: list = None,
+    **kwargs,
+) -> list:
     """
     Converts a list of argparse Namespaces into a list of observable instances.
 
@@ -185,37 +248,50 @@ def args_to_observables(args: list[argparse.Namespace], module: str = None, mapp
     list
         An list of instantiated observable classes that can be passed to `acm.observables.CombinedObservable`.
     """
-    module = importlib.import_module(module) if module else importlib.import_module('acm.observables')
+    module = (
+        importlib.import_module(module)
+        if module
+        else importlib.import_module("acm.observables")
+    )
     mapping = mapping if mapping else {}
     pop_args = pop_args if pop_args else []
-    
+
     observable_list = []
     for obs_args in args:
         observable_args = {
-            'stat_name': obs_args.stat_name,
-            'paths': {key: try_eval(value) for key, value in to_pairs(obs_args.paths)} if obs_args.paths else None,
-            'select_filters': {key: try_eval(value) for key, value in to_pairs(obs_args.select_filters)} if obs_args.select_filters else None,
-            'slice_filters': {key: try_eval(value) for key, value in to_pairs(obs_args.slice_filters)} if obs_args.slice_filters else None,
-            'select_indices': obs_args.select_indices,
-            'select_indices_on': obs_args.select_indices_on,
-            'flat_output_dims': obs_args.flat_output_dims,
-            'numpy_output': obs_args.numpy_output,
-            'squeeze_output': obs_args.squeeze_output,
+            "stat_name": obs_args.stat_name,
+            "paths": {key: try_eval(value) for key, value in to_pairs(obs_args.paths)}
+            if obs_args.paths
+            else None,
+            "select_filters": {
+                key: try_eval(value) for key, value in to_pairs(obs_args.select_filters)
+            }
+            if obs_args.select_filters
+            else None,
+            "slice_filters": {
+                key: try_eval(value) for key, value in to_pairs(obs_args.slice_filters)
+            }
+            if obs_args.slice_filters
+            else None,
+            "select_indices": obs_args.select_indices,
+            "select_indices_on": obs_args.select_indices_on,
+            "flat_output_dims": obs_args.flat_output_dims,
+            "numpy_output": obs_args.numpy_output,
+            "squeeze_output": obs_args.squeeze_output,
         }
-        observable_args = {k: v for k, v in observable_args.items() if v is not None} # Remove default values
+        observable_args = {
+            k: v for k, v in observable_args.items() if v is not None
+        }  # Remove default values
         for arg in pop_args:
             observable_args.pop(arg, None)
-        
-        if module.__name__ != 'acm.observables':
+
+        if module.__name__ != "acm.observables":
             class_name = mapping.get(obs_args.stat_name, obs_args.stat_name)
             observable_class = getattr(module, class_name)
         else:
-            observable_class = getattr(module, 'Observable')
+            observable_class = getattr(module, "Observable")
 
-        observable_instance = observable_class(
-            **observable_args,
-            **kwargs
-        )
+        observable_instance = observable_class(**observable_args, **kwargs)
         observable_list.append(observable_instance)
-    
+
     return observable_list

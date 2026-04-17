@@ -1,0 +1,61 @@
+name: Update main version
+description: |
+  This workflow automatically bumps the version in the VERSION file when a pull request is 
+  merged into the main branch with the appropriate label (bump:patch, bump:minor, bump:major). 
+  It also merges the changes back to the dev branch to keep it up to date with the version changes.
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [ closed ]
+
+permissions:
+  pull-requests: read
+  contents: write
+
+jobs:
+  # These jobs will only run if the pull request is merged and has the corresponding label for the type of version bump
+  bump-patch:
+    if: ${{ github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'bump:patch') }}
+    secrets: inherit
+    uses: ./.github/workflows/bump-version.yml
+    with:
+      bump_type: patch
+  bump-minor:
+    if: ${{ github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'bump:minor') }}
+    secrets: inherit
+    uses: ./.github/workflows/bump-version.yml
+    with:
+      bump_type: minor
+  bump-major:
+    if: ${{ github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'bump:major') }}
+    secrets: inherit
+    uses: ./.github/workflows/bump-version.yml
+    with:
+      bump_type: major
+
+  merge-dev: # Merge back main to dev to ensure the version change is propagated back to the dev branch
+    needs: [bump-patch, bump-minor, bump-major] 
+    # Run only if any of the bump jobs were triggered, regardless of their success or failure
+    if: |
+      always() && (
+        needs.bump-patch.result == 'success' ||
+        needs.bump-minor.result == 'success' ||
+        needs.bump-major.result == 'success'
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.PUSH_KEY }}
+          ref: main
+          fetch-depth: 0 # Fetch all history for all branches and tags
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Merge main back into dev
+        run: |
+          git checkout dev
+          git merge main --no-ff -m "Merge main into dev after version bump"
+          git push origin dev

@@ -1,26 +1,28 @@
 import os
-import time
-import uuid
 import random
 import subprocess
+import time
+import uuid
 from pathlib import Path
-from typing import Optional, Tuple, Any, Union
+from typing import Any, Optional, Tuple, Union
 
-import numpy as np
-import numpy.typing as npt
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
 from pycorr import TwoPointCorrelationFunction
+
+from acm.utils.plotting import set_plot_style
 
 from .base import BaseEstimator
 from .src import fastmodules
-from acm.utils.plotting import set_plot_style
 
 
 class VoxelVoids(BaseEstimator):
     """
     Class to calculate voxel voids, as in https://github.com/seshnadathur/Revolver
     """
+
     def __init__(self, temp_dir: Union[str, Path], **kwargs: Any) -> None:
         """
         Initialize VoxelVoids estimator.
@@ -52,8 +54,13 @@ class VoxelVoids(BaseEstimator):
         super().__init__(**kwargs)
         self.handle = Path(temp_dir) / str(uuid.uuid4())
 
-    def set_density_contrast(self, smoothing_radius: Optional[float] = None, check: bool = False, 
-                           ran_min: float = 0.01, save_wisdom: bool = False) -> Any:
+    def set_density_contrast(
+        self,
+        smoothing_radius: Optional[float] = None,
+        check: bool = False,
+        ran_min: float = 0.01,
+        save_wisdom: bool = False,
+    ) -> Any:
         """
         Set the density contrast.
 
@@ -67,7 +74,7 @@ class VoxelVoids(BaseEstimator):
             Minimum randoms.
         save_wisdom : bool, optional
             Save FFTW wisdom (for pyrecon backend).
-            
+
         Returns
         -------
         delta_mesh : array_like
@@ -78,20 +85,22 @@ class VoxelVoids(BaseEstimator):
         delta_mesh = self.backend.set_density_contrast(
             smoothing_radius=smoothing_radius,
         )
-        
+
         # Extract numpy array from mesh objects if needed
-        delta_array = delta_mesh.value if hasattr(delta_mesh, 'value') else delta_mesh
-        
+        delta_array = delta_mesh.value if hasattr(delta_mesh, "value") else delta_mesh
+
         # For voxel voids, we also need rho_mesh
         if self.has_randoms:
             # Access meshes from backend
             data_mesh = self.backend.data_mesh
             randoms_mesh = self.backend.randoms_mesh
-            
-            if hasattr(self, '_PyreconBackend') and isinstance(self.backend, self._PyreconBackend):
+
+            if hasattr(self, "_PyreconBackend") and isinstance(
+                self.backend, self._PyreconBackend
+            ):
                 sum_data = np.sum(data_mesh.value)
                 sum_randoms = np.sum(randoms_mesh.value)
-                alpha = sum_data * 1. / sum_randoms
+                alpha = sum_data * 1.0 / sum_randoms
                 self.ran_min = ran_min * sum_randoms / self.backend._size_randoms
                 mask = randoms_mesh.value > self.ran_min
                 # Create rho_mesh
@@ -106,19 +115,19 @@ class VoxelVoids(BaseEstimator):
         else:
             # For periodic boxes without randoms, use delta_mesh directly
             self.rho_mesh = np.array(delta_array + 1.0)
-            
-        self.logger.info(f'Set density contrast in {time.time() - t0:.2f} seconds.')
+
+        self.logger.info(f"Set density contrast in {time.time() - t0:.2f} seconds.")
         return delta_mesh
 
     def find_voids(self) -> Tuple[npt.NDArray, npt.NDArray]:
         """
         Run the voxel voids algorithm to identify cosmic voids.
-        
+
         This method implements the ZOBOV (ZOnes Bordering On Voidness) algorithm
         to find voids in the density field. It first calls _find_voids to run the
         external void-finding executable, then post-processes the results to remove
         edge voids and voids in masked regions.
-        
+
         Returns
         -------
         voids : array_like, shape (N, 3)
@@ -126,7 +135,7 @@ class VoxelVoids(BaseEstimator):
         void_radii : array_like, shape (N,)
             Effective radii of voids, computed from void volumes as
             R = (3V / 4π)^(1/3).
-            
+
         Notes
         -----
         The density contrast must be set using set_density_contrast before
@@ -136,17 +145,19 @@ class VoxelVoids(BaseEstimator):
         self._find_voids()
         self.voids, self.void_radii = self._postprocess_voids()
         nvoids = len(self.voids)
-        self.logger.info(f"Found {nvoids} voxel voids in {time.time() - self.time:.2f} seconds.")
+        self.logger.info(
+            f"Found {nvoids} voxel voids in {time.time() - self.time:.2f} seconds."
+        )
         return self.voids, self.void_radii
 
     def _find_voids(self) -> None:
         """
         Find voids in the overdensity field using the ZOBOV algorithm.
-        
+
         Writes the density mesh to a temporary file and calls the external
         jozov-grid executable to identify void regions. The executable generates
         .void, .txt, and .zone files containing void information.
-        
+
         Notes
         -----
         This is an internal method called by find_voids. The results are
@@ -155,29 +166,40 @@ class VoxelVoids(BaseEstimator):
         self.logger.info("Finding voids.")
         nmesh = self.meshsize
         rho_mesh_flat = np.array(self.rho_mesh, dtype=np.float32)
-        with open(f'{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat', 'w') as F:
-            rho_mesh_flat.tofile(F, format='%f')
-        bin_path  = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src', 'jozov-grid.exe')
-        cmd = [bin_path, "v", f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat",
-               self.handle, str(nmesh[0]),str(nmesh[1]),str(nmesh[2])]
+        with open(
+            f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat", "w"
+        ) as F:
+            rho_mesh_flat.tofile(F, format="%f")
+        bin_path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "src", "jozov-grid.exe"
+        )
+        cmd = [
+            bin_path,
+            "v",
+            f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat",
+            self.handle,
+            str(nmesh[0]),
+            str(nmesh[1]),
+            str(nmesh[2]),
+        ]
         subprocess.call(cmd)
 
     def _postprocess_voids(self) -> Tuple[npt.NDArray, npt.NDArray]:
         """
         Post-process voids to remove edge voids and voids in masked voxels.
-        
+
         Applies quality cuts to the raw void catalog to remove:
         1. Voids that don't meet minimum density criteria
         2. Edge voids (touching the boundary)
         3. Voids lying in masked (empty) voxels
-        
+
         Returns
         -------
         void_positions : array_like, shape (N, 3)
             Cartesian coordinates of void centers at minimum density locations.
         void_radii : array_like, shape (N,)
             Effective radii computed from void volumes.
-            
+
         Notes
         -----
         This method reads the .txt and .zone files generated by _find_voids,
@@ -191,7 +213,11 @@ class VoxelVoids(BaseEstimator):
         if self.has_randoms:
             # identify "empty" cells for later cuts on void catalogue
             mask_cut = np.zeros(nmesh[0] * nmesh[1] * nmesh[2], dtype=np.intc)
-            randoms_mesh_value = self.backend.randoms_mesh.value if hasattr(self.backend.randoms_mesh, 'value') else self.backend.randoms_mesh
+            randoms_mesh_value = (
+                self.backend.randoms_mesh.value
+                if hasattr(self.backend.randoms_mesh, "value")
+                else self.backend.randoms_mesh
+            )
             fastmodules.survey_mask(mask_cut, randoms_mesh_value, self.ran_min)
         self.mask_cut = mask_cut
         self.min_dens_cut = 1.0
@@ -202,41 +228,43 @@ class VoxelVoids(BaseEstimator):
         select = np.asarray(select, dtype=bool)
         rawdata = rawdata[select]
         # void minimum density centre locations
-        self.logger.info('Calculating void positions.')
+        self.logger.info("Calculating void positions.")
         xpos, ypos, zpos = self.voxel_position(rawdata[:, 2])
-        offset = self.boxcenter - self.boxsize / 2.
+        offset = self.boxcenter - self.boxsize / 2.0
         xpos += offset[0]
         ypos += offset[1]
         zpos += offset[2]
         self.core_dens = rawdata[:, 3]
         # void effective radii
-        self.logger.info('Calculating void radii.')
-        vols = (rawdata[:, 5] * cellsize ** 3.)
-        rads = (3. * vols / (4. * np.pi)) ** (1. / 3)
+        self.logger.info("Calculating void radii.")
+        vols = rawdata[:, 5] * cellsize**3.0
+        rads = (3.0 * vols / (4.0 * np.pi)) ** (1.0 / 3)
         self.zones = []
-        with open(f'{self.handle}.zone', 'r') as f:
+        with open(f"{self.handle}.zone", "r") as f:
             for line in f:
                 self.zones.append([int(i) for i in line.split()])
         self.zones = [zone for i, zone in enumerate(self.zones) if select[i]]
-        os.remove(f'{self.handle}.void')
-        os.remove(f'{self.handle}.txt')
-        os.remove(f'{self.handle}.zone')
-        os.remove(f'{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat')
+        os.remove(f"{self.handle}.void")
+        os.remove(f"{self.handle}.txt")
+        os.remove(f"{self.handle}.zone")
+        os.remove(f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat")
         return np.c_[xpos, ypos, zpos], rads
 
-    def voxel_position(self, voxel: npt.NDArray) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
+    def voxel_position(
+        self, voxel: npt.NDArray
+    ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         """
         Calculate the Cartesian position of voxels in the mesh.
-        
+
         Converts voxel indices (flattened 1D array index) to Cartesian
         coordinates (x, y, z) in physical units, accounting for box size,
         box center, and mesh resolution.
-        
+
         Parameters
         ----------
         voxel : array_like
             Flattened voxel indices to convert to positions.
-            
+
         Returns
         -------
         xpos : array_like
@@ -245,18 +273,18 @@ class VoxelVoids(BaseEstimator):
             y-coordinates in Mpc/h.
         zpos : array_like
             z-coordinates in Mpc/h.
-            
+
         Notes
         -----
         For surveys with randoms, positions are centered relative to boxcenter.
         For periodic boxes, positions start at the box origin.
         """
-        voxel = voxel.astype('i')
+        voxel = voxel.astype("i")
         boxsize = self.boxsize
         boxcenter = self.boxcenter
         nmesh = self.meshsize
         all_vox = np.arange(0, nmesh[0] * nmesh[1] * nmesh[2], dtype=int)
-        vind = np.zeros((np.copy(all_vox).shape[0]), dtype=int) 
+        vind = np.zeros((np.copy(all_vox).shape[0]), dtype=int)
         xpos = np.zeros(vind.shape[0], dtype=float)
         ypos = np.zeros(vind.shape[0], dtype=float)
         zpos = np.zeros(vind.shape[0], dtype=float)
@@ -266,27 +294,29 @@ class VoxelVoids(BaseEstimator):
         zi = np.arange(nmesh[2])
         if self.has_randoms:
             for i in range(nmesh[1]):
-                yi[i*(nmesh[2]):(i + 1) * (nmesh[2])] =i
+                yi[i * (nmesh[2]) : (i + 1) * (nmesh[2])] = i
             for i in range(nmesh[0]):
-                xi[i*(nmesh[1] * nmesh[2]):(i + 1) * (nmesh[1] * nmesh[2])] = i
+                xi[i * (nmesh[1] * nmesh[2]) : (i + 1) * (nmesh[1] * nmesh[2])] = i
             xpos = xi * boxsize[0] / nmesh[0]
             ypos = np.tile(yi, nmesh[0]) * boxsize[1] / nmesh[1]
-            zpos = np.tile(zi, nmesh[1] * nmesh[0]) * boxsize[2 ] / nmesh[2]
-            xpos += boxcenter[0] - boxsize[0] / 2.
-            ypos += boxcenter[1] - boxsize[1] / 2.           
-            zpos += boxcenter[2] - boxsize[2] / 2.
-            return xpos[voxel],ypos[voxel],zpos[voxel]
+            zpos = np.tile(zi, nmesh[1] * nmesh[0]) * boxsize[2] / nmesh[2]
+            xpos += boxcenter[0] - boxsize[0] / 2.0
+            ypos += boxcenter[1] - boxsize[1] / 2.0
+            zpos += boxcenter[2] - boxsize[2] / 2.0
+            return xpos[voxel], ypos[voxel], zpos[voxel]
         else:
             for i in range(nmesh[1]):
-                yi[i * (nmesh[2]):(i + 1) * (nmesh[2])] = i
+                yi[i * (nmesh[2]) : (i + 1) * (nmesh[2])] = i
             for i in range(nmesh[0]):
-                xi[i*(nmesh[1] * nmesh[2]):(i + 1) * (nmesh[1] * nmesh[2])] = i
+                xi[i * (nmesh[1] * nmesh[2]) : (i + 1) * (nmesh[1] * nmesh[2])] = i
             xpos = xi * boxsize[0] / nmesh[0]
             ypos = np.tile(yi, nmesh[0]) * boxsize[1] / nmesh[1]
             zpos = np.tile(zi, nmesh[1] * nmesh[0]) * boxsize[2] / nmesh[2]
             return xpos[voxel], ypos[voxel], zpos[voxel]
 
-    def void_data_correlation(self, data_positions: npt.NDArray, **kwargs: Any) -> TwoPointCorrelationFunction:
+    def void_data_correlation(
+        self, data_positions: npt.NDArray, **kwargs: Any
+    ) -> TwoPointCorrelationFunction:
         """
         Compute the cross-correlation function between the voids and the data.
 
@@ -305,37 +335,41 @@ class VoxelVoids(BaseEstimator):
             Cross-correlation function between voids and data.
         """
         if self.has_randoms:
-            if 'randoms_positions' not in kwargs:
-                raise ValueError('Randoms positions must be provided when working with a non-uniform geometry.')
-            kwargs['randoms_positions1'] = kwargs['randoms_positions']
-            kwargs['randoms_positions2'] = kwargs['randoms_positions']
-            kwargs.pop('randoms_positions')
-            if 'data_weights' in kwargs:
-                kwargs['data_weights2'] = kwargs.pop('data_weights')
-            if 'randoms_weights' in kwargs:
-                kwargs['randoms_weights2'] = kwargs.pop('randoms_weights')
+            if "randoms_positions" not in kwargs:
+                raise ValueError(
+                    "Randoms positions must be provided when working with a non-uniform geometry."
+                )
+            kwargs["randoms_positions1"] = kwargs["randoms_positions"]
+            kwargs["randoms_positions2"] = kwargs["randoms_positions"]
+            kwargs.pop("randoms_positions")
+            if "data_weights" in kwargs:
+                kwargs["data_weights2"] = kwargs.pop("data_weights")
+            if "randoms_weights" in kwargs:
+                kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
         else:
-            if 'boxsize' not in kwargs:
-                kwargs['boxsize'] = self.boxsize
+            if "boxsize" not in kwargs:
+                kwargs["boxsize"] = self.boxsize
         self._void_data_correlation = TwoPointCorrelationFunction(
             data_positions1=self.voids,
             data_positions2=data_positions,
-            mode='smu',
-            position_type='pos',
+            mode="smu",
+            position_type="pos",
             **kwargs,
         )
         return self._void_data_correlation
 
     @set_plot_style
-    def plot_void_size_distribution(self, save_fn: Optional[Union[str, Path]] = None) -> matplotlib.figure.Figure:
+    def plot_void_size_distribution(
+        self, save_fn: Optional[Union[str, Path]] = None
+    ) -> matplotlib.figure.Figure:
         """
         Plot the void size distribution as a histogram.
-        
+
         Parameters
         ----------
         save_fn : str or Path, optional
             If provided, save the figure to this file path.
-            
+
         Returns
         -------
         fig : matplotlib.figure.Figure
@@ -343,31 +377,33 @@ class VoxelVoids(BaseEstimator):
         """
         fig, ax = plt.subplots(figsize=(4, 4))
         ax.hist(self.void_radii, bins=25, lw=2.0, alpha=0.5)
-        ax.set_xlabel(r'$R_{\rm void}\, [h^{-1}{\rm Mpc}]$', fontsize=15)
-        ax.set_ylabel(r'$N$', fontsize=15)
+        ax.set_xlabel(r"$R_{\rm void}\, [h^{-1}{\rm Mpc}]$", fontsize=15)
+        ax.set_ylabel(r"$N$", fontsize=15)
         plt.tight_layout()
-        if save_fn: plt.savefig(save_fn, bbox_inches='tight')
+        if save_fn:
+            plt.savefig(save_fn, bbox_inches="tight")
         plt.show()
         return fig
 
     @set_plot_style
-    def plot_void_data_correlation(self, ells: Tuple[int, ...] = (0,), 
-                                  save_fn: Optional[Union[str, Path]] = None) -> matplotlib.figure.Figure:
+    def plot_void_data_correlation(
+        self, ells: Tuple[int, ...] = (0,), save_fn: Optional[Union[str, Path]] = None
+    ) -> matplotlib.figure.Figure:
         """
         Plot the void-data cross-correlation multipoles.
-        
+
         Parameters
         ----------
         ells : tuple of int, default=(0,)
             Multipole moments to plot (e.g., 0 for monopole, 2 for quadrupole).
         save_fn : str or Path, optional
             If provided, save the figure to this file path.
-            
+
         Returns
         -------
         fig : matplotlib.figure.Figure
             The generated figure object.
-            
+
         Notes
         -----
         The void_data_correlation method must be called before plotting.
@@ -375,37 +411,41 @@ class VoxelVoids(BaseEstimator):
         fig, ax = plt.subplots(figsize=(4, 4))
         s, multipoles = self._void_data_correlation(ells=(0, 2, 4), return_sep=True)
         for ell in ells:
-            ax.plot(s, multipoles[ell//2], lw=2.0, label=f'$\\ell = {ell}$')
-        ax.set_xlabel(r'$s\, [h^{-1}{\rm Mpc}]$', fontsize=15)
-        ax.set_ylabel(r'$\xi_\ell(s)$', fontsize=15)
-        ax.legend(fontsize=15, loc='best', handlelength=1.0)
+            ax.plot(s, multipoles[ell // 2], lw=2.0, label=f"$\\ell = {ell}$")
+        ax.set_xlabel(r"$s\, [h^{-1}{\rm Mpc}]$", fontsize=15)
+        ax.set_ylabel(r"$\xi_\ell(s)$", fontsize=15)
+        ax.legend(fontsize=15, loc="best", handlelength=1.0)
         plt.tight_layout()
-        if save_fn: plt.savefig(save_fn, bbox_inches='tight')
+        if save_fn:
+            plt.savefig(save_fn, bbox_inches="tight")
         plt.show()
         return fig
 
     @set_plot_style
-    def plot_slice(self, data_positions: Optional[npt.NDArray] = None, 
-                  save_fn: Optional[Union[str, Path]] = None) -> matplotlib.figure.Figure:
+    def plot_slice(
+        self,
+        data_positions: Optional[npt.NDArray] = None,
+        save_fn: Optional[Union[str, Path]] = None,
+    ) -> matplotlib.figure.Figure:
         """
         Plot a 2D slice of the density field showing void zones.
-        
+
         Creates a visualization of void zones projected onto a 2D plane by
         summing along the z-axis. Each void zone is colored randomly for
         visual distinction.
-        
+
         Parameters
         ----------
         data_positions : array_like, optional
             Data positions to overplot (not currently implemented).
         save_fn : str or Path, optional
             If provided, save the figure to this file path.
-            
+
         Returns
         -------
         fig : matplotlib.figure.Figure
             The generated figure object.
-            
+
         Notes
         -----
         The find_voids method must be called before plotting to populate
@@ -418,19 +458,29 @@ class VoxelVoids(BaseEstimator):
         for i, zone in enumerate(self.zones):
             zones_mesh[zone] = random.random()
         zones_mesh = np.ma.masked_where(zones_mesh == 0, zones_mesh)
-        delta_mesh = self.backend.delta_mesh.value if hasattr(self.backend.delta_mesh, 'value') else self.backend.delta_mesh
+        delta_mesh = (
+            self.backend.delta_mesh.value
+            if hasattr(self.backend.delta_mesh, "value")
+            else self.backend.delta_mesh
+        )
         zones_mesh = zones_mesh.reshape(delta_mesh.shape)
         zones_mesh = np.sum(zones_mesh, axis=2)
         fig, ax = plt.subplots()
         cmap = matplotlib.cm.tab20
-        cmap.set_bad(color='white')
-        ax.imshow(zones_mesh[:, :], origin='lower', cmap=cmap,
-                  extent=[0, boxsize[0], 0, boxsize[1]], interpolation='gaussian')
+        cmap.set_bad(color="white")
+        ax.imshow(
+            zones_mesh[:, :],
+            origin="lower",
+            cmap=cmap,
+            extent=[0, boxsize[0], 0, boxsize[1]],
+            interpolation="gaussian",
+        )
         # ax.set_xlim(0, 1000)
         # ax.set_ylim(0, 1000)
-        ax.set_xlabel(r'$x\, [h^{-1}{\rm Mpc}]$', fontsize=15)
-        ax.set_ylabel(r'$y\, [h^{-1}{\rm Mpc}]$', fontsize=15)
+        ax.set_xlabel(r"$x\, [h^{-1}{\rm Mpc}]$", fontsize=15)
+        ax.set_ylabel(r"$y\, [h^{-1}{\rm Mpc}]$", fontsize=15)
         plt.tight_layout()
-        if save_fn: plt.savefig(save_fn, bbox_inches='tight')
+        if save_fn:
+            plt.savefig(save_fn, bbox_inches="tight")
         plt.show()
         return fig
