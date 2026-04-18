@@ -39,7 +39,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
         overwrite_s: np.ndarray | None = None,
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -78,8 +78,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
         logger = cls.get_logger()
 
@@ -437,7 +437,7 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_correlation"
         )
@@ -462,7 +462,7 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_correlation"
         )

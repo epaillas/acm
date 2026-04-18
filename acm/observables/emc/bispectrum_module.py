@@ -35,7 +35,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         kmax: float = 0.285,
         rebin: int = 3,
         ells: list = [0, 2],
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Class method to compress the covariance array from the raw measurement files.
         Provided within the class for convenience.
@@ -126,7 +126,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         phase: int = 0,
         seed: int = 0,
         test_filters: dict | None = None,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Class method to compress the data from the raw measurement files.
         Provided within the class for convenience.

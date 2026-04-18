@@ -148,7 +148,8 @@ class BaseObservableBGS(Observable):
 
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(
-            emulator_covariance_y, flat_output_dims=2
+            emulator_covariance_y,  # ty:ignore[invalid-argument-type]
+            flat_output_dims=2
         )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)

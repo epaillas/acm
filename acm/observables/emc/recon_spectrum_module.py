@@ -36,7 +36,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         rebin: int = 13,
         ells: list = [0, 2, 4],
         overwrite_k: np.ndarray | None = None,
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -130,7 +130,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         phase: int = 0,
         seed: int = 0,
         test_filters: dict | None = None,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 

@@ -34,7 +34,7 @@ class Observable:
     def __init__(
         self,
         stat_name: str,
-        dataset: xarray.Dataset = None,
+        dataset: xarray.Dataset | None = None,
         model: FCN = None,
         select_filters: dict | None= None,
         slice_filters: dict | None= None,
@@ -407,19 +407,24 @@ class Observable:
 
         return da
 
-    def apply_filters(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+    @overload
+    def apply_filters(self, dataarray: xarray.DataArray) -> xarray.DataArray: ...
+    @overload
+    def apply_filters(self, dataarray: xarray.Dataset) -> xarray.Dataset: ...
+    
+    def apply_filters(self, dataarray):
         """
         Apply the class filters on a given DataArray or Dataset.
 
         Parameters
         ----------
-        dataarray : xarray.DataArray
-            The DataArray to apply the filters on.
+        dataarray : xarray.DataArray | xarray.Dataset
+            The DataArray or Dataset to apply the filters on.
 
         Returns
         -------
-        xarray.DataArray
-            The filtered DataArray.
+        xarray.DataArray | xarray.Dataset
+            The filtered DataArray or Dataset.
         """
         dimensions = dataarray.dims
 
