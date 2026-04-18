@@ -43,7 +43,7 @@ if __name__ == "__main__":
     # Example usage
     import matplotlib.pyplot as plt
 
-    from acm.lensing import AbacusConvergenceMap, AbacusShearMap
+    from acm.lensing import AbacusConvergenceMap
 
     # Initialize convergence map
     kappa_map = AbacusConvergenceMap(
