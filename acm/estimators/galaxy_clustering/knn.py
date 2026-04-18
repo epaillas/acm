@@ -138,8 +138,8 @@ class KthNearestNeighbor(BaseEstimator):
             assert rs.shape[0] == pis.shape[0]
         elif len(rs.shape) == 1:
             # FIXME: k is not defined here !!
-            rs = np.stack([rs for i in range(len(k))], axis=0)
-            pis = np.stack([pis for i in range(len(k))], axis=0)
+            rs = np.stack([rs for i in range(len(kneighbors))], axis=0)
+            pis = np.stack([pis for i in range(len(kneighbors))], axis=0)
         else:
             raise ValueError
 
