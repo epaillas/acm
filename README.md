@@ -85,6 +85,32 @@ If you are not sure about the purpose of a branch, please ask the maintainers.
 
 ## Workflows
 
+### Continuous Integration
+The project has a continuous integration workflow defined in the `.github/workflows/ci-format-lint-test.yml` file. This workflow is triggered on any pull request to the `dev` or `main` branches, and on any push to those branches. 
+
+> [!Note]
+> This workflow only runs on the `acm` package code, and not on the scripts in the `scripts/` folder or on the documentation.
+
+The workflow formats the code with `Ruff` (used as a linter and formatter), type-checks the code with `ty`, and runs the tests with `pytest`. If any of those steps fail, the workflow will fail and the pull request cannot be merged until the issue is resolved. Annotations are added to the pull request code to indicate the issues that need to be resolved.
+
+> [!NOTE]
+> We recommend running `ty check acm` locally to check for type issues before pushing your code. `ty` uses the environment it runs in to check for type issues, so some tests might differ depending on the environment. For example, if you have `jax` installed in your local environment, you might get some type errors that are not present in the CI workflow if `jax` is not installed there.
+
+> [!TIP]
+> To ignore `ty` errors, you can use the `# ty: ignore` comment at the end of the line where the error occurs. However, use this with caution and only when you are sure that the error is not relevant for that line, as it can hide potential issues in the code. 
+> [Learn more](https://docs.astral.sh/ty/suppression/).
+
+
+`Ruff` will try to automatically fix any formatting issues, but if it cannot, it will report the issues in the workflow logs and annotations. You can also run `ruff` locally to check for formatting issues before pushing your code.
+```bash
+pip install ruff
+ruff check acm --fix
+```
+
+> [!TIP]
+> To prevent `ruff` rules from being applied to a specific line, you can use the `# ruff: noqa` comment at the end of the line. We recommend to specify specific rules to ignore (e.g. `# ruff: noqa: E501`). You can also ignore rules for an entire file by adding `# ruff: noqa` at the top of the file, but we discourage this practice as it can hide potential issues in the code.
+> [Learn more](https://docs.astral.sh/ruff/linter/#error-suppression).
+
 ### Automated versions
 
 The package version follows the [semantic versioning](https://semver.org/) scheme (`<major>.<minor>.<patch>-dev.<dev_version>`), and is automatically bumped on any merged PR to either `dev` or `main` branches. The version bumping is handled by the [bump2version](https://github.com/c4urself/bump2version) tool, and the workflow is defined in the `.github/workflows/ci-version.yml` file.
