@@ -124,5 +124,17 @@ filterwarnings = [
     "default::DeprecationWarning:mymodule.*:",  # except from mymodule
 ]
 
+# Ty setings
 [tool.ty.rules]
 unresolved-import = "ignore" # Ignore unresolved imports, as some dependencies may not be installed in all environments.
+
+[tool.ty.src]
+exclude = [
+    "acm/hod/*", # Temporarily exclude HOD module, pending rework
+    "acm/observables/emc/versus_module.py", # Exclude due to type errors in versus_module classes
+]
+
+
+# Ruff settings
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"] # Ignore unused imports in __init__.py, as they are often used for package exports.
