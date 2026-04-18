@@ -31,11 +31,11 @@ class DensitySplitBaseClass(BaseObservableBGS):
         hod_idx: int = 157,
         seed: int = 0,
         los: list[str] = ["x", "y", "z"],
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 1,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        overwrite_s: np.ndarray = None,
+        overwrite_s: np.ndarray | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -98,7 +98,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
                     / f"hod{hod_idx:03d}"
                 )
                 fns = [
-                    fn_dir / f"{measurement_root}_los_{l}.npy" for l in los
+                    fn_dir / f"{measurement_root}_los_{_l}.npy" for _l in los
                 ]  # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
@@ -138,7 +138,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -151,15 +152,15 @@ class DensitySplitBaseClass(BaseObservableBGS):
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         los: list[str] = ["x", "y", "z"],
         rebin: int = 1,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
         cosmos: list = cosmo_list,
-        n_hod: int = None,
-        density_threshold: float = None,
-        test_filters: dict = None,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
         """
@@ -239,7 +240,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
             for fn_dir in hod_fns:
                 y_quantiles = []
                 fns = [
-                    fn_dir / f"{measurement_root}_los_{l}.npy" for l in los
+                    fn_dir / f"{measurement_root}_los_{_l}.npy" for _l in los
                 ]  # NOTE: Hardcoded !
                 for q in quantiles:
                     data = sum(
@@ -310,7 +311,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
@@ -319,7 +321,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
     def plot_observable(
         self,
         model_params: dict,
-        save_fn: str = None,
+        save_fn: str | None = None,
         quantiles: list = [0, 1, 3, 4],
         ell: int = 0,
         **kwargs,
@@ -432,7 +434,7 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_correlation"
         )
@@ -440,7 +442,7 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_correlation"
         )
@@ -457,7 +459,7 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_correlation"
         )
@@ -465,7 +467,7 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_correlation"
         )
