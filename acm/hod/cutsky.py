@@ -215,7 +215,40 @@ class BaseCutskyCatalog(ABC):
 
         # calculate downsampling ratio
         data_nz = np.histogram(self.catalog["Z"], bins=zedges)[0] / volume
-        ratio = target_nz / data_nz
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = target_nz / data_nz
+
+        zero_target = np.logical_and(target_nz == 0, data_nz == 0)
+        ratio[zero_target] = 0.0
+
+        if not shape_only:
+            tolerance = 1e-6
+            bad_bins = np.logical_or(
+                ratio > 1 + tolerance,
+                np.logical_and(~np.isfinite(ratio), target_nz > 0),
+            )
+            if np.any(bad_bins):
+                bad_indices = np.flatnonzero(bad_bins)
+                bad_ratios = np.nan_to_num(
+                    ratio[bad_indices], nan=np.inf, posinf=np.inf, neginf=-np.inf
+                )
+                preview_order = np.argsort(bad_ratios)[::-1][:5]
+                preview_bins = bad_indices[preview_order]
+                max_ratio = np.max(bad_ratios)
+                preview = "; ".join(
+                    (
+                        f"[{zbin_min[idx]:.3f}, {zbin_max[idx]:.3f}] "
+                        f"target={target_nz[idx]:.3e}, raw={data_nz[idx]:.3e}, "
+                        f"ratio={ratio[idx]:.3e}"
+                    )
+                    for idx in preview_bins
+                )
+                raise ValueError(
+                    "Raw cutsky catalog is too sparse to match the requested n(z) "
+                    f"during radial masking: {len(bad_indices)} failing bins, "
+                    f"max(target_nz / raw_nz)={max_ratio:.3e}. "
+                    f"Worst bins: {preview}"
+                )
 
         if shape_only:
             max_ratio = np.max(ratio[~np.isinf(ratio)])

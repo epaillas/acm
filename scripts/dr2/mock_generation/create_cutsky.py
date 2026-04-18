@@ -105,12 +105,23 @@ if __name__ == '__main__':
 
             # sample HOD parameters and build the cutsky mock
             # this does not have the angular or radial mask carved in yet
+            nz_filename = (
+                f'/global/cfs/cdirs/desi/survey/catalogs/DA2/LSS/loa-v1/LSScats/v2/'
+                f'{tracer}_full_HPmapcut_nz.txt'
+            )
             hod = {key: hod_params[key][hod_idx] for key in hod_params.keys()}
-            cutsky.sample_hod(hod, nthreads=1, region=region, release=release)
+            cutsky.sample_hod(
+                hod,
+                nthreads=1,
+                region=region,
+                release=release,
+                target_nz_filename=nz_filename,
+            )
 
             # apply angular and radial masks
-            cutsky.apply_angular_mask(region=region, release=release, npasses=None, program='dark')
-            nz_filename= f'/global/cfs/cdirs/desi/survey/catalogs/DA2/LSS/loa-v1/LSScats/v2/{tracer}_full_HPmapcut_nz.txt'
+            cutsky.apply_angular_mask(
+                region=region, release=release, npasses=None, program='dark'
+            )
             cutsky.apply_radial_mask(nz_filename=nz_filename)
 
             cutsky.save(save_dir / f'{tracer}_{region}_hod{hod_idx:03}_new_constraints5.dat.fits')
