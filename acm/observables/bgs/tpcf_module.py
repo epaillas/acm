@@ -36,7 +36,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         rebin: int = 3,
         ells: list = [0, 2],
         overwrite_s: np.ndarray | None = None,
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -71,8 +71,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
         logger = cls.get_logger()
 

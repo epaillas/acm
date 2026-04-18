@@ -29,7 +29,7 @@ class DDkNN(BaseObservableEMC):
         stat_name: str = "dd_knn",
         cdf_floor: float = 0.05,
         save_to: str | None = None,
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
         Provided as a classmethod for convenience.
@@ -93,6 +93,8 @@ class DDkNN(BaseObservableEMC):
             },
             name="covariance_y",
         )
+        
+        cout = xarray.Dataset(data_vars={"covariance_y": y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
@@ -114,7 +116,7 @@ class DDkNN(BaseObservableEMC):
         seed: int = 0,
         cdf_floor: float = 0.05,
         test_filters: dict | None = None,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from raw measurement files.
 

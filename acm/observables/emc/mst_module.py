@@ -25,7 +25,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         paths: dict,
         stat_name: str = "mst",
         save_to: str | None = None,
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -89,6 +89,7 @@ class MinimumSpanningTree(BaseObservableEMC):
             name="covariance_y",
         )
 
+        cout = xarray.Dataset(data_vars={"covariance_y": y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
@@ -108,7 +109,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         n_hod: int = 300,
         phase_idx: int = 0,
         seed_idx: int = 0,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from raw measurement files.
 

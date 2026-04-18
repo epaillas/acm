@@ -27,7 +27,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
         paths: dict,
         stat_name: str = "minkowski",
         save_to: str | None = None,
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -113,7 +113,7 @@ class MinkowskiFunctionals(BaseObservableEMC):
         phase: int = 0,
         seed: int = 0,
         test_filters: dict | None = None,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 

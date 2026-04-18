@@ -63,7 +63,7 @@ class BaseObservableEMC(Observable):
 
         Returns
         -------
-        np.ndarray
+        xarray.DataArray | np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         # Get unfiltered values
@@ -152,7 +152,7 @@ class BaseObservableEMC(Observable):
 
         Returns
         -------
-        np.ndarray
+        xarray.DataArray | np.ndarray
            Emulator error, with shape (n_features, ).
         """
         emulator_covariance_y = self.get_emulator_covariance_y(
@@ -161,7 +161,8 @@ class BaseObservableEMC(Observable):
 
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(
-            emulator_covariance_y, flat_output_dims=2
+            emulator_covariance_y,  # ty:ignore[invalid-argument-type]
+            flat_output_dims=2
         )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)

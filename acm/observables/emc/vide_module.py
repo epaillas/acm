@@ -28,7 +28,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         stat_name: str = "vide_ccf",
         save_to: str | None = None,
         ells: list = [0, 2, 4],
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -49,8 +49,8 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance array.
         """
         logger = cls.get_logger()
 
@@ -104,7 +104,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         n_hod: int = 500,
         ells: list = [0, 2, 4],
         test_filters: dict | None = None,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 
@@ -393,7 +393,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         paths: dict,
         stat_name: str = "vide_vsf",
         save_to: str | None = None,
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -412,8 +412,8 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance array.
         """
         logger = cls.get_logger()
 
@@ -460,7 +460,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         test_filters: dict | None = None,
-    ) -> dict:
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 
