@@ -27,7 +27,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "bispectrum",
-        save_to: str = None,
+        save_to: str | None = None,
         kmin: float = 0.016,
         kmax: float = 0.285,
         rebin: int = 3,
@@ -102,7 +102,8 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -112,7 +113,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str = "bispectrum",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         kmin: float = 0.016,
         kmax: float = 0.285,
         rebin: int = 3,
@@ -121,7 +122,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ) -> dict:
         """
         Class method to compress the data from the raw measurement files.
@@ -238,13 +239,14 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the reconstructed galaxy bispectrum multipoles data, model, and residuals.
 
@@ -252,7 +254,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
         ----------
         model_params : dict
             Dictionary of model parameters to use for the prediction.
-        save_fn : str
+        save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
 
         Returns
@@ -261,6 +263,13 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             Figure and axes of the plot.
         """
         ells = self._dataset.y.coords["ells"].values.tolist()
+        
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -316,6 +325,9 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
             ax.tick_params(axis="both", labelsize=14)
         if show_legend:
             lax[0].legend(fontsize=15)
+            
+        # Restore select_filters
+        self.select_filters = default_select_filters
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")

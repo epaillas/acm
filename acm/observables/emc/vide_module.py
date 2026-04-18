@@ -26,7 +26,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "vide_ccf",
-        save_to: str = None,
+        save_to: str | None = None,
         ells: list = [0, 2, 4],
     ) -> xarray.DataArray:
         """
@@ -88,7 +88,8 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -98,11 +99,11 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str = "vide_ccf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         ells: list = [0, 2, 4],
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -196,24 +197,32 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
         ells = self._dataset.y.coords["ells"].values.tolist()
         stacked_bins = self._dataset.y.coords["stacked_bins"].values.tolist()
         rv = self.rv.values
+        
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
 
@@ -226,6 +235,9 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
             lax[ell // 2].set_ylabel(rf"$\xi_{ell}(r / R_{{\rm void}})$")
         lax[-1].set_xlabel(r"$r / R_{\rm void}$")
+        
+        # Restore select_filters
+        self.select_filters = default_select_filters
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")
@@ -234,19 +246,26 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
         ells = self._dataset.y.coords["ells"].values.tolist()
         stacked_bins = self._dataset.y.coords["stacked_bins"].values.tolist()
         rv = self.rv.values
+        
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
 
@@ -259,6 +278,9 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
             lax[ell // 2].set_ylabel(rf"$\xi_{ell}(r / R_{{\rm void}})$")
         lax[-1].set_xlabel(r"$r / R_{\rm void}$")
+        
+        # Restore select_filters
+        self.select_filters = default_select_filters
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")
@@ -268,7 +290,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the data, model, and residuals.
 
@@ -276,7 +298,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         ----------
         model_params : dict
             Dictionary of model parameters to use for the prediction.
-        save_fn : str
+        save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
 
         Returns
@@ -286,7 +308,13 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         """
 
         ells = self._dataset.y.coords["ells"].values.tolist()
-        print(ells)
+        
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -341,6 +369,9 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             ax.tick_params(axis="both", labelsize=14)
         if show_legend:
             lax[0].legend(fontsize=15)
+            
+        # Restore select_filters
+        self.select_filters = default_select_filters
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
@@ -361,7 +392,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "vide_vsf",
-        save_to: str = None,
+        save_to: str | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -414,7 +445,8 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -424,10 +456,10 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         paths: dict,
         stat_name: str = "vide_vsf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -497,9 +529,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(
-                paths=paths, stat_name=stat_name, cosmos=cosmos, n_hod=n_hod
-            )
+            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
             cout = xarray.merge([cout, cov_y], join="outer")
 
         if test_filters is not None:
@@ -515,12 +545,13 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
@@ -547,7 +578,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance set for the observable.
 
@@ -565,7 +596,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             ax.plot(rv, data, color="grey", alpha=0.5, lw=0.1)
 
         ax.set_ylabel(r"$\textrm{VSF}$")
-        ax.set_xlabel(r"$R_{\rm void}\, [h^{-1}{\rm Mpc}$")
+        ax.set_xlabel(r"$R_{\rm void}\, [h^{-1}{\rm Mpc}]$")
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")
@@ -575,7 +606,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the data, model, and residuals.
 
@@ -621,12 +652,12 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             marker="o",
             ms=3,
             ls="",
-            color=f"C0",
+            color="C0",
             elinewidth=1.0,
             capsize=None,
         )
-        lax[0].plot(rv, model, ls="-", color=f"C1")
-        lax[1].plot(rv, (data - model) / error, ls="-", color=f"C0")
+        lax[0].plot(rv, model, ls="-", color="C1")
+        lax[1].plot(rv, (data - model) / error, ls="-", color="C0")
 
         for offset in [-2, 2]:
             lax[1].axhline(offset, color="k", ls="--")
