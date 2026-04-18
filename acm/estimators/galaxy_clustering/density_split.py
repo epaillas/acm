@@ -3,24 +3,21 @@ import time
 from pathlib import Path
 
 import jax
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from jaxpower import (
     BinMesh2SpectrumPoles,
-    FKPField,
-    MeshAttrs,
     ParticleField,
     compute_box2_normalization,
     compute_fkp2_shotnoise,
     compute_mesh2_spectrum,
-    get_mesh_attrs,
 )
-from lsstypes import ObservableLeaf, ObservableTree
+from lsstypes import ObservableTree
 from lsstypes.external import from_pycorr
+from matplotlib import cm
+from matplotlib.patches import Patch
 from pandas import qcut
 from pycorr import TwoPointCorrelationFunction
-from pypower import CatalogFFTPower
 
 from acm.utils.plotting import set_plot_style
 
@@ -492,23 +489,29 @@ class DensitySplit(BaseEstimator):
     @set_plot_style
     def plot_quantiles(self, save_fn=None):
         fig, ax = plt.subplots(figsize=(4, 4))
-        cmap = matplotlib.cm.get_cmap("coolwarm")
+        cmap = cm.get_cmap("coolwarm")
         colors = cmap(np.linspace(0.01, 0.99, 5))
-        hist, bin_edges, patches = ax.hist(
-            self.delta_query, bins=200, density=True, lw=2.0, color="grey"
+        hist, bin_edges, bar_container = ax.hist(
+            self.delta_query, 
+            bins=200, 
+            density=True, 
+            lw=2.0, 
+            color="grey", 
         )
         imin = 0
+        handles = []
+        patches = getattr(bar_container, "patches", [])  # handle both BarContainer and list of patches
         for i in range(len(self.quantiles)):
             dmax = self.delta_query[self.quantiles_idx == i].max()
             imax = np.digitize([dmax], bin_edges)[0] - 1
-            for index in range(imin, imax):
-                patches[index].set_facecolor(colors[i])
+            for patch in patches[imin:imax]:
+                patch.set_facecolor(colors[i])
             imin = imax
-            ax.plot(np.nan, np.nan, color=colors[i], label=rf"${{\rm Q}}_{i}$", lw=4.0)
+            handles.append(Patch(color=colors[i], label=rf"${{\rm Q}}_{i}$"))
         ax.set_xlabel(r"$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$", fontsize=15)
         ax.set_ylabel("PDF", fontsize=15)
         ax.set_xlim(-1.3, 3.0)
-        ax.legend(handlelength=1.0)
+        ax.legend(handlelength=1.0, handles=handles)
         plt.tight_layout()
         if save_fn:
             plt.savefig(save_fn, bbox_inches="tight", dpi=300)
@@ -520,7 +523,8 @@ class DensitySplit(BaseEstimator):
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             s, multipoles = self._quantile_data_correlation[i](
-                ells=(0, 2, 4), return_sep=True
+                ells=(0, 2, 4), 
+                return_sep=True, 
             )
             ax.plot(
                 s,

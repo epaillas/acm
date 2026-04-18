@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pyrecon import RealMesh
 
-from .base import BasePyreconMeshEstimator
+from .base import BaseEstimator
 from .src import minkowski as Mk
 
 
-class MinkowskiFunctionals(BasePyreconMeshEstimator):
+class MinkowskiFunctionals(BaseEstimator):
     """
     Class to compute the Minkowski functionals.
     """

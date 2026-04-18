@@ -73,7 +73,7 @@ class DTVoid(BaseEstimator):
             free_path = ngal ** (-1 / 3)
             cpy_range = 3.5 * free_path
         else:
-            logger.info(f"No copy_range required with natively periodic DT.")
+            logger.info("No copy_range required with natively periodic DT.")
             cpy_range = 0
         max_r = np.inf
         while max_r > cpy_range:
@@ -105,7 +105,7 @@ class DTVoid(BaseEstimator):
                 logger.info(f"Biggest void is of size {max_r} Mpc/h")
                 if max_r > cpy_range and periodic_mode != 0:
                     logger.info(
-                        f"Rerunning void finder since largest void was larger than periodic padding."
+                        "Rerunning void finder since largest void was larger than periodic padding."
                     )
             else:
                 max_r = 0
