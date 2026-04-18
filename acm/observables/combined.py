@@ -279,7 +279,7 @@ class CombinedObservable:
 
         return cov
 
-    def get_save_handle(self, save_dir: str | Path = None) -> str | Path:
+    def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
         """
         Creates a handle that combines the handles of the observables,
         separated by a '+'. They contain the statistic name and the filters used.
@@ -287,7 +287,7 @@ class CombinedObservable:
 
         Parameters
         ----------
-        save_dir : str
+        save_dir : str | Path | None
             Directory where the results will be saved.
             If provided, the directory is created if it does not exist.
             If None, the handle is returned as a string.
@@ -318,7 +318,7 @@ class CombinedObservable:
     def plot_observable(
         self,
         model_params: dict,
-        save_fn: str | Path = None,
+        save_fn: str | Path | None = None,
     ):
         """
         Plot a compilation of all summary statistics included at class instantiation.
@@ -327,7 +327,7 @@ class CombinedObservable:
         ----------
         model_params : dict
             Dictionary of model parameters to use for the prediction.
-        save_fn : str|Path
+        save_fn : str|Path|None
             File name to save the plot. If None, the plot is not saved.
             Default is None.
 
