@@ -131,7 +131,6 @@ unresolved-import = "ignore" # Ignore unresolved imports, as some dependencies m
 [tool.ty.src]
 exclude = [
     "acm/hod/*", # Temporarily exclude HOD module, pending rework
-    "acm/observables/emc/versus_module.py", # Exclude due to type errors in versus_module classes
 ]
 
 

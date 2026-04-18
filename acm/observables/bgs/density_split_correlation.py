@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import override
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,11 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class DensitySplitBaseClass(BaseObservableBGS):
-    """
-    Base class for densitysplit observables in the ACM pipeline for the BGS dataset.
-    """
+    """Base class for densitysplit observables in the ACM pipeline for the BGS dataset."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     # %% Compressed files creation
@@ -377,7 +376,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
             default_select_filters = self.select_filters.copy()
 
         s = self.s.values
-        for i, q in enumerate(quantiles):
+        for _, q in enumerate(quantiles):
             self.select_filters.update({"ells": ell, "quantiles": q})
             data = self.y
             model = self.get_model_prediction(model_params)
@@ -429,23 +428,23 @@ class DensitySplitBaseClass(BaseObservableBGS):
 
 
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
-    """
-    Class for the application of the densitysplit cross-correlation statistic of the ACM pipeline to the BGS dataset.
-    """
+    """Class for the application of the densitysplit cross-correlation statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="ds_xiqg", **kwargs):
+    def __init__(self, stat_name: str = "ds_xiqg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
+    @override
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_correlation"
         )
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
+    @override
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_correlation"
         )
@@ -454,23 +453,23 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
 
 
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
-    """
-    Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
-    """
+    """Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="ds_xiqq", **kwargs):
+    def __init__(self, stat_name: str = "ds_xiqq", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
+    @override
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_correlation"
         )
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
+    @override
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_correlation"
         )

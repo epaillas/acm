@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 class BaseObservableBGS(Observable):
-    """
-    Base class for the application of the ACM pipeline to the BGS dataset.
-    """
+    """Base class for the application of the ACM pipeline to the BGS dataset."""
 
     def __init__(
-        self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs
-    ):
-        dataset = kwargs.get("dataset", None)
+        self,
+        flat_output_dims: int = 2,
+        squeeze_output: bool = True,
+        **kwargs,
+    ) -> None:
+        dataset = kwargs.get("dataset")
         paths = kwargs.pop("paths", None)
         if dataset is None and paths is None:
             paths = lookup_registry_path("projects.yaml", "bgs", "Mr-20")
@@ -41,7 +42,7 @@ class BaseObservableBGS(Observable):
         self, nofilters: bool = False
     ) -> xarray.DataArray | np.ndarray:
         """
-        Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
+        Return the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
 
         Parameters
         ----------
@@ -103,8 +104,8 @@ class BaseObservableBGS(Observable):
         n_test = y_test.shape[
             0
         ]  # Indexing on n_test to prevent filtering issues later on
-        y = self._dataset.y.unstack()
-        shape = (n_test,) + y.shape[len(y.attrs["sample"]) :]
+        y = self._dataset.y.unstack()  # noqa: PD010
+        shape = (n_test, *y.shape[len(y.attrs["sample"]) :])
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords={
@@ -135,7 +136,7 @@ class BaseObservableBGS(Observable):
 
     def get_emulator_error(self) -> xarray.DataArray | np.ndarray:
         """
-        Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
+        Return the unfiltered emulator error of the statistic, with shape (n_statistics, ).
 
         Returns
         -------
@@ -154,7 +155,7 @@ class BaseObservableBGS(Observable):
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
-        y = self._dataset.y.unstack()
+        y = self._dataset.y.unstack()  # noqa: PD010
         shape = y.shape[len(y.attrs["sample"]) :]
         emulator_error = xarray.DataArray(
             emulator_error.reshape(shape),

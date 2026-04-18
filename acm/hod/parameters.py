@@ -1,19 +1,16 @@
 import numpy as np
-import pandas
+import pandas as pd
 from scipy.stats import qmc
 
 from acm.utils.default import cosmo_list
 
 
 class HODLatinHypercube:
-    """
-    Sample HOD parameters from a prior and distribute them on
-    a Latin hypercube.
-    """
+    """Sample HOD parameters from a prior and distribute them on a Latin hypercube."""
 
     def __init__(
         self,
-        ranges,
+        ranges: dict,
         seed: int = 42,
         order: list[str] | None = None,
     ) -> None:
@@ -26,7 +23,7 @@ class HODLatinHypercube:
             Seed for the random number generator.
         order : list, optional
             See save_params method for details.
-        """
+        """  # noqa: D205
         self.ranges = ranges
         self.sampler = qmc.LatinHypercube(d=len(ranges), seed=seed)
         self.pmins = np.array([ranges[key][0] for key in ranges])
@@ -147,14 +144,15 @@ class HODLatinHypercube:
                 raise ValueError(
                     "Number of filenames must match number of cosmologies."
                 )
-            for key, save_fn in zip(self.params, save_fn):
-                df = pandas.DataFrame(self.params[key])
+            for key, fn in zip(self.params, save_fn, strict=True):
+                df = pd.DataFrame(self.params[key])
                 df = df[[k for k in order if k in df.columns]] if order else df
-                df.to_csv(save_fn, index=False, float_format="%.5f")
+                df.to_csv(fn, index=False, float_format="%.5f")
         else:
-            df = pandas.DataFrame(self.params)
+            fn = save_fn if isinstance(save_fn, str) else save_fn[0]
+            df = pd.DataFrame(self.params)
             df = df[[k for k in order if k in df.columns]] if order else df
-            df.to_csv(save_fn, index=False, float_format="%.5f")
+            df.to_csv(fn, index=False, float_format="%.5f")
 
 
 if __name__ == "__main__":
@@ -167,7 +165,7 @@ if __name__ == "__main__":
     params = lhc.split_by_cosmo(cosmos=[0, 1])  # split by cosmology
 
     lhc.save_params(
-        save_fn=["hod_params_c{cosmo:03}.csv".format(cosmo=cosmo) for cosmo in [0, 1]],
+        save_fn=[f"hod_params_c{cosmo:03}.csv" for cosmo in [0, 1]],
         order=[
             "logM_cut",
             "logM_1",

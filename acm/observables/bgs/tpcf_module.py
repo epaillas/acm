@@ -16,12 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
-    """
-    Class for the application of the Two-point correlation function statistic of the ACM pipeline
-    to the BGS dataset.
-    """
+    """Class for the application of the Two-point correlation function statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="tpcf", **kwargs):
+    def __init__(self, stat_name: str = "tpcf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     # %% Compressed files creation

@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import override
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,7 +25,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
     This attribute is used by methods in this class to locate measurement files.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     @classmethod
@@ -40,7 +41,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
         overwrite_s: np.ndarray | None = None,
-    ):
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -78,8 +79,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin_values.
         """
         logger = cls.get_logger()
 
@@ -148,7 +149,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         phase: int = 0,
         seed: int = 0,
         test_filters: dict | None = None,
-    ):
+    ) -> xarray.Dataset:
         """
         Compress the data from the densitysplit raw measurement files.
 
@@ -271,7 +272,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str | None = None):
+    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
 
@@ -310,42 +311,42 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
 
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
-    """
-    Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles."""
 
-    def __init__(self, stat_name="ds_xiqg", n_test=6 * 200, **kwargs):
+    def __init__(self, stat_name: str = "ds_xiqg", n_test: int = 6 * 200, **kwargs) -> None:
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
 
+    @override
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
+    @override
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_data(**kwargs)
 
 
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
-    """
-    Class for the Emulator's Mock Challenge density-split auto-correlation function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge density-split auto-correlation function multipoles."""
 
-    def __init__(self, stat_name="ds_xiqq", **kwargs):
+    def __init__(self, stat_name: str = "ds_xiqq", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
+    @override
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
+    @override
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
+    def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_data(**kwargs)
