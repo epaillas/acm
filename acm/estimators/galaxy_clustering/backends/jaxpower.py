@@ -255,7 +255,10 @@ class JaxpowerBackend:
         return threshold_randoms
 
     def get_query_positions(
-        self, method: str = "randoms", nquery: Optional[int] = None, seed: int = 42
+        self, 
+        method: str = "randoms", 
+        nquery: Optional[int] = None, 
+        seed: int = 42, 
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
 
@@ -282,7 +285,6 @@ class JaxpowerBackend:
         t0 = time.time()
         boxcenter = self.boxcenter
         boxsize = self.boxsize
-        cellsize = self.cellsize
         if method == "lattice":
             x, y, z = self.mattrs.rcoords()
             xx, yy, zz = jnp.meshgrid(x, y, z)
@@ -294,10 +296,15 @@ class JaxpowerBackend:
                 nquery = 5 * self.size_data
             coords = np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
             logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
-        return coords.astype(np.float32)
+        else:
+            raise ValueError("method must be one of ['lattice', 'randoms']")
+        
+        return np.asarray(coords, dtype=np.float32)
 
     def kernel_gaussian(
-        self, mattrs: MeshAttrs, smoothing_radius: float = 10.0
+        self, 
+        mattrs: MeshAttrs, 
+        smoothing_radius: float = 10.0, 
     ) -> jnp.ndarray:
         """Generate Gaussian smoothing kernel in Fourier space.
 
@@ -305,7 +312,7 @@ class JaxpowerBackend:
         ----------
         mattrs : MeshAttrs
             Mesh attributes object.
-        smoothing_radius : float, default=10.
+        smoothing_radius : float, default=10.0
             Smoothing scale in Mpc/h.
 
         Returns

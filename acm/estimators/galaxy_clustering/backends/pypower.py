@@ -2,7 +2,6 @@ import logging
 import time
 from typing import Optional
 
-import jax.numpy as jnp
 import numpy as np
 import numpy.typing as npt
 from pypower import CatalogMesh
@@ -133,18 +132,16 @@ class PypowerBackend:
         data_mesh = self.mesh.to_mesh(field="data", compensate=compensate)
         if smoothing_radius:
             logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
-            data_mesh = data_mesh.r2c().apply(
-                getattr(self, filter_shape)(r=smoothing_radius)
-            )
+            fs = getattr(self, filter_shape)
+            data_mesh = data_mesh.r2c().apply(fs(r=smoothing_radius))
             data_mesh = data_mesh.c2r()
         if self.has_randoms:
             randoms_mesh = self.mesh.to_mesh(
-                field="data-normalized_randoms", compensate=compensate
+                field="data-normalized_randoms", 
+                compensate=compensate, 
             )
             if smoothing_radius:
-                randoms_mesh = randoms_mesh.r2c().apply(
-                    getattr(self, filter_shape)(r=smoothing_radius)
-                )
+                randoms_mesh = randoms_mesh.r2c().apply(fs(r=smoothing_radius))
                 randoms_mesh = randoms_mesh.c2r()
             sum_data, sum_randoms = np.sum(data_mesh.value), np.sum(randoms_mesh.value)
             alpha = sum_data / sum_randoms
@@ -152,8 +149,8 @@ class PypowerBackend:
             mask = randoms_mesh > 0
             delta_mesh[mask] /= alpha * randoms_mesh[mask]
             delta_mesh[~mask] = 0.0
-            shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
-            self.random_mesh = randoms_mesh
+            # shift = self.mesh.boxsize / 2 - self.mesh.boxcenter
+            self.randoms_mesh = randoms_mesh
         else:
             self.mean = np.mean(data_mesh)
             delta_mesh = data_mesh / self.mean - 1
