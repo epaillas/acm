@@ -272,7 +272,9 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
 
@@ -313,7 +315,9 @@ class DensitySplitBaseClass(BaseObservableEMC):
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles."""
 
-    def __init__(self, stat_name: str = "ds_xiqg", n_test: int = 6 * 200, **kwargs) -> None:
+    def __init__(
+        self, stat_name: str = "ds_xiqg", n_test: int = 6 * 200, **kwargs
+    ) -> None:
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
 
     @override
