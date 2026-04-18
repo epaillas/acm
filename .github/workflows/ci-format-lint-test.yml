@@ -79,7 +79,9 @@ jobs:
           python-version: "3.13"
 
       - name: Installation package with editable mode
+        id: python-setup
         run: |
+          echo "Python version: $(python --version)">> $GITHUB_OUTPUT
           python -m pip install --upgrade pip
           pip install ty
 
@@ -87,8 +89,8 @@ jobs:
         # First run is to get the number of errors without failing
         # Second run is to get the output in GitHub format for annotations
         run: |
-          ty check acm --quiet --exit-zero
-          ty check acm --output-format github
+          ty check acm --quiet --exit-zero --python-version ${{ steps.python-setup.outputs.python-version }}
+          ty check acm --python-version ${{ steps.python-setup.outputs.python-version }} --output-format github 
           echo "Exit code: $?"
 
   job_pytest:
