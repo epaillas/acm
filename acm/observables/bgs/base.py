@@ -181,7 +181,7 @@ class BaseObservableBGS(Observable):
         cosmo_idx: int,
         phase: int = 0,
         seed: int = 0,
-        density_threshold: float = None,
+        density_threshold: float | None = None,
         return_fn: bool = False,
     ) -> np.ndarray:
         """
@@ -243,7 +243,7 @@ class BaseObservableBGS(Observable):
 
     @classmethod
     def compress_x(
-        cls, paths: dict, cosmos: list = cosmo_list, n_hod: int = None, **kwargs
+        cls, paths: dict, cosmos: list = cosmo_list, n_hod: int | None = None, **kwargs
     ) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
@@ -279,6 +279,12 @@ class BaseObservableBGS(Observable):
         logger = cls.get_logger()
 
         param_dir = paths["param_dir"]
+        
+        # Determine the number of HODs from the first cosmology
+        if n_hod is None:
+            hod_idx = cls.get_hod_from_files(paths=paths, cosmo_idx=cosmos[0], **kwargs)
+            n_hod = len(hod_idx)  
+            logger.info(f"Number of HODs determined for c{cosmos[0]:03d}: {n_hod}")
 
         x = []
         for cosmo_idx in cosmos:
@@ -289,11 +295,6 @@ class BaseObservableBGS(Observable):
 
             # Get the HOD indexes from folder names (density filtering is optional)
             hod_idx = cls.get_hod_from_files(paths=paths, cosmo_idx=cosmo_idx, **kwargs)
-            if n_hod is None:
-                n_hod = len(
-                    hod_idx
-                )  # Determine the number of HODs from the first cosmology
-                logger.info(f"Number of HODs determined for c{cosmo_idx:03d}: {n_hod}")
 
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
@@ -332,7 +333,7 @@ class BaseObservableBGS(Observable):
         slice_filters=None,
         select_indices=None,
     )
-    def compress_emulator_error(self, save_to: str = None) -> xarray.Dataset:
+    def compress_emulator_error(self, save_to: str | None = None) -> xarray.Dataset:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
 
@@ -360,5 +361,6 @@ class BaseObservableBGS(Observable):
         if save_to:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{self.stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(emulator_error_dataset))
+            payload = np.array(dataset_to_dict(emulator_error_dataset), dtype=object)
+            np.save(save_fn, payload)
         return emulator_error_dataset
