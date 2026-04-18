@@ -16,7 +16,6 @@ from cosmoprimo.fiducial import AbacusSummit
 from desitarget.targetmask import desi_mask, obsconditions
 from mockfactory import RandomCutskyCatalog
 from mockfactory.desi import is_in_desi_footprint
-from mockfactory.utils import radecbox_area
 from mpytools import CurrentMPIComm
 from scipy.interpolate import InterpolatedUnivariateSpline
 
