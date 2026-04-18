@@ -216,7 +216,9 @@ class BaseCutskyCatalog(ABC):
         # calculate downsampling ratio
         data_nz = np.histogram(self.catalog["Z"], bins=zedges)[0] / volume
         if not shape_only and np.any(target_nz > data_nz):
-            raise ValueError("Raw cutsky catalog is too sparse to match the requested n(z).")
+            raise ValueError(
+                "Raw cutsky catalog is too sparse to match the requested n(z)."
+            )
         with np.errstate(divide="ignore", invalid="ignore"):
             ratio = target_nz / data_nz
 
