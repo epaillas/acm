@@ -191,7 +191,7 @@ def try_eval(value: str):
     """
     try:
         return eval(value)
-    except:
+    except TypeError:
         return value
 
 
@@ -220,9 +220,9 @@ def to_pairs(lst: list | dict):
 
 def args_to_observables(
     args: list[argparse.Namespace],
-    module: str = None,
-    mapping: dict = None,
-    pop_args: list = None,
+    module: str | None = None,
+    mapping: dict | None = None,
+    pop_args: list | None = None,
     **kwargs,
 ) -> list:
     """
@@ -248,11 +248,10 @@ def args_to_observables(
     list
         An list of instantiated observable classes that can be passed to `acm.observables.CombinedObservable`.
     """
-    module = (
-        importlib.import_module(module)
-        if module
-        else importlib.import_module("acm.observables")
-    )
+    if module:
+        _module = importlib.import_module(module)
+    else:
+        _module = importlib.import_module("acm.observables")
     mapping = mapping if mapping else {}
     pop_args = pop_args if pop_args else []
 
@@ -285,11 +284,11 @@ def args_to_observables(
         for arg in pop_args:
             observable_args.pop(arg, None)
 
-        if module.__name__ != "acm.observables":
+        if _module.__name__ != "acm.observables":
             class_name = mapping.get(obs_args.stat_name, obs_args.stat_name)
-            observable_class = getattr(module, class_name)
+            observable_class = getattr(_module, class_name)
         else:
-            observable_class = getattr(module, "Observable")
+            observable_class = getattr(_module, "Observable")
 
         observable_instance = observable_class(**observable_args, **kwargs)
         observable_list.append(observable_instance)
