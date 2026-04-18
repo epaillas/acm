@@ -55,7 +55,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "wst",
-        save_to: str = None,
+        save_to: str | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -156,7 +156,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -166,12 +167,12 @@ class WaveletScatteringTransform(BaseObservableEMC):
         paths: dict,
         stat_name: str = "wst",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ) -> dict:
         """
         Compress the data from raw measurement files.
@@ -325,19 +326,20 @@ class WaveletScatteringTransform(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
@@ -358,7 +360,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot multi-scale Minkowski functionals predictions against data.
 
@@ -366,7 +368,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         ----------
         model_params : dict
             Dictionary of model parameters to use for the prediction.
-        save_fn : str
+        save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
 
         Returns
@@ -404,12 +406,12 @@ class WaveletScatteringTransform(BaseObservableEMC):
             marker="o",
             ms=3,
             ls="",
-            color=f"C0",
+            color="C0",
             elinewidth=1.0,
             capsize=None,
         )
-        lax[0].plot(bin_idx, model, ls="-", color=f"C1")
-        lax[1].plot(bin_idx, (data - model) / error, ls="-", color=f"C0")
+        lax[0].plot(bin_idx, model, ls="-", color="C1")
+        lax[1].plot(bin_idx, (data - model) / error, ls="-", color="C0")
 
         for offset in [-2, 2]:
             lax[1].axhline(offset, color="k", ls="--")
@@ -429,13 +431,13 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance matrix for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
 
         Returns
@@ -454,8 +456,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
         ax.set_xlabel("bin index")
         ax.set_ylabel("WST coefficient")
 
-        cov = np.cov(self.covariance_y, rowvar=False)
-        prec = np.linalg.inv(cov)
+        # cov = np.cov(self.covariance_y, rowvar=False)
+        # prec = np.linalg.inv(cov)
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")

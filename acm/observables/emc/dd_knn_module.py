@@ -31,7 +31,7 @@ class DDkNN(BaseObservableEMC):
         paths: dict,
         stat_name: str = "dd_knn",
         cdf_floor: float = 0.05,
-        save_to: str = None,
+        save_to: str | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -99,7 +99,8 @@ class DDkNN(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -109,13 +110,13 @@ class DDkNN(BaseObservableEMC):
         paths: dict,
         stat_name: str = "dd_knn",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
         cdf_floor: float = 0.05,
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ) -> dict:
         """
         Compress the data from raw measurement files.
@@ -156,7 +157,7 @@ class DDkNN(BaseObservableEMC):
         """
         logger = cls.get_logger()
 
-        base_dir = Path(paths["measurements_dir"], f"base/dd_knn")
+        base_dir = Path(paths["measurements_dir"], "base/dd_knn")
 
         y = []
         hods = {}
@@ -233,18 +234,19 @@ class DDkNN(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         """
         Plot the training set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
@@ -264,7 +266,7 @@ class DDkNN(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot DD-kNN CDFs  predictions against data.
 
@@ -272,7 +274,7 @@ class DDkNN(BaseObservableEMC):
         ----------
         model_params : dict
             Dictionary of model parameters to use for the prediction.
-        save_fn : str
+        save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
 
         Returns
@@ -310,12 +312,12 @@ class DDkNN(BaseObservableEMC):
             marker="o",
             ms=3,
             ls="",
-            color=f"C0",
+            color="C0",
             elinewidth=1.0,
             capsize=None,
         )
-        lax[0].plot(bin_idx, model, ls="-", color=f"C1")
-        lax[1].plot(bin_idx, (data - model) / error, ls="-", color=f"C0")
+        lax[0].plot(bin_idx, model, ls="-", color="C1")
+        lax[1].plot(bin_idx, (data - model) / error, ls="-", color="C0")
 
         for offset in [-2, 2]:
             lax[1].axhline(offset, color="k", ls="--")
@@ -336,7 +338,7 @@ class DDkNN(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(self, save_fn: str | None = None):
         """
         Plot the covariance matrix for the observable.
 
@@ -361,8 +363,8 @@ class DDkNN(BaseObservableEMC):
         ax.set_xlabel("bin index")
         ax.set_ylabel("2D DD-kNN value")
 
-        cov = np.cov(self.covariance_y, rowvar=False)
-        prec = np.linalg.inv(cov)
+        # cov = np.cov(self.covariance_y, rowvar=False)
+        # prec = np.linalg.inv(cov)
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")

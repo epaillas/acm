@@ -33,13 +33,13 @@ class DensitySplitBaseClass(BaseObservableEMC):
         stat_name: str,
         paths: dict,
         measurement_root: str,
-        save_to: str = None,
+        save_to: str | None = None,
         smin: float = 0.0,
         smax: float = 150,
         rebin: int = 4,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        overwrite_s: np.ndarray = None,
+        overwrite_s: np.ndarray | None = None,
     ):
         """
         Compress the covariance array from the raw measurement files.
@@ -125,7 +125,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -136,7 +137,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         measurement_root: str,
         stat_name: str,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 4,
         smin: float = 0.0,
         smax: float = 150,
@@ -146,7 +147,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ):
         """
         Compress the data from the densitysplit raw measurement files.
@@ -263,15 +264,23 @@ class DensitySplitBaseClass(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(self, save_fn: str | None = None):
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
+        
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
 
@@ -289,6 +298,9 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
             lax[ell // 2].set_ylabel(r"$s^2\xi_{\ell}(s)\,[h^{-2}{\rm Mpc}^2]$")
         lax[-1].set_xlabel(r"$s\,[h^{-1}{\rm Mpc}]$")
+        
+        # Restore select_filters
+        self.select_filters = default_select_filters
 
         plt.tight_layout()
         if save_fn is not None:
@@ -306,13 +318,13 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_data(**kwargs)
@@ -327,13 +339,13 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.DataArray:  # ty:ignore[invalid-method-override]
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # ty:ignore[invalid-method-override]
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_data(**kwargs)

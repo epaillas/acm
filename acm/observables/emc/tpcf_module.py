@@ -24,10 +24,10 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "tpcf",
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 4,
         ells: list = [0, 2, 4],
-        overwrite_s: np.ndarray = None,
+        overwrite_s: np.ndarray | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -94,7 +94,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -104,14 +105,14 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str = "tpcf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 4,
         ells: list = [0, 2, 4],
         cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -213,7 +214,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 

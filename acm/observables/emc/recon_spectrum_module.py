@@ -30,12 +30,12 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "recon_spectrum",
-        save_to: str = None,
+        save_to: str | None = None,
         kmin: float = 0.0126,
         kmax: float = 0.7,
         rebin: int = 13,
         ells: list = [0, 2, 4],
-        overwrite_k: np.ndarray = None,
+        overwrite_k: np.ndarray | None = None,
     ) -> xarray.DataArray:
         """
         Compress the covariance array from the raw measurement files.
@@ -109,7 +109,8 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -119,7 +120,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str = "recon_spectrum",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         kmin: float = 0.0126,
         kmax: float = 0.7,
         rebin: int = 13,
@@ -128,7 +129,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
+        test_filters: dict | None = None,
     ) -> dict:
         """
         Compress the data from the tpcf raw measurement files.
@@ -240,13 +241,14 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 
@@ -254,10 +256,8 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         ----------
         model_params : dict
             Dictionary of model parameters to use for the prediction.
-        save_fn : str
+        save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
-        show : bool
-            If True, display the plot. Default is False.
 
         Returns
         -------
@@ -266,6 +266,13 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """
 
         ells = self._dataset.y.coords["ells"].values.tolist()
+        
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -321,6 +328,9 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if show_legend:
             lax[0].legend(fontsize=15)
         plt.tight_layout()
+        
+        # Restore select_filters
+        self.select_filters = default_select_filters
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
