@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib.figure import Figure
 import numpy as np
 import numpy.typing as npt
+from matplotlib import cm
+from matplotlib.figure import Figure
 from pycorr import TwoPointCorrelationFunction
 
 from acm.utils.plotting import set_plot_style
@@ -95,15 +95,13 @@ class VoxelVoids(BaseEstimator):
 
         # For voxel voids, we also need rho_mesh
         if self.has_randoms:
-            if (
-                hasattr(self, "_PyreconBackend") 
-                and 
-                isinstance(self.backend, self._PyreconBackend)
+            if hasattr(self, "_PyreconBackend") and isinstance(
+                self.backend, self._PyreconBackend
             ):
                 # Access meshes from backend
                 data_mesh = self.backend.data_mesh
                 randoms_mesh = self.backend.randoms_mesh
-                
+
                 sum_data = np.sum(data_mesh.value)
                 sum_randoms = np.sum(randoms_mesh.value)
                 alpha = sum_data * 1.0 / sum_randoms

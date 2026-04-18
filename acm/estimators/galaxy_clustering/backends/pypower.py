@@ -137,8 +137,8 @@ class PypowerBackend:
             data_mesh = data_mesh.c2r()
         if self.has_randoms:
             randoms_mesh = self.mesh.to_mesh(
-                field="data-normalized_randoms", 
-                compensate=compensate, 
+                field="data-normalized_randoms",
+                compensate=compensate,
             )
             if smoothing_radius:
                 randoms_mesh = randoms_mesh.r2c().apply(fs(r=smoothing_radius))

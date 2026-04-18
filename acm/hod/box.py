@@ -1,13 +1,13 @@
-from astropy.constants.codata2010 import h
-from typing import overload
 import logging
 import os
 import warnings
 from pathlib import Path
+from typing import overload
 
 import numpy as np
 import yaml
 from abacusnbody.hod import abacus_hod
+from astropy.constants.codata2010 import h
 from astropy.io import fits
 from astropy.table import Table
 from cosmoprimo.fiducial import DESI, AbacusSummit
@@ -481,10 +481,10 @@ class BoxHOD:
 
     @overload
     def param_mapping(self, hod_params: dict) -> dict: ...
-    
+
     @overload
     def param_mapping(self, hod_params: list[str]) -> list[str]: ...
-    
+
     def param_mapping(self, hod_params: dict | list[str]) -> dict | list[str]:
         """
         Map custom HOD parameters to Abacus HOD parameters.
@@ -565,7 +565,7 @@ class BoxHOD:
                 return np.asarray(boxsize)
             else:
                 return boxsize
-        
+
         if los is None or q_par is None or q_perp is None:
             raise ValueError(
                 "los, q_par and q_perp must be provided when add_ap is True."

@@ -96,7 +96,7 @@ class DDkNN(BaseObservableEMC):
             },
             name="covariance_y",
         )
-        
+
         cout = xarray.Dataset(data_vars={"covariance_y": y})
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)

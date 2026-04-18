@@ -585,7 +585,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         """
         ells = self._dataset.y.coords["ells"].values.tolist()
         s = self.s.values
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -601,7 +601,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
                 lax[ell // 2].plot(s, data, color="C0", alpha=0.5, lw=0.1)
             lax[ell // 2].set_ylabel(rf"$\xi_{ell}(s)$")
         lax[-1].set_xlabel(r"$s [h^{-1}{\rm Mpc}]$")
-        
+
         # Restore select_filters
         self.select_filters = default_select_filters
 
@@ -631,7 +631,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         """
 
         ells = self._dataset.y.coords["ells"].values.tolist()
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -691,7 +691,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             ax.tick_params(axis="both", labelsize=14)
         if show_legend:
             lax[0].legend(fontsize=15)
-            
+
         # Restore select_filters
         self.select_filters = default_select_filters
 

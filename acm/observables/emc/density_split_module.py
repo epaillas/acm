@@ -274,7 +274,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
     def plot_training_set(self, save_fn: str | None = None):
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -298,7 +298,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
             lax[ell // 2].set_ylabel(r"$s^2\xi_{\ell}(s)\,[h^{-2}{\rm Mpc}^2]$")
         lax[-1].set_xlabel(r"$s\,[h^{-1}{\rm Mpc}]$")
-        
+
         # Restore select_filters
         self.select_filters = default_select_filters
 

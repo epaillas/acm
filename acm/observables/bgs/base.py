@@ -149,7 +149,7 @@ class BaseObservableBGS(Observable):
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(
             emulator_covariance_y,  # ty:ignore[invalid-argument-type]
-            flat_output_dims=2
+            flat_output_dims=2,
         )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
@@ -280,11 +280,11 @@ class BaseObservableBGS(Observable):
         logger = cls.get_logger()
 
         param_dir = paths["param_dir"]
-        
+
         # Determine the number of HODs from the first cosmology
         if n_hod is None:
             hod_idx = cls.get_hod_from_files(paths=paths, cosmo_idx=cosmos[0], **kwargs)
-            n_hod = len(hod_idx)  
+            n_hod = len(hod_idx)
             logger.info(f"Number of HODs determined for c{cosmos[0]:03d}: {n_hod}")
 
         x = []

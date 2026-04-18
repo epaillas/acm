@@ -255,10 +255,10 @@ class JaxpowerBackend:
         return threshold_randoms
 
     def get_query_positions(
-        self, 
-        method: str = "randoms", 
-        nquery: Optional[int] = None, 
-        seed: int = 42, 
+        self,
+        method: str = "randoms",
+        nquery: Optional[int] = None,
+        seed: int = 42,
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
 
@@ -298,13 +298,13 @@ class JaxpowerBackend:
             logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         else:
             raise ValueError("method must be one of ['lattice', 'randoms']")
-        
+
         return np.asarray(coords, dtype=np.float32)
 
     def kernel_gaussian(
-        self, 
-        mattrs: MeshAttrs, 
-        smoothing_radius: float = 10.0, 
+        self,
+        mattrs: MeshAttrs,
+        smoothing_radius: float = 10.0,
     ) -> jnp.ndarray:
         """Generate Gaussian smoothing kernel in Fourier space.
 

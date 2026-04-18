@@ -266,7 +266,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """
 
         ells = self._dataset.y.coords["ells"].values.tolist()
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -328,7 +328,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         if show_legend:
             lax[0].legend(fontsize=15)
         plt.tight_layout()
-        
+
         # Restore select_filters
         self.select_filters = default_select_filters
 

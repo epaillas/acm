@@ -22,14 +22,14 @@ class MinimumSpanningTree(BaseEstimator):
         super().__init__(**kwargs)
 
     def setup(
-        self, 
-        sigmaJ: float, 
-        boxsize: float | np.ndarray, 
-        Nthpoint: int, 
-        origin: float = 0.0, 
-        split: int = 1, 
-        iterations: int = 1, 
-        quartiles: int = 50, 
+        self,
+        sigmaJ: float,
+        boxsize: float | np.ndarray,
+        Nthpoint: int,
+        origin: float = 0.0,
+        split: int = 1,
+        iterations: int = 1,
+        quartiles: int = 50,
     ):
         """
         Setup the minimum spanning tree percolation statistics variables.

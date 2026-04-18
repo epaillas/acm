@@ -165,7 +165,7 @@ class BaseObservableEMC(Observable):
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(
             emulator_covariance_y,  # ty:ignore[invalid-argument-type]
-            flat_output_dims=2
+            flat_output_dims=2,
         )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
@@ -195,7 +195,7 @@ class BaseObservableEMC(Observable):
     def get_model_prediction(
         self,
         x,
-        model = None,
+        model=None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = False,
@@ -325,11 +325,11 @@ class BaseObservableEMC(Observable):
 
     @classmethod
     def compress_x(
-        cls, 
-        paths: dict, 
-        cosmos: list = cosmo_list, 
-        n_hod: int | None = None, 
-        **kwargs, 
+        cls,
+        paths: dict,
+        cosmos: list = cosmo_list,
+        n_hod: int | None = None,
+        **kwargs,
     ) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
@@ -397,9 +397,9 @@ class BaseObservableEMC(Observable):
         # Determine the number of HODs from the first cosmology
         if n_hod is None:
             hod_idx = cls.get_hod_from_files(paths, cosmos[0], **kwargs)
-            n_hod = len(hod_idx)  
+            n_hod = len(hod_idx)
             logger.info(f"Number of HODs determined from c{cosmos[0]:03d}: {n_hod}")
-                
+
         x = []
         for cosmo_idx in cosmos:
             # HOD parameters

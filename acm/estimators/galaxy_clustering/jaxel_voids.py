@@ -88,7 +88,9 @@ class JaxelVoids(BaseEstimator):
                 out="real",
             )
             randoms_value = jnp.asarray(randoms_real.value)
-            _get_threshold_randoms = getattr(self.backend, "_get_threshold_randoms", None)
+            _get_threshold_randoms = getattr(
+                self.backend, "_get_threshold_randoms", None
+            )
             if _get_threshold_randoms is None:
                 raise RuntimeError(
                     "Backend does not implement _get_threshold_randoms method required for randoms-based masking."
@@ -238,7 +240,7 @@ class JaxelVoids(BaseEstimator):
                 "zone_size": zone_sizes,
                 "attrs": attrs,
             }
-            np.save(path, np.asarray(payload, dtype=object),allow_pickle=True)
+            np.save(path, np.asarray(payload, dtype=object), allow_pickle=True)
 
         else:
             raise ValueError(

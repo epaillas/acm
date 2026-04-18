@@ -219,7 +219,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         ells = self._dataset.y.coords["ells"].values.tolist()
         stacked_bins = self._dataset.y.coords["stacked_bins"].values.tolist()
         rv = self.rv.values
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -238,7 +238,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
             lax[ell // 2].set_ylabel(rf"$\xi_{ell}(r / R_{{\rm void}})$")
         lax[-1].set_xlabel(r"$r / R_{\rm void}$")
-        
+
         # Restore select_filters
         self.select_filters = default_select_filters
 
@@ -262,7 +262,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         ells = self._dataset.y.coords["ells"].values.tolist()
         stacked_bins = self._dataset.y.coords["stacked_bins"].values.tolist()
         rv = self.rv.values
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -281,7 +281,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
             lax[ell // 2].set_ylabel(rf"$\xi_{ell}(r / R_{{\rm void}})$")
         lax[-1].set_xlabel(r"$r / R_{\rm void}$")
-        
+
         # Restore select_filters
         self.select_filters = default_select_filters
 
@@ -311,7 +311,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         """
 
         ells = self._dataset.y.coords["ells"].values.tolist()
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -372,7 +372,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             ax.tick_params(axis="both", labelsize=14)
         if show_legend:
             lax[0].legend(fontsize=15)
-            
+
         # Restore select_filters
         self.select_filters = default_select_filters
 

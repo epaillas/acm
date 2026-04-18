@@ -4,6 +4,7 @@ from scipy.stats import qmc
 
 from acm.utils.default import cosmo_list
 
+
 class HODLatinHypercube:
     """
     Sample HOD parameters from a prior and distribute them on
@@ -11,10 +12,10 @@ class HODLatinHypercube:
     """
 
     def __init__(
-        self, 
-        ranges, 
-        seed: int = 42, 
-        order: list[str] | None = None, 
+        self,
+        ranges,
+        seed: int = 42,
+        order: list[str] | None = None,
     ) -> None:
         """
         Parameters
@@ -58,7 +59,9 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def split_by_cosmo(self, cosmos: list | None = None, save_fn: list | None = None) -> dict:
+    def split_by_cosmo(
+        self, cosmos: list | None = None, save_fn: list | None = None
+    ) -> dict:
         """
         Split the sampled parameters by cosmology.
 
@@ -120,7 +123,9 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def save_params(self, save_fn: str | list[str], order: list[str] | None = None) -> None:
+    def save_params(
+        self, save_fn: str | list[str], order: list[str] | None = None
+    ) -> None:
         """
         Save the sampled parameters to disk.
 

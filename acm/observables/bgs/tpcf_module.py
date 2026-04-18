@@ -294,11 +294,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(
-        self, 
-        model_params: dict, 
-        save_fn: str | None = None, 
-        ells: list = [0, 2], 
-        **kwargs, 
+        self,
+        model_params: dict,
+        save_fn: str | None = None,
+        ells: list = [0, 2],
+        **kwargs,
     ) -> tuple:
         """
         Plot the observable with error bars and the model prediction, along with the residuals.

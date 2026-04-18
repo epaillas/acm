@@ -257,14 +257,14 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """
         ells = self._dataset.y.coords["ells"].values.tolist()
         k = self.k.values
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
             self.select_filters = {}
         else:
             default_select_filters = self.select_filters.copy()
-            
+
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
 
         for ell in ells:
@@ -277,7 +277,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
                 r"$k P_\ell(k)\, [h^{-2}{\rm Mpc}^2]$", fontsize=15
             )
         lax[-1].set_xlabel(r"$k\, [h {\rm Mpc}^{-1}$]", fontsize=15)
-        
+
         # Restore select_filters
         self.select_filters = default_select_filters
 
@@ -307,7 +307,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         """
 
         ells = self._dataset.y.coords["ells"].values.tolist()
-        
+
         # Save current select_filters and update with ells
         if self.select_filters is None:
             default_select_filters = None
@@ -368,7 +368,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             ax.tick_params(axis="both", labelsize=14)
         if show_legend:
             lax[0].legend(fontsize=15)
-            
+
         # Restore select_filters
         self.select_filters = default_select_filters
 

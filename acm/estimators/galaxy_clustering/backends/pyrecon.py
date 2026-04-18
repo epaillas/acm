@@ -113,19 +113,21 @@ class PyreconBackend:
 
         # Initialize meshes
         self.data_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
-        
+
         if data_positions is not None:
             self._assign_data(data_positions, weights=data_weights)
-        
+
         self.has_randoms = randoms_positions is not None
         if randoms_positions is not None:
-            self.randoms_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
+            self.randoms_mesh = RealMesh(
+                boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize
+            )
             self._assign_randoms(randoms_positions, weights=randoms_weights)
 
         # Assign data and randoms
         self.size_data = 0
         self._size_randoms = 0
-        
+
         logger.info(f"Box size: {self.boxsize}")
         logger.info(f"Box center: {self.boxcenter}")
         logger.info(f"Box meshsize: {self.meshsize}")
@@ -183,7 +185,9 @@ class PyreconBackend:
             Wrap the random points around the box, assuming periodic boundaries.
         """
         if not self.has_randoms:
-            raise ValueError("Randoms mesh not initialized. Provide randoms positions at initialization or call assign_randoms first.")
+            raise ValueError(
+                "Randoms mesh not initialized. Provide randoms positions at initialization or call assign_randoms first."
+            )
         self.randoms_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
         self._size_randoms += len(positions)
 
@@ -227,9 +231,9 @@ class PyreconBackend:
         if smoothing_radius:
             logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
             self.data_mesh.smooth_gaussian(
-                smoothing_radius, 
-                engine = "fftw", 
-                save_wisdom = save_wisdom, 
+                smoothing_radius,
+                engine="fftw",
+                save_wisdom=save_wisdom,
             )
 
         if self.has_randoms:
