@@ -112,27 +112,24 @@ class PyreconBackend:
 
         # Initialize meshes
         self.data_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
-        self.randoms_mesh = (
-            RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
-            if randoms_positions is not None
-            else None
-        )
+        
+        if data_positions is not None:
+            self._assign_data(data_positions, weights=data_weights)
+        
+        self.has_randoms = randoms_positions is not None
+        if randoms_positions is not None:
+            self.randoms_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
+            self._assign_randoms(randoms_positions, weights=randoms_weights)
 
         # Assign data and randoms
         self.size_data = 0
         self._size_randoms = 0
-
-        if data_positions is not None:
-            self.assign_data(data_positions, weights=data_weights)
-
-        if randoms_positions is not None:
-            self.assign_randoms(randoms_positions, weights=randoms_weights)
-
+        
         self.logger.info(f"Box size: {self.boxsize}")
         self.logger.info(f"Box center: {self.boxcenter}")
         self.logger.info(f"Box meshsize: {self.meshsize}")
 
-    def assign_data(
+    def _assign_data(
         self,
         positions: npt.NDArray,
         weights: Optional[npt.NDArray] = None,
@@ -163,7 +160,7 @@ class PyreconBackend:
         self.data_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
         self.size_data += len(positions)
 
-    def assign_randoms(
+    def _assign_randoms(
         self,
         positions: npt.NDArray,
         weights: Optional[npt.NDArray] = None,
@@ -184,26 +181,10 @@ class PyreconBackend:
         wrap : bool, default=True
             Wrap the random points around the box, assuming periodic boundaries.
         """
-        if self.randoms_mesh is None:
-            self.randoms_mesh = RealMesh(
-                boxsize=self.boxsize, boxcenter=self.boxcenter, nmesh=self.meshsize
-            )
-        if self.randoms_mesh.value is None:
-            self._size_randoms = 0
+        if not self.has_randoms:
+            raise ValueError("Randoms mesh not initialized. Provide randoms positions at initialization or call assign_randoms first.")
         self.randoms_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
         self._size_randoms += len(positions)
-
-    @property
-    def has_randoms(self) -> bool:
-        """Check if the backend has randoms.
-
-        Returns
-        -------
-        bool
-            True if random catalog is present and has been assigned to mesh,
-            False otherwise.
-        """
-        return self.randoms_mesh is not None and self.randoms_mesh.value is not None
 
     def set_density_contrast(
         self,
@@ -243,11 +224,11 @@ class PyreconBackend:
         t0 = time.time()
 
         if smoothing_radius:
-            self.logger.info(
-                f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel."
-            )
+            self.logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
             self.data_mesh.smooth_gaussian(
-                smoothing_radius, engine="fftw", save_wisdom=save_wisdom
+                smoothing_radius, 
+                engine = "fftw", 
+                save_wisdom = save_wisdom, 
             )
 
         if self.has_randoms:
