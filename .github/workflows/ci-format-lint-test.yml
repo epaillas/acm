@@ -81,7 +81,6 @@ jobs:
       - name: Installation package with editable mode
         id: python-setup
         run: |
-          echo "$(python --version)">> $GITHUB_OUTPUT
           python -m pip install --upgrade pip
           pip install ty
 
