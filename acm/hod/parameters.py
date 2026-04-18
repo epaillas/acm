@@ -4,14 +4,18 @@ from scipy.stats import qmc
 
 from acm.utils.default import cosmo_list
 
-
 class HODLatinHypercube:
     """
     Sample HOD parameters from a prior and distribute them on
     a Latin hypercube.
     """
 
-    def __init__(self, ranges, seed: int = 42, order: list[str] = None):
+    def __init__(
+        self, 
+        ranges, 
+        seed: int = 42, 
+        order: list[str] | None = None, 
+    ) -> None:
         """
         Parameters
         ----------
@@ -28,7 +32,7 @@ class HODLatinHypercube:
         self.pmaxs = np.array([ranges[key][1] for key in ranges])
         self.order = order
 
-    def sample(self, n: int, save_fn: str = None):
+    def sample(self, n: int, save_fn: str | None = None) -> dict:
         """
         Sample HOD parameters from the prior.
 
@@ -36,6 +40,8 @@ class HODLatinHypercube:
         ----------
         n : int
             Number of samples to draw.
+        save_fn : str, optional
+            Path to save the sampled parameters. If None, the parameters are not saved. Defaults to None.
 
         Returns
         -------
@@ -52,16 +58,16 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def split_by_cosmo(self, cosmos: list = None, save_fn: list = None):
+    def split_by_cosmo(self, cosmos: list | None = None, save_fn: list | None = None) -> dict:
         """
         Split the sampled parameters by cosmology.
 
         Parameters
         ----------
-        cosmos : list
+        cosmos : list | None
             List of cosmologies to split the parameters for. If none are provided,
             the default AbacusSummit list of cosmologies is used
-        save_fn : list
+        save_fn : list | None
             List of filenames to save the split parameters to.
 
         Returns
@@ -85,7 +91,7 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def add_cosmo_params(self, cosmo_params: dict, save_fn: list = None):
+    def add_cosmo_params(self, cosmo_params: dict, save_fn: list | None = None) -> dict:
         """
         Add cosmology parameters to HOD parameters for each key in self.params.
 
@@ -109,12 +115,12 @@ class HODLatinHypercube:
                 k: [v] * n_hod for k, v in cosmo_params[key].items()
             }  # Repeat each cosmology parameter n_hod times
             cosmo.update(hod)
-            self.params[key] = cosmo
+            self.params[key] = cosmo  # ty:ignore[invalid-assignment]
         if save_fn:
             self.save_params(save_fn)
         return self.params
 
-    def save_params(self, save_fn: str | list[str], order: list[str] = None):
+    def save_params(self, save_fn: str | list[str], order: list[str] | None = None) -> None:
         """
         Save the sampled parameters to disk.
 

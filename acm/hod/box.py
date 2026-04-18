@@ -1,6 +1,7 @@
+from astropy.constants.codata2010 import h
+from typing import overload
 import logging
 import os
-import sys
 import warnings
 from pathlib import Path
 
@@ -30,14 +31,14 @@ class BoxHOD:
         self,
         varied_params: list[str],
         tracer: str = "LRG",
-        config_file: str | None = None,
+        config_file: str | Path | None = None,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         sim_type: str = "base",
         redshift: float = 0.5,
-        DM_DICT: dict = None,
-        DM_DICT_simtype: str = None,
-        sim_geometry: str = None,
+        DM_DICT: dict | None = None,
+        DM_DICT_simtype: str | None = None,
+        sim_geometry: str | None = None,
     ):
         """
         Initialize the BoxHOD class.
@@ -50,7 +51,7 @@ class BoxHOD:
             while varied_params may differ for different tracers.
         varied_params : list[str]
             List of parameters that vary.
-        config_file : str, optional
+        config_file : str | Path | None, optional
             Path to the configuration file. If None, defaults to 'box.yaml' in `acm.hod`.
             See `setup()` for more details. Default is None.
         cosmo_idx : int, optional
@@ -61,13 +62,13 @@ class BoxHOD:
             Type of simulation. Must be either 'base' or 'small'. Default is 'base'.
         redshift : float, optional
             Redshift value. Default is 0.5.
-        DM_DICT : dict, optional
+        DM_DICT : dict | None, optional
             Dictionary containing dark matter information. Defaults to None, which
             together with the user-specified tracer maps to a value in utils.paths.
-        DM_DICT_simtype : str, optional
+        DM_DICT_simtype : str | None, optional
             The simtype paramter used by get_Abacus_dirs, either 'box' or
             'lightcone'. Defaults to 'box' if None
-        sim_geometry : str, optional
+        sim_geometry : str | None, optional
             The simtype paramter used for choices related to the mock geometry.
             Either 'box', 'cutsky', or 'lightcone'. Defaults to 'box' if None
 
@@ -269,7 +270,7 @@ class BoxHOD:
         use_logsigma: bool = True,
         nfw_draw_path: str = "/global/cfs/projectdirs/desi/users/arocher/nfw.npy",
         save_distortions: bool = False,
-    ) -> dict:
+    ) -> dict | None:
         """
         Run the HOD model with the given parameters.
 
@@ -478,6 +479,12 @@ class BoxHOD:
         myfits.writeto(save_fn, overwrite=True)
         logger.info(f"Saving {save_fn}.")
 
+    @overload
+    def param_mapping(self, hod_params: dict) -> dict: ...
+    
+    @overload
+    def param_mapping(self, hod_params: list[str]) -> list[str]: ...
+    
     def param_mapping(self, hod_params: dict | list[str]) -> dict | list[str]:
         """
         Map custom HOD parameters to Abacus HOD parameters.
@@ -554,8 +561,12 @@ class BoxHOD:
             Box size after applying AP distortions, or original box size if no distortions are applied.
         """
         if not add_ap:
-            return boxsize
-        elif any(v is None for v in [los, q_par, q_perp]):
+            if isinstance(boxsize, list):
+                return np.asarray(boxsize)
+            else:
+                return boxsize
+        
+        if los is None or q_par is None or q_perp is None:
             raise ValueError(
                 "los, q_par and q_perp must be provided when add_ap is True."
             )
@@ -566,6 +577,7 @@ class BoxHOD:
             if len(boxsize) != 3:  # Sanity check
                 raise ValueError("boxsize must be a float or a list of three floats.")
             boxsizes = boxsize
+        boxsizes = np.asarray(boxsizes)
 
         for i, ax in enumerate(("X", "Y", "Z")):
             if ax == los.upper():
@@ -624,9 +636,8 @@ class BoxHOD:
 
         # Apply RSD before AP distortions
         if add_rsd:
-            if any(
-                v is None for v in [hubble, az, boxsize, los]
-            ):  # Check we have everything we need to add RSD
+            # Check we have everything we need to add RSD
+            if hubble is None or az is None or boxsize is None or los is None:
                 raise ValueError(
                     "hubble, az, boxsize and los must be provided to add RSD distortions."
                 )
@@ -636,9 +647,8 @@ class BoxHOD:
             )
 
         if add_ap:
-            if any(
-                v is None for v in [q_par, q_perp, los]
-            ):  # Check we have everything we need to add AP
+            # Check we have everything we need to add AP distortions
+            if q_par is None or q_perp is None or los is None:
                 raise ValueError(
                     "q_par, q_perp and los must be provided to add AP distortions."
                 )
