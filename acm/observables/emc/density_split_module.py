@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 
+from acm.estimators.galaxy_clustering.base import BaseEstimator
 from acm.utils.decorators import temporary_class_state
 from acm.utils.default import cosmo_list  # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
@@ -81,17 +82,21 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / "density_split"
-        data_fns = list(
-            base_dir.glob(f"{measurement_root}_poles_ph*.npy")
+        data_fns = sorted(
+            base_dir.glob(f"{measurement_root}_poles_ph*.h5")
         )  # NOTE: File name format hardcoded !
+        phase_indices = [int(fn.stem.split("_ph")[-1]) for fn in data_fns]
         n_sims = len(data_fns)
 
         y = []
         for data_fn in data_fns:
-            data = np.load(data_fn, allow_pickle=True)
+            data = BaseEstimator.read(data_fn)
             for q in quantiles:
-                result = data[q][::rebin].select((smin, smax))
-                s, multipoles = result(ells=ells, return_sep=True)
+                xi = data.get(quantiles=q).select(s=slice(0, None, rebin))
+                xi = xi.select(s=(smin, smax))
+                poles = xi.project(ells=ells)
+                s = poles.get(ells=ells[0]).coords("s")
+                multipoles = [poles.get(ells=ell).value() for ell in ells]
                 y.append(np.concatenate(multipoles))
         y = np.array(y)
         y = y.reshape(n_sims, len(quantiles), len(ells), -1)
@@ -100,7 +105,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         y = xarray.DataArray(
             data=y,
             coords={
-                "phase_idx": list(range(y.shape[0])),
+                "phase_idx": phase_indices,
                 "quantiles": quantiles,
                 "ells": ells,
                 "s": s,
