@@ -21,7 +21,14 @@ class MinimumSpanningTree(BaseEstimator):
         super().__init__(**kwargs)
 
     def setup(
-        self, sigmaJ, boxsize, Nthpoint, origin=0.0, split=1, iterations=1, quartiles=50
+        self, 
+        sigmaJ: float, 
+        boxsize: float | np.ndarray, 
+        Nthpoint: int, 
+        origin: float = 0.0, 
+        split: int = 1, 
+        iterations: int = 1, 
+        quartiles: int = 50, 
     ):
         """
         Setup the minimum spanning tree percolation statistics variables.
@@ -31,7 +38,7 @@ class MinimumSpanningTree(BaseEstimator):
         sigmaJ : float
             The jitter dispersion scale (see https://arxiv.org/abs/2410.06202) to apply a
             point process smoothing on the positions of points.
-        boxsize : float
+        boxsize : float or numpy.ndarray
             Size of the simulation box.
         Nthpoint : int
             Percolation statistics N-Point, i.e. the number of linking edges from each node to
@@ -49,14 +56,16 @@ class MinimumSpanningTree(BaseEstimator):
         """
         self.sigmaJ = sigmaJ
         if np.isscalar(boxsize):
-            self.boxsize = np.array([boxsize, boxsize, boxsize])
+            _boxsize = [boxsize, boxsize, boxsize]
         else:
-            self.boxsize = boxsize
+            _boxsize = boxsize
+        self.boxsize = np.asarray(_boxsize)
         self.Nthpoint = Nthpoint
         if np.isscalar(origin):
-            self.origin = np.array([origin, origin, origin])
+            _origin = [origin, origin, origin]
         else:
-            self.origin = origin
+            _origin = origin
+        self.origin = np.asarray(_origin)
         self.split = split
         self.iterations = iterations
         self.quartiles = quartiles

@@ -10,7 +10,6 @@ from jaxpower import (
     compute_fkp2_normalization,
     compute_fkp2_shotnoise,
     compute_mesh2_spectrum,
-    get_mesh_attrs,
 )
 
 from .base import BaseEstimator
@@ -155,12 +154,12 @@ class PowerSpectrumMultipoles(BaseEstimator):
             return k, poles
         return poles
 
-    def save(self, fn: str) -> None:
+    def save(self, fn: str | Path) -> None:
         """Save the computed power spectrum to a file. Only process 0 will write to disk.
 
         Parameters
         ----------
-        fn : str
+        fn : str | Path
             Path to save the power spectrum.
         """
         if jax.process_index() != 0:  # Only process 0 saves to disk

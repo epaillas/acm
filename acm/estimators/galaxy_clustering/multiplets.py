@@ -310,7 +310,7 @@ class GalaxyMultiplets:
         self.triplet_coords = self.group_centers[self.group_sizes == 3]
         self.quadruplet_coords = self.group_centers[self.group_sizes == 4]
 
-        self.logger.info(f"Multiplet counts:")
+        self.logger.info("Multiplet counts:")
         self.logger.info(f"  Pairs: {len(self.pair_coords)}")
         self.logger.info(f"  Triplets: {len(self.triplet_coords)}")
         self.logger.info(f"  Quadruplets: {len(self.quadruplet_coords)}")
@@ -419,7 +419,7 @@ class GalaxyMultiplets:
             correlations["singlet"] = est_singlet(pimax=pimax, return_sep=False)
 
         # Pairs
-        if len(self.pair_coords) > 0:
+        if self.pair_coords is not None and len(self.pair_coords) > 0:
             self.logger.info(
                 f"Computing pair cross-correlation ({len(self.pair_coords)} objects)"
             )
@@ -429,7 +429,7 @@ class GalaxyMultiplets:
             correlations["pair"] = est_pair(pimax=pimax, return_sep=False)
 
         # Triplets
-        if len(self.triplet_coords) > 0:
+        if self.triplet_coords is not None and len(self.triplet_coords) > 0:
             self.logger.info(
                 f"Computing triplet cross-correlation ({len(self.triplet_coords)} objects)"
             )
@@ -439,7 +439,7 @@ class GalaxyMultiplets:
             correlations["triplet"] = est_triplet(pimax=pimax, return_sep=False)
 
         # Quadruplets
-        if len(self.quadruplet_coords) > 0:
+        if self.quadruplet_coords is not None and len(self.quadruplet_coords) > 0:
             self.logger.info(
                 f"Computing quadruplet cross-correlation ({len(self.quadruplet_coords)} objects)"
             )

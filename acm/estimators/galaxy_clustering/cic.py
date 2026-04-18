@@ -1,14 +1,13 @@
 import logging
-import time
 
 import matplotlib.pyplot as plt
 
 from acm.utils.plotting import set_plot_style
 
-from .base import BaseDensityMeshEstimator
+from .base import BaseEstimator
 
 
-class CountsInCells(BaseDensityMeshEstimator):
+class CountsInCells(BaseEstimator):
     """
     Class to compute counts in cells.
     """
@@ -36,7 +35,6 @@ class CountsInCells(BaseDensityMeshEstimator):
         quantiles_idx : array_like, optional
             Index of the quantile of each query point.
         """
-        t0 = time.time()
         if query_positions is None:
             if self.has_randoms:
                 raise ValueError(

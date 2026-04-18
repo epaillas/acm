@@ -13,6 +13,8 @@ import numpy.typing as npt
 import xarray as xr
 from lsstypes import ObservableLeaf
 from lsstypes.external import from_pycorr
+from matplotlib import cm
+from matplotlib.figure import Figure
 from pycorr import TwoPointCorrelationFunction
 
 from acm.utils.plotting import set_plot_style
@@ -82,7 +84,12 @@ class JaxelVoids(BaseEstimator):
                 out="real",
             )
             randoms_value = jnp.asarray(randoms_real.value)
-            threshold_randoms = self.backend._get_threshold_randoms(
+            _get_threshold_randoms = getattr(self.backend, "_get_threshold_randoms", None)
+            if _get_threshold_randoms is None:
+                raise RuntimeError(
+                    "Backend does not implement _get_threshold_randoms method required for randoms-based masking."
+                )
+            threshold_randoms = _get_threshold_randoms(
                 self.backend.randoms_mesh,
                 threshold_value=threshold_value,
                 threshold_method=threshold_method,
@@ -218,19 +225,16 @@ class JaxelVoids(BaseEstimator):
                 dataset.to_zarr(str(path), mode="w")
 
         elif path.suffix == ".npy":
-            np.save(
-                str(path),
-                {
-                    "x": voids[:, 0],
-                    "y": voids[:, 1],
-                    "z": voids[:, 2],
-                    "radius": void_radii,
-                    "core_dens": core_dens,
-                    "zone_size": zone_sizes,
-                    "attrs": attrs,
-                },
-                allow_pickle=True,
-            )
+            payload = {
+                "x": voids[:, 0],
+                "y": voids[:, 1],
+                "z": voids[:, 2],
+                "radius": void_radii,
+                "core_dens": core_dens,
+                "zone_size": zone_sizes,
+                "attrs": attrs,
+            }
+            np.save(path, np.asarray(payload, dtype=object),allow_pickle=True)
 
         else:
             raise ValueError(
@@ -596,7 +600,7 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def plot_void_size_distribution(
         self, save_fn: Optional[Union[str, Path]] = None
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Plot the histogram of void effective radii.
 
         Parameters
@@ -624,7 +628,7 @@ class JaxelVoids(BaseEstimator):
         self,
         ells: Tuple[int, ...] = (0,),
         save_fn: Optional[Union[str, Path]] = None,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Plot multipoles of the void-data correlation function.
 
         Parameters
@@ -655,7 +659,7 @@ class JaxelVoids(BaseEstimator):
     def plot_slice(
         self,
         save_fn: Optional[Union[str, Path]] = None,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Visualize a 2D projected slice of watershed zones.
 
         Parameters
@@ -679,13 +683,13 @@ class JaxelVoids(BaseEstimator):
         zones_mesh = zones_mesh[:, :, 0]  # Take a thin slice in z
         # print(zones_mesh.shape)
         fig, ax = plt.subplots()
-        cmap = matplotlib.cm.tab20
+        cmap = cm.get_cmap("tab20")
         cmap.set_bad(color="white")
         ax.imshow(
             zones_mesh[:, :],
             origin="lower",
             cmap=cmap,
-            extent=[0, boxsize[0], 0, boxsize[1]],
+            extent=(0, boxsize[0], 0, boxsize[1]),
             interpolation="gaussian",
         )
         ax.set_xlim(0, 250)
@@ -702,7 +706,7 @@ class JaxelVoids(BaseEstimator):
         self,
         save_fn: Optional[Union[str, Path]] = None,
         interval: int = 120,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Create a GIF scanning zone-map slices along the z-axis.
 
         This method uses the same zone-map construction and styling as
@@ -732,14 +736,14 @@ class JaxelVoids(BaseEstimator):
         zones_mesh = np.ma.masked_where(zones_mesh == 0, zones_mesh).reshape(nmesh)
 
         fig, ax = plt.subplots()
-        cmap = matplotlib.cm.tab20
+        cmap = cm.get_cmap("tab20")
         cmap.set_bad(color="white")
 
         image = ax.imshow(
             zones_mesh[:, :, 0],
             origin="lower",
             cmap=cmap,
-            extent=[0, boxsize[0], 0, boxsize[1]],
+            extent=(0, boxsize[0], 0, boxsize[1]),
             interpolation="gaussian",
             animated=True,
         )
@@ -781,7 +785,7 @@ class JaxelVoids(BaseEstimator):
         dpi: int = 200,
         padding_cells: int = 2,
         show_axes: bool = False,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """Create a rotating 3D GIF focused on a single voxel-void zone.
 
         Parameters
@@ -833,7 +837,7 @@ class JaxelVoids(BaseEstimator):
             return xi_, yi_, zi_
 
         def touches_edge(xi_: np.ndarray, yi_: np.ndarray, zi_: np.ndarray) -> bool:
-            return (
+            check = (
                 np.any(xi_ == 0)
                 or np.any(xi_ == nmesh[0] - 1)
                 or np.any(yi_ == 0)
@@ -841,6 +845,7 @@ class JaxelVoids(BaseEstimator):
                 or np.any(zi_ == 0)
                 or np.any(zi_ == nmesh[2] - 1)
             )
+            return bool(check)
 
         non_edge_candidates = []
         for zid, voxels in enumerate(self._iter_zones()):
