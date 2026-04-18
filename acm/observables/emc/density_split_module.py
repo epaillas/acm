@@ -85,7 +85,6 @@ class DensitySplitBaseClass(BaseObservableEMC):
         data_fns = sorted(
             base_dir.glob(f"{measurement_root}_poles_ph*.h5")
         )  # NOTE: File name format hardcoded !
-        phase_indices = [int(fn.stem.split("_ph")[-1]) for fn in data_fns]
         n_sims = len(data_fns)
 
         y = []
@@ -105,7 +104,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         y = xarray.DataArray(
             data=y,
             coords={
-                "phase_idx": phase_indices,
+                "phase_idx": list(range(y.shape[0])),
                 "quantiles": quantiles,
                 "ells": ells,
                 "s": s,
