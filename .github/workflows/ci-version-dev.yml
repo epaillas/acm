@@ -7,8 +7,10 @@ description: |
 
 on:
   pull_request:
-    branches: [ "dev" ]
+    branches: [ "dev", "test/ci-with-paths-1" ] # Include test branch for testing purposes, remove it after testing is complete
     types: [ closed ]
+    paths:
+      - "acm/**"
 
 jobs:
   bump-dev:

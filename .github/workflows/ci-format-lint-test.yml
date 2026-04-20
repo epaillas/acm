@@ -4,8 +4,10 @@ name: Format, Typecheck & Tests
 
 on:
   pull_request:
-    branches: ["dev","main"]
+    branches: ["dev","main","test/ci-with-paths-1"] # Include test branch for testing purposes, remove it after testing is complete
     types: [opened, synchronize, reopened]
+    paths:
+      - "acm/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
