@@ -87,7 +87,7 @@ class BaseEstimator:
         return self.backend.__getattribute__(name)
 
     @staticmethod
-    def read(filename: str, **kwargs):
+    def read(filename: str | Path, **kwargs):
         """
         Read estimator output from a file.
 
@@ -99,7 +99,7 @@ class BaseEstimator:
 
         Parameters
         ----------
-        filename : str
+        filename : str | Path
             Path to the saved file.
         **kwargs
             Additional keyword arguments for the specific file format reader.
