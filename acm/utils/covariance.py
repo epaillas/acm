@@ -122,7 +122,7 @@ def orthogonal_gk_mad_covariance(residuals, eps=1e-12):
         Covariance matrix of the residuals.
     """
     X = np.asarray(residuals)
-    n_bins = X.shape[1]
+    # n_bins = X.shape[1]
 
     # Debias the residuals
     X -= np.median(X, axis=0, keepdims=True)

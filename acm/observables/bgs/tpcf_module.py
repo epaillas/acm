@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -16,12 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
-    """
-    Class for the application of the Two-point correlation function statistic of the ACM pipeline
-    to the BGS dataset.
-    """
+    """Class for the application of the Two-point correlation function statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="tpcf", **kwargs):
+    def __init__(self, stat_name: str = "tpcf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     # %% Compressed files creation
@@ -34,11 +32,11 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         hod_idx: int = 157,
         seed: int = 0,
         los: list[str] = ["x", "y", "z"],
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 3,
         ells: list = [0, 2],
-        overwrite_s: np.ndarray = None,
-    ) -> xarray.DataArray:
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -73,11 +71,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
-        logger = cls.get_logger()
-
         small_dir = Path(paths["measurements_dir"]) / "small"
 
         y = []
@@ -93,7 +89,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
                 / f"hod{hod_idx:03d}"
             )
             fns = [
-                fn_dir / f"{stat_name}_los_{l}.npy" for l in los
+                fn_dir / f"{stat_name}_los_{_l}.npy" for _l in los
             ]  # NOTE: Hardcoded !
             data = sum(
                 [TwoPointEstimator.load(fn).normalize() for fn in fns if fn.exists()]
@@ -127,7 +123,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -139,14 +136,14 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         los: list[str] = ["x", "y", "z"],
         rebin: int = 3,
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
-        n_hod: int = None,
-        density_threshold: float = None,
-        test_filters: dict = None,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
         """
@@ -200,8 +197,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         x = cls.compress_x(
             paths=paths, cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod
         )
@@ -221,7 +216,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
 
             for fn_dir in hod_fns:
                 fns = [
-                    fn_dir / f"{stat_name}_los_{l}.npy" for l in los
+                    fn_dir / f"{stat_name}_los_{_l}.npy" for _l in los
                 ]  # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
@@ -285,14 +280,19 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(
-        self, model_params: dict, save_fn: str = None, ells: list = [0, 2], **kwargs
+        self,
+        model_params: dict,
+        save_fn: str | None = None,
+        ells: list = [0, 2],
+        **kwargs,
     ) -> tuple:
         """
         Plot the observable with error bars and the model prediction, along with the residuals.

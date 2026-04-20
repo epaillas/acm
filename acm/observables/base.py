@@ -2,6 +2,7 @@ import logging
 import pickle
 from copy import copy, deepcopy
 from pathlib import Path
+from typing import overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,22 +34,22 @@ class Observable:
     def __init__(
         self,
         stat_name: str,
-        dataset: xarray.Dataset = None,
+        dataset: xarray.Dataset | None = None,
         model: FCN = None,
-        select_filters: dict = None,
-        slice_filters: dict = None,
-        select_indices: list = None,
+        select_filters: dict | None = None,
+        slice_filters: dict | None = None,
+        select_indices: list | None = None,
         select_indices_on: list = [
             "y",
             "covariance_y",
             "emulator_error",
             "emulator_covariance_y",
         ],
-        flat_output_dims: int = None,
+        flat_output_dims: int | None = None,
         squeeze_output: bool = False,
         numpy_output: bool = False,
-        paths: dict = None,
-        checkpoint_fn: Path | str = None,
+        paths: dict | None = None,
+        checkpoint_fn: Path | str | None = None,
         silent_load: bool = False,
     ):
         """
@@ -388,7 +389,7 @@ class Observable:
             The stacked DataArray
         """
         if isinstance(attribute, str):
-            if not attribute in dataarray.attrs or attribute in dataarray.dims:
+            if attribute not in dataarray.attrs or attribute in dataarray.dims:
                 return dataarray
             attribute_list = [
                 i for i in dataarray.attrs[attribute] if i in dataarray.dims
@@ -406,19 +407,24 @@ class Observable:
 
         return da
 
-    def apply_filters(self, dataarray: xarray.DataArray) -> xarray.DataArray:
+    @overload
+    def apply_filters(self, dataarray: xarray.DataArray) -> xarray.DataArray: ...
+    @overload
+    def apply_filters(self, dataarray: xarray.Dataset) -> xarray.Dataset: ...
+
+    def apply_filters(self, dataarray):
         """
         Apply the class filters on a given DataArray or Dataset.
 
         Parameters
         ----------
-        dataarray : xarray.DataArray
-            The DataArray to apply the filters on.
+        dataarray : xarray.DataArray | xarray.Dataset
+            The DataArray or Dataset to apply the filters on.
 
         Returns
         -------
-        xarray.DataArray
-            The filtered DataArray.
+        xarray.DataArray | xarray.Dataset
+            The filtered DataArray or Dataset.
         """
         dimensions = dataarray.dims
 
@@ -442,7 +448,10 @@ class Observable:
 
     @classmethod
     def flatten_output(
-        cls, dataarray: xarray.DataArray, flat_output_dims: int, unstack: bool = True
+        cls,
+        dataarray: xarray.DataArray,
+        flat_output_dims: int | None,
+        unstack: bool = True,
     ) -> xarray.DataArray:
         """
         Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
@@ -605,8 +614,8 @@ class Observable:
         self,
         x,
         model=None,
-        coords: dict = None,
-        attrs: dict = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
         nofilters: bool = False,
     ):
         """
@@ -827,7 +836,13 @@ class Observable:
 
         return cov
 
-    def get_save_handle(self, save_dir: str | Path = None) -> str | Path:
+    @overload
+    def get_save_handle(self, save_dir: Path) -> Path: ...
+
+    @overload
+    def get_save_handle(self, save_dir: str | None = None) -> str: ...
+
+    def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
         """
         Creates a handle that includes the statistics and filters used.
         This can be used to save anything related to this observable.
@@ -868,7 +883,10 @@ class Observable:
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_observable(
-        self, model_params: dict, save_fn: str = None, **kwargs
+        self,
+        model_params: dict,
+        save_fn: str | None = None,
+        **kwargs,
     ) -> tuple:  # pragma: no cover
         """
         Plot the observable with error bars and the model prediction, along with the residuals.
@@ -928,12 +946,12 @@ class Observable:
             marker="o",
             ms=4,
             ls="",
-            color=f"C0",
+            color="C0",
             elinewidth=1.0,
             capsize=None,
         )
-        ax[0].plot(bin_idx, model, ls="-", color=f"C0")
-        ax[1].plot(bin_idx, (data - model) / error, ls="-", color=f"C0")
+        ax[0].plot(bin_idx, model, ls="-", color="C0")
+        ax[1].plot(bin_idx, (data - model) / error, ls="-", color="C0")
 
         for offset in [-2, 2]:
             ax[1].axhline(offset, color="k", ls="--")
@@ -956,14 +974,16 @@ class Observable:
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
     def plot_emulator_residuals(
-        self, save_fn: str = None, **kwargs
+        self,
+        save_fn: str | None = None,
+        **kwargs,
     ) -> tuple:  # pragma: no cover
         """
         Plot the emulator residuals.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str | None
             Filename to save the plot. If None, the plot is not saved.
         **kwargs : dict
             Additional arguments for the plot, such as figsize, and volume_factor and prefactor for covariance calculation.

@@ -7,10 +7,11 @@ import uuid
 from pathlib import Path
 from typing import Any, Optional, Tuple, Union
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from matplotlib import cm
+from matplotlib.figure import Figure
 from pycorr import TwoPointCorrelationFunction
 
 from acm.utils.plotting import set_plot_style
@@ -94,13 +95,13 @@ class VoxelVoids(BaseEstimator):
 
         # For voxel voids, we also need rho_mesh
         if self.has_randoms:
-            # Access meshes from backend
-            data_mesh = self.backend.data_mesh
-            randoms_mesh = self.backend.randoms_mesh
-
             if hasattr(self, "_PyreconBackend") and isinstance(
                 self.backend, self._PyreconBackend
             ):
+                # Access meshes from backend
+                data_mesh = self.backend.data_mesh
+                randoms_mesh = self.backend.randoms_mesh
+
                 sum_data = np.sum(data_mesh.value)
                 sum_randoms = np.sum(randoms_mesh.value)
                 alpha = sum_data * 1.0 / sum_randoms
@@ -112,12 +113,12 @@ class VoxelVoids(BaseEstimator):
                 self.rho_mesh[~mask] = 0.9e30
             else:
                 # For other backends, approximate rho_mesh from delta_mesh
-                self.rho_mesh = np.array(delta_array + 1.0)
+                self.rho_mesh = np.asarray(delta_array) + 1.0
                 mask = self.rho_mesh < ran_min
                 self.rho_mesh[mask] = 0.9e30
         else:
             # For periodic boxes without randoms, use delta_mesh directly
-            self.rho_mesh = np.array(delta_array + 1.0)
+            self.rho_mesh = np.asarray(delta_array) + 1.0
 
         logger.info(f"Set density contrast in {time.time() - t0:.2f} seconds.")
         return delta_mesh
@@ -364,7 +365,7 @@ class VoxelVoids(BaseEstimator):
     @set_plot_style
     def plot_void_size_distribution(
         self, save_fn: Optional[Union[str, Path]] = None
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """
         Plot the void size distribution as a histogram.
 
@@ -391,7 +392,7 @@ class VoxelVoids(BaseEstimator):
     @set_plot_style
     def plot_void_data_correlation(
         self, ells: Tuple[int, ...] = (0,), save_fn: Optional[Union[str, Path]] = None
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """
         Plot the void-data cross-correlation multipoles.
 
@@ -429,7 +430,7 @@ class VoxelVoids(BaseEstimator):
         self,
         data_positions: Optional[npt.NDArray] = None,
         save_fn: Optional[Union[str, Path]] = None,
-    ) -> matplotlib.figure.Figure:
+    ) -> Figure:
         """
         Plot a 2D slice of the density field showing void zones.
 
@@ -456,7 +457,7 @@ class VoxelVoids(BaseEstimator):
         """
         nmesh = self.meshsize
         boxsize = self.boxsize
-        boxcenter = self.boxcenter
+        # boxcenter = self.boxcenter
         zones_mesh = np.zeros(nmesh).flatten()
         for i, zone in enumerate(self.zones):
             zones_mesh[zone] = random.random()
@@ -469,13 +470,13 @@ class VoxelVoids(BaseEstimator):
         zones_mesh = zones_mesh.reshape(delta_mesh.shape)
         zones_mesh = np.sum(zones_mesh, axis=2)
         fig, ax = plt.subplots()
-        cmap = matplotlib.cm.tab20
+        cmap = cm.get_cmap("tab20")
         cmap.set_bad(color="white")
         ax.imshow(
             zones_mesh[:, :],
             origin="lower",
             cmap=cmap,
-            extent=[0, boxsize[0], 0, boxsize[1]],
+            extent=(0, boxsize[0], 0, boxsize[1]),
             interpolation="gaussian",
         )
         # ax.set_xlim(0, 1000)

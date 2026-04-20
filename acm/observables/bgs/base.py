@@ -15,14 +15,15 @@ logger = logging.getLogger(__name__)
 
 
 class BaseObservableBGS(Observable):
-    """
-    Base class for the application of the ACM pipeline to the BGS dataset.
-    """
+    """Base class for the application of the ACM pipeline to the BGS dataset."""
 
     def __init__(
-        self, flat_output_dims: int = 2, squeeze_output: bool = True, **kwargs
-    ):
-        dataset = kwargs.get("dataset", None)
+        self,
+        flat_output_dims: int = 2,
+        squeeze_output: bool = True,
+        **kwargs,
+    ) -> None:
+        dataset = kwargs.get("dataset")
         paths = kwargs.pop("paths", None)
         if dataset is None and paths is None:
             paths = lookup_registry_path("projects.yaml", "bgs", "Mr-20")
@@ -41,7 +42,7 @@ class BaseObservableBGS(Observable):
         self, nofilters: bool = False
     ) -> xarray.DataArray | np.ndarray:
         """
-        Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
+        Return the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
 
         Parameters
         ----------
@@ -103,8 +104,8 @@ class BaseObservableBGS(Observable):
         n_test = y_test.shape[
             0
         ]  # Indexing on n_test to prevent filtering issues later on
-        y = self._dataset.y.unstack()
-        shape = (n_test,) + y.shape[len(y.attrs["sample"]) :]
+        y = self._dataset.y.unstack()  # noqa: PD010
+        shape = (n_test, *y.shape[len(y.attrs["sample"]) :])
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords={
@@ -135,7 +136,7 @@ class BaseObservableBGS(Observable):
 
     def get_emulator_error(self) -> xarray.DataArray | np.ndarray:
         """
-        Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
+        Return the unfiltered emulator error of the statistic, with shape (n_statistics, ).
 
         Returns
         -------
@@ -148,12 +149,13 @@ class BaseObservableBGS(Observable):
 
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(
-            emulator_covariance_y, flat_output_dims=2
+            emulator_covariance_y,  # ty:ignore[invalid-argument-type]
+            flat_output_dims=2,
         )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
 
-        y = self._dataset.y.unstack()
+        y = self._dataset.y.unstack()  # noqa: PD010
         shape = y.shape[len(y.attrs["sample"]) :]
         emulator_error = xarray.DataArray(
             emulator_error.reshape(shape),
@@ -181,7 +183,7 @@ class BaseObservableBGS(Observable):
         cosmo_idx: int,
         phase: int = 0,
         seed: int = 0,
-        density_threshold: float = None,
+        density_threshold: float | None = None,
         return_fn: bool = False,
     ) -> np.ndarray:
         """
@@ -243,7 +245,7 @@ class BaseObservableBGS(Observable):
 
     @classmethod
     def compress_x(
-        cls, paths: dict, cosmos: list = cosmo_list, n_hod: int = None, **kwargs
+        cls, paths: dict, cosmos: list = cosmo_list, n_hod: int | None = None, **kwargs
     ) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
@@ -276,9 +278,13 @@ class BaseObservableBGS(Observable):
         -----
         The parameters are read from the `param_dir/AbacusSummit_c{cosmo_idx:03}.csv` files.
         """
-        logger = cls.get_logger()
-
         param_dir = paths["param_dir"]
+
+        # Determine the number of HODs from the first cosmology
+        if n_hod is None:
+            hod_idx = cls.get_hod_from_files(paths=paths, cosmo_idx=cosmos[0], **kwargs)
+            n_hod = len(hod_idx)
+            logger.info(f"Number of HODs determined for c{cosmos[0]:03d}: {n_hod}")
 
         x = []
         for cosmo_idx in cosmos:
@@ -289,11 +295,6 @@ class BaseObservableBGS(Observable):
 
             # Get the HOD indexes from folder names (density filtering is optional)
             hod_idx = cls.get_hod_from_files(paths=paths, cosmo_idx=cosmo_idx, **kwargs)
-            if n_hod is None:
-                n_hod = len(
-                    hod_idx
-                )  # Determine the number of HODs from the first cosmology
-                logger.info(f"Number of HODs determined for c{cosmo_idx:03d}: {n_hod}")
 
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
@@ -332,7 +333,7 @@ class BaseObservableBGS(Observable):
         slice_filters=None,
         select_indices=None,
     )
-    def compress_emulator_error(self, save_to: str = None) -> xarray.Dataset:
+    def compress_emulator_error(self, save_to: str | None = None) -> xarray.Dataset:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
 
@@ -360,5 +361,6 @@ class BaseObservableBGS(Observable):
         if save_to:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{self.stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(emulator_error_dataset))
+            payload = np.array(dataset_to_dict(emulator_error_dataset), dtype=object)
+            np.save(save_fn, payload)
         return emulator_error_dataset

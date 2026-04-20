@@ -1,5 +1,6 @@
 import argparse
 import importlib
+from ast import literal_eval
 
 
 def add_observables_to_parser(parser: argparse.ArgumentParser):
@@ -108,11 +109,11 @@ def parse_observable(argv: list):
     args = parser.parse_args(argv)
     # Edge case: if select_filters or slice_filters are provided as one element, try to eval them as dicts (otherwise, they should be pairs of key, value)
     if args.paths and len(args.paths) == 1:
-        args.paths = try_eval(args.paths[0])
+        args.paths = literal_eval(args.paths[0])
     if args.select_filters and len(args.select_filters) == 1:
-        args.select_filters = try_eval(args.select_filters[0])
+        args.select_filters = literal_eval(args.select_filters[0])
     if args.slice_filters and len(args.slice_filters) == 1:
-        args.slice_filters = try_eval(args.slice_filters[0])
+        args.slice_filters = literal_eval(args.slice_filters[0])
     return args
 
 
@@ -175,26 +176,6 @@ def parse_observables_arg(args: argparse.Namespace):
     return args
 
 
-def try_eval(value: str):
-    """
-    Tries to evaluate a string as a Python expression. If it fails, returns the original string.
-
-    Parameters
-    ----------
-    value : str
-        The string to evaluate.
-
-    Returns
-    -------
-    any
-        The evaluated value or the original string if evaluation fails.
-    """
-    try:
-        return eval(value)
-    except:
-        return value
-
-
 def to_pairs(lst: list | dict):
     """
     Converts a flat list or a dict into a list of key-value pairs.
@@ -220,9 +201,9 @@ def to_pairs(lst: list | dict):
 
 def args_to_observables(
     args: list[argparse.Namespace],
-    module: str = None,
-    mapping: dict = None,
-    pop_args: list = None,
+    module: str | None = None,
+    mapping: dict | None = None,
+    pop_args: list | None = None,
     **kwargs,
 ) -> list:
     """
@@ -248,11 +229,10 @@ def args_to_observables(
     list
         An list of instantiated observable classes that can be passed to `acm.observables.CombinedObservable`.
     """
-    module = (
-        importlib.import_module(module)
-        if module
-        else importlib.import_module("acm.observables")
-    )
+    if module:
+        _module = importlib.import_module(module)
+    else:
+        _module = importlib.import_module("acm.observables")
     mapping = mapping if mapping else {}
     pop_args = pop_args if pop_args else []
 
@@ -260,16 +240,20 @@ def args_to_observables(
     for obs_args in args:
         observable_args = {
             "stat_name": obs_args.stat_name,
-            "paths": {key: try_eval(value) for key, value in to_pairs(obs_args.paths)}
+            "paths": {
+                key: literal_eval(value) for key, value in to_pairs(obs_args.paths)
+            }
             if obs_args.paths
             else None,
             "select_filters": {
-                key: try_eval(value) for key, value in to_pairs(obs_args.select_filters)
+                key: literal_eval(value)
+                for key, value in to_pairs(obs_args.select_filters)
             }
             if obs_args.select_filters
             else None,
             "slice_filters": {
-                key: try_eval(value) for key, value in to_pairs(obs_args.slice_filters)
+                key: literal_eval(value)
+                for key, value in to_pairs(obs_args.slice_filters)
             }
             if obs_args.slice_filters
             else None,
@@ -285,11 +269,11 @@ def args_to_observables(
         for arg in pop_args:
             observable_args.pop(arg, None)
 
-        if module.__name__ != "acm.observables":
+        if _module.__name__ != "acm.observables":
             class_name = mapping.get(obs_args.stat_name, obs_args.stat_name)
-            observable_class = getattr(module, class_name)
+            observable_class = getattr(_module, class_name)
         else:
-            observable_class = getattr(module, "Observable")
+            observable_class = getattr(_module, "Observable")
 
         observable_instance = observable_class(**observable_args, **kwargs)
         observable_list.append(observable_instance)

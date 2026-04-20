@@ -1,6 +1,6 @@
 import numpy as np
-import scipy.spatial
 from numba import njit, prange
+from scipy.spatial import cKDTree
 
 from .base import BaseEstimator
 
@@ -20,12 +20,12 @@ class KthNearestNeighbor(BaseEstimator):
 
         # If any value is < 0, don't use periodic boxes
         if np.any(periodic <= 0):
-            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize)
+            xtree = cKDTree(data, leafsize=leafsize)
             boxsize_for_conversion = np.array(
                 [np.inf, np.inf, np.inf], dtype=np.float32
             )
         else:
-            xtree = scipy.spatial.cKDTree(data, leafsize=leafsize, boxsize=periodic)
+            xtree = cKDTree(data, leafsize=leafsize, boxsize=periodic)
             boxsize_for_conversion = periodic.astype(np.float32)
 
         # Query the tree (this is parallel)
@@ -56,7 +56,15 @@ class KthNearestNeighbor(BaseEstimator):
         return cdfs
 
     def run_knn(
-        self, rs, pis, xgal, xrand, kneighbors, periodic, nthread=32, leafsize=32
+        self,
+        rs,
+        pis,
+        xgal,
+        xrand,
+        kneighbors,
+        periodic,
+        nthread: int = 32,
+        leafsize: int = 32,
     ):
         """
         run the knns calculator
@@ -129,8 +137,9 @@ class KthNearestNeighbor(BaseEstimator):
         if len(rs.shape) == 2:
             assert rs.shape[0] == pis.shape[0]
         elif len(rs.shape) == 1:
-            rs = np.stack([rs for i in range(len(k))], axis=0)
-            pis = np.stack([pis for i in range(len(k))], axis=0)
+            # FIXME: k is not defined here !!
+            rs = np.stack([rs for i in range(len(kneighbors))], axis=0)
+            pis = np.stack([pis for i in range(len(kneighbors))], axis=0)
         else:
             raise ValueError
 
@@ -153,7 +162,7 @@ def convert_rppi(disi, xgal, xrand, k, L):
 
     # prange over queries so all cores are used!
     for ik in range(len(k)):
-        for i in prange(len(xrand)):
+        for i in prange(len(xrand)):  # ty:ignore[not-iterable]
             # Find right index
             neighb_idx = disi[i, ik]
 

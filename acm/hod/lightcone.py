@@ -1,16 +1,13 @@
 import logging
 import os
-import warnings
 from abc import ABC
 from pathlib import Path
 
 # cosmodesi/acm
 import mockfactory
 import numpy as np
-import yaml
 from cosmoprimo.fiducial import AbacusSummit
 from mockfactory import RandomCutskyCatalog
-from mockfactory.utils import radecbox_area
 from mpytools import CurrentMPIComm
 from scipy.interpolate import InterpolatedUnivariateSpline
 
@@ -71,13 +68,21 @@ class BaseLightconeCatalog(ABC):
         None
             The lightcone catalog is modified in place.
         """
-        data_nbar = self.get_data_nbar(self.catalog, full_sky)
+        catalog = getattr(
+            self, "catalog"
+        )  # NOTE: Assumes the class has a catalog attribute
+        cosmo = getattr(self, "cosmo")  # NOTE: Assumes the class has a cosmo attribute
+        boxsize = getattr(
+            self, "boxsize"
+        )  # NOTE: Assumes the class has a boxsize attribute
+
+        data_nbar = self.get_data_nbar(catalog, full_sky)
         logger.info(f"Raw data nbar: {data_nbar}")
 
         logger.info("Applying radial mask.")
 
-        zmin_data = self.catalog["Z"].min()
-        zmax_data = self.catalog["Z"].max()
+        zmin_data = catalog["Z"].min()
+        zmax_data = catalog["Z"].max()
 
         # read n(z) file
         zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
@@ -113,17 +118,15 @@ class BaseLightconeCatalog(ABC):
 
         # calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
-        dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
-        dedges = np.insert(
-            dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0])
-        )
+        dbin_max = cosmo.comoving_radial_distance(zbin_max)
+        dedges = np.insert(dbin_max, 0, cosmo.comoving_radial_distance(zbin_min[0]))
         volume = 4 / 3 * np.pi * (dedges[1:] ** 3 - dedges[:-1] ** 3)
         if not full_sky:
             volume = volume / 8
 
         # Handle shells exterior to the Abacus boxes
-        if np.any(dbin_max > self.boxsize):
-            exterior_indices = np.where(dbin_max > self.boxsize)[0]
+        if np.any(dbin_max > boxsize):
+            exterior_indices = np.where(dbin_max > boxsize)[0]
             exterior_shells = (
                 dbin_max[exterior_indices] + dedges[exterior_indices]
             ) / 2
@@ -135,7 +138,7 @@ class BaseLightconeCatalog(ABC):
             volume[exterior_indices] = volume[exterior_indices] * filling_fractions
 
         # calculate downsampling ratio
-        data_nz = np.histogram(self.catalog["Z"], bins=zedges)[0] / volume
+        data_nz = np.histogram(catalog["Z"], bins=zedges)[0] / volume
         ratio = target_nz / data_nz
         if shape_only:
             ratio /= np.max(ratio[~np.isinf(ratio)])
@@ -144,29 +147,34 @@ class BaseLightconeCatalog(ABC):
         # use the spline to get the number density at the redshift of every galaxy
         # then assign a random number to each and compare it to the ratio to determine
         # if the galaxy should be kept or not
-        data_nz = nz_spline(self.catalog["Z"])
-        select_mask = np.random.uniform(size=len(self.catalog["Z"])) < ratio_spline(
-            self.catalog["Z"]
+        data_nz = nz_spline(catalog["Z"])
+        select_mask = np.random.uniform(size=len(catalog["Z"])) < ratio_spline(
+            catalog["Z"]
         )
-        for key in self.catalog.keys():
-            self.catalog[key] = self.catalog[key][select_mask]
-        self.catalog["NZ"] = data_nz[select_mask]
-        logger.info(
-            f"Downsampled data nbar: {self.get_data_nbar(self.catalog, full_sky)}"
-        )
+        for key in catalog.keys():
+            catalog[key] = catalog[key][select_mask]
+        catalog["NZ"] = data_nz[select_mask]
+        logger.info(f"Downsampled data nbar: {self.get_data_nbar(catalog, full_sky)}")
 
     def get_data_nbar(self, data, full_sky: bool = False):
         """
         Compute the number density of the data catalog, which is defined
         by an octant of the spherical shell delimited by the redshift cuts.
         """
+        cosmo = getattr(self, "cosmo")  # NOTE: Assumes the class has a cosmo attribute
+        zrange = getattr(
+            self, "zrange"
+        )  # NOTE: Assumes the class has a zrange attribute
+        sim_type = getattr(
+            self, "sim_type"
+        )  # NOTE: Assumes the class has a sim_type attribute
 
-        dmin, dmax = self.cosmo.comoving_radial_distance(self.zrange)
+        dmin, dmax = cosmo.comoving_radial_distance(zrange)
 
-        if self.sim_type == "base":
+        if sim_type == "base":
             # Abacus base
             # Monte Carlo sampling of Abacus lightcone volume
-            nsamples_per_box = self.monte_carlo_sampling_count
+            nsamples_per_box = getattr(self, "monte_carlo_sampling_count")
             samples_x = np.random.uniform(low=0, high=2000, size=(3 * nsamples_per_box))
             samples_y = np.concatenate(
                 [
@@ -200,28 +208,34 @@ class BaseLightconeCatalog(ABC):
         return nbar
 
     def shell_filling_fraction(self, shells):
+        sim_type = getattr(
+            self, "sim_type"
+        )  # NOTE: Assumes the class has a sim_type attribute
+        boxsize = getattr(
+            self, "boxsize"
+        )  # NOTE: Assumes the class has a boxsize attribute
 
         # Muller-Marsaglia octant sampling
         # evenly distribute points along an octant of a unit sphere
-        num_samples = self.monte_carlo_sampling_count
+        num_samples = getattr(self, "monte_carlo_sampling_count")
         sample_points = np.abs(np.random.normal(0, 1, (3, num_samples)))
         sample_points /= np.linalg.norm(sample_points, axis=0)
 
         # fraction of each shell inside the simulation volume
         vol_fractions = []
 
-        if self.sim_type == "base":
+        if sim_type == "base":
             # Abacus base
             for shell_radius in shells:
                 # count how many points in the shell are in the L-shaped stack of periodic boxes
                 vol_fractions.append(
                     np.sum(
-                        (sample_points[0] < self.boxsize / shell_radius)
-                        * (sample_points[1] < 2 * self.boxsize / shell_radius)
-                        * (sample_points[2] < 2 * self.boxsize / shell_radius)
+                        (sample_points[0] < boxsize / shell_radius)
+                        * (sample_points[1] < 2 * boxsize / shell_radius)
+                        * (sample_points[2] < 2 * boxsize / shell_radius)
                         * (
-                            (sample_points[1] <= self.boxsize / shell_radius)
-                            + (sample_points[2] <= self.boxsize / shell_radius)
+                            (sample_points[1] <= boxsize / shell_radius)
+                            + (sample_points[2] <= boxsize / shell_radius)
                         )
                     )
                     / len(sample_points[0])
@@ -232,9 +246,9 @@ class BaseLightconeCatalog(ABC):
                 # count how many points in the shell are in the box
                 vol_fractions.append(
                     np.sum(
-                        (sample_points[0] < self.boxsize / shell_radius)
-                        * (sample_points[1] < self.boxsize / shell_radius)
-                        * (sample_points[2] < self.boxsize / shell_radius)
+                        (sample_points[0] < boxsize / shell_radius)
+                        * (sample_points[1] < boxsize / shell_radius)
+                        * (sample_points[2] < boxsize / shell_radius)
                     )
                     / len(sample_points[0])
                 )
@@ -246,12 +260,12 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
     def __init__(
         self,
         varied_params,
-        config_file: str = None,
+        config_file: str | None = None,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         zrange: list = [0.4, 0.8],
         fixed_redshift_snapshot=None,
-        DM_DICT: dict = None,
+        DM_DICT: dict | None = None,
         load_existing_hod: bool = False,
         sim_type: str = "base",
         tracer: str = "LRG",
@@ -399,9 +413,9 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
         self,
         hod_params: dict,
         nthreads: int = 1,
-        seed: float = 0,
-        existing_hod_path: str = None,
-        target_nz_filename: str = None,
+        seed: float | None = 0,
+        existing_hod_path: str | None = None,
+        target_nz_filename: str | None = None,
         full_sky: bool = False,
         apply_rsd: bool = True,
     ):
@@ -430,6 +444,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             If True, the survey volunme is scaled to the full sky rather than an octant
         apply_rsd : bool
             If True, redshift space distortions are applied to the mock. If False, RSD is not applied.
+
         Returns
         -------
         dict

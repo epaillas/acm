@@ -1,9 +1,7 @@
 import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
 import xarray
 
@@ -68,7 +66,7 @@ class BaseObservableEMC(Observable):
 
         Returns
         -------
-        np.ndarray
+        xarray.DataArray | np.ndarray
             Array of the emulator covariance array, with shape (n_test, n_features).
         """
         # Get unfiltered values
@@ -157,7 +155,7 @@ class BaseObservableEMC(Observable):
 
         Returns
         -------
-        np.ndarray
+        xarray.DataArray | np.ndarray
            Emulator error, with shape (n_features, ).
         """
         emulator_covariance_y = self.get_emulator_covariance_y(
@@ -166,7 +164,8 @@ class BaseObservableEMC(Observable):
 
         # Flatten on 2D for indexing
         emulator_covariance_y = self.flatten_output(
-            emulator_covariance_y, flat_output_dims=2
+            emulator_covariance_y,  # ty:ignore[invalid-argument-type]
+            flat_output_dims=2,
         )
 
         emulator_error = np.median(np.abs(emulator_covariance_y), axis=0)
@@ -197,8 +196,8 @@ class BaseObservableEMC(Observable):
         self,
         x,
         model=None,
-        coords: dict = None,
-        attrs: dict = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
         nofilters: bool = False,
     ):
         """
@@ -326,7 +325,11 @@ class BaseObservableEMC(Observable):
 
     @classmethod
     def compress_x(
-        cls, paths: dict, cosmos: list = cosmo_list, n_hod: int = None, **kwargs
+        cls,
+        paths: dict,
+        cosmos: list = cosmo_list,
+        n_hod: int | None = None,
+        **kwargs,
     ) -> xarray.DataArray:
         """
         Compress the x values from the parameters files.
@@ -356,8 +359,6 @@ class BaseObservableEMC(Observable):
             If the number of HODs for a cosmology is lower than the expected number,
             as the compression requires all cosmologies to have the same number of HODs.
         """
-        logger = cls.get_logger()
-
         if paths is None:
             paths = lookup_registry_path("projects.yaml", "emc")
 
@@ -391,6 +392,12 @@ class BaseObservableEMC(Observable):
             x_cosmo_names[x_cosmo_names.index(key)] = value
         hod_params = np.load(hod_file, allow_pickle=True).item()
 
+        # Determine the number of HODs from the first cosmology
+        if n_hod is None:
+            hod_idx = cls.get_hod_from_files(paths, cosmos[0], **kwargs)
+            n_hod = len(hod_idx)
+            logger.info(f"Number of HODs determined from c{cosmos[0]:03d}: {n_hod}")
+
         x = []
         for cosmo_idx in cosmos:
             # HOD parameters
@@ -411,11 +418,6 @@ class BaseObservableEMC(Observable):
             x_i = np.concatenate([x_cosmo, x_hod], axis=1)
 
             hod_idx = cls.get_hod_from_files(paths, cosmo_idx, **kwargs)
-            if n_hod is None:
-                n_hod = len(
-                    hod_idx
-                )  # Determine the number of HODs from the first cosmology
-                logger.info(f"Number of HODs determined from c{cosmo_idx:03d}: {n_hod}")
 
             # Ensure the number of HODs is as expected
             if len(hod_idx) > n_hod:
@@ -456,13 +458,13 @@ class BaseObservableEMC(Observable):
         slice_filters=None,
         select_indices=None,
     )
-    def compress_emulator_error(self, save_to: str = None):
+    def compress_emulator_error(self, save_to: str | None = None):
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
 
         Parameters
         ----------
-        save_to : str
+        save_to : str, optional
             Path of the directory where to save the emulator error file. If None, the emulator error file is not saved.
             Default is None.
 
@@ -484,5 +486,6 @@ class BaseObservableEMC(Observable):
         if save_to:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{self.stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(emulator_error_dataset))
+            payload = np.array(dataset_to_dict(emulator_error_dataset), dtype=object)
+            np.save(save_fn, payload)
         return emulator_error_dataset

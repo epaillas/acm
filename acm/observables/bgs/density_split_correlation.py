@@ -16,11 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 class DensitySplitBaseClass(BaseObservableBGS):
-    """
-    Base class for densitysplit observables in the ACM pipeline for the BGS dataset.
-    """
+    """Base class for densitysplit observables in the ACM pipeline for the BGS dataset."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     # %% Compressed files creation
@@ -34,12 +32,12 @@ class DensitySplitBaseClass(BaseObservableBGS):
         hod_idx: int = 157,
         seed: int = 0,
         los: list[str] = ["x", "y", "z"],
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 1,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        overwrite_s: np.ndarray = None,
-    ) -> xarray.DataArray:
+        overwrite_s: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -78,11 +76,9 @@ class DensitySplitBaseClass(BaseObservableBGS):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
-        logger = cls.get_logger()
-
         small_dir = Path(paths["measurements_dir"]) / "small"
 
         y = []
@@ -101,7 +97,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
                     / f"hod{hod_idx:03d}"
                 )
                 fns = [
-                    fn_dir / f"{measurement_root}_los_{l}.npy" for l in los
+                    fn_dir / f"{measurement_root}_los_{_l}.npy" for _l in los
                 ]  # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
@@ -141,7 +137,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -154,15 +151,15 @@ class DensitySplitBaseClass(BaseObservableBGS):
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         los: list[str] = ["x", "y", "z"],
         rebin: int = 1,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
         cosmos: list = cosmo_list,
-        n_hod: int = None,
-        density_threshold: float = None,
-        test_filters: dict = None,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
         """
@@ -220,8 +217,6 @@ class DensitySplitBaseClass(BaseObservableBGS):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         x = cls.compress_x(
             paths=paths, cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod
         )
@@ -242,7 +237,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
             for fn_dir in hod_fns:
                 y_quantiles = []
                 fns = [
-                    fn_dir / f"{measurement_root}_los_{l}.npy" for l in los
+                    fn_dir / f"{measurement_root}_los_{_l}.npy" for _l in los
                 ]  # NOTE: Hardcoded !
                 for q in quantiles:
                     data = sum(
@@ -313,7 +308,8 @@ class DensitySplitBaseClass(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
@@ -322,7 +318,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
     def plot_observable(
         self,
         model_params: dict,
-        save_fn: str = None,
+        save_fn: str | None = None,
         quantiles: list = [0, 1, 3, 4],
         ell: int = 0,
         **kwargs,
@@ -375,7 +371,7 @@ class DensitySplitBaseClass(BaseObservableBGS):
             default_select_filters = self.select_filters.copy()
 
         s = self.s.values
-        for i, q in enumerate(quantiles):
+        for _, q in enumerate(quantiles):
             self.select_filters.update({"ells": ell, "quantiles": q})
             data = self.y
             model = self.get_model_prediction(model_params)
@@ -427,15 +423,13 @@ class DensitySplitBaseClass(BaseObservableBGS):
 
 
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
-    """
-    Class for the application of the densitysplit cross-correlation statistic of the ACM pipeline to the BGS dataset.
-    """
+    """Class for the application of the densitysplit cross-correlation statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="ds_xiqg", **kwargs):
+    def __init__(self, stat_name: str = "ds_xiqg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_correlation"
         )
@@ -452,15 +446,13 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
 
 
 class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
-    """
-    Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset.
-    """
+    """Class for the application of the densitysplit auto-correlation statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="ds_xiqq", **kwargs):
+    def __init__(self, stat_name: str = "ds_xiqq", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_correlation"
         )

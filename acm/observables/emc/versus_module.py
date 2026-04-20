@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
-    """
-    Base class for VERSUS void size function observables in the EMC pipeline.
-    """
+    """Base class for VERSUS void size function observables in the EMC pipeline."""
+
+    recon = False  # Flag to indicate if the observable is measured from reconstructed catalogs
 
     @classmethod
     def compress_covariance(
         cls,
         stat_name: str,
         paths: dict,
-        save_to: str = None,
-    ) -> xarray.DataArray:
+        save_to: str | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -46,11 +46,9 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin_values.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "small"
@@ -86,7 +84,8 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -96,13 +95,13 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         paths: dict,
         stat_name: str,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> xarray.DataArray:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the VERSUS VSF raw measurement files.
 
@@ -140,8 +139,6 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "base"
@@ -201,18 +198,21 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
@@ -233,13 +233,15 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
@@ -261,7 +263,9 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the data, model, and residuals.
 
@@ -274,10 +278,9 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
 
         Returns
         -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+        fig, ax : matplotlib.figure.Figure, matplotlib.axes.Axes
             Figure and axes of the plot.
         """
-
         height_ratios = [3, 1]
         figsize = (6, 1.5 * sum(height_ratios))
         fig, lax = plt.subplots(
@@ -331,12 +334,11 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
 
 
 class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
-    """
-    Base class for VERSUS void size function observables in the EMC pipeline.
+    """Base class for VERSUS void size function observables in the EMC pipeline."""
 
-    """
+    recon = False  # Flag to indicate if the observable is measured from reconstructed catalogs
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     @classmethod
@@ -344,10 +346,10 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         cls,
         stat_name: str,
         paths: dict,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 1,
         ells: list = [0, 2],
-    ) -> xarray.DataArray:
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -370,15 +372,13 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin_values.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "small"
-            / "{}spherical_voids".format("recon_" if cls.recon else "")
+            / f"{'recon_' if cls.recon else ''}spherical_voids"
         )
         data_fns = list(
             base_dir.glob(f"{stat_name}_ph*.npy")
@@ -411,7 +411,8 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -421,15 +422,15 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         paths: dict,
         stat_name: str,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 1,
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
         n_hod: int = 100,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> xarray.DataArray:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the VERSUS CCF or ACF raw measurement files.
 
@@ -471,12 +472,10 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "base"
-            / "{}spherical_voids".format("recon_" if cls.recon else "")
+            / f"{'recon_' if cls.recon else ''}spherical_voids"
         )
 
         y = []
@@ -535,18 +534,21 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str = None):
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
@@ -555,7 +557,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
         self.select_filters = {}
-        for l, ell in enumerate(ells):
+        for _, ell in enumerate(ells):
             self.select_filters.update({"ells": ell})
             for data in self.y:
                 lax[ell // 2].plot(s, data, color="C0", alpha=0.5, lw=0.1)
@@ -569,18 +571,27 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str = None):
+    def plot_covariance_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance set for the observable.
 
         Parameters
         ----------
-        save_fn : str
+        save_fn : str, optional
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
         ells = self._dataset.y.coords["ells"].values.tolist()
         s = self.s.values
+
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         fig, lax = plt.subplots(len(ells), 1, figsize=(4, 5), sharex=True)
 
@@ -591,6 +602,9 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             lax[ell // 2].set_ylabel(rf"$\xi_{ell}(s)$")
         lax[-1].set_xlabel(r"$s [h^{-1}{\rm Mpc}]$")
 
+        # Restore select_filters
+        self.select_filters = default_select_filters
+
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")
             logger.info(f"Saving training set figure to {save_fn}")
@@ -599,7 +613,9 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the data, model, and residuals.
 
@@ -607,16 +623,22 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         ----------
         model_params : dict
             Dictionary of model parameters to use for the prediction.
-        save_fn : str
+        save_fn : str, optional
             Filename to save the plot. If None, the plot is not saved.
 
         Returns
         -------
-        fig, ax : matplotlib.figure.Figure, numpy.ndarray
+        fig, ax : matplotlib.figure.Figure, matplotlib.axes.Axes
             Figure and axes of the plot.
         """
-
         ells = self._dataset.y.coords["ells"].values.tolist()
+
+        # Save current select_filters and update with ells
+        if self.select_filters is None:
+            default_select_filters = None
+            self.select_filters = {}
+        else:
+            default_select_filters = self.select_filters.copy()
 
         height_ratios = [max(len(ells), 3)] + [1] * len(ells)
         figsize = (6, 1.5 * sum(height_ratios))
@@ -653,7 +675,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
                 color=f"C{i}",
                 elinewidth=1.0,
                 capsize=None,
-                label=f"$\ell={ell}$",
+                label=rf"$\ell={ell}$",
             )
             lax[0].plot(s, model, ls="-", color=f"C{i}")
             lax[i + 1].plot(s, (data - model) / error, ls="-", color=f"C{i}")
@@ -671,6 +693,9 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         if show_legend:
             lax[0].legend(fontsize=15)
 
+        # Restore select_filters
+        self.select_filters = default_select_filters
+
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
             logger.info(f"Saving plot to {save_fn}")
@@ -678,17 +703,15 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
 
 class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
-    """
-    Class for the Emulator's Mock Challenge VERSUS void size function.
-    """
+    """Class for the Emulator's Mock Challenge VERSUS void size function."""
 
     recon = False
 
-    def __init__(self, stat_name="sv_vsf", **kwargs):
+    def __init__(self, stat_name: str = "sv_vsf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_vsf")
         return super().compress_covariance(**kwargs)
 
@@ -699,17 +722,15 @@ class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
 
 
 class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
-    """
-    Class for the Emulator's Mock Challenge VERSUS void size function with density field reconstruction.
-    """
+    """Class for the Emulator's Mock Challenge VERSUS void size function with density field reconstruction."""
 
     recon = True
 
-    def __init__(self, stat_name="sv_recon_vsf", **kwargs):
+    def __init__(self, stat_name: str = "sv_recon_vsf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_vsf")
         return super().compress_covariance(**kwargs)
 
@@ -722,17 +743,15 @@ class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
 class VERSUSVoidGalaxyCorrelationFunctionMultipoles(
     BaseVERSUSCorrelationFunctionMultipoles
 ):
-    """
-    Class for the Emulator's Mock Challenge VERSUS void-galaxy correlation function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge VERSUS void-galaxy correlation function multipoles."""
 
     recon = False
 
-    def __init__(self, stat_name="sv_xivg", **kwargs):
+    def __init__(self, stat_name: str = "sv_xivg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_xivg")
         return super().compress_covariance(**kwargs)
 
@@ -745,17 +764,15 @@ class VERSUSVoidGalaxyCorrelationFunctionMultipoles(
 class VERSUSVoidAutoCorrelationFunctionMultipoles(
     BaseVERSUSCorrelationFunctionMultipoles
 ):
-    """
-    Class for the Emulator's Mock Challenge VERSUS void-void correlation function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge VERSUS void-void correlation function multipoles."""
 
     recon = False
 
-    def __init__(self, stat_name="sv_xivv", **kwargs):
+    def __init__(self, stat_name: str = "sv_xivv", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_xivv")
         return super().compress_covariance(**kwargs)
 
@@ -768,17 +785,15 @@ class VERSUSVoidAutoCorrelationFunctionMultipoles(
 class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(
     BaseVERSUSCorrelationFunctionMultipoles
 ):
-    """
-    Class for the Emulator's Mock Challenge VERSUS void-galaxy correlation function multipoles with density field reconstruction.
-    """
+    """Class for the Emulator's Mock Challenge VERSUS void-galaxy correlation function multipoles with density field reconstruction."""
 
     recon = True
 
-    def __init__(self, stat_name="sv_recon_xivg", **kwargs):
+    def __init__(self, stat_name: str = "sv_recon_xivg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_xivg")
         return super().compress_covariance(**kwargs)
 
@@ -791,17 +806,15 @@ class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(
 class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(
     BaseVERSUSCorrelationFunctionMultipoles
 ):
-    """
-    Class for the Emulator's Mock Challenge VERSUS void-void correlation function multipoles with density field reconstruction.
-    """
+    """Class for the Emulator's Mock Challenge VERSUS void-void correlation function multipoles with density field reconstruction."""
 
     recon = True
 
-    def __init__(self, stat_name="sv_recon_xivv", **kwargs):
+    def __init__(self, stat_name: str = "sv_recon_xivv", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_xivv")
         return super().compress_covariance(**kwargs)
 

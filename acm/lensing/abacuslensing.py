@@ -106,7 +106,8 @@ class AbacusLensingMap(ABC):
         save_fn : str, optional
             Path to save the plot. If None, the plot is not saved.
         """
-        toplot = self.kappa if self.map_type == "kappa" else self.gamma1
+        map_type = getattr(self, "map_type", "")
+        toplot = self.kappa if map_type == "kappa" else self.gamma1
         hp.mollview(toplot, badcolor="w", cmap="coolwarm")
         if save_fn:
             plt.savefig(save_fn)

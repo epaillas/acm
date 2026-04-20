@@ -30,8 +30,8 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         cls,
         paths: dict,
         stat_name: str = "projected_tpcf",
-        save_to: str = None,
-    ) -> xarray.DataArray:
+        save_to: str | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -50,11 +50,9 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
-        logger = cls.get_logger()
-
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / stat_name
         data_fns = list(
@@ -87,7 +85,8 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -97,13 +96,13 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         paths: dict,
         stat_name: str = "projected_tpcf",
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         cosmos: list = cosmo_list,
         n_hod: int = 500,
         phase: int = 0,
         seed: int = 0,
-        test_filters: dict = None,
-    ) -> dict:
+        test_filters: dict | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the data from the tpcf raw measurement files.
 
@@ -141,8 +140,6 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = Path(paths["measurements_dir"], f"base/{stat_name}/")
 
         y = []
@@ -202,13 +199,14 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None):
         """
         Plot the projected galaxy correlation function data, model, and residuals.
 
@@ -255,16 +253,16 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
             marker="o",
             ms=4,
             ls="",
-            color=f"C0",
+            color="C0",
             elinewidth=1.0,
             capsize=None,
         )
-        lax[0].plot(rp, rp * model, ls="-", color=f"C0")
-        lax[1].plot(rp, (data - model) / error, ls="-", color=f"C0")
+        lax[0].plot(rp, rp * model, ls="-", color="C0")
+        lax[1].plot(rp, (data - model) / error, ls="-", color="C0")
 
         for offset in [-2, 2]:
             lax[1].axhline(offset, color="k", ls="--")
-        lax[1].set_ylabel(rf"$\Delta w_p / \sigma_{{w_p}}$", fontsize=15)
+        lax[1].set_ylabel(r"$\Delta w_p / \sigma_{w_p}$", fontsize=15)
         lax[1].set_ylim(-4, 4)
 
         for ax in lax:

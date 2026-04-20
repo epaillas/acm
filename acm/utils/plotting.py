@@ -19,7 +19,10 @@ def set_plot_style(func):
 
 # %% Plotting functions
 def plot_parameters_histogram(
-    parameters: list, names: list[str], mapping: dict = None, **kwargs
+    parameters: list,
+    names: list[str],
+    mapping: dict | None = None,
+    **kwargs,
 ) -> tuple:
     """
     Plot histograms of specified parameters from a list of parameter arrays.
@@ -65,13 +68,16 @@ def plot_parameters_histogram(
                 )
             else:
                 ax[i].hist(p[param].flatten(), color=colors[j], **kwargs)
-        l = mapping.get(param, param) if mapping else param
-        ax[i].set_xlabel(l)
+        _l = mapping.get(param, param) if mapping else param
+        ax[i].set_xlabel(_l)
     return fig, ax
 
 
 def plot_parameters_triangle(
-    parameters: list, names: list[str], mapping: dict = None, **kwargs
+    parameters: list,
+    names: list[str],
+    mapping: dict | None = None,
+    **kwargs,
 ) -> tuple:
     """
     Plot a triangle scatter plot of specified parameter names.
@@ -140,9 +146,9 @@ def plot_parameters_triangle(
                     ax.axis("off")
     # Set labels on bottom and left axis
     for i, param in enumerate(names):
-        l = mapping.get(param, param) if mapping else param
-        axes[-1, i].set_xlabel(l)
-        axes[i, 0].set_ylabel(l)
+        _l = mapping.get(param, param) if mapping else param
+        axes[-1, i].set_xlabel(_l)
+        axes[i, 0].set_ylabel(_l)
     # Set legend only on the top-right plot
     handles = [
         plt.Line2D([0], [0], color=colors[k], lw=2) for k in range(len(parameters))

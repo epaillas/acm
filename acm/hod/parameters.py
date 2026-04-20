@@ -1,17 +1,19 @@
 import numpy as np
-import pandas
+import pandas as pd
 from scipy.stats import qmc
 
 from acm.utils.default import cosmo_list
 
 
 class HODLatinHypercube:
-    """
-    Sample HOD parameters from a prior and distribute them on
-    a Latin hypercube.
-    """
+    """Sample HOD parameters from a prior and distribute them on a Latin hypercube."""
 
-    def __init__(self, ranges, seed: int = 42, order: list[str] = None):
+    def __init__(
+        self,
+        ranges: dict,
+        seed: int = 42,
+        order: list[str] | None = None,
+    ) -> None:
         """
         Parameters
         ----------
@@ -21,14 +23,14 @@ class HODLatinHypercube:
             Seed for the random number generator.
         order : list, optional
             See save_params method for details.
-        """
+        """  # noqa: D205
         self.ranges = ranges
         self.sampler = qmc.LatinHypercube(d=len(ranges), seed=seed)
         self.pmins = np.array([ranges[key][0] for key in ranges])
         self.pmaxs = np.array([ranges[key][1] for key in ranges])
         self.order = order
 
-    def sample(self, n: int, save_fn: str = None):
+    def sample(self, n: int, save_fn: str | None = None) -> dict:
         """
         Sample HOD parameters from the prior.
 
@@ -36,6 +38,8 @@ class HODLatinHypercube:
         ----------
         n : int
             Number of samples to draw.
+        save_fn : str, optional
+            Path to save the sampled parameters. If None, the parameters are not saved. Defaults to None.
 
         Returns
         -------
@@ -52,16 +56,18 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def split_by_cosmo(self, cosmos: list = None, save_fn: list = None):
+    def split_by_cosmo(
+        self, cosmos: list | None = None, save_fn: list | None = None
+    ) -> dict:
         """
         Split the sampled parameters by cosmology.
 
         Parameters
         ----------
-        cosmos : list
+        cosmos : list | None
             List of cosmologies to split the parameters for. If none are provided,
             the default AbacusSummit list of cosmologies is used
-        save_fn : list
+        save_fn : list | None
             List of filenames to save the split parameters to.
 
         Returns
@@ -85,7 +91,7 @@ class HODLatinHypercube:
             self.save_params(save_fn)
         return self.params
 
-    def add_cosmo_params(self, cosmo_params: dict, save_fn: list = None):
+    def add_cosmo_params(self, cosmo_params: dict, save_fn: list | None = None) -> dict:
         """
         Add cosmology parameters to HOD parameters for each key in self.params.
 
@@ -109,12 +115,14 @@ class HODLatinHypercube:
                 k: [v] * n_hod for k, v in cosmo_params[key].items()
             }  # Repeat each cosmology parameter n_hod times
             cosmo.update(hod)
-            self.params[key] = cosmo
+            self.params[key] = cosmo  # ty:ignore[invalid-assignment]
         if save_fn:
             self.save_params(save_fn)
         return self.params
 
-    def save_params(self, save_fn: str | list[str], order: list[str] = None):
+    def save_params(
+        self, save_fn: str | list[str], order: list[str] | None = None
+    ) -> None:
         """
         Save the sampled parameters to disk.
 
@@ -136,14 +144,15 @@ class HODLatinHypercube:
                 raise ValueError(
                     "Number of filenames must match number of cosmologies."
                 )
-            for key, save_fn in zip(self.params, save_fn):
-                df = pandas.DataFrame(self.params[key])
+            for key, fn in zip(self.params, save_fn, strict=True):
+                df = pd.DataFrame(self.params[key])
                 df = df[[k for k in order if k in df.columns]] if order else df
-                df.to_csv(save_fn, index=False, float_format="%.5f")
+                df.to_csv(fn, index=False, float_format="%.5f")
         else:
-            df = pandas.DataFrame(self.params)
+            fn = save_fn if isinstance(save_fn, str) else save_fn[0]
+            df = pd.DataFrame(self.params)
             df = df[[k for k in order if k in df.columns]] if order else df
-            df.to_csv(save_fn, index=False, float_format="%.5f")
+            df.to_csv(fn, index=False, float_format="%.5f")
 
 
 if __name__ == "__main__":
@@ -156,7 +165,7 @@ if __name__ == "__main__":
     params = lhc.split_by_cosmo(cosmos=[0, 1])  # split by cosmology
 
     lhc.save_params(
-        save_fn=["hod_params_c{cosmo:03}.csv".format(cosmo=cosmo) for cosmo in [0, 1]],
+        save_fn=[f"hod_params_c{cosmo:03}.csv" for cosmo in [0, 1]],
         order=[
             "logM_cut",
             "logM_1",

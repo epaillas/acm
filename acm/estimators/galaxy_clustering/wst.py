@@ -1,3 +1,4 @@
+import logging
 import time
 import warnings
 from pathlib import Path
@@ -9,7 +10,6 @@ import numpy as np
 import numpy.typing as npt
 import torch
 import xarray as xr
-from kymatio.jax import HarmonicScattering3D
 from lsstypes import ObservableLeaf
 
 from acm.utils.plotting import set_plot_style
@@ -17,6 +17,8 @@ from acm.utils.plotting import set_plot_style
 from .base import BaseEstimator
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+logger = logging.getLogger(__name__)
 
 
 class WaveletScatteringTransform(BaseEstimator):
@@ -48,12 +50,12 @@ class WaveletScatteringTransform(BaseEstimator):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             logger.info(f"Using Kymatio with Torch backend on device: {self.device}")
         else:
-            logger.info(f"Using Kymatio with JAX backend.")
+            logger.info("Using Kymatio with JAX backend.")
 
         self.query_positions = self.get_query_positions(method="lattice")
 
         if init_kymatio is not None:
-            logger.info(f"Pre-loading Kymatio initialization.")
+            logger.info("Pre-loading Kymatio initialization.")
             self.S = init_kymatio
         else:
             self.init_kymatio()
