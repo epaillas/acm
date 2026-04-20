@@ -110,7 +110,7 @@ class PyreconBackend:
         self.boxcenter = boxcenter
         self.meshsize = meshsize
         self.cellsize = boxsize / meshsize
-        
+
         # Assign data and randoms
         self.size_data = 0
         self._size_randoms = 0
