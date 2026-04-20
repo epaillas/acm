@@ -2,7 +2,6 @@ import logging
 import time
 import warnings
 from pathlib import Path
-from typing import Optional
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -67,7 +66,7 @@ class WaveletScatteringTransform(BaseEstimator):
         module = __import__(
             f"kymatio.{self.kymatio_backend}", fromlist=["HarmonicScattering3D"]
         )
-        HarmonicScattering3D = getattr(module, "HarmonicScattering3D")
+        HarmonicScattering3D = module.HarmonicScattering3D
 
         t0 = time.time()
         logger.info("Initializing WaveletScatteringTransform.")
@@ -131,7 +130,7 @@ class WaveletScatteringTransform(BaseEstimator):
         return np.asarray(smatavg)
 
     def run(
-        self, delta_query: Optional[npt.NDArray] = None, save_fn: Optional[str] = None
+        self, delta_query: npt.NDArray | None = None, save_fn: str | None = None
     ) -> npt.NDArray:
         """
         Run the wavelet scattering transform.
@@ -264,7 +263,7 @@ class WaveletScatteringTransform(BaseEstimator):
             )
 
     @set_plot_style
-    def plot_coefficients(self, save_fn: Optional[str] = None):
+    def plot_coefficients(self, save_fn: str | None = None):
         """
         Plot the wavelet scattering transform coefficients.
         """

@@ -128,17 +128,16 @@ class BaseEstimator:
         path = Path(filename)
 
         # Determine format from file extension
-        if path.suffix == ".hdf5" or path.suffix == ".h5":
+        if path.suffix in [".hdf5", ".h5"]:
             return types.read(filename)
-        elif path.suffix == ".nc":
+        if path.suffix == ".nc":
             return xr.open_dataarray(filename, **kwargs)
-        elif str(filename).endswith(".zarr"):
+        if str(filename).endswith(".zarr"):
             return xr.open_zarr(filename, **kwargs)
-        elif path.suffix == ".npy":
+        if path.suffix == ".npy":
             return np.load(filename, **kwargs)
-        else:
-            raise ValueError(
-                f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
-                f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
-                f".zarr (xarray Zarr), .npy (numpy)."
-            )
+        raise ValueError(
+            f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
+            f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
+            f".zarr (xarray Zarr), .npy (numpy)."
+        )

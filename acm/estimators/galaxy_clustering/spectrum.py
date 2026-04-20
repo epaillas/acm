@@ -1,7 +1,6 @@
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 import jax
 from jaxpower import (
@@ -45,7 +44,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         interlacing: int = 3,
         compensate: bool = True,
         resampler="tsc",
-        save_fn: Optional[str] = None,
+        save_fn: str | None = None,
     ):
         """
         Calculate the power spectrum multipoles.
@@ -124,8 +123,8 @@ class PowerSpectrumMultipoles(BaseEstimator):
 
     def get_multipoles(
         self,
-        kmin: Optional[float] = None,
-        kmax: Optional[float] = None,
+        kmin: float | None = None,
+        kmax: float | None = None,
         rebin: int = 1,
         return_k: bool = False,
     ):

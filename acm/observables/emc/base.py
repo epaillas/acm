@@ -27,14 +27,14 @@ class BaseObservableEMC(Observable):
             logger.info("Computing phase correction.")
             self.phase_correction = self.compute_phase_correction()
 
-        dataset = kwargs.get("dataset", None)
+        dataset = kwargs.get("dataset")
         paths = kwargs.pop("paths", None)
         if dataset is None and paths is None:
             paths = lookup_registry_path("projects.yaml", "emc")
 
         # Get checkpoint_fn from registry if not provided
         stat_name = kwargs.get("stat_name")  # Required for super() anyways
-        model = kwargs.get("model", None)
+        model = kwargs.get("model")
         if (
             model is None
             and paths is not None
@@ -252,7 +252,7 @@ class BaseObservableEMC(Observable):
             pred.shape[0] if len(pred.shape) > 1 else 1
         )  # Edge case if only one prediction
         coords = {
-            **{"n_pred": np.arange(n_pred)},
+            "n_pred": np.arange(n_pred),
             **coords,
         }  # Add extra coordinate for the number of predictions
         pred = pred.reshape(

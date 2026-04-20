@@ -27,9 +27,7 @@ SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 
 
 class Observable:
-    """
-    Class to load a compressed Observable file or model and apply filters to their outputs.
-    """
+    """Class to load a compressed Observable file or model and apply filters to their outputs."""
 
     def __init__(
         self,
@@ -51,8 +49,10 @@ class Observable:
         paths: dict | None = None,
         checkpoint_fn: Path | str | None = None,
         silent_load: bool = False,
-    ):
+    ) -> None:
         """
+        Initialize the Observable.
+
         Parameters
         ----------
         stat_name: str
@@ -109,7 +109,6 @@ class Observable:
             - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
             - 'model_dir': directory containing the trained model checkpoint (`stat_name`.ckpt)
         """
-
         self.stat_name = stat_name
         self.numpy_output = numpy_output
         self.squeeze_output = squeeze_output
@@ -148,9 +147,7 @@ class Observable:
 
             self._dataset = dataset
             logger.info(
-                "Datasets loaded with the following coordinates: {}".format(
-                    list(self._dataset.data_vars.keys())
-                )
+                f"Datasets loaded with the following coordinates: {list(self._dataset.data_vars.keys())}"
             )
 
         # Set the filters
@@ -158,11 +155,11 @@ class Observable:
         self.slice_filters = slice_filters
         self.select_indices = select_indices
         self.select_indices_on = (
-            select_indices_on if select_indices_on else []
+            select_indices_on or []
         )  # Ensure list behavior
 
         # Store paths for reference
-        self.paths = paths if paths else {}  # Ensure dict behavior
+        self.paths = paths or {}  # Ensure dict behavior
 
     @classmethod
     def load_dataset_from_files(cls, stat_name: str, paths: dict) -> xarray.Dataset:
@@ -251,23 +248,20 @@ class Observable:
         model.eval().to("cpu")
         return model
 
-    def __repr__(self):  # pragma: no cover
-        """
-        Returns a string representation of the Observable object.
-        """
+    def __repr__(self) -> str:
+        """Return a string representation of the Observable object."""
         r = f"<{type(self).__name__}>"
         for key, value in self.__dict__.items():
             display_key = "dataset" if key == "_dataset" else key
-            r += f"\n  {display_key}: {repr(value)},"
-        if r.endswith(","):
-            r = r[:-1]
+            r += f"\n  {display_key}: {value!r},"
+        r = r.removesuffix(",")
         return r
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         """
-        Returns the attribute of the class xarray _dataset,
-        with the filter applied. Also reshapes the output by stacking coordinates
-        (on one or two dims) if flat_output_dims is set.
+        Return the attribute of the class xarray _dataset with the filter applied.
+
+        Also reshapes the output by stacking coordinates (on one or two dims) if flat_output_dims is set.
         """
         # First, apply the filters
         dataset = self._dataset
@@ -294,10 +288,11 @@ class Observable:
 
         return data
 
-    def __copy__(self):
+    def __copy__(self) -> "Observable":
         """
-        Returns a shallow copy of the Observable object by returning a new class instance
-        and copying all the class attributes to that new instance.
+        Return a shallow copy of the Observable object.
+
+        Returns a new class instance and copies all the class attributes to that new instance.
         """
         # Create a new instance of the class with a minimal set of attributes
         new_cls = self.__class__(
@@ -315,10 +310,11 @@ class Observable:
             setattr(new_cls, key, copy(value))
         return new_cls
 
-    def __deepcopy__(self, memo: dict | None = None):
+    def __deepcopy__(self, memo: dict | None = None) -> "Observable":
         """
-        Returns a deep copy of the Observable object by returning a new class instance
-        and deep copying all the class attributes to that new instance.
+        Return a deep copy of the Observable object.
+
+        Returns a new class instance and deep-copies all the class attributes to that new instance.
         """
         # Create a new instance of the class with a minimal set of attributes
         new_cls = self.__class__(
@@ -338,7 +334,8 @@ class Observable:
 
     def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
-        Drops dimensions that contain only NaN values in a DataArray.
+        Drop dimensions that contain only NaN values in a DataArray.
+
         Does nothing if no 'nan_dims' attribute is found.
 
         Parameters
@@ -579,12 +576,11 @@ class Observable:
             if self.numpy_output:
                 data = data.values
             return data
-        elif hasattr(self, "get_emulator_error"):
+        if hasattr(self, "get_emulator_error"):
             return self.get_emulator_error()  # pyright: ignore[reportCallIssue]
-        else:
-            raise NotImplementedError(
-                "No emulator error found. Please provide an error_dir or implement the get_emulator_error method."
-            )
+        raise NotImplementedError(
+            "No emulator error found. Please provide an error_dir or implement the get_emulator_error method."
+        )
 
     @property
     def emulator_covariance_y(self):
@@ -603,12 +599,11 @@ class Observable:
             if self.numpy_output:
                 data = data.values
             return data
-        elif hasattr(self, "get_emulator_covariance_y"):
+        if hasattr(self, "get_emulator_covariance_y"):
             return self.get_emulator_covariance_y()  # pyright: ignore[reportCallIssue]
-        else:
-            raise NotImplementedError(
-                "No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method."
-            )
+        raise NotImplementedError(
+            "No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method."
+        )
 
     def get_model_prediction(
         self,
@@ -684,7 +679,7 @@ class Observable:
             pred.shape[0] if len(pred.shape) > 1 else 1
         )  # Edge case if only one prediction
         coords = {
-            **{"n_pred": np.arange(n_pred)},
+            "n_pred": np.arange(n_pred),
             **coords,
         }  # Add extra coordinate for the number of predictions
         pred = pred.reshape(
@@ -993,7 +988,6 @@ class Observable:
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-
         volume_factor = kwargs.pop("volume_factor", 64)
         prefactor = kwargs.pop("prefactor", 1)
         data_cov = self.get_covariance_matrix(

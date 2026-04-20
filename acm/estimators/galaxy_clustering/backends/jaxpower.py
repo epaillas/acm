@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional, Union
 
 import jax
 import jax.numpy as jnp
@@ -54,9 +53,9 @@ class JaxpowerBackend:
     def __init__(
         self,
         data_positions: npt.NDArray,
-        data_weights: Optional[npt.NDArray] = None,
-        randoms_positions: Optional[npt.NDArray] = None,
-        randoms_weights: Optional[npt.NDArray] = None,
+        data_weights: npt.NDArray | None = None,
+        randoms_positions: npt.NDArray | None = None,
+        randoms_weights: npt.NDArray | None = None,
         **kwargs,
     ) -> None:
         """Initialize the jaxpower backend.
@@ -119,10 +118,10 @@ class JaxpowerBackend:
         interlacing: bool = False,
         compensate: bool = False,
         halo_add: int = 0,
-        smoothing_radius: Optional[float] = None,
+        smoothing_radius: float | None = None,
         randoms_threshold_value: float = 0.01,
         randoms_threshold_method: str = "noise",
-    ) -> Union[RealMeshField, ComplexMeshField]:
+    ) -> RealMeshField | ComplexMeshField:
         """Compute the density contrast field.
 
         Paints particles to a mesh and computes the density contrast using
@@ -257,7 +256,7 @@ class JaxpowerBackend:
     def get_query_positions(
         self,
         method: str = "randoms",
-        nquery: Optional[int] = None,
+        nquery: int | None = None,
         seed: int = 42,
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.

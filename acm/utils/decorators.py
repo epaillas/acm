@@ -34,7 +34,7 @@ def require_nersc(enabled: bool = True):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if enabled and not is_nersc:
-                raise EnvironmentError(
+                raise OSError(
                     f"The function '{func.__name__}' can only be executed in a NERSC environment."
                 )
             return func(*args, **kwargs)

@@ -234,7 +234,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         np.ndarray
             Correction factor for the fixed phase predictions.
         """
-
         base_dir = self.paths["measurements_dir"] + f"base/{self.stat_name}/"
 
         multipoles_mean = []

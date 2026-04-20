@@ -6,14 +6,10 @@ from .base import BaseEstimator
 
 
 class KthNearestNeighbor(BaseEstimator):
-    """
-    Class to compute the knns.
-    """
+    """Class to compute the knns."""
 
     def compute_knn_distances(self, data, query, k, periodic, nthread=1, leafsize=32):
-        """
-        pair finding with scipy ckdtree
-        """
+        """Pair finding with scipy ckdtree."""
         # Make sure k in an array
         if isinstance(k, int):
             k = [k]
@@ -67,7 +63,7 @@ class KthNearestNeighbor(BaseEstimator):
         leafsize: int = 32,
     ):
         """
-        run the knns calculator
+        Run the knns calculator
 
         Parameters
         ----------
@@ -155,7 +151,6 @@ def convert_rppi(disi, xgal, xrand, k, L):
     Convert indices of pairs to transverse and line of sight distances.
     This function should be used if computations are performed for periodic box!
     """
-
     dis_trans = -np.ones((len(xrand), len(k)), dtype=np.float32)
     dis_par = -np.ones((len(xrand), len(k)), dtype=np.float32)
     half_box = L / 2

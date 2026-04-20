@@ -66,7 +66,7 @@ def split_vars(*data_vars, **kwargs):
         The selection criteria (e.g., dim=value) to pass to sel and drop_sel.
 
     Yields
-    -------
+    ------
     v_in : xr.DataArray
         The selected values.
     v_out : xr.DataArray

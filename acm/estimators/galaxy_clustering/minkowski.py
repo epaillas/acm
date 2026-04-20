@@ -85,7 +85,7 @@ class MinkowskiFunctionals(BaseEstimator):
         self, rho_thres, smoothing_radius=None, save_wisdom=False, plan="estimate"
     ):
         """
-         get rho.
+        Get rho.
 
         Parameters
         ----------

@@ -1,21 +1,19 @@
-import imp
 import logging
 import time
 from functools import partial
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
+from typing import Any
 
 import jax
 import jax.numpy as jnp
-import matplotlib
-import matplotlib.animation as animation
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import xarray as xr
 from lsstypes import ObservableLeaf
 from lsstypes.external import from_pycorr
-from matplotlib import cm
+from matplotlib import animation, cm
 from matplotlib.figure import Figure
 from pycorr import TwoPointCorrelationFunction
 
@@ -110,8 +108,8 @@ class JaxelVoids(BaseEstimator):
 
     def find_voids(
         self,
-        save_fn: Optional[Union[str, Path]] = None,
-    ) -> Tuple[npt.NDArray, npt.NDArray]:
+        save_fn: str | Path | None = None,
+    ) -> tuple[npt.NDArray, npt.NDArray]:
         """Find voxel void centers and effective radii.
 
         Parameters
@@ -145,7 +143,7 @@ class JaxelVoids(BaseEstimator):
         return self.voids, self.void_radii
 
     def save_catalog(
-        self, filename: Union[str, Path], attrs: Optional[dict] = None
+        self, filename: str | Path, attrs: dict | None = None
     ) -> None:
         """Save the current void catalog to disk.
 
@@ -252,8 +250,8 @@ class JaxelVoids(BaseEstimator):
     def save_correlations(
         self,
         correlation: TwoPointCorrelationFunction,
-        filename: Union[str, Path],
-        attrs: Optional[dict] = None,
+        filename: str | Path,
+        attrs: dict | None = None,
     ) -> None:
         """Save a void-data correlation measurement to disk.
 
@@ -294,10 +292,10 @@ class JaxelVoids(BaseEstimator):
 
     def save(
         self,
-        filename: Union[str, Path],
-        data: Optional[Any] = None,
+        filename: str | Path,
+        data: Any | None = None,
         type: str = "catalog",
-        attrs: Optional[dict] = None,
+        attrs: dict | None = None,
     ) -> None:
         """Dispatch saving to catalog or correlation serializers.
 
@@ -396,7 +394,7 @@ class JaxelVoids(BaseEstimator):
 
         return jax.lax.fori_loop(0, nsteps, jump_step, next_idx)
 
-    def _find_voids_in_memory(self) -> Tuple[npt.NDArray, npt.NDArray]:
+    def _find_voids_in_memory(self) -> tuple[npt.NDArray, npt.NDArray]:
         """Convert watershed roots into a filtered void catalog.
 
         Returns
@@ -514,7 +512,7 @@ class JaxelVoids(BaseEstimator):
 
     def voxel_position(
         self, voxel: npt.NDArray
-    ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
+    ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         """Map flattened voxel indices to Cartesian coordinates.
 
         Parameters
@@ -557,7 +555,7 @@ class JaxelVoids(BaseEstimator):
     def void_data_correlation(
         self,
         data_positions: npt.NDArray,
-        save_fn: Optional[Union[str, Path]] = None,
+        save_fn: str | Path | None = None,
         **kwargs: Any,
     ) -> TwoPointCorrelationFunction:
         """Compute the void-data two-point correlation function.
@@ -589,9 +587,8 @@ class JaxelVoids(BaseEstimator):
                 kwargs["data_weights2"] = kwargs.pop("data_weights")
             if "randoms_weights" in kwargs:
                 kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
         self._void_data_correlation = TwoPointCorrelationFunction(
             data_positions1=self.voids,
             data_positions2=data_positions,
@@ -605,7 +602,7 @@ class JaxelVoids(BaseEstimator):
 
     @set_plot_style
     def plot_void_size_distribution(
-        self, save_fn: Optional[Union[str, Path]] = None
+        self, save_fn: str | Path | None = None
     ) -> Figure:
         """Plot the histogram of void effective radii.
 
@@ -632,8 +629,8 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def plot_void_data_correlation(
         self,
-        ells: Tuple[int, ...] = (0,),
-        save_fn: Optional[Union[str, Path]] = None,
+        ells: tuple[int, ...] = (0,),
+        save_fn: str | Path | None = None,
     ) -> Figure:
         """Plot multipoles of the void-data correlation function.
 
@@ -664,7 +661,7 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def plot_slice(
         self,
-        save_fn: Optional[Union[str, Path]] = None,
+        save_fn: str | Path | None = None,
     ) -> Figure:
         """Visualize a 2D projected slice of watershed zones.
 
@@ -710,7 +707,7 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def gif_void_slice(
         self,
-        save_fn: Optional[Union[str, Path]] = None,
+        save_fn: str | Path | None = None,
         interval: int = 120,
     ) -> Figure:
         """Create a GIF scanning zone-map slices along the z-axis.
@@ -782,8 +779,8 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def gif_voids_3d(
         self,
-        zone_id: Optional[int] = None,
-        save_fn: Optional[Union[str, Path]] = None,
+        zone_id: int | None = None,
+        save_fn: str | Path | None = None,
         elev: float = 20.0,
         n_turns: int = 3,
         n_frames: int = 360,
@@ -835,7 +832,7 @@ class JaxelVoids(BaseEstimator):
 
         def zone_indices(
             voxels: np.ndarray,
-        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             xi_ = voxels // nxy
             rem_ = voxels % nxy
             yi_ = rem_ // nmesh[2]
@@ -887,7 +884,7 @@ class JaxelVoids(BaseEstimator):
         filled[xi, yi, zi] = True
 
         facecolors = np.zeros(filled.shape + (4,), dtype=float)
-        color = matplotlib.colors.to_rgba("#6eaed6", alpha=0.92)
+        color = mpl.colors.to_rgba("#6eaed6", alpha=0.92)
         facecolors[filled] = color
 
         xmin = max(int(np.min(xi)) - padding_cells, 0)

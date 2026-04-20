@@ -301,7 +301,6 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-
         ells = self._dataset.y.coords["ells"].values.tolist()
 
         # Save current select_filters and update with ells
@@ -347,7 +346,7 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
                 color=f"C{i}",
                 elinewidth=1.0,
                 capsize=None,
-                label=f"$\ell={ell}$",
+                label=rf"$\ell={ell}$",
             )
             lax[0].plot(k, k * model, ls="-", color=f"C{i}")
             lax[i + 1].plot(k, (data - model) / error, ls="-", color=f"C{i}")

@@ -82,7 +82,7 @@ class CombinedObservable:
         """
         if isinstance(item, int):
             return self.observables[item]
-        elif isinstance(item, str):
+        if isinstance(item, str):
             try:
                 idx = self.stat_name.index(item)
                 return self.observables[idx]
@@ -131,10 +131,9 @@ class CombinedObservable:
         """
         if isinstance(other, CombinedObservable):
             return CombinedObservable(self.observables + other.observables)
-        elif isinstance(other, Observable):
+        if isinstance(other, Observable):
             return CombinedObservable(self.observables + [other])
-        else:
-            raise TypeError(f"Cannot add {type(other)} to CombinedObservable.")
+        raise TypeError(f"Cannot add {type(other)} to CombinedObservable.")
 
     def __getattr__(self, name):
         """
@@ -144,15 +143,14 @@ class CombinedObservable:
         if name in self.stat_name:
             idx = self.stat_name.index(name)
             return self.observables[idx]
-        else:
-            try:
-                return np.concatenate(
-                    [getattr(obs, name) for obs in self.observables], axis=-1
-                )
-            except AttributeError:
-                raise AttributeError(
-                    f"'CombinedObservable' object has no attribute '{name}'"
-                )
+        try:
+            return np.concatenate(
+                [getattr(obs, name) for obs in self.observables], axis=-1
+            )
+        except AttributeError:
+            raise AttributeError(
+                f"'CombinedObservable' object has no attribute '{name}'"
+            )
 
     @property
     def stat_name(self) -> list:

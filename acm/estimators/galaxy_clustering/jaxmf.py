@@ -1,7 +1,6 @@
 import logging
 import time
 from pathlib import Path
-from typing import Optional, Tuple
 
 import jax
 import jax.numpy as jnp
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 @jax.jit
 def minkowski_slice_jax(
     delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thres_mask: float
-) -> Tuple[jnp.ndarray, jnp.int32]:
+) -> tuple[jnp.ndarray, jnp.int32]:
     """
     delta_slices: shape (2, Y, Z) float32
     thresholds: shape (T,) float32
@@ -120,11 +119,11 @@ def minkowski_slice_jax(
     # M0: full contributions + partial n3 contributions
     MFs = MFs.at[:, 0].set(M0_full + sum_n3)
     # M1 contribution: (-3*n3 + n2) * 2/9
-    MFs = MFs.at[:, 1].set(((-3.0 * sum_n3 + sum_n2) * (2.0 / 9.0)))
+    MFs = MFs.at[:, 1].set((-3.0 * sum_n3 + sum_n2) * (2.0 / 9.0))
     # M2 contribution: (3*n3 - 2*n2 + n1) * 2/9
-    MFs = MFs.at[:, 2].set(((3.0 * sum_n3 - 2.0 * sum_n2 + sum_n1) * (2.0 / 9.0)))
+    MFs = MFs.at[:, 2].set((3.0 * sum_n3 - 2.0 * sum_n2 + sum_n1) * (2.0 / 9.0))
     # M3 contribution: (-n3 + n2 - n1 + n0)
-    MFs = MFs.at[:, 3].set((-sum_n3 + sum_n2 - sum_n1 + sum_n0))
+    MFs = MFs.at[:, 3].set(-sum_n3 + sum_n2 - sum_n1 + sum_n0)
 
     return MFs, vol_slice
 
@@ -147,7 +146,7 @@ class MinkowskiFunctionals(BaseEstimator):
 
         self.query_positions = self.get_query_positions(method="lattice")
 
-    def run(self, thresholds, save_fn: Optional[str] = None):
+    def run(self, thresholds, save_fn: str | None = None):
         """
         Compute 3D Minkowski functionals.
 

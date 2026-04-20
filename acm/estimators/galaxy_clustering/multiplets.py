@@ -55,12 +55,11 @@ class GalaxyMultiplets:
         """Get the perpendicular axes for the given line-of-sight."""
         if self.los == "z":
             return [0, 1]
-        elif self.los == "y":
+        if self.los == "y":
             return [0, 2]
-        elif self.los == "x":
+        if self.los == "x":
             return [1, 2]
-        else:
-            raise ValueError(f"Invalid los: {self.los}. Must be 'x', 'y', or 'z'")
+        raise ValueError(f"Invalid los: {self.los}. Must be 'x', 'y', or 'z'")
 
     def find_pairs(self, positions, boxsize):
         """

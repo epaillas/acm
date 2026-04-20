@@ -71,10 +71,10 @@ class DensitySplit(BaseEstimator):
                 raise ValueError(
                     "query_positions must be provided when working with a non-uniform geometry."
                 )
-            else:
-                query_positions = self.get_query_positions(
-                    method=query_method, nquery=nquery_factor * self.size_data
-                )
+            query_positions = self.get_query_positions(
+                method = query_method,
+                nquery = nquery_factor * self.size_data
+            )
         self.query_method = query_method
         self.query_positions = query_positions
         self.delta_query = self.read_density_contrast(query_positions)
@@ -222,9 +222,8 @@ class DensitySplit(BaseEstimator):
             if "randoms_weights" in kwargs:
                 kwargs["randoms_weights1"] = None
                 kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
         self._quantile_data_correlation = []
         R1R2 = None
         for quantile in self.quantiles:
@@ -271,9 +270,8 @@ class DensitySplit(BaseEstimator):
             kwargs["randoms_positions1"] = kwargs.pop("randoms_positions")
             kwargs["data_weights1"] = None  # setting default weights for quantiles
             kwargs["randoms_weights1"] = None
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
         self._quantile_correlation = []
         R1R2 = None
         for quantile in self.quantiles:
@@ -348,9 +346,8 @@ class DensitySplit(BaseEstimator):
             if "randoms_weights" in kwargs:
                 kwargs["randoms_weights1"] = None
                 kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
 
         # TODO handle survey-mode geometry with FKPField for data mesh
 
@@ -445,9 +442,8 @@ class DensitySplit(BaseEstimator):
             kwargs["randoms_positions1"] = kwargs.pop("randoms_positions")
             kwargs["data_weights1"] = None  # setting default weights for quantiles
             kwargs["randoms_weights1"] = None
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
 
         # TODO handle survey-mode geometry with FKPField for data mesh
 

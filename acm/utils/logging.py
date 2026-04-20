@@ -93,7 +93,7 @@ def setup_logging(
                 "[%09.2f] " % (time.time() - t0)
                 + " %(asctime)s %(name)s:%(lineno)d %(levelname)s %(message)s"
             )
-            super(MyFormatter, self).format(record)
+            super().format(record)
             msg = logging.Formatter.format(self, record)
             if record.message != "":
                 parts = msg.split(record.message)

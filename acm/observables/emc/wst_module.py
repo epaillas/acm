@@ -38,16 +38,15 @@ class WaveletScatteringTransform(BaseObservableEMC):
             outp[20:, :] = s12[20:, :] / s12[4, :]
             sfin = np.hstack((1.0, outp.flatten()))
             return sfin
-        else:
-            s0 = inpt[0]
-            s12 = inpt[1:].reshape(15, 5)
-            outp = np.zeros_like(s12)
-            outp[:5, :] = s12[:5, :] / s0
-            outp[5:9, :] = s12[5:9, :] / s12[0, :]
-            outp[9:12, :] = s12[9:12, :] / s12[1, :]
-            outp[12:14, :] = s12[12:14, :] / s12[2, :]
-            outp[14:, :] = s12[14:, :] / s12[3, :]
-            sfin = np.hstack((1.0, outp.flatten()))
+        s0 = inpt[0]
+        s12 = inpt[1:].reshape(15, 5)
+        outp = np.zeros_like(s12)
+        outp[:5, :] = s12[:5, :] / s0
+        outp[5:9, :] = s12[5:9, :] / s12[0, :]
+        outp[9:12, :] = s12[9:12, :] / s12[1, :]
+        outp[12:14, :] = s12[12:14, :] / s12[2, :]
+        outp[14:, :] = s12[14:, :] / s12[3, :]
+        sfin = np.hstack((1.0, outp.flatten()))
         return sfin
 
     @classmethod
@@ -339,7 +338,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
-
         fig, ax = plt.subplots(figsize=(5, 4))
 
         for data in self.y:

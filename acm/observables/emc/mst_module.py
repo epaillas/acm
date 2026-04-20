@@ -222,7 +222,6 @@ class MinimumSpanningTree(BaseObservableEMC):
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
-
         fig, ax = plt.subplots(figsize=(5, 4))
 
         for data in self.y:

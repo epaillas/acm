@@ -308,7 +308,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 color=f"C{i}",
                 elinewidth=1.0,
                 capsize=None,
-                label=f"$\ell={ell}$",
+                label=rf"$\ell={ell}$",
             )
             lax[0].plot(bin_idx, model, ls="-", color=f"C{i}")
             lax[i + 1].plot(bin_idx, (data - model) / error, ls="-", color=f"C{i}")

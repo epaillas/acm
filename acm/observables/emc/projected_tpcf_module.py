@@ -222,7 +222,6 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-
         height_ratios = [3, 1]
         figsize = (6, 1.5 * sum(height_ratios))
         fig, lax = plt.subplots(

@@ -50,7 +50,6 @@ def plot_parameters_histogram(
     fig, ax : matplotlib Figure and Axes
         The figure and axes objects containing the histograms.
     """
-
     figsize = kwargs.pop("figsize", (4, 2 * len(names)))
     labels = kwargs.pop("labels", None)
     colors = kwargs.pop("colors", [f"C{i}" for i in range(len(parameters))])

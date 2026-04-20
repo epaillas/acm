@@ -41,10 +41,10 @@ class CountsInCells(BaseEstimator):
                 raise ValueError(
                     "Query points must be provided when working with a non-uniform geometry."
                 )
-            else:
-                query_positions = self.get_query_positions(
-                    method=query_method, nquery=nquery_factor * self.size_data
-                )
+            query_positions = self.get_query_positions(
+                method = query_method,
+                nquery = nquery_factor * self.size_data,
+            )
         self.query_method = query_method
         self.query_positions = query_positions
         self.delta_query = self.delta_mesh.read_cic(

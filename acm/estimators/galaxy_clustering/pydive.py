@@ -247,9 +247,8 @@ class DTVoid(BaseEstimator):
                 raise ValueError(
                     "Randoms positions must be provided when working with a non-uniform geometry."
                 )
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
         self._sample_correlation = []
         nsplits = kwargs.pop("nsplits", 1)
         logger.info(f"Using randoms split into {nsplits} parts.")
@@ -301,9 +300,8 @@ class DTVoid(BaseEstimator):
                 kwargs["data_weights2"] = kwargs.pop("data_weights")
             if "randoms_weights" in kwargs:
                 kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
 
         self._sample_data_power = []
         for sample in self.samples:
@@ -342,9 +340,8 @@ class DTVoid(BaseEstimator):
                 )
             kwargs["randoms_positions1"] = kwargs["randoms_positions"]
             kwargs.pop("randoms_positions")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
 
         self._sample_power = []
         for sample in self.samples:

@@ -80,7 +80,6 @@ class MinimumSpanningTree(BaseEstimator):
         x, y, z : array_like
             Coordinate positions.
         """
-
         for i, dim in enumerate([x, y, z]):
             cond = np.where(dim < 0.0)[0]
             dim[cond] += self.boxsize[i]
@@ -165,8 +164,8 @@ class MinimumSpanningTree(BaseEstimator):
         izs = izs.flatten()
 
         mstdict = {}
-        for niter in range(0, self.iterations):
-            for j in range(0, len(ixs)):
+        for niter in range(self.iterations):
+            for j in range(len(ixs)):
                 xmin, xmax = xedges[ixs[j]], xedges[ixs[j] + 1]
                 ymin, ymax = yedges[iys[j]], yedges[iys[j] + 1]
                 zmin, zmax = zedges[izs[j]], zedges[izs[j] + 1]
@@ -210,7 +209,7 @@ class MinimumSpanningTree(BaseEstimator):
                 meanperbin = np.array(
                     [
                         np.mean(weiNpt[sortID[split1[i] : split2[i]]])
-                        for i in range(0, len(split1))
+                        for i in range(len(split1))
                     ]
                 )
 
@@ -246,14 +245,14 @@ class MinimumSpanningTree(BaseEstimator):
                     meanperbin = np.array(
                         [
                             np.mean(weiNpt[sortID[split1[i] : split2[i]]])
-                            for i in range(0, len(split1))
+                            for i in range(len(split1))
                         ]
                     )
                     # compute the N-endpoint MST PDF
                     endperbin = np.array(
                         [
                             np.mean(endNpt[sortID[split1[i] : split2[i]]])
-                            for i in range(0, len(split1))
+                            for i in range(len(split1))
                         ]
                     )
 
