@@ -154,9 +154,7 @@ class Observable:
         self.select_filters = select_filters
         self.slice_filters = slice_filters
         self.select_indices = select_indices
-        self.select_indices_on = (
-            select_indices_on or []
-        )  # Ensure list behavior
+        self.select_indices_on = select_indices_on or []  # Ensure list behavior
 
         # Store paths for reference
         self.paths = paths or {}  # Ensure dict behavior

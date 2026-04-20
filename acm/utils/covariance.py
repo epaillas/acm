@@ -21,7 +21,7 @@ def get_covariance_correction(n_s, n_d, n_theta=None, method="percival"):
         n_theta: int, optional
             Number of free parameters.
         method: str, optional
-            Method to compute the correction factor. Default to "percival". 
+            Method to compute the correction factor. Default to "percival".
             Available methods are: "percival", "percival-fisher", "hartlap".
 
     Returns

@@ -12,7 +12,7 @@ def lookup_registry_path(
     filename: str,
     *keys: str,
     loader: Callable = yaml.safe_load,
-) -> Any: # noqa: ANN401
+) -> Any:  # noqa: ANN401
     """
     Read a file and parses the arguments as nested keys to return the corresponding value.
 

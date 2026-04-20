@@ -72,8 +72,7 @@ class DensitySplit(BaseEstimator):
                     "query_positions must be provided when working with a non-uniform geometry."
                 )
             query_positions = self.get_query_positions(
-                method = query_method,
-                nquery = nquery_factor * self.size_data
+                method=query_method, nquery=nquery_factor * self.size_data
             )
         self.query_method = query_method
         self.query_positions = query_positions

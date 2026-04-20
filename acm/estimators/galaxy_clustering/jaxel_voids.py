@@ -142,9 +142,7 @@ class JaxelVoids(BaseEstimator):
             self.save(save_fn, type="catalog")
         return self.voids, self.void_radii
 
-    def save_catalog(
-        self, filename: str | Path, attrs: dict | None = None
-    ) -> None:
+    def save_catalog(self, filename: str | Path, attrs: dict | None = None) -> None:
         """Save the current void catalog to disk.
 
         Format is automatically determined from file extension:
@@ -601,9 +599,7 @@ class JaxelVoids(BaseEstimator):
         return self._void_data_correlation
 
     @set_plot_style
-    def plot_void_size_distribution(
-        self, save_fn: str | Path | None = None
-    ) -> Figure:
+    def plot_void_size_distribution(self, save_fn: str | Path | None = None) -> Figure:
         """Plot the histogram of void effective radii.
 
         Parameters

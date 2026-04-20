@@ -361,9 +361,7 @@ class VoxelVoids(BaseEstimator):
         return self._void_data_correlation
 
     @set_plot_style
-    def plot_void_size_distribution(
-        self, save_fn: str | Path | None = None
-    ) -> Figure:
+    def plot_void_size_distribution(self, save_fn: str | Path | None = None) -> Figure:
         """
         Plot the void size distribution as a histogram.
 
