@@ -47,8 +47,8 @@ class MinimumSpanningTree(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
         # Directories
         base_dir = Path("/pscratch/sd/k/knaidoo/ACM/MockChallenge/data_v2")
@@ -77,7 +77,7 @@ class MinimumSpanningTree(BaseObservableEMC):
 
         logger.info(f"Loaded covariance with shape: {y.shape}")
 
-        cout = xarray.DataArray(
+        y = xarray.DataArray(
             data=y.reshape(y.shape[0], -1),
             coords={
                 "phase_idx": list(range(y.shape[0])),

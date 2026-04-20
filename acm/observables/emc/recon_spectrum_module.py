@@ -67,8 +67,8 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / stat_name

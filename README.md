@@ -86,7 +86,7 @@ If you are not sure about the purpose of a branch, please ask the maintainers.
 ## Workflows
 
 ### Continuous Integration
-The project has a continuous integration workflow defined in the `.github/workflows/ci-format-lint-test.yml` file. This workflow is triggered on any pull request to the `dev` or `main` branches, and on any push to those branches. 
+The project has a continuous integration workflow defined in the `.github/workflows/ci-format-lint-test.yml` file. This workflow is triggered on any pull request to the `dev` or `main` branches, and on any push to branches with open PR associated. 
 
 > [!Note]
 > This workflow only runs on the `acm` package code, and not on the scripts in the `scripts/` folder or on the documentation.

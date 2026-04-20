@@ -54,8 +54,8 @@ class DDkNN(BaseObservableEMC):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Compressed dataset containing the covariance and bin values.
         """
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / stat_name
@@ -81,7 +81,7 @@ class DDkNN(BaseObservableEMC):
 
         logger.info(f"Cov data shape after filtering: {y.shape}")
 
-        cout = xarray.DataArray(
+        y = xarray.DataArray(
             data=y,
             coords={
                 "phase_idx": list(range(y.shape[0])),

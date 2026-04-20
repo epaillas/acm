@@ -43,11 +43,11 @@ class CountsInCells(BaseEstimator):
                 )
             else:
                 query_positions = self.get_query_positions(
-                    method=query_method, nquery=nquery_factor * self._size_data
+                    method=query_method, nquery=nquery_factor * self.size_data
                 )
         self.query_method = query_method
         self.query_positions = query_positions
-        self.delta_query = self.delta_mesh.read_cic(query_positions)
+        self.delta_query = self.delta_mesh.read_cic(query_positions) # FIXME: only available for pyrecon backend
         return self.delta_query
 
     @set_plot_style

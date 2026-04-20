@@ -110,6 +110,10 @@ class PyreconBackend:
         self.boxcenter = boxcenter
         self.meshsize = meshsize
         self.cellsize = boxsize / meshsize
+        
+        # Assign data and randoms
+        self.size_data = 0
+        self._size_randoms = 0
 
         # Initialize meshes
         self.data_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
@@ -123,10 +127,6 @@ class PyreconBackend:
                 boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize
             )
             self._assign_randoms(randoms_positions, weights=randoms_weights)
-
-        # Assign data and randoms
-        self.size_data = 0
-        self._size_randoms = 0
 
         logger.info(f"Box size: {self.boxsize}")
         logger.info(f"Box center: {self.boxcenter}")
