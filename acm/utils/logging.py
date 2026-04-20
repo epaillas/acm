@@ -174,23 +174,6 @@ def get_logger_for_script(pfile):
     return logging.getLogger(str_logger)
 
 
-def _get_logger_path(pfile: str | Path, pkg_name: str = "acm") -> str:
-    pfile = Path(pfile)  # Ensure pfile is a Path object
-    pfile_no_ext = pfile.with_suffix("")  # remove the file extension
-    parts = pfile_no_ext.parts
-
-    if pkg_name in parts:
-        idx = parts.index(pkg_name)
-        module_parts = parts[idx:]  # keep only the parts after the package name
-    elif parts[0] == pfile.drive + pfile.root:
-        module_parts = parts[1:]  # remove the drive and root if it's an absolute path
-    else:
-        module_parts = parts
-
-    logger_name = ".".join(module_parts)
-    return logger_name
-
-
 def _get_logger_path(pfile: str | Path, pkg_name: str = NAME_LIB_GIT) -> str:
     """Convert path string to logger name string.
 
