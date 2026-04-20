@@ -1,4 +1,6 @@
-name: Format, Typecheck & Test
+name: Format, Typecheck & Tests
+
+# Note: This workflow assumes Python 3.13 is used for development and testing.
 
 on:
   pull_request:
@@ -89,7 +91,7 @@ jobs:
         # Second run is to get the output in GitHub format for annotations
         run: |
           ty check acm --quiet --exit-zero --python-version 3.13
-          ty check acm --python-version 3.13 --output-format github 
+          ty check acm --output-format github  --python-version 3.13 
           echo "Exit code: $?"
 
   job_pytest:
