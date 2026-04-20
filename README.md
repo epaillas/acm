@@ -115,9 +115,9 @@ ruff check acm --fix
 
 The package version follows the [semantic versioning](https://semver.org/) scheme (`<major>.<minor>.<patch>-dev.<dev_version>`), and is automatically bumped on any merged PR to either `dev` or `main` branches. The version bumping is handled by the [bump2version](https://github.com/c4urself/bump2version) tool, and the workflow is defined in the `.github/workflows/ci-version.yml` file.
 
-On any merged PR to `dev`, the version of the package will be automatically bumped to the next dev version. For example, if the current version is `0.1.0`, it will be bumped to `0.1.0-dev.1`.
+On any merged PR to `dev`, the version of the package will be automatically bumped to the next dev version if any change is done in the `acm/` folder. For example, if the current version is `0.1.0`, it will be bumped to `0.1.0-dev.1`.
 
-On any merged PR to `main`, the version of the package will be automatically bumped to the next release version depending on the bump type specified in the PR labels (one of `bump:patch`, `bump:minor`, or `bump:major`). For example, if the current version is `0.1.0` and the PR is labeled with `bump:minor`, it will be bumped to `0.2.0`. A tag will also be created for the new version, and a release will be published on GitHub.
+On any merged PR to `main`, the version of the package will be automatically bumped to the next release version depending on the bump type specified in the PR labels (one of `bump:patch`, `bump:minor`, or `bump:major`). For example, if the current version is `0.1.0` and the PR is labeled with `bump:minor`, it will be bumped to `0.2.0`. A tag will also be created for the new version, and a release will be published on GitHub. A `bump:none`label also exists for PRs that do not require a version bump, but it should be used with caution as it can hide potential issues in the versioning of the package (usually used for documentation or scripts updates that do not affect the package code).
 
 > [!NOTE]
 > A workflow is also triggered on any PR to `main` to ensure exactly one of the bump type tags is present. If not, the workflow will fail and the PR cannot be merged until the issue is resolved.
