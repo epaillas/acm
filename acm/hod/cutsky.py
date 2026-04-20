@@ -22,7 +22,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 from acm.utils.paths import lookup_registry_path
 
 from .box import BoxHOD
-from .footprint import *
+from .footprint import minmax_xyz_desi
 
 # Optional imports with better error handling
 try:
@@ -90,7 +90,8 @@ class BaseCutskyCatalog(ABC):
         None
             The cutsky catalog is modified in place.
         """
-        if self.mpicomm.rank == self.mpiroot:
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
+        if mpicomm_rank == self.mpiroot:
             logger.info(
                 f"Applying angular mask for region {region} and release {release}."
             )
@@ -115,7 +116,7 @@ class BaseCutskyCatalog(ABC):
 
             # Fibonacci method
             generate_fibonacci = np.arange(0, num_fibonacci_samples, dtype=float) + 0.5
-            mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
+            phi = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
             mask_dec = 180 / np.pi * phi - 90
             mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
 
@@ -166,7 +167,10 @@ class BaseCutskyCatalog(ABC):
         None
             The cutsky catalog is modified in place.
         """
-        if self.mpicomm.rank == self.mpiroot:
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
+        cosmo = getattr(self, "cosmo") # NOTE: assumes the cutsky catalog has a cosmology attribute
+        
+        if mpicomm_rank == self.mpiroot:
             logger.info(f"Applying radial mask using n(z) file {nz_filename}.")
 
         zmin_data = self.catalog["Z"].min()
@@ -206,9 +210,9 @@ class BaseCutskyCatalog(ABC):
 
         # calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
-        dbin_max = self.cosmo.comoving_radial_distance(zbin_max)
+        dbin_max = cosmo.comoving_radial_distance(zbin_max)
         dedges = np.insert(
-            dbin_max, 0, self.cosmo.comoving_radial_distance(zbin_min[0])
+            dbin_max, 0, cosmo.comoving_radial_distance(zbin_min[0])
         )
         volume = (
             self.sky_fraction * 4 / 3 * np.pi * (dedges[1:] ** 3 - dedges[:-1] ** 3)
@@ -287,8 +291,33 @@ class BaseCutskyCatalog(ABC):
             raise ValueError(
                 f"Invalid region '{region}'. Must be one of: {', '.join(VALID_REGIONS)}"
             )
+            
+        if HAS_REGRESSIS:
+            # Precompute the healpix number
+            nside = 256
+            _, pixels = build_healpix_map(nside, ra, dec, return_pix=True) # ty: ignore[call-non-callable]
 
-        if not HAS_REGRESSIS:
+            # Load DR9 footprint and create corresponding mask
+            dr9_footprint = DR9Footprint(
+                nside,
+                mask_lmc=False,
+                clear_south=False,
+                mask_around_des=False,
+                cut_desi=False,
+            ) # ty: ignore[call-non-callable]
+            convert_dict = {
+                "N": "north",
+                "DN": "south_mid_ngc",
+                "N+SNGC": "ngc",
+                "SNGC": "south_mid_ngc",
+                "DS": "south_mid_sgc",
+                "SSGC": "south_mid_sgc",
+                "DES": "des",
+                "NGC": "ngc",
+                "SGC": "south_mid_sgc",
+            }
+            return pixels, dr9_footprint(convert_dict[region])[pixels]
+        else:
             mask = np.ones_like(ra, dtype="?")
             if region == "DES":
                 raise ValueError("Do not know DES cuts, install regressis")
@@ -305,32 +334,7 @@ class BaseCutskyCatalog(ABC):
                 else:  # DS
                     mask &= dec > -25
                     mask &= ~mask_ra
-            return np.nan * np.ones(ra.size), mask
-        else:
-            # Precompute the healpix number
-            nside = 256
-            _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)
-
-            # Load DR9 footprint and create corresponding mask
-            dr9_footprint = DR9Footprint(
-                nside,
-                mask_lmc=False,
-                clear_south=False,
-                mask_around_des=False,
-                cut_desi=False,
-            )
-            convert_dict = {
-                "N": "north",
-                "DN": "south_mid_ngc",
-                "N+SNGC": "ngc",
-                "SNGC": "south_mid_ngc",
-                "DS": "south_mid_sgc",
-                "SSGC": "south_mid_sgc",
-                "DES": "des",
-                "NGC": "ngc",
-                "SGC": "south_mid_sgc",
-            }
-            return pixels, dr9_footprint(convert_dict[region])[pixels]
+            return np.nan * np.ones(ra.size), mask         
 
     @staticmethod
     def add_columns_fiberassign(catalog, seed: int = 0) -> None:
@@ -450,23 +454,26 @@ class BaseCutskyCatalog(ABC):
         from mpytools import Catalog
 
         rng = np.random.RandomState(seed=seed)
+        
+        tracer = getattr(self, "tracer") # NOTE: assumes the cutsky catalog has a single tracer attribute
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
 
-        if mpicomm.rank == mpiroot:
+        if mpicomm_rank == mpiroot:
             self.catalog = Catalog.from_dict(self.catalog, mpicomm=mpicomm)
         self.catalog = Catalog.scatter(self.catalog, mpiroot=mpiroot, mpicomm=mpicomm)
 
         if "TRACER" not in self.catalog.columns():
-            if mpicomm.rank == mpiroot:
+            if mpicomm_rank == mpiroot:
                 logger.info(f"Add tracer column for {self.catalog}.")
-            self.catalog["TRACER"] = [self.tracer] * self.catalog.size
+            self.catalog["TRACER"] = [tracer] * self.catalog.size
 
-        if mpicomm.rank == mpiroot:
+        if mpicomm_rank == mpiroot:
             logger.info("Run simple example to illustrate how to run fiber assignment.")
-            logger.info(f"Add random ELGs and QSOs objects.")
+            logger.info("Add random ELGs and QSOs objects.")
 
         # This is should be done better
 
-        if "ELG" in self.tracer:
+        if "ELG" in tracer:
             mask_elg_vlo = rng.uniform(size=self.catalog.size) < 0.25
             self.catalog["TRACER"][mask_elg_vlo] = "ELG_VLO"
             mask_elg_hip = rng.uniform(size=self.catalog.size) < 0.1
@@ -474,7 +481,7 @@ class BaseCutskyCatalog(ABC):
             tr_toadd = ["LRG", "QSO"]
         else:
             tr_toadd = ["LRG", "ELG_HIP", "QSO"]
-            tr_toadd.remove(self.tracer)
+            tr_toadd.remove(tracer)
         nbar1 = (
             240 if tr_toadd[0] == "ELG_HIP" else 310 if tr_toadd[0] == "QSO" else 610
         )
@@ -533,7 +540,7 @@ class BaseCutskyCatalog(ABC):
 
         if use_sky_targets and preload_sky_targets:
             # tiles is not restricted here, we will load sky_targets for all the Y1 footprint
-            sky_targets = read_sky_targets(
+            sky_targets = read_sky_targets(  # noqa: F841
                 dirname="/global/cfs/cdirs/desi/users/edmondc/desi_targets/sky_targets/",
                 tiles=tiles,
                 program=program,
@@ -557,7 +564,7 @@ class BaseCutskyCatalog(ABC):
         ]
 
         nbr_targets = cutsky_for_fa.csize
-        if mpicomm.rank == 0:
+        if mpicomm_rank == 0:
             logger.info(
                 f"Keep only objects which is in a tile. Working with {nbr_targets} targets"
             )
@@ -598,17 +605,17 @@ class BaseCutskyCatalog(ABC):
             cutsky_for_fa.cget("COMP_WEIGHT", mpiroot=0),
         )
 
-        if mpicomm.rank == mpiroot:
+        if mpicomm_rank == mpiroot:
             logger.info("FA done")
 
-        mask_tr = cutsky_for_fa["TRACER"] == self.tracer
+        mask_tr = cutsky_for_fa["TRACER"] == tracer
         cutsky_for_fa = cutsky_for_fa[mask_tr]
         for col in cutsky_for_fa.columns():
             if col not in self.catalog.columns():
                 self.catalog[col] = cutsky_for_fa[col]
         del cutsky_for_fa
 
-        if plot_output & (mpicomm.rank == 0):
+        if plot_output & (mpicomm_rank == 0):
             logger.info(
                 f"Nbr of targets observed: {(numobs >= 1).sum()} -- per pass: {obs_pass.sum(axis=0)} -- Nbr of targets available: {available.sum()} -- Nbr of targets: {ra.size}"
             )
@@ -640,7 +647,8 @@ class BaseCutskyCatalog(ABC):
                 dpi=400,
             )
             logger.info(f"Plot save in fiberasignment_{npasses}npasses.png")
-        mpicomm.Barrier()
+        if mpicomm is not None:
+            mpicomm.Barrier()
 
     def save(self, filename: str) -> None:
         """
@@ -661,7 +669,8 @@ class BaseCutskyCatalog(ABC):
             )
 
         # Only root rank saves to disk
-        if self.mpicomm.rank == self.mpiroot:
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
+        if mpicomm_rank == self.mpiroot:
             logger.info(f"Saving cutsky catalog to {filename}")
             logger.info(
                 f"Total number of objects saved: {len(catalog_gathered[list(catalog_gathered.keys())[0]])}"
@@ -671,7 +680,8 @@ class BaseCutskyCatalog(ABC):
                 myfits = fits.BinTableHDU(data=table)
                 myfits.writeto(filename, overwrite=True)
             elif str(filename).endswith(".npy"):
-                np.save(filename, catalog_gathered)
+                payload = np.array(catalog_gathered, dtype=object)
+                np.save(filename, payload)
             else:
                 raise ValueError("Unsupported file format. Use .fits or .npy.")
 
@@ -693,7 +703,7 @@ class CutskyHOD(BaseCutskyCatalog):
         load_existing_hod: bool = False,
         sim_type: str = "base",
         tracer: str = "LRG",
-        DM_DICT: dict = None,
+        DM_DICT: dict| None = None,
         **kwargs,
     ):
         """
@@ -734,12 +744,15 @@ class CutskyHOD(BaseCutskyCatalog):
         **kwargs: dict
             Additional keyword arguments passed to the BaseCutskyCatalog class.
         """
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
+        mpicomm_size = getattr(self.mpicomm, "size", 1)
+        
         super().__init__()
         self.DM_DICT_simtype = "box"
         self.sim_geometry = "cutsky"
-        if self.mpicomm.rank == self.mpiroot:
+        if mpicomm_rank == self.mpiroot:
             logger.info(
-                f"Initializing CutskyHOD class on {self.mpicomm.size} MPI ranks."
+                f"Initializing CutskyHOD class on {mpicomm_size} MPI ranks."
             )
         self.config_file = config_file
         self.load_existing_hod = load_existing_hod
@@ -759,7 +772,7 @@ class CutskyHOD(BaseCutskyCatalog):
         self.boxcenter = np.array([0, 0, 0])  # Mpc/h
         if self.load_existing_hod:
             self.cosmo = AbacusSummit(self.cosmo_idx)
-            if self.mpicomm.rank == self.mpiroot:
+            if mpicomm_rank == self.mpiroot:
                 logger.info("Load existing hod instead of generating new ones.")
         else:
             if DM_DICT is None:
@@ -769,7 +782,7 @@ class CutskyHOD(BaseCutskyCatalog):
             self.setup_hod(DM_DICT=DM_DICT, tracer=tracer)
         self.keys_cutsky = ["RA", "DEC", "Z", "RSDPosition", "Distance", "Position"]
 
-    def setup_hod(self, DM_DICT: dict, tracer: str = "LRG"):
+    def setup_hod(self, DM_DICT: dict | None, tracer: str = "LRG"):
         """
         Initialize AbacusHOD objects for each snapshot.
         Only the root rank creates the BoxHOD objects to avoid loading
@@ -780,9 +793,10 @@ class CutskyHOD(BaseCutskyCatalog):
         DM_DICT : dict
             Dictionary containing the DM fields for the HOD sampling.
         """
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
         self.balls = []
         for zsnap in self.snapshots:
-            if self.mpicomm.rank == self.mpiroot:
+            if mpicomm_rank == self.mpiroot:
                 ball = BoxHOD(
                     varied_params=self.varied_params,
                     tracer=tracer,
@@ -805,8 +819,8 @@ class CutskyHOD(BaseCutskyCatalog):
         ball,
         hod_params: dict,
         nthreads: int = 1,
-        seed: float = 0,
-        target_nbar: float = None,
+        seed: float | None = 0,
+        target_nbar: float | None = None, # FIXME: Docstring not up to date
         nfw_draw_path: str = "/global/cfs/projectdirs/desi/users/arocher/nfw.npy",
     ):
         """
@@ -838,10 +852,11 @@ class CutskyHOD(BaseCutskyCatalog):
         tuple
             Tuple containing positions and velocities of the sampled galaxies.
         """
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
         # No BGS in AbacusHOD so we use LRG
         tracer = "LRG" if self.tracer == "BGS" else self.tracer
         # Only root rank samples the HOD to avoid redundant computation
-        if self.mpicomm.rank == self.mpiroot:
+        if mpicomm_rank == self.mpiroot:
             hod_dict = ball.run(
                 hod_params,
                 seed=seed,
@@ -883,6 +898,7 @@ class CutskyHOD(BaseCutskyCatalog):
         tuple
             Tuple containing positions and velocities of the galaxies.
         """
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
         if mock_path is None:
             mock_path = Path(
                 f"/global/cfs/projectdirs/desi/cosmosim/SecondGenMocks/CubicBox/{self.tracer}",
@@ -891,7 +907,7 @@ class CutskyHOD(BaseCutskyCatalog):
             )
 
         # Only root rank loads the HOD to avoid redundant I/O
-        if self.mpicomm.rank == self.mpiroot:
+        if mpicomm_rank == self.mpiroot:
             logger.info(f"Loading existing HOD catalog from {mock_path}")
             data = fitsio.read(mock_path)
             pos = np.vstack([data["x"], data["y"], data["z"]]).T.astype(np.float32)
@@ -962,6 +978,8 @@ class CutskyHOD(BaseCutskyCatalog):
         dict
             The cutsky catalog containing positions, velocities, and other properties of the galaxies.
         """
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
+        
         if apply_rsd and "RSDPosition" not in self.keys_cutsky:
             self.keys_cutsky.append("RSDPosition")
         elif "RSDPosition" in self.keys_cutsky:
@@ -971,7 +989,7 @@ class CutskyHOD(BaseCutskyCatalog):
 
         # construct one redshift shell at a time from the snapshots
         for i, (zsnap, zranges) in enumerate(zip(self.snapshots, self.zranges)):
-            if self.mpicomm.rank == self.mpiroot:
+            if mpicomm_rank == self.mpiroot:
                 logger.info(
                     f"Processing snapshot at z = {zsnap} for redshift range {zranges}"
                 )
@@ -1052,8 +1070,8 @@ class CutskyHOD(BaseCutskyCatalog):
         list
             List of shifts to be applied to the box positions.
         """
-        mappings_max = np.int32(np.ceil((pos_max - self.boxpad) / self.boxsize))
-        mappings_min = np.int32(np.floor((pos_min + self.boxpad) / self.boxsize))
+        mappings_max = np.asarray(np.ceil((pos_max - self.boxpad) / self.boxsize), dtype=np.int32)
+        mappings_min = np.asarray(np.floor((pos_min + self.boxpad) / self.boxsize), dtype=np.int32)
         shifts = []
         mappings = [np.arange(mappings_min[i], mappings_max[i] + 1) for i in range(3)]
         for i in mappings[0]:
@@ -1095,7 +1113,7 @@ class CutskyHOD(BaseCutskyCatalog):
             - new_vel: np.ndarray of velocities in the replicated boxes.
         """
         if shifts is None:
-            shifts = self.get_box_shifts()
+            shifts = self.get_box_shifts(pos_min, pos_max)
         new_pos = []
         new_vel = []
         for shift in shifts:
@@ -1109,7 +1127,12 @@ class CutskyHOD(BaseCutskyCatalog):
         return new_pos, new_vel
 
     def box_to_cutsky(
-        self, box, zmin: float, zmax: float, apply_rsd: bool = False, zrsd: float = None
+        self, 
+        box, 
+        zmin: float, 
+        zmax: float, 
+        apply_rsd: bool = False, 
+        zrsd: float | None = None
     ):
         """
         Convert a box catalog with cartesian positions and velocities to a cutsky catalog
@@ -1134,7 +1157,7 @@ class CutskyHOD(BaseCutskyCatalog):
             Dictionary containing the cutsky catalog with keys 'Distance', 'RA', 'DEC', and 'Z'.
         """
         cutsky = {}
-        if apply_rsd:
+        if apply_rsd and zrsd is not None:
             cutsky = self.apply_rsd(box, zrsd)
         else:
             cutsky = box
@@ -1165,6 +1188,8 @@ class CutskyHOD(BaseCutskyCatalog):
         catalog : mockfactory.BoxCatalog
             The catalog with RSD applied to the positions.
         """
+        mpicomm_rank = getattr(self.mpicomm, "rank", 0)
+        
         t0 = time.time()
         a = 1 / (1 + redshift)  # scale factor
         H = 100.0 * self.cosmo.efunc(redshift)  # Hubble parameter in km/s/Mpc
@@ -1172,7 +1197,7 @@ class CutskyHOD(BaseCutskyCatalog):
             a * H
         )  # multiply velocities by this factor to convert to Mpc/h
         catalog["RSDPosition"] = catalog.rsd_position(f=rsd_factor)
-        if self.mpicomm.rank == self.mpiroot:
+        if mpicomm_rank == self.mpiroot:
             logger.info(
                 f"Applied RSD at z={redshift} in {time.time() - t0:.2f} seconds."
             )

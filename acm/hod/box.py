@@ -7,7 +7,6 @@ from typing import overload
 import numpy as np
 import yaml
 from abacusnbody.hod import abacus_hod
-from astropy.constants.codata2010 import h
 from astropy.io import fits
 from astropy.table import Table
 from cosmoprimo.fiducial import DESI, AbacusSummit

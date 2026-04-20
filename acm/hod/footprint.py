@@ -1,6 +1,5 @@
-import fitsio
-import mockfactory
 import numpy as np
+import mockfactory
 from cosmoprimo.fiducial import DESI
 
 
@@ -81,7 +80,7 @@ def minmax_skycoord_desi(zrange, region="NGC", release="Y1", tracer="LRG"):
     """
     if release == "Y5":
         release = "Y3"  # we don't have Y5 mocks yet, but the minmax should hopefully be the same
-    data_fn = f"/global/cfs/cdirs/desi/survey/catalogs/DA2/mocks/AbacusHighFidelity/altmtl0/loa-v1/mock0/LSScats/"
+    data_fn = "/global/cfs/cdirs/desi/survey/catalogs/DA2/mocks/AbacusHighFidelity/altmtl0/loa-v1/mock0/LSScats/"
     data_fn += f"{tracer}_{region}_clustering.dat.h5"
     data = read_catalog(data_fn)
     zmin, zmax = zrange

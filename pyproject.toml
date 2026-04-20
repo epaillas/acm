@@ -129,11 +129,6 @@ filterwarnings = [
 unresolved-import = "ignore" # Ignore unresolved imports, as some dependencies may not be installed in all environments.
 invalid-method-override = "warn" # Warn about invalid method overrides, as some may be intentional due to limitations in type checking.
 
-[tool.ty.src]
-exclude = [
-    "acm/hod/*", # Temporarily exclude HOD module, pending rework
-]
-
 
 # Ruff settings
 [tool.ruff.lint.per-file-ignores]
