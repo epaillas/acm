@@ -3,7 +3,7 @@ from sunbird.inference import priors as sunbird_priors
 from sunbird.cosmology.model_params import get_model_params
 from sunbird.inference.samples import Chain
 
-from acm.observables import CombinedObservable
+from acm.observables import CombinedObservable, Observable
 from acm.utils.covariance import get_covariance_correction
 from acm.utils.modules import get_class_from_module
 from acm import setup_logging
@@ -27,6 +27,11 @@ class_names = {
     'ds_xiqq': 'ds_xiqq',
     'pdf': 'pdf',
 }
+
+NBAR_EMULATOR_CHECKPOINT = Path(
+    '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.3/best/number_density.ckpt'
+)
+NBAR_TARGET_DENSITY = 4.85e-4
 
 
 def get_priors(cosmo=True, hod=True):
@@ -122,6 +127,12 @@ def get_observable(stat_names):
         observables.append(obs)
     return obs if len(observables) == 1 else CombinedObservable(observables)
 
+
+def load_number_density_model():
+    """Load the optional EMC number-density emulator checkpoint."""
+    logger.info(f'Loading number density emulator from {NBAR_EMULATOR_CHECKPOINT}')
+    return Observable.load_model(NBAR_EMULATOR_CHECKPOINT)
+
 def get_data_model_cov(observable):
     """
     This function loads the data, covariance matrix, and model prediction
@@ -137,17 +148,17 @@ def get_data_model_cov(observable):
     # load the covariance matrix, including emulator error and Percival correction
     cov = observable.get_covariance_matrix(volume_factor=64)
     logger.info(f'Loaded covariance matrix with shape: {cov.shape}')
-    if args.add_cov_emu:
+    if args.use_emulator_covariance:
         cov += observable.get_emulator_covariance_matrix(
-            method=args.cov_emu_method,
-            diag=args.cov_emu_diag,
+            method=args.emulator_covariance_method,
+            diag=args.use_diagonal_emulator_covariance,
         )
 
     cov *= get_covariance_correction(
         n_s=len(observable.covariance_y),
         n_d=len(cov),
         n_theta=len(data_x_names) - len(fixed_param_names),
-        method=args.cov_correction,
+        method=args.covariance_correction,
     )
 
     # load the model
@@ -176,6 +187,12 @@ def fit_abacus(observable):
     cosmo = fiducial.AbacusSummit(args.cosmo_idx)
     markers.update({'Omega_m': cosmo['Omega_m'], 'h': cosmo['h']})
 
+    number_density_model = None
+    target_density = None
+    if args.use_nbar_emulator:
+        number_density_model = load_number_density_model()
+        target_density = NBAR_TARGET_DENSITY
+
     # sample the posterior
     sampler = PocoMCSampler(
         observation=data_y,
@@ -187,6 +204,8 @@ def fit_abacus(observable):
         labels=labels,
         ellipsoid=True,
         markers=markers,
+        number_density_model=number_density_model,
+        target_density=target_density,
     )
     sampler(vectorize=True, n_total=4096)
 
@@ -222,13 +241,14 @@ if __name__ == "__main__":
     parser.add_argument("--greedy_fn", type=Path, default=Path("/global/u1/e/epaillas/code/acm/scripts/emc/fisher/selected_bins.npy"))
     parser.add_argument("--cosmo_idx", type=int, default=0)
     parser.add_argument("--hod_idx", type=int, default=0)
-    parser.add_argument('--add_cov_emu', action='store_true', help='Whether to add emulator covariance or not.')
+    parser.add_argument('--use_emulator_covariance', action='store_true', help='Whether to add emulator covariance or not.')
     parser.add_argument('--cosmo_model', type=str, default='base', help='Cosmological model to use.')
     parser.add_argument('--hod_model', type=str, default='base-VB-AB-CB-s', help='HOD model to use.')
     parser.add_argument('--identifier', type=str, default=None, help='Identifier for the run.')
-    parser.add_argument('--cov_emu_method', type=str, default='median', help='Method to compute the emulator covariance.')
-    parser.add_argument('--cov_emu_diag', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
-    parser.add_argument('--cov_correction', type=str, default='percival', help='Covariance correction method to use.')
+    parser.add_argument('--emulator_covariance_method', type=str, default='median', help='Method to compute the emulator covariance.')
+    parser.add_argument('--use_diagonal_emulator_covariance', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
+    parser.add_argument('--covariance_correction', type=str, default='percival', help='Covariance correction method to use.')
+    parser.add_argument('--use_nbar_emulator', action='store_true', help='Enable the EMC number-density emulator constraint during sampling.')
     parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/greedy/', help='Directory to save the results.')
 
     args = parser.parse_args()
