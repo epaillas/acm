@@ -113,7 +113,7 @@ ruff check acm --fix
 
 ### Automated versions
 
-The package version follows the [semantic versioning](https://semver.org/) scheme (`<major>.<minor>.<patch>-dev.<dev_version>`), and is automatically bumped on any merged PR to either `dev` or `main` branches. The version bumping is handled by the [bump2version](https://github.com/c4urself/bump2version) tool, and the workflow is defined in the `.github/workflows/ci-version.yml` file.
+The package version follows the [semantic versioning](https://semver.org/) scheme (`<major>.<minor>.<patch>-dev.<dev_version>`), and is automatically bumped on any merged PR to either `dev` or `main` branches. The version bumping is handled by the [bump2version](https://github.com/c4urself/bump2version) tool, with `.github/workflows/ci-version-dev.yml` handling dev bumps on `dev` and `.github/workflows/ci-version.yml` handling release bumps on `main`.
 
 On any merged PR to `dev`, the version of the package will be automatically bumped to the next dev version if any change is done in the `acm/` folder. For example, if the current version is `0.1.0`, it will be bumped to `0.1.0-dev.1`.
 
