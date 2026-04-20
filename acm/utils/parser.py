@@ -1,5 +1,6 @@
 import argparse
 import importlib
+from ast import literal_eval
 
 
 def add_observables_to_parser(parser: argparse.ArgumentParser):
@@ -108,11 +109,11 @@ def parse_observable(argv: list):
     args = parser.parse_args(argv)
     # Edge case: if select_filters or slice_filters are provided as one element, try to eval them as dicts (otherwise, they should be pairs of key, value)
     if args.paths and len(args.paths) == 1:
-        args.paths = try_eval(args.paths[0])
+        args.paths = literal_eval(args.paths[0])
     if args.select_filters and len(args.select_filters) == 1:
-        args.select_filters = try_eval(args.select_filters[0])
+        args.select_filters = literal_eval(args.select_filters[0])
     if args.slice_filters and len(args.slice_filters) == 1:
-        args.slice_filters = try_eval(args.slice_filters[0])
+        args.slice_filters = literal_eval(args.slice_filters[0])
     return args
 
 
@@ -173,26 +174,6 @@ def parse_observables_arg(args: argparse.Namespace):
         observable_args.append(obs_args)
     args.observables = observable_args
     return args
-
-
-def try_eval(value: str):
-    """
-    Tries to evaluate a string as a Python expression. If it fails, returns the original string.
-
-    Parameters
-    ----------
-    value : str
-        The string to evaluate.
-
-    Returns
-    -------
-    any
-        The evaluated value or the original string if evaluation fails.
-    """
-    try:
-        return eval(value)
-    except TypeError:
-        return value
 
 
 def to_pairs(lst: list | dict):
@@ -259,16 +240,16 @@ def args_to_observables(
     for obs_args in args:
         observable_args = {
             "stat_name": obs_args.stat_name,
-            "paths": {key: try_eval(value) for key, value in to_pairs(obs_args.paths)}
+            "paths": {key: literal_eval(value) for key, value in to_pairs(obs_args.paths)}
             if obs_args.paths
             else None,
             "select_filters": {
-                key: try_eval(value) for key, value in to_pairs(obs_args.select_filters)
+                key: literal_eval(value) for key, value in to_pairs(obs_args.select_filters)
             }
             if obs_args.select_filters
             else None,
             "slice_filters": {
-                key: try_eval(value) for key, value in to_pairs(obs_args.slice_filters)
+                key: literal_eval(value) for key, value in to_pairs(obs_args.slice_filters)
             }
             if obs_args.slice_filters
             else None,
