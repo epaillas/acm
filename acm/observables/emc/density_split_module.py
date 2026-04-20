@@ -82,8 +82,6 @@ class DensitySplitBaseClass(BaseObservableEMC):
         xarray.Dataset
             Compressed dataset containing the covariance and bin_values.
         """
-        logger = cls.get_logger()
-
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / "density_split"
         data_fns = sorted(
@@ -193,8 +191,6 @@ class DensitySplitBaseClass(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = Path(paths["measurements_dir"]) / "base" / "density_split"
 
         y = []

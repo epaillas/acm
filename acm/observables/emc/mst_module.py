@@ -50,8 +50,6 @@ class MinimumSpanningTree(BaseObservableEMC):
         xarray.DataArray
             Covariance array.
         """
-        logger = cls.get_logger()
-
         # Directories
         base_dir = Path("/pscratch/sd/k/knaidoo/ACM/MockChallenge/data_v2")
         data_fns = sorted(
@@ -146,8 +144,6 @@ class MinimumSpanningTree(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = Path("/pscratch/sd/k/knaidoo/ACM/MockChallenge/data_v2")
 
         y = []

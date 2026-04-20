@@ -359,8 +359,6 @@ class BaseObservableEMC(Observable):
             If the number of HODs for a cosmology is lower than the expected number,
             as the compression requires all cosmologies to have the same number of HODs.
         """
-        logger = cls.get_logger()
-
         if paths is None:
             paths = lookup_registry_path("projects.yaml", "emc")
 

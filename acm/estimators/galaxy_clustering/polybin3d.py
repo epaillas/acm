@@ -5,7 +5,7 @@ from PolyBin3D import BSpec, PolyBin3D, PSpec
 
 from .base import BaseDensityMeshEstimator
 
-logger = logging.getLogger(_name__)
+logger = logging.getLogger(__name__)
 
 
 class PolyBinEstimator(BaseDensityMeshEstimator):

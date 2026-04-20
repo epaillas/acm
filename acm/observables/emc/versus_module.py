@@ -50,8 +50,6 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
         xarray.Dataset
             Compressed dataset containing the covariance and bin_values.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "small"
@@ -142,8 +140,6 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "base"
@@ -380,8 +376,6 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
         xarray.Dataset
             Compressed dataset containing the covariance and bin_values.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "small"
@@ -479,8 +473,6 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = (
             Path(paths["measurements_dir"])
             / "base"

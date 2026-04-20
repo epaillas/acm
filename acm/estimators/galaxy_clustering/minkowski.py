@@ -8,6 +8,7 @@ from pyrecon import RealMesh
 from .base import BaseEstimator
 from .src import minkowski as Mk
 
+logger = logging.getLogger(__name__)
 
 class MinkowskiFunctionals(BaseEstimator):
     """

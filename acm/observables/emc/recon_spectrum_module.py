@@ -70,8 +70,6 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array.
         """
-        logger = cls.get_logger()
-
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / stat_name
         data_fns = list(
@@ -176,8 +174,6 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = Path(paths["measurements_dir"], f"base/{stat_name}/")
 
         y = []

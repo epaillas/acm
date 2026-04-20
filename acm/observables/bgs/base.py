@@ -278,8 +278,6 @@ class BaseObservableBGS(Observable):
         -----
         The parameters are read from the `param_dir/AbacusSummit_c{cosmo_idx:03}.csv` files.
         """
-        logger = cls.get_logger()
-
         param_dir = paths["param_dir"]
 
         # Determine the number of HODs from the first cosmology

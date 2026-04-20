@@ -55,8 +55,6 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         xarray.Dataset
             Compressed dataset containing the covariance array.
         """
-        logger = cls.get_logger()
-
         measurements_dir = "/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/"
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
@@ -143,8 +141,6 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         measurements_dir = "/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/"
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
@@ -418,8 +414,6 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         xarray.Dataset
             Compressed dataset containing the covariance array.
         """
-        logger = cls.get_logger()
-
         measurements_dir = "/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/"
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')
@@ -497,8 +491,6 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         measurements_dir = "/global/cfs/cdirs/desicollab/users/nschuster/ACM_VIDE_data/"
         base_dir = Path(measurements_dir)
         # base_dir = Path(self.paths['measurements_dir'],  f'base/vide/')

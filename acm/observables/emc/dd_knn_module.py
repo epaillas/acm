@@ -57,8 +57,6 @@ class DDkNN(BaseObservableEMC):
         xarray.DataArray
             Covariance array.
         """
-        logger = cls.get_logger()
-
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / stat_name
         data_fns = list(
@@ -157,8 +155,6 @@ class DDkNN(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = Path(paths["measurements_dir"], "base/dd_knn")
 
         y = []

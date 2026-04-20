@@ -80,8 +80,6 @@ class DensitySplitBaseClass(BaseObservableBGS):
         xarray.Dataset
             Compressed dataset containing the covariance and bin values.
         """
-        logger = cls.get_logger()
-
         small_dir = Path(paths["measurements_dir"]) / "small"
 
         y = []
@@ -220,8 +218,6 @@ class DensitySplitBaseClass(BaseObservableBGS):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         x = cls.compress_x(
             paths=paths, cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod
         )

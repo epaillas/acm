@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,7 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 
 from .base import BaseObservableEMC
 
+logger = logging.getLogger(__name__)
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
@@ -58,8 +60,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         xarray.DataArray
             Covariance array.
         """
-        logger = cls.get_logger()
-
         # Directories
         base_dir = Path(paths["measurements_dir"]) / "small" / stat_name
         data_fns = list(
@@ -156,8 +156,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         base_dir = paths["measurements_dir"] + f"base/{stat_name}/"
 
         y = []
