@@ -12,6 +12,7 @@ from .base import BaseObservableEMC
 
 logger = logging.getLogger(__name__)
 
+
 class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     """
     Class for the Emulator's Mock Challenge galaxy correlation

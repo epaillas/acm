@@ -1,5 +1,5 @@
-import time
 import logging
+import time
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -19,6 +19,7 @@ from .base import BaseEstimator
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 logger = logging.getLogger(__name__)
+
 
 class WaveletScatteringTransform(BaseEstimator):
     """
