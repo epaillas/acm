@@ -8,8 +8,6 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - "acm/**"
-  merge_group:
-    types: ["checks_requested"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
