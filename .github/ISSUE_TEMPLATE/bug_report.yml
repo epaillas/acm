@@ -46,6 +46,13 @@ body:
       description: If applicable, add screenshots to help explain your problem.
       placeholder: Provide links to screenshots or attach them directly.
 
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Please specify the version of the software you are using when you encountered the bug.
+      placeholder: e.g., 1.0.0-dev.1
+
   - type: checkboxes
     id: nersc
     attributes:
