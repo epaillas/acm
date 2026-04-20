@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 from abc import ABC
 from pathlib import Path
 
@@ -68,11 +68,14 @@ class BaseLightconeCatalog(ABC):
         None
             The lightcone catalog is modified in place.
         """
-        catalog = getattr(self, "catalog") # NOTE: Assumes the class has a catalog attribute
-        cosmo = getattr(self, "cosmo") # NOTE: Assumes the class has a cosmo attribute
-        boxsize = getattr(self, "boxsize") # NOTE: Assumes the class has a boxsize attribute
-        
-        
+        catalog = getattr(
+            self, "catalog"
+        )  # NOTE: Assumes the class has a catalog attribute
+        cosmo = getattr(self, "cosmo")  # NOTE: Assumes the class has a cosmo attribute
+        boxsize = getattr(
+            self, "boxsize"
+        )  # NOTE: Assumes the class has a boxsize attribute
+
         data_nbar = self.get_data_nbar(catalog, full_sky)
         logger.info(f"Raw data nbar: {data_nbar}")
 
@@ -116,9 +119,7 @@ class BaseLightconeCatalog(ABC):
         # calculate volumes of shells
         zedges = np.insert(zbin_max, 0, zbin_min[0])
         dbin_max = cosmo.comoving_radial_distance(zbin_max)
-        dedges = np.insert(
-            dbin_max, 0, cosmo.comoving_radial_distance(zbin_min[0])
-        )
+        dedges = np.insert(dbin_max, 0, cosmo.comoving_radial_distance(zbin_min[0]))
         volume = 4 / 3 * np.pi * (dedges[1:] ** 3 - dedges[:-1] ** 3)
         if not full_sky:
             volume = volume / 8
@@ -153,18 +154,20 @@ class BaseLightconeCatalog(ABC):
         for key in catalog.keys():
             catalog[key] = catalog[key][select_mask]
         catalog["NZ"] = data_nz[select_mask]
-        logger.info(
-            f"Downsampled data nbar: {self.get_data_nbar(catalog, full_sky)}"
-        )
+        logger.info(f"Downsampled data nbar: {self.get_data_nbar(catalog, full_sky)}")
 
     def get_data_nbar(self, data, full_sky: bool = False):
         """
         Compute the number density of the data catalog, which is defined
         by an octant of the spherical shell delimited by the redshift cuts.
         """
-        cosmo = getattr(self, "cosmo") # NOTE: Assumes the class has a cosmo attribute
-        zrange = getattr(self, "zrange") # NOTE: Assumes the class has a zrange attribute
-        sim_type = getattr(self, "sim_type") # NOTE: Assumes the class has a sim_type attribute
+        cosmo = getattr(self, "cosmo")  # NOTE: Assumes the class has a cosmo attribute
+        zrange = getattr(
+            self, "zrange"
+        )  # NOTE: Assumes the class has a zrange attribute
+        sim_type = getattr(
+            self, "sim_type"
+        )  # NOTE: Assumes the class has a sim_type attribute
 
         dmin, dmax = cosmo.comoving_radial_distance(zrange)
 
@@ -205,9 +208,13 @@ class BaseLightconeCatalog(ABC):
         return nbar
 
     def shell_filling_fraction(self, shells):
-        sim_type = getattr(self, "sim_type") # NOTE: Assumes the class has a sim_type attribute
-        boxsize = getattr(self, "boxsize") # NOTE: Assumes the class has a boxsize attribute
-        
+        sim_type = getattr(
+            self, "sim_type"
+        )  # NOTE: Assumes the class has a sim_type attribute
+        boxsize = getattr(
+            self, "boxsize"
+        )  # NOTE: Assumes the class has a boxsize attribute
+
         # Muller-Marsaglia octant sampling
         # evenly distribute points along an octant of a unit sphere
         num_samples = getattr(self, "monte_carlo_sampling_count")
@@ -437,7 +444,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             If True, the survey volunme is scaled to the full sky rather than an octant
         apply_rsd : bool
             If True, redshift space distortions are applied to the mock. If False, RSD is not applied.
-        
+
         Returns
         -------
         dict

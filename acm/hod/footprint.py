@@ -1,5 +1,5 @@
-import numpy as np
 import mockfactory
+import numpy as np
 from cosmoprimo.fiducial import DESI
 
 
