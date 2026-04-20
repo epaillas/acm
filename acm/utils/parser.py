@@ -240,16 +240,20 @@ def args_to_observables(
     for obs_args in args:
         observable_args = {
             "stat_name": obs_args.stat_name,
-            "paths": {key: literal_eval(value) for key, value in to_pairs(obs_args.paths)}
+            "paths": {
+                key: literal_eval(value) for key, value in to_pairs(obs_args.paths)
+            }
             if obs_args.paths
             else None,
             "select_filters": {
-                key: literal_eval(value) for key, value in to_pairs(obs_args.select_filters)
+                key: literal_eval(value)
+                for key, value in to_pairs(obs_args.select_filters)
             }
             if obs_args.select_filters
             else None,
             "slice_filters": {
-                key: literal_eval(value) for key, value in to_pairs(obs_args.slice_filters)
+                key: literal_eval(value)
+                for key, value in to_pairs(obs_args.slice_filters)
             }
             if obs_args.slice_filters
             else None,
