@@ -19,8 +19,8 @@ class MinimumSpanningTree(BaseObservableEMC):
     Class for the Emulator's Mock Challenge Minimum Spanning Tree.
     """
 
-    def __init__(self, stat_name="mst", n_test=6 * 500, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name="mst", **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(

@@ -49,6 +49,8 @@ LEGACY_TO_ALIAS = {
     "WaveletScatteringTransform": "wst",
 }
 
+TEST_FILTERS = {'cosmo_idx': [0, 1, 2, 3, 4, 13]}
+
 
 def resolve_statistic_name(statistic: str) -> str:
     statistic = LEGACY_TO_ALIAS.get(statistic, statistic)
@@ -75,7 +77,7 @@ parser.add_argument(
     help='Observable alias to compress.',
     default='spectrum',
 )
-parser.add_argument('--n_hod', type=int, default=500, help='Number of HOD realizations to use for compression.')
+parser.add_argument('--n_hod', type=int, default=250, help='Number of HOD realizations to use for compression.')
 parser.add_argument('--add_covariance', action='store_true', help='Whether to add covariance to the compressed data.')
 
 args = parser.parse_args()
@@ -89,4 +91,4 @@ setup_logging()
 paths = lookup_registry_path('projects.yaml', 'emc')
 
 observable = get_class_from_module(module, statistic)
-observable.compress_data(paths=paths, save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod)
+observable.compress_data(paths=paths, save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod, test_filters=TEST_FILTERS)

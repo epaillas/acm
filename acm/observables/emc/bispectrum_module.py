@@ -22,8 +22,8 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     function multipoles.
     """
 
-    def __init__(self, stat_name="bispectrum", n_test=6 * 500, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name="bispectrum", **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(

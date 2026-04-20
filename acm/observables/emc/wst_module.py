@@ -21,8 +21,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
     function multipoles.
     """
 
-    def __init__(self, stat_name="wst", n_test=6 * 250, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name="wst", **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
     @staticmethod
     def renorm_wst(inpt, config="J5_L3_q0.8_sigma0.4"):

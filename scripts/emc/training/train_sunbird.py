@@ -10,6 +10,9 @@ import argparse
 
 torch.set_float32_matmul_precision('high')
 
+REQUIRED_SPLIT_VARS = ('x_train', 'y_train', 'x_test', 'y_test')
+
+
 def _build_transform(transform_name):
     if transform_name is None:
         return None
@@ -20,17 +23,30 @@ def _build_transform(transform_name):
     raise ValueError(f'Unknown transform: {transform_name}')
 
 
-def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay, 
-    model_dir=None, transform_input=None, transform_output=None, val_cosmo_fraction=0.1, seed=None):
+def _require_train_test_split(observable):
+    dataset_vars = set(observable._dataset.data_vars)
+    missing = [name for name in REQUIRED_SPLIT_VARS if name not in dataset_vars]
+    if missing:
+        stat_name = getattr(observable, 'stat_name', 'unknown')
+        missing_str = ', '.join(missing)
+        raise ValueError(
+            f"Compressed EMC dataset for '{stat_name}' is missing {missing_str}. "
+            'This training script requires the train/test split produced during '
+            f"compression. Re-run `scripts/emc/measurements/compress_files.py --statistic {stat_name}` "
+            'for this statistic and try again.'
+        )
+
+
+def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
+    model_dir=None, transform_input=None, transform_output=None, val_fraction=0.1, seed=None):
 
     np.random.seed(seed)
-    
-    lhc_x = observable.x
-    lhc_y = observable.y
-    print(f'Loaded LHC with shape: {lhc_x.shape}, {lhc_y.shape}')
 
-    ncosmo, nhod = [len(observable.get_coordinate_list(name)) for name in ['cosmo_idx', 'hod_idx']]
-    print(f'Number of cosmologies: {ncosmo}, Number of HODs: {nhod}')
+    _require_train_test_split(observable)
+
+    train_x = observable.x_train
+    train_y = observable.y_train
+    print(f'Loaded training split with shape: {train_x.shape}, {train_y.shape}')
 
     covariance_matrix = observable.get_covariance_matrix(volume_factor=64)
     print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
@@ -39,45 +55,28 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     output_transform = _build_transform(transform_output)
 
     if input_transform is not None:
-        lhc_x = input_transform.transform(lhc_x)
+        train_x = input_transform.transform(train_x)
 
     if output_transform is not None:
-        lhc_y = output_transform.transform(lhc_y)
-        
-    ntot = len(lhc_y)
-    n_test_cosmo = 6
-    idx_train = list(range(nhod * n_test_cosmo, ntot))
-    # idx_train = list(range(ntot))
+        train_y = output_transform.transform(train_y)
 
-    print(f'Using {len(idx_train)} samples for training')
+    print(f'Using {len(train_y)} training samples before validation split')
 
-    lhc_train_x = lhc_x[idx_train]
-    lhc_train_y = lhc_y[idx_train]
-
-    cosmo_values = np.array(observable.get_coordinate_list('cosmo_idx'))
-    train_cosmos = cosmo_values[n_test_cosmo:]
-    if len(train_cosmos) < 2:
-        raise ValueError('Need at least 2 training cosmologies to build a cosmology-level validation split.')
-
-    n_val_cosmo = max(1, int(len(train_cosmos) * val_cosmo_fraction))
-    n_val_cosmo = min(n_val_cosmo, len(train_cosmos) - 1)
-    val_cosmos_list = np.random.choice(train_cosmos, size=n_val_cosmo, replace=False)
-    val_cosmos = set(val_cosmos_list)
-
-    cosmo_labels_train = np.repeat(train_cosmos, nhod)
-    val_idx = np.where(np.isin(cosmo_labels_train, list(val_cosmos)))[0].tolist()
-
-    train_mean = np.mean(lhc_train_y, axis=0)
-    train_std = np.std(lhc_train_y, axis=0)
-
-    train_mean_x = np.mean(lhc_train_x, axis=0)
-    train_std_x = np.std(lhc_train_x, axis=0)
-
-    data = ArrayDataModule(x=torch.Tensor(lhc_train_x),
-                        y=torch.Tensor(lhc_train_y), 
-                        val_idx=val_idx, batch_size=128,
-                        num_workers=0)
+    data = ArrayDataModule(
+        x=train_x,
+        y=train_y,
+        val_fraction=val_fraction,
+        batch_size=128,
+        num_workers=0
+    )
     data.setup()
+
+    train_x, train_y = data.ds_train.tensors
+    train_mean = train_y.detach().cpu().numpy().mean(axis=0)
+    train_std = train_y.detach().cpu().numpy().std(axis=0)
+
+    train_mean_x = train_x.detach().cpu().numpy().mean(axis=0)
+    train_std_x = train_x.detach().cpu().numpy().std(axis=0)
 
     model = FCN(
             n_input=data.n_input,
@@ -129,7 +128,7 @@ if __name__ == '__main__':
     parser.add_argument('--transform_output', type=str, choices=['log', 'arcsinh'], default=None, help='Transform to apply to outputs.')
     parser.add_argument('-s', '--statistic', type=str, default='bispectrum', help='Statistic to train on.')
     parser.add_argument('--model_dir', type=str, default=None, help='Directory to save the model.')
-    parser.add_argument('--val_cosmo_fraction', type=float, default=0.1, help='Fraction of training cosmologies to hold out for validation.')
+    parser.add_argument('--val_fraction', type=float, default=0.1, help='Random fraction of training samples to hold out for validation within ArrayDataModule.')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
     args = parser.parse_args()
 
@@ -158,6 +157,6 @@ if __name__ == '__main__':
         model_dir=model_dir,
         transform_input=args.transform_input,
         transform_output=args.transform_output,
-        val_cosmo_fraction=args.val_cosmo_fraction,
+        val_fraction=args.val_fraction,
         seed=args.seed,
     )
