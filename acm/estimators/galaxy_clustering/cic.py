@@ -7,6 +7,8 @@ from acm.utils.plotting import set_plot_style
 
 from .base import BaseDensityMeshEstimator
 
+logger = logging.getLogger(__name__)
+
 
 class CountsInCells(BaseDensityMeshEstimator):
     """
@@ -14,8 +16,7 @@ class CountsInCells(BaseDensityMeshEstimator):
     """
 
     def __init__(self, **kwargs):
-        self.logger = logging.getLogger("CountsInCells")
-        self.logger.info("Initializing CountsInCells.")
+        logger.info("Initializing CountsInCells.")
         super().__init__(**kwargs)
 
     def sample_pdf(self, query_positions=None, query_method="randoms", nquery_factor=5):

@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import Optional, Tuple
@@ -11,6 +12,8 @@ from lsstypes import ObservableLeaf
 from .base import BaseEstimator
 
 jax.config.update("jax_enable_x64", True)
+
+logger = logging.getLogger(__name__)
 
 
 # JIT-compiled per-slice routine
@@ -232,7 +235,7 @@ class MinkowskiFunctionals(BaseEstimator):
                 MFs3D
             )  # convert back to numpy for easy printing/consumption
 
-        self.logger.info(
+        logger.info(
             f"Processed {dims_x} slices in {time.time() - t0:.2f} s. Volume (valid pixels): {vol}"
         )
 

@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 
@@ -5,7 +6,6 @@ import jax
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import xarray as xr
 from jaxpower import (
     BinMesh2SpectrumPoles,
     FKPField,
@@ -25,6 +25,8 @@ from pypower import CatalogFFTPower
 from acm.utils.plotting import set_plot_style
 
 from .base import BaseEstimator
+
+logger = logging.getLogger(__name__)
 
 
 class DensitySplit(BaseEstimator):
@@ -85,7 +87,7 @@ class DensitySplit(BaseEstimator):
             quantiles.append(self.query_positions[self.quantiles_idx == i])
         self.quantiles = quantiles
         self.nquantiles = nquantiles
-        self.logger.info(f"Quantiles calculated in {time.time() - t0:.2f} seconds.")
+        logger.info(f"Quantiles calculated in {time.time() - t0:.2f} seconds.")
         return self.quantiles, self.quantiles_idx, self.delta_query
 
     def save(self, data, filename, type="correlation"):
@@ -131,7 +133,7 @@ class DensitySplit(BaseEstimator):
             return  # Exit early for non-zero processes
 
         path = Path(filename)
-        self.logger.info(f"Saving to {filename}")
+        logger.info(f"Saving to {filename}")
 
         if path.suffix in [".hdf5", ".h5"]:
             leaves = []
@@ -167,7 +169,7 @@ class DensitySplit(BaseEstimator):
             return  # Exit early for non-zero processes
 
         path = Path(filename)
-        self.logger.info(f"Saving to {filename}")
+        logger.info(f"Saving to {filename}")
 
         if path.suffix in [".hdf5", ".h5"]:
             leaves = []
@@ -392,9 +394,7 @@ class DensitySplit(BaseEstimator):
             spectrum = spectrum.clone(norm=norm)
 
             self._quantile_data_power.append(spectrum)
-            self.logger.info(
-                f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s.")
         if save_fn is not None:
             self.save(self._quantile_data_power, save_fn, type="power")
         return self._quantile_data_power
@@ -484,9 +484,7 @@ class DensitySplit(BaseEstimator):
             spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
             self._quantile_power.append(spectrum)
-            self.logger.info(
-                f"Q{i} auto-spectrum calculated in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Q{i} auto-spectrum calculated in {time.time() - t0:.2f} s.")
         if save_fn is not None:
             self.save(self._quantile_power, save_fn, type="power")
         return self._quantile_power

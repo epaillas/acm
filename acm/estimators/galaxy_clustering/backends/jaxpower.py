@@ -14,6 +14,8 @@ from jaxpower import (
     get_mesh_attrs,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class JaxpowerBackend:
     """Backend using jaxpower for galaxy clustering measurements.
@@ -81,7 +83,6 @@ class JaxpowerBackend:
             - meshsize : int or array_like
                 Number of mesh cells per dimension.
         """
-        self.logger = logging.getLogger("JaxpowerBackend")
         self.name = "jaxpower"
         pos = [p for p in [data_positions, randoms_positions] if p is not None]
         self.mattrs = get_mesh_attrs(*pos, **kwargs)
@@ -109,9 +110,9 @@ class JaxpowerBackend:
         self.meshsize = self.mattrs.meshsize
         self.cellsize = self.mattrs.cellsize
         if jax.process_index() == 0:
-            self.logger.info(f"Box size: {self.boxsize}")
-            self.logger.info(f"Box center: {self.boxcenter}")
-            self.logger.info(f"Box meshsize: {self.meshsize}")
+            logger.info(f"Box size: {self.boxsize}")
+            logger.info(f"Box center: {self.boxcenter}")
+            logger.info(f"Box meshsize: {self.meshsize}")
 
     def set_density_contrast(
         self,
@@ -187,9 +188,7 @@ class JaxpowerBackend:
         kernel = 1.0
         if smoothing_radius is not None:
             if jax.process_index() == 0:
-                self.logger.info(
-                    f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel."
-                )
+                logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
             kernel = self.kernel_gaussian(
                 self.mattrs, smoothing_radius=smoothing_radius
             )
@@ -198,7 +197,7 @@ class JaxpowerBackend:
                 randoms_mesh = (_2c(randoms_mesh) * kernel).c2r()
         data_mesh = _2r(data_mesh)
         if randoms_mesh is not None:
-            self.logger.info("Using randoms to compute density contrast.")
+            logger.info("Using randoms to compute density contrast.")
             randoms_mesh = _2r(randoms_mesh)
             sum_data, sum_randoms = data_mesh.sum(), randoms_mesh.sum()
             alpha = sum_data * 1.0 / sum_randoms
@@ -217,7 +216,7 @@ class JaxpowerBackend:
             self.mean = data_mesh.mean()
             self.delta_mesh = data_mesh / self.mean - 1
         if jax.process_index() == 0:
-            self.logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
+            logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
         return self.delta_mesh
 
     def _get_threshold_randoms(
@@ -289,17 +288,13 @@ class JaxpowerBackend:
             x, y, z = self.mattrs.rcoords()
             xx, yy, zz = jnp.meshgrid(x, y, z)
             coords = jnp.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
-            self.logger.info(
-                f"Generated lattice query points in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Generated lattice query points in {time.time() - t0:.2f} s.")
         elif method == "randoms":
             np.random.seed(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
             coords = np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
-            self.logger.info(
-                f"Generated random query points in {time.time() - t0:.2f} s."
-            )
+            logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         return coords.astype(np.float32)
 
     def kernel_gaussian(

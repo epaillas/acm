@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import subprocess
@@ -16,6 +17,8 @@ from acm.utils.plotting import set_plot_style
 
 from .base import BaseEstimator
 from .src import fastmodules
+
+logger = logging.getLogger(__name__)
 
 
 class VoxelVoids(BaseEstimator):
@@ -116,7 +119,7 @@ class VoxelVoids(BaseEstimator):
             # For periodic boxes without randoms, use delta_mesh directly
             self.rho_mesh = np.array(delta_array + 1.0)
 
-        self.logger.info(f"Set density contrast in {time.time() - t0:.2f} seconds.")
+        logger.info(f"Set density contrast in {time.time() - t0:.2f} seconds.")
         return delta_mesh
 
     def find_voids(self) -> Tuple[npt.NDArray, npt.NDArray]:
@@ -145,7 +148,7 @@ class VoxelVoids(BaseEstimator):
         self._find_voids()
         self.voids, self.void_radii = self._postprocess_voids()
         nvoids = len(self.voids)
-        self.logger.info(
+        logger.info(
             f"Found {nvoids} voxel voids in {time.time() - self.time:.2f} seconds."
         )
         return self.voids, self.void_radii
@@ -163,7 +166,7 @@ class VoxelVoids(BaseEstimator):
         This is an internal method called by find_voids. The results are
         post-processed by _postprocess_voids before being returned to the user.
         """
-        self.logger.info("Finding voids.")
+        logger.info("Finding voids.")
         nmesh = self.meshsize
         rho_mesh_flat = np.array(self.rho_mesh, dtype=np.float32)
         with open(
@@ -206,7 +209,7 @@ class VoxelVoids(BaseEstimator):
         applies cuts using the fastmodules.voxelvoid_cuts function, and cleans
         up temporary files.
         """
-        self.logger.info("Post-processing voids.")
+        logger.info("Post-processing voids.")
         nmesh = self.meshsize
         cellsize = self.cellsize[0]
         mask_cut = np.zeros(nmesh[0] * nmesh[1] * nmesh[2], dtype=np.intc)
@@ -228,7 +231,7 @@ class VoxelVoids(BaseEstimator):
         select = np.asarray(select, dtype=bool)
         rawdata = rawdata[select]
         # void minimum density centre locations
-        self.logger.info("Calculating void positions.")
+        logger.info("Calculating void positions.")
         xpos, ypos, zpos = self.voxel_position(rawdata[:, 2])
         offset = self.boxcenter - self.boxsize / 2.0
         xpos += offset[0]
@@ -236,7 +239,7 @@ class VoxelVoids(BaseEstimator):
         zpos += offset[2]
         self.core_dens = rawdata[:, 3]
         # void effective radii
-        self.logger.info("Calculating void radii.")
+        logger.info("Calculating void radii.")
         vols = rawdata[:, 5] * cellsize**3.0
         rads = (3.0 * vols / (4.0 * np.pi)) ** (1.0 / 3)
         self.zones = []

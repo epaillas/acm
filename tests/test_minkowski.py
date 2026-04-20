@@ -5,7 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from acm.estimators.galaxy_clustering.jaxmf import MinkowskiFunctionals
-from acm import setup_logging
+from acm import setup_logging, get_logger_for_script
+
+# script logger  init
+setup_logging()
+logger = get_logger_for_script(__file__)
 
 def get_hod_fns(cosmo=1, phase=0, redshift=0.5, seed=0):
     """
@@ -49,7 +53,7 @@ def test_minkowski():
         smoothing_radii = [5, 7, 10, 15]
     else:
         # Create simple test thresholds
-        print(f"Warning: {thresholds_fn} not found. Using test thresholds.")
+        logger.info(f"Warning: {thresholds_fn} not found. Using test thresholds.")
         smoothing_radii = [10]
         thresholds_all = {f"Thresholds_Rg{r}": np.linspace(-2, 2, 10) for r in smoothing_radii}
     
@@ -64,7 +68,7 @@ def test_minkowski():
     
     # Compute for each smoothing radius
     for smoothing_radius in smoothing_radii:
-        print(f"\nComputing Minkowski functionals for smoothing radius = {smoothing_radius} Mpc/h")
+        logger.info(f"Computing Minkowski functionals for smoothing radius = {smoothing_radius} Mpc/h")
         thresholds = thresholds_all[f"Thresholds_Rg{smoothing_radius}"]
         
         # Set density contrast with smoothing
@@ -77,11 +81,11 @@ def test_minkowski():
         mfs3d_all[f'Rg{smoothing_radius}'] = mf3d
         mfs3d_all[f'thresholds_Rg{smoothing_radius}'] = thresholds
         
-        print(f"  MF shape: {mf3d.shape}")
-        print(f"  MF0 range: [{mf3d[:, 0].min():.4f}, {mf3d[:, 0].max():.4f}]")
-        print(f"  MF1 range: [{mf3d[:, 1].min():.4f}, {mf3d[:, 1].max():.4f}]")
-        print(f"  MF2 range: [{mf3d[:, 2].min():.4f}, {mf3d[:, 2].max():.4f}]")
-        print(f"  MF3 range: [{mf3d[:, 3].min():.4f}, {mf3d[:, 3].max():.4f}]")
+        logger.info(f"  MF shape: {mf3d.shape}")
+        logger.info(f"  MF0 range: [{mf3d[:, 0].min():.4f}, {mf3d[:, 0].max():.4f}]")
+        logger.info(f"  MF1 range: [{mf3d[:, 1].min():.4f}, {mf3d[:, 1].max():.4f}]")
+        logger.info(f"  MF2 range: [{mf3d[:, 2].min():.4f}, {mf3d[:, 2].max():.4f}]")
+        logger.info(f"  MF3 range: [{mf3d[:, 3].min():.4f}, {mf3d[:, 3].max():.4f}]")
     
     # Plot results
     fig, axes = plt.subplots(2, 2, figsize=(10, 8))
@@ -104,7 +108,7 @@ def test_minkowski():
     
     plt.tight_layout()
     plt.savefig('minkowski_test.png', bbox_inches='tight', dpi=300)
-    print("\nPlot saved to minkowski_test.png")
+    logger.info("\nPlot saved to minkowski_test.png")
     
     # Additional diagnostic plot: check monotonicity for V0 (should be monotonic)
     fig, ax = plt.subplots(figsize=(6, 4))
@@ -121,23 +125,21 @@ def test_minkowski():
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig('minkowski_v0_test.png', bbox_inches='tight', dpi=300)
-    print("Volume fraction plot saved to minkowski_v0_test.png")
+    logger.info("Volume fraction plot saved to minkowski_v0_test.png")
     
     return mfs3d_all
 
 
 if __name__ == '__main__':
-    setup_logging()
-    
     # Load HOD catalog
     hod_fn = get_hod_fns(cosmo=0, phase=0, redshift=0.5)[0]
     positions, boxsize = get_hod_positions(hod_fn, los='z')
     
-    print(f"Loaded HOD catalog: {hod_fn}")
-    print(f"Number of galaxies: {len(positions)}")
-    print(f"Box size: {boxsize}")
+    logger.info(f"Loaded HOD catalog: {hod_fn}")
+    logger.info(f"*****************\nNumber of galaxies: {len(positions)}\n*****************")
+    logger.info(f"Box size: {boxsize}")
     
     # Run test
     results = test_minkowski()
     
-    print("\nTest completed successfully!")
+    logger.info("\nTest completed successfully!")

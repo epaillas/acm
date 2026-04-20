@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -13,6 +14,8 @@ from acm.utils.decorators import temporary_class_state
 from acm.utils.default import cosmo_list  # List of cosmologies in AbacusSummit
 from acm.utils.xarray import dataset_to_dict
 
+logger = logging.getLogger(__name__)
+
 
 class BaseObservableEMC(Observable):
     """
@@ -23,7 +26,7 @@ class BaseObservableEMC(Observable):
         self, flat_output_dims: int = 2, phase_correction: bool = False, **kwargs
     ):
         if phase_correction and hasattr(self, "compute_phase_correction"):
-            self.logger.info("Computing phase correction.")
+            logger.info("Computing phase correction.")
             self.phase_correction = self.compute_phase_correction()
 
         dataset = kwargs.get("dataset", None)
@@ -83,7 +86,7 @@ class BaseObservableEMC(Observable):
                 y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[
                     idx_test
                 ]
-                self.logger.warning(
+                logger.warning(
                     "DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future."
                 )
             else:
@@ -230,7 +233,7 @@ class BaseObservableEMC(Observable):
                     f"Missing keys: {missing}"
                 )
             if extra:
-                self.logger.warning(
+                logger.warning(
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )

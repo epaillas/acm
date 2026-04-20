@@ -1,3 +1,4 @@
+import logging
 import time
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,8 @@ from jaxpower import (
 )
 
 from .base import BaseEstimator
+
+logger = logging.getLogger(__name__)
 
 
 class PowerSpectrumMultipoles(BaseEstimator):
@@ -82,9 +85,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         )
 
         if self.has_randoms:
-            self.logger.info(
-                "Computing power spectrum using FKP estimator with randoms."
-            )
+            logger.info("Computing power spectrum using FKP estimator with randoms.")
             fkp = FKPField(self.data_mesh, self.randoms_mesh)
             norm = compute_fkp2_normalization(fkp, bin=self.bin)
             num_shotnoise = compute_fkp2_shotnoise(fkp, bin=self.bin)
@@ -98,7 +99,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
                 delta_mesh, bin=self.bin, los="firstpoint"
             )
         else:
-            self.logger.info(
+            logger.info(
                 "Computing power spectrum using box normalization without randoms."
             )
             norm = compute_box2_normalization(self.data_mesh, bin=self.bin)
@@ -119,7 +120,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         if save_fn:
             self.save(save_fn)
 
-        self.logger.info(f"Power spectrum computed in {time.time() - t0:.2f} s.")
+        logger.info(f"Power spectrum computed in {time.time() - t0:.2f} s.")
         return self.spectrum
 
     def get_multipoles(
@@ -169,5 +170,5 @@ class PowerSpectrumMultipoles(BaseEstimator):
         fn = Path(fn)  # Ensure fn is a Path object
         tmp_fn = fn.with_name(fn.stem + ".tmp" + fn.suffix)
         self.spectrum.write(tmp_fn)
-        self.logger.info(f"Saving power spectrum to {fn}")
+        logger.info(f"Saving power spectrum to {fn}")
         tmp_fn.replace(fn)  # Atomic move to avoid partial writes

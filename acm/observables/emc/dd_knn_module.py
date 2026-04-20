@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,6 +10,8 @@ from acm.utils.plotting import set_plot_style
 from acm.utils.xarray import dataset_to_dict, split_vars
 
 from .base import BaseObservableEMC
+
+logger = logging.getLogger(__name__)
 
 
 class DDkNN(BaseObservableEMC):
@@ -256,7 +259,7 @@ class DDkNN(BaseObservableEMC):
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")
-            self.logger.info(f"Saving training set figure to {save_fn}")
+            logger.info(f"Saving training set figure to {save_fn}")
 
         return fig, ax
 
@@ -329,7 +332,7 @@ class DDkNN(BaseObservableEMC):
 
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")
-            self.logger.info(f"Saving plot to {save_fn}")
+            logger.info(f"Saving plot to {save_fn}")
         return fig, lax
 
     @set_plot_style
@@ -363,7 +366,7 @@ class DDkNN(BaseObservableEMC):
 
         if save_fn is not None:
             fig.savefig(save_fn, dpi=300, bbox_inches="tight")
-            self.logger.info(f"Saving training set figure to {save_fn}")
+            logger.info(f"Saving training set figure to {save_fn}")
 
         return fig, ax
 
