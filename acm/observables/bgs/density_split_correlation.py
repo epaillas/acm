@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import override
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -429,7 +428,6 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
     def __init__(self, stat_name: str = "ds_xiqg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
@@ -438,7 +436,6 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
@@ -454,7 +451,6 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     def __init__(self, stat_name: str = "ds_xiqq", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
@@ -463,7 +459,6 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(

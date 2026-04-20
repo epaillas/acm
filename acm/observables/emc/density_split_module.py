@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import override
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -316,14 +315,12 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
     ) -> None:
         super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqg")
@@ -337,14 +334,12 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
     def __init__(self, stat_name: str = "ds_xiqq", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("measurement_root", "dsc_xiqq")

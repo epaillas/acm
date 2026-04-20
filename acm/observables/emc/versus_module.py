@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import override
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -711,13 +710,11 @@ class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
     def __init__(self, stat_name: str = "sv_vsf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_vsf")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_vsf")
@@ -732,13 +729,11 @@ class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
     def __init__(self, stat_name: str = "sv_recon_vsf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_vsf")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_vsf")
@@ -755,13 +750,11 @@ class VERSUSVoidGalaxyCorrelationFunctionMultipoles(
     def __init__(self, stat_name: str = "sv_xivg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_xivg")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_xivg")
@@ -778,13 +771,11 @@ class VERSUSVoidAutoCorrelationFunctionMultipoles(
     def __init__(self, stat_name: str = "sv_xivv", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_xivv")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_xivv")
@@ -801,13 +792,11 @@ class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(
     def __init__(self, stat_name: str = "sv_recon_xivg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_xivg")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_xivg")
@@ -824,13 +813,11 @@ class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(
     def __init__(self, stat_name: str = "sv_recon_xivv", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    @override
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_xivv")
         return super().compress_covariance(**kwargs)
 
-    @override
     @classmethod
     def compress_data(cls, **kwargs) -> xarray.Dataset:
         kwargs.setdefault("stat_name", "sv_recon_xivv")
