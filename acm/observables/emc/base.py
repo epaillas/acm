@@ -48,9 +48,6 @@ class BaseObservableEMC(Observable):
             except KeyError:
                 pass  # Ignore this step if no checkpoint is found for this stat_name (this will cause the model to not exist, but that's fine)
 
-        self.n_test = kwargs.pop(
-            "n_test", 6 * 500
-        )  # FIXME: Remove this on next file compression ! (backward compatibility)
         super().__init__(paths=paths, flat_output_dims=flat_output_dims, **kwargs)
 
     def get_emulator_covariance_y(
@@ -74,26 +71,12 @@ class BaseObservableEMC(Observable):
         y_test = getattr(self._dataset, "y_test", None)
 
         if x_test is None or y_test is None:
-            # For backward compatibility
-            if hasattr(self, "n_test"):
-                n_test = self.n_test
-                idx_test = range(n_test) if isinstance(n_test, int) else n_test
-                x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[
-                    idx_test
-                ]
-                y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[
-                    idx_test
-                ]
-                logger.warning(
-                    "DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future."
-                )
-            else:
-                raise ValueError(
-                    "x_test and y_test are not available in the dataset. Please provide them or set n_test in the class."
-                )
-        else:
-            x_test = self.drop_nan_dimensions(x_test)
-            y_test = self.drop_nan_dimensions(y_test)
+            raise ValueError(
+                "x_test and y_test are not available in the dataset. Please provide them in the dataset."
+            )
+
+        x_test = self.drop_nan_dimensions(x_test)
+        y_test = self.drop_nan_dimensions(y_test)
 
         # Flatten on 2D for indexing
         # unstack=False because it's either already unstacked or 2D - avoids NaN issues

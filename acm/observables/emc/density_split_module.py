@@ -310,10 +310,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles."""
 
-    def __init__(
-        self, stat_name: str = "ds_xiqg", n_test: int = 6 * 200, **kwargs
-    ) -> None:
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name: str = "ds_xiqg", **kwargs) -> None:
+        super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(cls, **kwargs) -> xarray.Dataset:

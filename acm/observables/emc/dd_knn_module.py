@@ -19,8 +19,8 @@ class DDkNN(BaseObservableEMC):
     Class for the Emulator's Mock Challenge 2D DD-kNN statistic
     """
 
-    def __init__(self, stat_name="dd_knn", n_test=6 * 100, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name="dd_knn", **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
     def make_mask(self, train_y):
         pass

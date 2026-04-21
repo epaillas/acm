@@ -21,8 +21,8 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
     function multipoles observable.
     """
 
-    def __init__(self, stat_name="vide_ccf", n_test=6 * 100, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name="vide_ccf", **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(
@@ -383,8 +383,8 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
     Class for the Emulator's Mock Challenge VIDE void size function observable.
     """
 
-    def __init__(self, stat_name="vide_vsf", n_test=6 * 100, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name="vide_vsf", **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(

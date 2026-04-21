@@ -28,9 +28,6 @@ class BaseObservableBGS(Observable):
         if dataset is None and paths is None:
             paths = lookup_registry_path("projects.yaml", "bgs", "Mr-20")
 
-        self.n_test = kwargs.pop(
-            "n_test", 6 * 100
-        )  # FIXME: Remove this on next file compression !
         super().__init__(
             paths=paths,
             flat_output_dims=flat_output_dims,
@@ -59,26 +56,12 @@ class BaseObservableBGS(Observable):
         y_test = getattr(self._dataset, "y_test", None)
 
         if x_test is None or y_test is None:
-            # For backward compatibility
-            if hasattr(self, "n_test"):
-                n_test = self.n_test
-                idx_test = range(n_test) if isinstance(n_test, int) else n_test
-                x_test = self.flatten_output(self._dataset.x, flat_output_dims=2)[
-                    idx_test
-                ]
-                y_test = self.flatten_output(self._dataset.y, flat_output_dims=2)[
-                    idx_test
-                ]
-                logger.warning(
-                    "DEPRECATED: n_test is deprecated. Please provide x_test and y_test in the dataset in the future."
-                )
-            else:
-                raise ValueError(
-                    "x_test and y_test are not available in the dataset. Please provide them or set n_test in the class."
-                )
-        else:
-            x_test = self.drop_nan_dimensions(x_test)
-            y_test = self.drop_nan_dimensions(y_test)
+            raise ValueError(
+                "x_test and y_test are not available in the dataset. Please provide them or set n_test in the class."
+            )
+
+        x_test = self.drop_nan_dimensions(x_test)
+        y_test = self.drop_nan_dimensions(y_test)
 
         # Flatten on 2D for indexing
         # unstack=False because it's either already unstacked or 2D - avoids NaN issues

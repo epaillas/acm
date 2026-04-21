@@ -22,8 +22,8 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
     function multipoles.
     """
 
-    def __init__(self, stat_name="projected_tpcf", n_test=6 * 500, **kwargs):
-        super().__init__(stat_name=stat_name, n_test=n_test, **kwargs)
+    def __init__(self, stat_name="projected_tpcf", **kwargs):
+        super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(
