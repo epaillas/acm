@@ -6,30 +6,28 @@ import numpy as np
 from pyrecon import RealMesh
 
 from .base import BaseEstimator
-from .src import minkowski as Mk
+from .src import minkowski as mk
 
 logger = logging.getLogger(__name__)
 
 
 class MinkowskiFunctionals(BaseEstimator):
-    """
-    Class to compute the Minkowski functionals.
-    """
+    """Class to compute the Minkowski functionals."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self.mask_mesh = RealMesh(**kwargs)
         logger.info("Initializing MinkowskiFunctionals.")
         super().__init__(**kwargs)
 
     def set_density_contrast(
         self,
-        global_mean=None,
-        smoothing_radius=None,
-        check=False,
-        ran_min=0.01,
-        save_wisdom=False,
-        plan="estimate",
-    ):
+        global_mean: float | None = None,
+        smoothing_radius: float | None = None,
+        check: bool = False,
+        ran_min: float = 0.01,
+        save_wisdom: bool = False,
+        plan: str = "estimate",
+    ) -> np.ndarray:
         """
         Set the density contrast.
 
@@ -43,6 +41,8 @@ class MinkowskiFunctionals(BaseEstimator):
             Minimum randoms.
         nquery_factor : int, optional
             Factor to multiply the number of data points to get the number of query points.
+        plan : str, optional
+            Plan for FFTW, by default "estimate".
 
         Returns
         -------
@@ -82,15 +82,25 @@ class MinkowskiFunctionals(BaseEstimator):
         return self.delta_mesh
 
     def get_rho(
-        self, rho_thres, smoothing_radius=None, save_wisdom=False, plan="estimate"
-    ):
+        self,
+        rho_thres: float,
+        smoothing_radius: float | None = None,
+        save_wisdom: bool = False,
+        plan: str = "estimate",
+    ) -> np.ndarray:
         """
         Get rho.
 
         Parameters
         ----------
+        rho_thres : float
+            Threshold for rho.
         smoothing_radius : float, optional
             Smoothing radius.
+        save_wisdom : bool, optional
+            Whether to save FFTW wisdom, by default False.
+        plan : str, optional
+            Plan for FFTW, by default "estimate".
 
         Returns
         -------
@@ -115,12 +125,22 @@ class MinkowskiFunctionals(BaseEstimator):
 
     def run(
         self,
-        thres_mask=-2,
-        thresholds=np.linspace(-1, 5, num=201, dtype=np.float32),
-        nthreads=1,
-    ):
+        thres_mask: float = -2,
+        thresholds: np.ndarray | None = None,
+        nthreads: int = 1,
+    ) -> np.ndarray:
         """
         Run the Minkowski functionals.
+
+        Parameters
+        ----------
+        thres_mask : float, optional
+            Threshold for masking, by default -2.
+        thresholds : array_like, optional
+            Thresholds to evaluate Minkowski functionals at. If set to None, defaults to np.linspace(-1, 5, num=201, dtype=np.float32).
+            Defaults to None.
+        nthreads : int, optional
+            Number of threads to use, by default 1.
 
         Returns
         -------
@@ -129,16 +149,16 @@ class MinkowskiFunctionals(BaseEstimator):
         """
         t0 = time.time()
         self.thres_mask = thres_mask
-        self.thresholds = thresholds
+        self.thresholds = thresholds or np.linspace(-1, 5, num=201, dtype=np.float32)
         if nthreads == 1:
-            mf = Mk.MFs(
+            mf = mk.MFs(
                 self.delta_mesh,
                 self.data_mesh.cellsize[0],
                 self.thres_mask,
                 self.thresholds,
             )
         else:
-            mf = Mk.MFs_parallel(
+            mf = mk.MFs_parallel(
                 self.delta_mesh,
                 self.data_mesh.cellsize[0],
                 self.thres_mask,
@@ -149,9 +169,16 @@ class MinkowskiFunctionals(BaseEstimator):
         logger.info(f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds.")
         return self.MFs
 
-    def measure_v123(self, thres_mask=-2, thres_bins=200):
+    def measure_v123(self, thres_mask: float = -2, thres_bins: int = 200) -> np.ndarray:
         """
         Only measure the 1,2,3th Minkowski functionals.
+
+        Parameters
+        ----------
+        thres_mask : float, optional
+            Threshold for masking, by default -2.
+        thres_bins : int, optional
+            Number of bins for thresholds, by default 200.
 
         Returns
         -------
@@ -163,7 +190,7 @@ class MinkowskiFunctionals(BaseEstimator):
         self.thresholds = np.quantile(
             self.rho_used, np.linspace(0, 1, num=thres_bins + 1)
         )
-        mf = Mk.MFs(
+        mf = mk.MFs(
             self.rho_mesh,
             self.data_mesh.cellsize[0],
             self.thres_mask,
@@ -173,14 +200,12 @@ class MinkowskiFunctionals(BaseEstimator):
         logger.info(f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds.")
         return self.MFs
 
-    def plot_MFs(self, x=[], label="MFs", mf_cons=[1, 10**3, 10**5, 10**7]):
-        """
-        Plot the Minkowski functionals
-        """
+    def plot_mfs(self, x: list = [], label: str = "MFs", mf_cons: list = [1, 10**3, 10**5, 10**7]) -> plt.Figure:
+        """Plot the Minkowski functionals."""
         fig = plt.figure(constrained_layout=False, figsize=[10, 10])
         spec = fig.add_gridspec(ncols=2, nrows=2, hspace=0.2, wspace=0.3)
         if len(x) == 0:
-            x = self.thresholds
+            x = list(self.thresholds)
 
         ylabels = [
             r"$V_{0}$",
@@ -204,14 +229,12 @@ class MinkowskiFunctionals(BaseEstimator):
 
         return fig
 
-    def plot_V123(self, x=[], label="MFs", mf_cons=[10**2, 10**3, 10**4]):
-        """
-        Plot the 1,2,3th Minkowski functionals
-        """
+    def plot_v123(self, x: list = [], label: str = "MFs", mf_cons: list = [10**2, 10**3, 10**4]) -> plt.Figure:
+        """Plot the 1,2,3th Minkowski functionals."""
         fig = plt.figure(constrained_layout=False, figsize=[15, 4])
         spec = fig.add_gridspec(ncols=3, nrows=1, hspace=0.2, wspace=0.3)
         if len(x) == 0:
-            x = self.thresholds
+            x = list(self.thresholds)
 
         ylabels = [
             r"$V_{1}[10^{- " + str(int(np.log10(mf_cons[0]))) + "}hMpc^{-1}]$",

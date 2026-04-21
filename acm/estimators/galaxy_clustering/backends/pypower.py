@@ -216,10 +216,10 @@ class PypowerBackend:
             return np.vstack((lattice_x, lattice_y, lattice_z)).T
         if method == "randoms":
             logger.info("Generating random query points within the box.")
-            np.random.seed(seed)
+            rng = np.random.default_rng(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
-            return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
+            return rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
         raise ValueError(f"Unknown method '{method}' for generating query points.")
 
     class TopHat:

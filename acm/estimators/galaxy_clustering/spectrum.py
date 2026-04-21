@@ -3,9 +3,11 @@ import time
 from pathlib import Path
 
 import jax
+import numpy as np
 from jaxpower import (
     BinMesh2SpectrumPoles,
     FKPField,
+    Mesh2SpectrumPoles,
     compute_box2_normalization,
     compute_fkp2_normalization,
     compute_fkp2_shotnoise,
@@ -20,6 +22,7 @@ logger = logging.getLogger(__name__)
 class PowerSpectrumMultipoles(BaseEstimator):
     """
     Calculate the power spectrum multipoles using jaxpower.
+
     https://github.com/adematti/jax-power/
     """
 
@@ -43,9 +46,9 @@ class PowerSpectrumMultipoles(BaseEstimator):
         los: str = "z",
         interlacing: int = 3,
         compensate: bool = True,
-        resampler="tsc",
+        resampler: str = "tsc",
         save_fn: str | None = None,
-    ):
+    ) -> Mesh2SpectrumPoles:
         """
         Calculate the power spectrum multipoles.
 
@@ -127,7 +130,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         kmax: float | None = None,
         rebin: int = 1,
         return_k: bool = False,
-    ):
+    ) -> list[np.ndarray] | tuple[np.ndarray, list[np.ndarray]]:
         """
         Get the power spectrum multipoles, optionally rebinned and with k-range selection.
 
@@ -155,7 +158,8 @@ class PowerSpectrumMultipoles(BaseEstimator):
         return poles
 
     def save(self, fn: str | Path) -> None:
-        """Save the computed power spectrum to a file. Only process 0 will write to disk.
+        """
+        Save the computed power spectrum to a file. Only process 0 will write to disk.
 
         Parameters
         ----------

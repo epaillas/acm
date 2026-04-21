@@ -1,6 +1,8 @@
 import logging
+from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from acm.utils.plotting import set_plot_style
 
@@ -10,15 +12,18 @@ logger = logging.getLogger(__name__)
 
 
 class CountsInCells(BaseEstimator):
-    """
-    Class to compute counts in cells.
-    """
+    """Class to compute counts in cells."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         logger.info("Initializing CountsInCells.")
         super().__init__(**kwargs)
 
-    def sample_pdf(self, query_positions=None, query_method="randoms", nquery_factor=5):
+    def sample_pdf(
+        self,
+        query_positions: np.ndarray | None = None,
+        query_method: str = "randoms",
+        nquery_factor: int = 5,
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """
         Get the quantiles of the overdensity density field.
 
@@ -53,9 +58,10 @@ class CountsInCells(BaseEstimator):
         return self.delta_query
 
     @set_plot_style
-    def plot_quantiles(self, save_fn=None):
+    def plot_quantiles(self, save_fn: str | Path | None = None) -> plt.Figure:
+        """Plot the quantiles of the overdensity field."""
         fig, ax = plt.subplots(figsize=(4, 4))
-        hist, bin_edges, patches = ax.hist(
+        ax.hist(
             self.delta_query, bins=200, density=True, lw=2.0
         )
         ax.set_xlabel(r"$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$", fontsize=15)

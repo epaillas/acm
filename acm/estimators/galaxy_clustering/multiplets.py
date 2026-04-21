@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 class GalaxyMultiplets:
     """
-    Class to identify galaxy multiplets (singlets, pairs, triplets, quadruplets, etc.)
-    based on 3D spatial separation and projected separation criteria, and compute
+    Class to identify galaxy multiplets (singlets, pairs, triplets, quadruplets, etc.).
+
+    Based on 3D spatial separation and projected separation criteria, and compute
     their cross-correlation with the full galaxy sample.
 
     A multiplet is a group of galaxies that are connected by proximity:
@@ -33,7 +34,13 @@ class GalaxyMultiplets:
         Number of threads for correlation function computation (default: 4)
     """
 
-    def __init__(self, r_max=7.0, r_perp_max=1.05, los="z", nthreads=4):
+    def __init__(
+        self,
+        r_max: float = 7.0,
+        r_perp_max: float = 1.05,
+        los: str = "z",
+        nthreads: int = 4,
+    ) -> None:
         logger.info("Initializing GalaxyMultiplets.")
 
         self.r_max = r_max
@@ -51,7 +58,7 @@ class GalaxyMultiplets:
         self.triplet_coords = None
         self.quadruplet_coords = None
 
-    def _get_los_axes(self):
+    def _get_los_axes(self) -> list[int]:
         """Get the perpendicular axes for the given line-of-sight."""
         if self.los == "z":
             return [0, 1]
@@ -61,7 +68,7 @@ class GalaxyMultiplets:
             return [1, 2]
         raise ValueError(f"Invalid los: {self.los}. Must be 'x', 'y', or 'z'")
 
-    def find_pairs(self, positions, boxsize):
+    def find_pairs(self, positions: np.ndarray, boxsize: float | np.ndarray) -> np.ndarray:
         """
         Find all galaxy pairs within the specified 3D and projected separations.
 
@@ -148,7 +155,7 @@ class GalaxyMultiplets:
 
         return pairs
 
-    def form_multiplets(self, pairs, n_galaxies):
+    def form_multiplets(self, pairs: np.ndarray, n_galaxies: int) -> list[list[int]]:
         """
         Form multiplets by connecting pairs using graph-based clustering.
 
@@ -173,7 +180,7 @@ class GalaxyMultiplets:
         adj_matrix = csr_matrix((data, (row, col)), shape=(n_galaxies, n_galaxies))
 
         # Find connected components
-        n_components, labels = connected_components(csgraph=adj_matrix, directed=False)
+        _, labels = connected_components(csgraph=adj_matrix, directed=False)
 
         # Group galaxies by component label
         groups = defaultdict(set)
@@ -183,13 +190,13 @@ class GalaxyMultiplets:
             groups[g].add(b)
 
         # Convert to sorted lists
-        groups_list = [sorted(list(groups[g])) for g in sorted(groups)]
+        groups_list = [sorted(groups[g]) for g in sorted(groups)]
 
         logger.info(f"Formed {len(groups_list)} multiplets")
 
         return groups_list
 
-    def _periodic_mean(self, coords, boxsize):
+    def _periodic_mean(self, coords: np.ndarray, boxsize: float) -> np.ndarray:
         """
         Compute the mean position of a group accounting for periodic boundaries.
 
@@ -218,7 +225,7 @@ class GalaxyMultiplets:
 
         return mean
 
-    def compute_group_centers(self, positions, groups_list, boxsize):
+    def compute_group_centers(self, positions: np.ndarray, groups_list: list[list[int]], boxsize: float | np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the center-of-mass for each multiplet group.
 
@@ -240,6 +247,8 @@ class GalaxyMultiplets:
         """
         if np.isscalar(boxsize):
             boxsize = np.array([boxsize, boxsize, boxsize])
+        else:
+            boxsize = np.asarray(boxsize)
 
         n_groups = len(groups_list)
         group_centers = np.zeros((n_groups, 3))
@@ -252,7 +261,7 @@ class GalaxyMultiplets:
 
         return group_centers, group_sizes
 
-    def identify_multiplets(self, positions, boxsize):
+    def identify_multiplets(self, positions: np.ndarray, boxsize: float | np.ndarray) -> dict:
         """
         Complete pipeline to identify all multiplets in a galaxy catalog.
 
@@ -310,7 +319,7 @@ class GalaxyMultiplets:
         self.triplet_coords = self.group_centers[self.group_sizes == 3]
         self.quadruplet_coords = self.group_centers[self.group_sizes == 4]
 
-        logger.info(f"Multiplet counts:")
+        logger.info("Multiplet counts:")
         logger.info(f"  Pairs: {len(self.pair_coords)}")
         logger.info(f"  Triplets: {len(self.triplet_coords)}")
         logger.info(f"  Quadruplets: {len(self.quadruplet_coords)}")
@@ -327,8 +336,12 @@ class GalaxyMultiplets:
         }
 
     def compute_cross_correlation(
-        self, multiplet_coords, all_positions, boxsize, edges
-    ):
+        self,
+        multiplet_coords: np.ndarray,
+        all_positions: np.ndarray,
+        boxsize: float | np.ndarray,
+        edges: tuple[np.ndarray, np.ndarray],
+    ) -> NaturalTwoPointEstimator:
         """
         Compute the cross-correlation between multiplet centers and all galaxies.
 
@@ -380,7 +393,13 @@ class GalaxyMultiplets:
 
         return estimator
 
-    def compute_all_cross_correlations(self, positions, boxsize, edges, pimax=None):
+    def compute_all_cross_correlations(
+        self,
+        positions: np.ndarray,
+        boxsize: float | np.ndarray,
+        edges: tuple[np.ndarray, np.ndarray],
+        pimax: float | None = None,
+    ) -> dict:
         """
         Compute cross-correlations for all multiplet types (singlets, pairs, triplets, quadruplets).
 
@@ -450,7 +469,7 @@ class GalaxyMultiplets:
 
         return correlations
 
-    def get_summary_table(self, edges, correlations):
+    def get_summary_table(self, edges: tuple[np.ndarray, np.ndarray], correlations: dict) -> np.ndarray:
         """
         Create a summary table with separation bins and correlation functions.
 

@@ -1,5 +1,4 @@
 import logging
-import os
 import random
 import subprocess
 import time
@@ -23,9 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class VoxelVoids(BaseEstimator):
-    """
-    Class to calculate voxel voids, as in https://github.com/seshnadathur/Revolver
-    """
+    """Class to calculate voxel voids, as in https://github.com/seshnadathur/Revolver."""
 
     def __init__(self, temp_dir: str | Path, **kwargs: Any) -> None:
         """
@@ -61,10 +58,8 @@ class VoxelVoids(BaseEstimator):
     def set_density_contrast(
         self,
         smoothing_radius: float | None = None,
-        check: bool = False,
         ran_min: float = 0.01,
-        save_wisdom: bool = False,
-    ) -> Any:
+    ) -> np.ndarray:
         """
         Set the density contrast.
 
@@ -72,12 +67,8 @@ class VoxelVoids(BaseEstimator):
         ----------
         smoothing_radius : float, optional
             Smoothing radius.
-        check : bool, optional
-            Check if there are enough randoms.
         ran_min : float, optional
             Minimum randoms.
-        save_wisdom : bool, optional
-            Save FFTW wisdom (for pyrecon backend).
 
         Returns
         -------
@@ -170,13 +161,10 @@ class VoxelVoids(BaseEstimator):
         logger.info("Finding voids.")
         nmesh = self.meshsize
         rho_mesh_flat = np.array(self.rho_mesh, dtype=np.float32)
-        with open(
-            f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat", "w"
-        ) as F:
+        fn = f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat"
+        with Path(fn).open("w") as F:
             rho_mesh_flat.tofile(F, format="%f")
-        bin_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "src", "jozov-grid.exe"
-        )
+        bin_path = Path(__file__).parent / "src" / "jozov-grid.exe"
         cmd = [
             bin_path,
             "v",
@@ -186,7 +174,7 @@ class VoxelVoids(BaseEstimator):
             str(nmesh[1]),
             str(nmesh[2]),
         ]
-        subprocess.call(cmd)
+        subprocess.call(cmd)  # noqa: S603
 
     def _postprocess_voids(self) -> tuple[npt.NDArray, npt.NDArray]:
         """
@@ -244,18 +232,19 @@ class VoxelVoids(BaseEstimator):
         vols = rawdata[:, 5] * cellsize**3.0
         rads = (3.0 * vols / (4.0 * np.pi)) ** (1.0 / 3)
         self.zones = []
-        with open(f"{self.handle}.zone", "r") as f:
+        with Path(f"{self.handle}.zone").open("r") as f:
             for line in f:
                 self.zones.append([int(i) for i in line.split()])
         self.zones = [zone for i, zone in enumerate(self.zones) if select[i]]
-        os.remove(f"{self.handle}.void")
-        os.remove(f"{self.handle}.txt")
-        os.remove(f"{self.handle}.zone")
-        os.remove(f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat")
+        Path(f"{self.handle}.void").unlink(missing_ok=True)
+        Path(f"{self.handle}.txt").unlink(missing_ok=True)
+        Path(f"{self.handle}.zone").unlink(missing_ok=True)
+        Path(f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat").unlink(missing_ok=True)
         return np.c_[xpos, ypos, zpos], rads
 
     def voxel_position(
-        self, voxel: npt.NDArray
+        self,
+        voxel: npt.NDArray,
     ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         """
         Calculate the Cartesian position of voxels in the mesh.
@@ -318,7 +307,9 @@ class VoxelVoids(BaseEstimator):
         return xpos[voxel], ypos[voxel], zpos[voxel]
 
     def void_data_correlation(
-        self, data_positions: npt.NDArray, **kwargs: Any
+        self,
+        data_positions: npt.NDArray,
+        **kwargs,
     ) -> TwoPointCorrelationFunction:
         """
         Compute the cross-correlation function between the voids and the data.
@@ -424,7 +415,7 @@ class VoxelVoids(BaseEstimator):
     @set_plot_style
     def plot_slice(
         self,
-        data_positions: npt.NDArray | None = None,
+        # data_positions: npt.NDArray | None = None,
         save_fn: str | Path | None = None,
     ) -> Figure:
         """
@@ -455,7 +446,7 @@ class VoxelVoids(BaseEstimator):
         boxsize = self.boxsize
         # boxcenter = self.boxcenter
         zones_mesh = np.zeros(nmesh).flatten()
-        for i, zone in enumerate(self.zones):
+        for _, zone in enumerate(self.zones):
             zones_mesh[zone] = random.random()
         zones_mesh = np.ma.masked_where(zones_mesh == 0, zones_mesh)
         delta_mesh = (

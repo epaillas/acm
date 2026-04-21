@@ -8,7 +8,15 @@ from .base import BaseEstimator
 class KthNearestNeighbor(BaseEstimator):
     """Class to compute the knns."""
 
-    def compute_knn_distances(self, data, query, k, periodic, nthread=1, leafsize=32):
+    def compute_knn_distances(
+        self,
+        data: np.ndarray,
+        query: np.ndarray,
+        k: int | list[int],
+        periodic: np.ndarray,
+        nthread: int = 1,
+        leafsize: int = 32,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Pair finding with scipy ckdtree."""
         # Make sure k in an array
         if isinstance(k, int):
@@ -32,9 +40,9 @@ class KthNearestNeighbor(BaseEstimator):
 
         return dis_trans, dis_par
 
-    def calc_cdf_hist(self, rs, pis, dis_t, dis_p):
+    def calc_cdf_hist(self, rs: np.ndarray, pis: np.ndarray, dis_t: np.ndarray, dis_p: np.ndarray) -> np.ndarray:
         """
-        2d histogram wrapper function
+        2D histogram wrapper function.
 
         Note: rs and pis should have shape (len(k), num_bins)
         """
@@ -53,17 +61,17 @@ class KthNearestNeighbor(BaseEstimator):
 
     def run_knn(
         self,
-        rs,
-        pis,
-        xgal,
-        xrand,
-        kneighbors,
-        periodic,
+        rs: np.ndarray,
+        pis: np.ndarray,
+        xgal: np.ndarray,
+        xrand: np.ndarray,
+        kneighbors: int | list[int],
+        periodic: np.ndarray,
         nthread: int = 32,
         leafsize: int = 32,
-    ):
+    ) -> np.ndarray:
         """
-        Run the knns calculator
+        Run the knns calculator.
 
         Parameters
         ----------
@@ -92,15 +100,18 @@ class KthNearestNeighbor(BaseEstimator):
             final knn array in shape (k, len(rs), len(pis))
         """
         # Check that 3D positions are given
-        assert xgal.shape[1] == 3
-        assert xrand.shape[1] == 3
+        if xgal.shape[1] != 3 or xrand.shape[1] != 3:
+            raise ValueError("xgal and xrand should have shape (N, 3)")
+
+        if isinstance(kneighbors, int):
+            kneighbors = [kneighbors]
 
         # Convert to double for extra speed
-        rs = np.float32(rs)
-        pis = np.float32(pis)
-        xgal = np.float32(xgal)
-        xrand = np.float32(xrand)
-        periodic = np.float32(periodic)
+        rs = np.array(rs, dtype=np.float32)
+        pis = np.array(pis, dtype=np.float32)
+        xgal = np.array(xgal, dtype=np.float32)
+        xrand = np.array(xrand, dtype=np.float32)
+        periodic = np.array(periodic, dtype=np.float32)
 
         xgal = np.array(xgal, order="C")  # data
         xrand = np.array(xrand, order="C")  # queries
@@ -109,7 +120,8 @@ class KthNearestNeighbor(BaseEstimator):
         periodic = np.array(periodic)
         if (len(periodic.shape) == 0) or (periodic.shape[0] < 3):
             periodic = np.ones(3) * periodic
-        assert periodic.shape == (3,), "Boxsize should have shape (3,)"
+        if periodic.shape[0] != 3:
+            raise ValueError("Periodic boxsize should have shape (3,)")
 
         # Do periodic wrap again in case float64->float32 conversion broke the box
         # xgal = np.mod(xgal, periodic)
@@ -124,20 +136,22 @@ class KthNearestNeighbor(BaseEstimator):
             leafsize=leafsize,
         )
 
-        assert dis_t.shape == dis_p.shape
+        if dis_t.shape != dis_p.shape:
+            raise ValueError("Transverse and line of sight distances should have the same shape")
 
         # A bit of care about rs and pis bins. If (len(k), N) arrays are provided,
         # use them (binning for each k individually). If not, turn them into this shape
-        assert len(rs.shape) == len(pis.shape)
+        if len(rs.shape) != len(pis.shape):
+            raise ValueError("rs and pis should have the same number of dimensions")
 
-        if len(rs.shape) == 2:
-            assert rs.shape[0] == pis.shape[0]
-        elif len(rs.shape) == 1:
+        if len(rs.shape) == 2 and rs.shape[0] != pis.shape[0]:
+            raise ValueError("If rs and pis are 2D, they should have the same number of rows (len(k))")
+        if len(rs.shape) == 1:
             # FIXME: k is not defined here !!
             rs = np.stack([rs for i in range(len(kneighbors))], axis=0)
             pis = np.stack([pis for i in range(len(kneighbors))], axis=0)
         else:
-            raise ValueError
+            raise ValueError("Invalid shape for rs and pis")
 
         # tabulate the pairs into knn histograms
         knns_out = self.calc_cdf_hist(rs, pis, dis_t, dis_p)
@@ -146,14 +160,21 @@ class KthNearestNeighbor(BaseEstimator):
 
 
 @njit(parallel=True)
-def convert_rppi(disi, xgal, xrand, k, L):
+def convert_rppi(
+    disi: np.ndarray,
+    xgal: np.ndarray,
+    xrand: np.ndarray,
+    k: list,
+    length: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Convert indices of pairs to transverse and line of sight distances.
+
     This function should be used if computations are performed for periodic box!
     """
     dis_trans = -np.ones((len(xrand), len(k)), dtype=np.float32)
     dis_par = -np.ones((len(xrand), len(k)), dtype=np.float32)
-    half_box = L / 2
+    half_box = length / 2
 
     # prange over queries so all cores are used!
     for ik in range(len(k)):
@@ -169,21 +190,21 @@ def convert_rppi(disi, xgal, xrand, k, L):
             # Check manually. If L = inf, the check fails, no wrapping happens!
             if np.abs(dx) > half_box[0]:
                 if dx > 0:
-                    dx -= L[0]
+                    dx -= length[0]
                 else:
-                    dx += L[0]
+                    dx += length[0]
 
             if np.abs(dy) > half_box[1]:
                 if dy > 0:
-                    dy -= L[1]
+                    dy -= length[1]
                 else:
-                    dy += L[1]
+                    dy += length[1]
 
             if np.abs(dz) > half_box[2]:
                 if dz > 0:
-                    dz -= L[2]
+                    dz -= length[2]
                 else:
-                    dz += L[2]
+                    dz += length[2]
 
             # Compute the distances
             dis_trans[i, ik] = np.sqrt(dx * dx + dy * dy)

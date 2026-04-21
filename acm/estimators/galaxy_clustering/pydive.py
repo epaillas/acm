@@ -1,7 +1,7 @@
 import logging
 import time
+from collections.abc import Callable
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ from .src.pydive import get_void_catalog_cgal, get_void_catalog_full
 logger = logging.getLogger(__name__)
 
 
-def _default_sample_function(void_cat, column="R"):
+def _default_sample_function(void_cat: pd.DataFrame, column: str = "R") -> list[np.ndarray]:
     limits = np.percentile(void_cat[column], np.linspace(0, 100, 7))
     toret = []
     for i in range(len(limits) - 1):
@@ -32,10 +32,12 @@ def _default_sample_function(void_cat, column="R"):
 
 class DTVoid(BaseEstimator):
     """
-    Class to compute Delaunay Triangulation (DT) Sphere clustering, as in https://arxiv.org/abs/1511.04299.
+    Class to compute Delaunay Triangulation (DT) Sphere clustering.
+
+    See more in https://arxiv.org/abs/1511.04299.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         logger.info("Initializing DTVoid.")
         self.cosmo = kwargs.pop("cosmo", None)
         self.zrange = kwargs.pop("zrange", None)
@@ -59,11 +61,29 @@ class DTVoid(BaseEstimator):
 
     def _galcat_to_voidcat(
         self,
-        data_positions,
-        full_cat=True,
-        periodic_mode=0,
-    ):
+        data_positions: np.ndarray,
+        full_cat: bool = True,
+        periodic_mode: int = 0,
+    ) -> tuple[pd.DataFrame, np.ndarray | None]:
+        """
+        Convert a galaxy catalog to a void catalog using Delaunay Triangulation.
 
+        Parameters
+        ----------
+        data_positions : np.ndarray
+            Positions of the data points.
+        full_cat : bool, optional
+            Whether to compute the full catalog with additional properties, by default True
+        periodic_mode : int, optional
+            Mode for handling periodic boundaries. 0: no padding, 1: padding with copies, 2: native periodic DT, by default 0
+
+        Returns
+        -------
+        voids : pd.DataFrame
+            DataFrame containing the void catalog with columns ['x', 'y', 'z', 'R'] and optionally ['vol', 'dtfe', 'area', 'sphericity'] if full_cat is True.
+        gal_dtfe : np.ndarray or None
+            DTFE density estimates at the galaxy positions if full_cat is True, otherwise None.
+        """
         periodic = self.is_box
         tic = time.time()
         if full_cat:
@@ -124,47 +144,44 @@ class DTVoid(BaseEstimator):
 
     def compute_spheres(
         self,
-        data_positions,
-        full_catalog,
-        sample_function=_default_sample_function,
-        sample_function_kwargs={},
-    ):
+        data_positions: np.ndarray,
+        full_catalog: bool,
+        sample_function: Callable = _default_sample_function,
+        **kwargs,
+    ) -> list[np.ndarray]:
         """
         Get the samples of the overdensity density field.
 
         Parameters
         ----------
-        query_positions : array_like, optional
-            Query positions.
-        query_method : str, optional
-            Method to generate query points. Options are 'lattice' or 'randoms'.
-        nquery_factor : int, optional
-            Factor to multiply the number of data points to get the number of query points.
-        nsamples : int
-            Number of samples.
+        data_positions : np.ndarray
+            Positions of the data points.
+        full_catalog : bool
+            Whether to compute the full catalog with additional properties.
+        sample_function : Callable, optional
+            Function to sample the void catalog.
+            Must take a Pandas DataFrame as input and return a list of numpy arrays.
+            Default is _default_sample_function.
+        **kwargs : dict
+            Additional keyword arguments to pass to the sample_function.
 
         Returns
         -------
-        samples : array_like
-            Quantiles of the density field.
-        samples_idx : array_like, optional
-            Index of the sample of each query point.
-        delta_query : array_like, optional
-            Density contrast at the query points.
+        samples : list[np.ndarray]
+            Output of the sample_function, typically a list of arrays containing the positions and properties of the sampled voids.
         """
         self.full_catalog = full_catalog
-        void_cat, gal_dtfe = self._galcat_to_voidcat(
+        void_cat, _ = self._galcat_to_voidcat(
             data_positions,
             full_cat=full_catalog,
             periodic_mode=0,
         )
-        self.samples = sample_function(void_cat, **sample_function_kwargs)
+        self.samples = sample_function(void_cat, **kwargs)
         return self.samples
 
-    def sample_data_correlation(self, data_positions, **kwargs):
+    def sample_data_correlation(self, data_positions: np.ndarray, **kwargs) -> list[TwoPointCorrelationFunction]:
         """
-        Compute the cross-correlation function between the density field
-        samples and the data.
+        Compute the cross-correlation function between the density field samples and the data.
 
         Parameters
         ----------
@@ -175,10 +192,8 @@ class DTVoid(BaseEstimator):
 
         Returns
         -------
-        s : array_like
-            Pair separations.
-        sample_data_ccf : array_like
-            Cross-correlation function between samples and data.
+        _sample_data_correlation: list[TwoPointCorrelationFunction]
+            List of cross-correlation functions between samples and data.
         """
         nsplits = kwargs.pop("nsplits", 1)
         logger.info(f"Using randoms split into {nsplits} parts.")
@@ -226,7 +241,7 @@ class DTVoid(BaseEstimator):
 
         return self._sample_data_correlation
 
-    def sample_correlation(self, **kwargs):
+    def sample_correlation(self, **kwargs) -> list[TwoPointCorrelationFunction]:
         """
         Compute the auto-correlation function of the density field samples.
 
@@ -237,10 +252,8 @@ class DTVoid(BaseEstimator):
 
         Returns
         -------
-        s : array_like
-            Pair separations.
-        sample_acf : array_like
-            Auto-correlation function of samples.
+        _sample_correlation: list[TwoPointCorrelationFunction]
+            List of auto-correlation functions of samples.
         """
         if self.has_randoms:
             if "randoms_positions" not in kwargs:
@@ -270,7 +283,7 @@ class DTVoid(BaseEstimator):
             self._sample_correlation.append(result)
         return self._sample_correlation
 
-    def sample_data_power(self, data_positions, **kwargs):
+    def sample_data_power(self, data_positions: np.ndarray, **kwargs) -> list[CatalogFFTPower]:
         """
         Compute the cross-power spectrum between the data and the density field samples.
 
@@ -283,10 +296,8 @@ class DTVoid(BaseEstimator):
 
         Returns
         -------
-        k : array_like
-            Wavenumbers.
-        sample_data_power : array_like
-            Cross-power spectrum between samples and data.
+        _sample_data_power: list[CatalogFFTPower]
+            List of cross-power spectra between samples and data.
         """
         if self.has_randoms:
             if "randoms_positions" not in kwargs:
@@ -315,7 +326,7 @@ class DTVoid(BaseEstimator):
             self._sample_data_power.append(result)
         return self._sample_data_power
 
-    def sample_power(self, **kwargs):
+    def sample_power(self, **kwargs) -> list[CatalogFFTPower]:
         """
         Compute the auto-power spectrum of the density field samples.
 
@@ -328,10 +339,8 @@ class DTVoid(BaseEstimator):
 
         Returns
         -------
-        k : array_like
-            Wavenumbers.
-        sample_power : array_like
-            Auto-power spectrum of samples.
+        _sample_power: list[CatalogFFTPower]
+            List of auto-power spectra of samples.
         """
         if self.has_randoms:
             if "randoms_positions" not in kwargs:
@@ -355,7 +364,8 @@ class DTVoid(BaseEstimator):
         return self._sample_power
 
     @set_plot_style
-    def plot_one_point(self):
+    def plot_one_point(self) -> plt.Figure:
+        """Plot the one-point statistics of the sampled voids."""
         if self.full_catalog:
             fig, ax = plt.subplots(
                 figsize=(12, self.samples[0][:, 3:].shape[1]),
@@ -365,45 +375,29 @@ class DTVoid(BaseEstimator):
         else:
             fig, ax = plt.subplots(figsize=(4, 4), nrows=1, ncols=1)
             ax = [ax]
-        cmap = matplotlib.cm.get_cmap("coolwarm")
-        colors = cmap(np.linspace(0.01, 0.99, len(self.samples)))
-        for i, samp in enumerate(self.samples):
-            hist, bin_edges, patches = ax[0].hist(
+        # cmap = cm.get_cmap("coolwarm")
+        # colors = cmap(np.linspace(0.01, 0.99, len(self.samples)))
+        for i, _ in enumerate(self.samples):
+            ax[0].hist(
                 self.samples[i][:, 3], bins=200, density=True, lw=2.0, histtype="step"
-            )  # , color='grey')
+            )
             if self.full_catalog:
-                hist, bin_edges, patches = ax[1].hist(
-                    np.log10(
-                        np.where(
-                            self.samples[i][:, 4] <= 0, 1e-8, self.samples[i][:, 4]
-                        )
-                    ),
-                    bins=200,
-                    density=True,
-                    lw=2.0,
-                    histtype="step",
-                )  # , color='grey')
-                hist, bin_edges, patches = ax[2].hist(
-                    self.samples[i][:, 5],
-                    bins=200,
-                    density=True,
-                    lw=2.0,
-                    histtype="step",
-                )  # , color='grey')
-                try:
-                    hist, bin_edges, patches = ax[3].hist(
-                        np.log10(
-                            np.where(
-                                self.samples[i][:, 6] <= 0, 1e-8, self.samples[i][:, 6]
-                            )
-                        ),
-                        bins=200,
-                        density=True,
-                        lw=2.0,
-                        histtype="step",
-                    )  # , color='grey')
-                except:
-                    pass
+                y1 = np.log10(
+                    np.where(self.samples[i][:, 4] <= 0, 1e-8, self.samples[i][:, 4])
+                )
+                ax[1].hist(
+                    y1, bins=200, density=True, lw=2.0, histtype="step"
+                )
+                ax[2].hist(
+                    self.samples[i][:, 5], bins=200, density=True, lw=2.0, histtype="step"
+                )
+                if len(ax) > 3:
+                    y3 = np.log10(
+                        np.where(self.samples[i][:, 6] <= 0, 1e-8, self.samples[i][:, 6])
+                    )
+                    ax[3].hist(
+                        y3, bins=200, density=True, lw=2.0, histtype="step"
+                    )
 
         # for i in range(len(self.samples)):
         #    dmax = self.delta_query[self.samples_idx == i].max()
@@ -416,10 +410,8 @@ class DTVoid(BaseEstimator):
         if self.full_catalog:
             ax[1].set_xlabel(r"$\log(\Delta)$", fontsize=15)
             ax[2].set_xlabel(r"$\Phi$", fontsize=15)
-            try:
+            if len(ax) > 3:
                 ax[3].set_xlabel(r"$\log(\Delta / n(z))$", fontsize=15)
-            except:
-                pass
         [a.set_ylabel("PDF", fontsize=15) for a in ax]
         # ax.set_xlim(-1.3, 3.0)
         [a.legend(handlelength=1.0) for a in ax]
@@ -428,7 +420,8 @@ class DTVoid(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_sample_data_correlation(self, ell=0, save_fn=None):
+    def plot_sample_data_correlation(self, ell: int = 0, save_fn: str | None = None) -> plt.Figure:
+        """Plot the cross-correlation function between the samples and the data."""
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
@@ -452,7 +445,8 @@ class DTVoid(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_sample_correlation(self, ell=0, save_fn=None):
+    def plot_sample_correlation(self, ell: int = 0, save_fn: str | None = None) -> plt.Figure:
+        """Plot the correlation function of the sampled voids."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
             s, multipoles = self._sample_correlation[i](ells=(0, 2, 4), return_sep=True)
@@ -467,7 +461,8 @@ class DTVoid(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_sample_data_power(self, ell=0, save_fn=None):
+    def plot_sample_data_power(self, ell: int = 0, save_fn: str | None = None) -> plt.Figure:
+        """Plot the cross-power spectrum between the samples and the data."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
             k, poles = self._sample_data_power[i](
@@ -484,7 +479,8 @@ class DTVoid(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_sample_power(self, ell=0, save_fn=None):
+    def plot_sample_power(self, ell: int = 0, save_fn: str | None = None) -> plt.Figure:
+        """Plot the power spectrum of the sampled voids."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
             k, poles = self._sample_power[i](

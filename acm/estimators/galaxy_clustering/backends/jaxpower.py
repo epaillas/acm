@@ -93,7 +93,7 @@ class JaxpowerBackend:
             exchange=True,
             backend="jax",
         )
-        self.has_randoms = False if randoms_positions is None else True
+        self.has_randoms = randoms_positions is not None
         self.size_data = len(data_positions)
         if self.has_randoms:
             self.randoms_mesh = ParticleField(
@@ -152,12 +152,12 @@ class JaxpowerBackend:
             Density contrast field.
         """
 
-        def _2r(mesh):
+        def _2r(mesh: RealMeshField | ComplexMeshField) -> RealMeshField:
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
             return mesh
 
-        def _2c(mesh):
+        def _2c(mesh: RealMeshField | ComplexMeshField) -> ComplexMeshField:
             if not isinstance(mesh, ComplexMeshField):
                 mesh = mesh.r2c()
             return mesh
@@ -241,9 +241,8 @@ class JaxpowerBackend:
         float
             Threshold value for randoms field.
         """
-        assert threshold_method in ["noise", "mean"], (
-            "threshold_method must be one of ['noise', 'mean']"
-        )
+        if threshold_method not in ["noise", "mean"]:
+            raise ValueError("threshold_method must be one of ['noise', 'mean']")
 
         if threshold_method == "noise":
             threshold_randoms = (
@@ -290,10 +289,10 @@ class JaxpowerBackend:
             coords = jnp.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
             logger.info(f"Generated lattice query points in {time.time() - t0:.2f} s.")
         elif method == "randoms":
-            np.random.seed(seed)
+            rng = np.random.default_rng(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
-            coords = np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
+            coords = rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
             logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         else:
             raise ValueError("method must be one of ['lattice', 'randoms']")

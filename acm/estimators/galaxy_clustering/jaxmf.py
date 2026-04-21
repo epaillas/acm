@@ -18,9 +18,13 @@ logger = logging.getLogger(__name__)
 # JIT-compiled per-slice routine
 @jax.jit
 def minkowski_slice_jax(
-    delta_slices: jnp.ndarray, thresholds: jnp.ndarray, thres_mask: float
+    delta_slices: jnp.ndarray,
+    thresholds: jnp.ndarray,
+    thres_mask: float,
 ) -> tuple[jnp.ndarray, jnp.int32]:
     """
+    Compute Minkowski functionals for a single slice of the density field.
+
     delta_slices: shape (2, Y, Z) float32
     thresholds: shape (T,) float32
     thres_mask: scalar float32
@@ -131,13 +135,26 @@ def minkowski_slice_jax(
 class MinkowskiFunctionals(BaseEstimator):
     """
     Computes 3D Minkowski functionals using the JAX implementation of the slice routine.
+
     Usage is similar to the original MinkowskiFunctionals class.
     """
 
-    def __init__(self, thres_mask: float, batch_slices: int = 32, **kwargs):
+    def __init__(
+        self,
+        thres_mask: float,
+        batch_slices: int = 32,
+        **kwargs,
+    ) -> None:
         """
-        batch_slices: how many slices to process per python loop iteration. Small batches
-                      reduce peak memory and keep JAX compilation efficient.
+        Initialize the MinkowskiFunctionals estimator.
+
+        Parameters
+        ----------
+        thres_mask: float
+            Threshold value to determine valid pixels.
+        batch_slices: int, optional
+            How many slices to process per python loop iteration.
+            Small batches reduce peak memory and keep JAX compilation efficient.
         """
         super().__init__(**kwargs)
 
@@ -146,7 +163,7 @@ class MinkowskiFunctionals(BaseEstimator):
 
         self.query_positions = self.get_query_positions(method="lattice")
 
-    def run(self, thresholds, save_fn: str | None = None):
+    def run(self, thresholds: np.ndarray, save_fn: str | None = None) -> np.ndarray:
         """
         Compute 3D Minkowski functionals.
 
@@ -175,7 +192,7 @@ class MinkowskiFunctionals(BaseEstimator):
 
         # ensure float32 input for memory (we still compute sums in float64 where needed)
         delta = self.delta_query.astype(np.float32)
-        dims_x, dims_y, dims_z = delta.shape
+        dims_x, _, _ = delta.shape
         len_thres = len(thresholds)
         thresholds_j = jnp.array(thresholds)
         delta_padded = np.concatenate((delta, delta[0:1, :, :]), axis=0)
@@ -192,7 +209,8 @@ class MinkowskiFunctionals(BaseEstimator):
             # we will process slices i..batch_end-1
             # build stack of delta_slices for each slice: shape (batch_size, 2, Y, Z)
             # Using numpy then convert to jnp to avoid building huge Python lists
-            batch_size = batch_end - i
+            # batch_size = batch_end - i
+
             # gather the required pairs
             pair_indices = np.stack(
                 [np.arange(i, batch_end), np.arange(i, batch_end) + 1], axis=1
@@ -218,21 +236,24 @@ class MinkowskiFunctionals(BaseEstimator):
             i = batch_end
 
         # Normalize MFs same as original:
-        l = float(vol)
+        vol = float(vol)
         a = float(self.cellsize[0])
         # if vol is zero avoid division by zero
-        if l == 0:
-            norm = jnp.array([0.0, 0.0, 0.0, 0.0], dtype=jnp.float64)
+        if vol == 0:
+            # norm = jnp.array([0.0, 0.0, 0.0, 0.0], dtype=jnp.float64)
             self.MFs3D = np.zeros_like(np.array(MFs3D))
         else:
             factors = jnp.array(
-                [1.0 / l, 1.0 / (l * a), 1.0 / (l * a * a), 1.0 / (l * a * a * a)],
+                [
+                    1.0 / vol,
+                    1.0 / (vol * a),
+                    1.0 / (vol * a * a),
+                    1.0 / (vol * a * a * a),
+                ],
                 dtype=jnp.float64,
             )
             MFs3D = MFs3D * factors[None, :]
-            self.MFs3D = np.array(
-                MFs3D
-            )  # convert back to numpy for easy printing/consumption
+            self.MFs3D = np.array(MFs3D)  # convert back to numpy for easy printing/consumption
 
         logger.info(
             f"Processed {dims_x} slices in {time.time() - t0:.2f} s. Volume (valid pixels): {vol}"
