@@ -74,9 +74,9 @@ class BaseObservableEMC(Observable):
             raise ValueError(
                 "x_test and y_test are not available in the dataset. Please provide them in the dataset."
             )
-        else:
-            x_test = self.drop_nan_dimensions(x_test)
-            y_test = self.drop_nan_dimensions(y_test)
+
+        x_test = self.drop_nan_dimensions(x_test)
+        y_test = self.drop_nan_dimensions(y_test)
 
         # Flatten on 2D for indexing
         # unstack=False because it's either already unstacked or 2D - avoids NaN issues
