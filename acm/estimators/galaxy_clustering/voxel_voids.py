@@ -239,7 +239,9 @@ class VoxelVoids(BaseEstimator):
         Path(f"{self.handle}.void").unlink(missing_ok=True)
         Path(f"{self.handle}.txt").unlink(missing_ok=True)
         Path(f"{self.handle}.zone").unlink(missing_ok=True)
-        Path(f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat").unlink(missing_ok=True)
+        Path(f"{self.handle}_rho_mesh_n{nmesh[0]}{nmesh[1]}{nmesh[2]}d.dat").unlink(
+            missing_ok=True
+        )
         return np.c_[xpos, ypos, zpos], rads
 
     def voxel_position(

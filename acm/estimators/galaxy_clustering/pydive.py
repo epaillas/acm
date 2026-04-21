@@ -16,7 +16,9 @@ from .src.pydive import get_void_catalog_cgal, get_void_catalog_full
 logger = logging.getLogger(__name__)
 
 
-def _default_sample_function(void_cat: pd.DataFrame, column: str = "R") -> list[np.ndarray]:
+def _default_sample_function(
+    void_cat: pd.DataFrame, column: str = "R"
+) -> list[np.ndarray]:
     limits = np.percentile(void_cat[column], np.linspace(0, 100, 7))
     toret = []
     for i in range(len(limits) - 1):
@@ -179,7 +181,9 @@ class DTVoid(BaseEstimator):
         self.samples = sample_function(void_cat, **kwargs)
         return self.samples
 
-    def sample_data_correlation(self, data_positions: np.ndarray, **kwargs) -> list[TwoPointCorrelationFunction]:
+    def sample_data_correlation(
+        self, data_positions: np.ndarray, **kwargs
+    ) -> list[TwoPointCorrelationFunction]:
         """
         Compute the cross-correlation function between the density field samples and the data.
 
@@ -283,7 +287,9 @@ class DTVoid(BaseEstimator):
             self._sample_correlation.append(result)
         return self._sample_correlation
 
-    def sample_data_power(self, data_positions: np.ndarray, **kwargs) -> list[CatalogFFTPower]:
+    def sample_data_power(
+        self, data_positions: np.ndarray, **kwargs
+    ) -> list[CatalogFFTPower]:
         """
         Compute the cross-power spectrum between the data and the density field samples.
 
@@ -385,19 +391,21 @@ class DTVoid(BaseEstimator):
                 y1 = np.log10(
                     np.where(self.samples[i][:, 4] <= 0, 1e-8, self.samples[i][:, 4])
                 )
-                ax[1].hist(
-                    y1, bins=200, density=True, lw=2.0, histtype="step"
-                )
+                ax[1].hist(y1, bins=200, density=True, lw=2.0, histtype="step")
                 ax[2].hist(
-                    self.samples[i][:, 5], bins=200, density=True, lw=2.0, histtype="step"
+                    self.samples[i][:, 5],
+                    bins=200,
+                    density=True,
+                    lw=2.0,
+                    histtype="step",
                 )
                 if len(ax) > 3:
                     y3 = np.log10(
-                        np.where(self.samples[i][:, 6] <= 0, 1e-8, self.samples[i][:, 6])
+                        np.where(
+                            self.samples[i][:, 6] <= 0, 1e-8, self.samples[i][:, 6]
+                        )
                     )
-                    ax[3].hist(
-                        y3, bins=200, density=True, lw=2.0, histtype="step"
-                    )
+                    ax[3].hist(y3, bins=200, density=True, lw=2.0, histtype="step")
 
         # for i in range(len(self.samples)):
         #    dmax = self.delta_query[self.samples_idx == i].max()
@@ -420,7 +428,9 @@ class DTVoid(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_sample_data_correlation(self, ell: int = 0, save_fn: str | None = None) -> plt.Figure:
+    def plot_sample_data_correlation(
+        self, ell: int = 0, save_fn: str | None = None
+    ) -> plt.Figure:
         """Plot the cross-correlation function between the samples and the data."""
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         fig, ax = plt.subplots(figsize=(4, 4))
@@ -445,7 +455,9 @@ class DTVoid(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_sample_correlation(self, ell: int = 0, save_fn: str | None = None) -> plt.Figure:
+    def plot_sample_correlation(
+        self, ell: int = 0, save_fn: str | None = None
+    ) -> plt.Figure:
         """Plot the correlation function of the sampled voids."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
@@ -461,7 +473,9 @@ class DTVoid(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_sample_data_power(self, ell: int = 0, save_fn: str | None = None) -> plt.Figure:
+    def plot_sample_data_power(
+        self, ell: int = 0, save_fn: str | None = None
+    ) -> plt.Figure:
         """Plot the cross-power spectrum between the samples and the data."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):

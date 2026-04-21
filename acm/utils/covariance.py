@@ -66,7 +66,9 @@ def correlation_from_covariance(covariance: np.ndarray) -> np.ndarray:
     return correlation
 
 
-def mad_1d(x: np.ndarray, axis: int | None = None, keepdims: bool = False) -> np.ndarray:
+def mad_1d(
+    x: np.ndarray, axis: int | None = None, keepdims: bool = False
+) -> np.ndarray:
     """Median absolute deviation with Gaussian-consistent scaling."""
     med = np.median(x, axis=axis, keepdims=True)
     mad = np.median(np.abs(x - med), axis=axis, keepdims=True)
@@ -118,7 +120,9 @@ def gk_mad_covariance(residuals: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     return C
 
 
-def orthogonal_gk_mad_covariance(residuals: np.ndarray, eps: float = 1e-12) -> np.ndarray:
+def orthogonal_gk_mad_covariance(
+    residuals: np.ndarray, eps: float = 1e-12
+) -> np.ndarray:
     """
     Emulator covariance through the Orthogonalized Gnanadesikan-Kettenring estimator.
 

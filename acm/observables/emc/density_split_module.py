@@ -267,7 +267,9 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """Plot the training set for the density-split correlation function multipoles."""
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
@@ -313,13 +315,13 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_data(**kwargs)
@@ -332,13 +334,13 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_data(**kwargs)

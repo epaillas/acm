@@ -71,7 +71,9 @@ class MinimumSpanningTree(BaseEstimator):
         self.iterations = iterations
         self.quartiles = quartiles
 
-    def _periodic(self, x: np.ndarray, y: np.ndarray, z: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _periodic(
+        self, x: np.ndarray, y: np.ndarray, z: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Imposes periodic boundary condition on the input data.
 
@@ -124,7 +126,9 @@ class MinimumSpanningTree(BaseEstimator):
             x, y, z = self._periodic(x, y, z)
         return x, y, z
 
-    def _get_even_splits(self, length: int, n_splits: int) -> tuple[np.ndarray, np.ndarray]:
+    def _get_even_splits(
+        self, length: int, n_splits: int
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Find the intervals to split any array into roughly N segments.
 
@@ -152,7 +156,9 @@ class MinimumSpanningTree(BaseEstimator):
         split2 = splits[1:]
         return split1, split2
 
-    def get_percolation_statistics(self, data_pos: np.ndarray, useknn: bool = True, k: int = 20) -> dict:
+    def get_percolation_statistics(
+        self, data_pos: np.ndarray, useknn: bool = True, k: int = 20
+    ) -> dict:
         """
         Compute the percolation statistics on the input galaxy data.
 
@@ -325,25 +331,25 @@ class MinimumSpanningTree(BaseEstimator):
             color=colormap((1 - 1) / (10 - 1)),
         )
         xticks = [50.0]
-        xlabel = ["%i" % 1] # noqa: UP031
+        xlabel = ["%i" % 1]  # noqa: UP031
         for N in range(2, self.nth_point + 1):
             plt.plot(
                 100 * (N - 1) + percentmids,
-                mstdict["mst%ipt" % N], # noqa: UP031
+                mstdict["mst%ipt" % N],  # noqa: UP031
                 linestyle="-",
                 linewidth=2.0,
                 color=colormap((N - 1) / (self.nth_point - 1)),
             )
             plt.plot(
                 100 * (N - 1) + percentmids,
-                mstdict["end%ipt" % N], # noqa: UP031
+                mstdict["end%ipt" % N],  # noqa: UP031
                 linestyle="--",
                 linewidth=2.0,
                 color=colormap((N - 1) / (self.nth_point - 1)),
             )
             plt.axvline(100 * (N - 1), color="k", linestyle=":")
             xticks.append(100.0 * N - 50.0)
-            xlabel.append("%i" % N) # noqa: UP031
+            xlabel.append("%i" % N)  # noqa: UP031
         plt.plot([], [], color="k", linestyle="-", label="Percolation Distance")
         plt.plot([], [], color="k", linestyle="--", label="End-to-End Distance")
         plt.xlim(0.0, 100 * self.nth_point)

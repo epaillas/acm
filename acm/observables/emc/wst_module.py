@@ -17,7 +17,30 @@ logger = logging.getLogger(__name__)
 # unused masks in methods, moved here for visibility and to avoid magic numbers in the methods
 
 # WST coefficient indices to mask due to instabilities
-wst_idx_mask = [95,96,97,98,99,116,117,118,119,131,132,133,134,141,142,143,144,146,147,148,149]
+wst_idx_mask = [
+    95,
+    96,
+    97,
+    98,
+    99,
+    116,
+    117,
+    118,
+    119,
+    131,
+    132,
+    133,
+    134,
+    141,
+    142,
+    143,
+    144,
+    146,
+    147,
+    148,
+    149,
+]
+
 
 class WaveletScatteringTransform(BaseObservableEMC):
     """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
@@ -280,7 +303,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -306,7 +331,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, np.ndarray]:
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, np.ndarray]:
         """
         Plot multi-scale Minkowski functionals predictions against data.
 
@@ -377,7 +404,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_covariance_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance matrix for the observable.
 

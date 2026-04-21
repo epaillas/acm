@@ -238,7 +238,9 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_covariance_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance set for the observable.
 
@@ -282,7 +284,9 @@ class GalaxyPowerSpectrumMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the reconstructed galaxy power spectrum multipoles data, model, and residuals.
 

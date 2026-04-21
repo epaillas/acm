@@ -183,7 +183,9 @@ class DDkNN(BaseObservableEMC):
                     -1,
                 )
             )  # Just flatten if no mask is present
-            logger.warning("kNNs require cov data do perform filtering! Cov data is not included in this compression!")
+            logger.warning(
+                "kNNs require cov data do perform filtering! Cov data is not included in this compression!"
+            )
 
         # Make xarrays
         y = xarray.DataArray(
@@ -235,7 +237,9 @@ class DDkNN(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -260,7 +264,9 @@ class DDkNN(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot DD-kNN CDFs  predictions against data.
 
@@ -332,7 +338,9 @@ class DDkNN(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_covariance_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance matrix for the observable.
 

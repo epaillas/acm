@@ -40,7 +40,9 @@ class KthNearestNeighbor(BaseEstimator):
 
         return dis_trans, dis_par
 
-    def calc_cdf_hist(self, rs: np.ndarray, pis: np.ndarray, dis_t: np.ndarray, dis_p: np.ndarray) -> np.ndarray:
+    def calc_cdf_hist(
+        self, rs: np.ndarray, pis: np.ndarray, dis_t: np.ndarray, dis_p: np.ndarray
+    ) -> np.ndarray:
         """
         2D histogram wrapper function.
 
@@ -137,7 +139,9 @@ class KthNearestNeighbor(BaseEstimator):
         )
 
         if dis_t.shape != dis_p.shape:
-            raise ValueError("Transverse and line of sight distances should have the same shape")
+            raise ValueError(
+                "Transverse and line of sight distances should have the same shape"
+            )
 
         # A bit of care about rs and pis bins. If (len(k), N) arrays are provided,
         # use them (binning for each k individually). If not, turn them into this shape
@@ -145,7 +149,9 @@ class KthNearestNeighbor(BaseEstimator):
             raise ValueError("rs and pis should have the same number of dimensions")
 
         if len(rs.shape) == 2 and rs.shape[0] != pis.shape[0]:
-            raise ValueError("If rs and pis are 2D, they should have the same number of rows (len(k))")
+            raise ValueError(
+                "If rs and pis are 2D, they should have the same number of rows (len(k))"
+            )
         if len(rs.shape) == 1:
             # FIXME: k is not defined here !!
             rs = np.stack([rs for i in range(len(kneighbors))], axis=0)
@@ -161,11 +167,7 @@ class KthNearestNeighbor(BaseEstimator):
 
 @njit(parallel=True)
 def convert_rppi(
-    disi: np.ndarray,
-    xgal: np.ndarray,
-    xrand: np.ndarray,
-    k: list,
-    length: np.ndarray
+    disi: np.ndarray, xgal: np.ndarray, xrand: np.ndarray, k: list, length: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Convert indices of pairs to transverse and line of sight distances.

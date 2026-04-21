@@ -253,7 +253,9 @@ class MinkowskiFunctionals(BaseEstimator):
                 dtype=jnp.float64,
             )
             MFs3D = MFs3D * factors[None, :]
-            self.MFs3D = np.array(MFs3D)  # convert back to numpy for easy printing/consumption
+            self.MFs3D = np.array(
+                MFs3D
+            )  # convert back to numpy for easy printing/consumption
 
         logger.info(
             f"Processed {dims_x} slices in {time.time() - t0:.2f} s. Volume (valid pixels): {vol}"

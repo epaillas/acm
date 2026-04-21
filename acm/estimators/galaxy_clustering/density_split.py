@@ -79,13 +79,17 @@ class DensitySplit(BaseEstimator):
         self.query_positions = query_positions
         self.delta_query = self.read_density_contrast(query_positions)
         self.quantiles_idx = qcut(self.delta_query, nquantiles, labels=False)
-        quantiles = [self.query_positions[self.quantiles_idx == i] for i in range(nquantiles)]
+        quantiles = [
+            self.query_positions[self.quantiles_idx == i] for i in range(nquantiles)
+        ]
         self.quantiles = quantiles
         self.nquantiles = nquantiles
         logger.info(f"Quantiles calculated in {time.time() - t0:.2f} seconds.")
         return self.quantiles, self.quantiles_idx, self.delta_query
 
-    def save(self, data: list, filename: str | Path, data_type: str = "correlation") -> None:
+    def save(
+        self, data: list, filename: str | Path, data_type: str = "correlation"
+    ) -> None:
         """
         Save the per-quantile correlations or power spectra to disk.
 
@@ -245,7 +249,7 @@ class DensitySplit(BaseEstimator):
             )
             self._quantile_data_correlation.append(result)
             if "estimator" in kwargs and kwargs["estimator"] != "davispeebles":
-                    R1R2 = result.R1R2
+                R1R2 = result.R1R2
 
             # R1R2 = result.R1R2
         if save_fn is not None:
@@ -291,7 +295,7 @@ class DensitySplit(BaseEstimator):
             )
             self._quantile_correlation.append(result)
             if "estimator" in kwargs and kwargs["estimator"] != "davispeebles":
-                    R1R2 = result.R1R2
+                R1R2 = result.R1R2
         if save_fn is not None:
             self.save(self._quantile_correlation, save_fn, data_type="correlation")
         return self._quantile_correlation
@@ -479,7 +483,9 @@ class DensitySplit(BaseEstimator):
             # quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
             quantile_mesh = quantile_mesh - quantile_mesh.mean()
 
-            spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, bin=bin_mesh, los=los)
+            spectrum = jitted_compute_mesh2_spectrum(
+                quantile_mesh, bin=bin_mesh, los=los
+            )
             spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
             self._quantile_power.append(spectrum)
@@ -523,7 +529,9 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_data_correlation(self, ell: int = 0, save_fn: str | Path | None = None) -> plt.Figure:
+    def plot_quantile_data_correlation(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
         """Plot the cross-correlation functions for each quantile with the data."""
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         fig, ax = plt.subplots(figsize=(4, 4))
@@ -548,7 +556,9 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_correlation(self, ell: int = 0, save_fn: str | Path | None = None) -> plt.Figure:
+    def plot_quantile_correlation(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
         """Plot the auto-correlation functions for each quantile."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
@@ -566,7 +576,9 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_data_power(self, ell: int = 0, save_fn: str | Path | None = None) -> plt.Figure:
+    def plot_quantile_data_power(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
         """Plot the power spectrum for each quantile with the data."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
@@ -584,7 +596,9 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_power(self, ell: int = 0, save_fn: str | Path | None = None) -> plt.Figure:
+    def plot_quantile_power(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
         """Plot the power spectrum for each quantile."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):

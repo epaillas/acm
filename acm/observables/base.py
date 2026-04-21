@@ -393,7 +393,7 @@ class Observable:
         else:
             dim = attribute
 
-        dim_name = next(iter(dim.keys())) # First element
+        dim_name = next(iter(dim.keys()))  # First element
 
         if len(dim[dim_name]) != 0:
             da = dataarray.stack(**dim, **kwargs)
@@ -407,7 +407,9 @@ class Observable:
     @overload
     def apply_filters(self, dataarray: xarray.Dataset) -> xarray.Dataset: ...
 
-    def apply_filters(self, dataarray: xarray.DataArray | xarray.Dataset) -> xarray.DataArray | xarray.Dataset:
+    def apply_filters(
+        self, dataarray: xarray.DataArray | xarray.Dataset
+    ) -> xarray.DataArray | xarray.Dataset:
         """
         Apply the class filters on a given DataArray or Dataset.
 
@@ -509,9 +511,7 @@ class Observable:
         for f_str in ["select_filters", "slice_filters"]:
             f = getattr(self, f_str, None)
             if f is not None:
-                features_filters = [
-                    k for k in dataarray.attrs["features"] if k in f
-                ]
+                features_filters = [k for k in dataarray.attrs["features"] if k in f]
                 if dim_name in features_filters:
                     logger.warning(
                         f"select_indices is applied on a dimension ({dim_name}) that is also filtered with {f_str}. This might lead to unexpected results."
@@ -805,7 +805,9 @@ class Observable:
             )
 
         cov_y = self.flatten_output(
-            cov_y, flat_output_dims=2, unstack=False  # ty:ignore[invalid-argument-type]
+            cov_y,
+            flat_output_dims=2,
+            unstack=False,  # ty:ignore[invalid-argument-type]
         )  # No unstacking to avoid NaN
         cov_y = cov_y.values
 

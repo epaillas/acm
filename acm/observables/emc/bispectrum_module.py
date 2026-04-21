@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class GalaxyBispectrumMultipoles(BaseObservableEMC):
     """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 
-    def __init__(self, stat_name: str="bispectrum", **kwargs) -> None:
+    def __init__(self, stat_name: str = "bispectrum", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
@@ -244,7 +244,9 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the reconstructed galaxy bispectrum multipoles data, model, and residuals.
 

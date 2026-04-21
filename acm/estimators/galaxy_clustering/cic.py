@@ -61,9 +61,7 @@ class CountsInCells(BaseEstimator):
     def plot_quantiles(self, save_fn: str | Path | None = None) -> plt.Figure:
         """Plot the quantiles of the overdensity field."""
         fig, ax = plt.subplots(figsize=(4, 4))
-        ax.hist(
-            self.delta_query, bins=200, density=True, lw=2.0
-        )
+        ax.hist(self.delta_query, bins=200, density=True, lw=2.0)
         ax.set_xlabel(r"$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$", fontsize=15)
         ax.set_ylabel("PDF", fontsize=15)
         ax.set_xlim(-1.3, 3.0)

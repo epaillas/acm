@@ -106,7 +106,7 @@ class BaseObservableEMC(Observable):
             0
         ]  # Indexing on n_test to prevent filtering issues later on
         y = self._dataset.y.unstack()
-        shape = (n_test, *y.shape[len(y.attrs["sample"]):])
+        shape = (n_test, *y.shape[len(y.attrs["sample"]) :])
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords={

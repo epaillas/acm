@@ -87,7 +87,9 @@ class CombinedObservable:
             try:
                 idx = self.stat_name.index(item)
                 return self.observables[idx]
-            except ValueError as ve:  # If the item is not found in the list, raise an error
+            except (
+                ValueError
+            ) as ve:  # If the item is not found in the list, raise an error
                 raise KeyError(f"Observable with name {item} not found.") from ve
         else:
             raise TypeError(f"Item must be an int or str, not {type(item)}.")
@@ -134,7 +136,9 @@ class CombinedObservable:
                 [getattr(obs, name) for obs in self.observables], axis=-1
             )
         except AttributeError as ae:
-            raise AttributeError(f"'CombinedObservable' object has no attribute '{name}'") from ae
+            raise AttributeError(
+                f"'CombinedObservable' object has no attribute '{name}'"
+            ) from ae
 
     @property
     def stat_name(self) -> list:
@@ -212,10 +216,12 @@ class CombinedObservable:
         np.ndarray
             The combined data covariance matrix.
         """
-        cov_y = np.asarray(self.covariance_y) # Ensure covariance_y is a numpy array
+        cov_y = np.asarray(self.covariance_y)  # Ensure covariance_y is a numpy array
         prefactor = prefactor / volume_factor
 
-        cov = prefactor * np.cov(cov_y, rowvar=False)  # rowvar=False : each column is a variable and each row is an observation
+        cov = prefactor * np.cov(
+            cov_y, rowvar=False
+        )  # rowvar=False : each column is a variable and each row is an observation
 
         check_covariance_matrix(cov, name="combined data covariance", **kwargs)
 

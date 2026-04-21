@@ -592,7 +592,9 @@ class JaxelVoids(BaseEstimator):
             **kwargs,
         )
         if save_fn is not None:
-            self.save(save_fn, data=self._void_data_correlation, data_type="correlation")
+            self.save(
+                save_fn, data=self._void_data_correlation, data_type="correlation"
+            )
         return self._void_data_correlation
 
     @set_plot_style

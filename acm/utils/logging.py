@@ -36,6 +36,7 @@ if __name__ == '__main__':
 '''
 
 """
+
 import datetime
 import logging
 import sys
@@ -115,7 +116,11 @@ def setup_logging(
     )
 
 
-def exception_handler(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None ) -> None:
+def exception_handler(
+    exc_type: type[BaseException],
+    exc_value: BaseException,
+    exc_traceback: TracebackType | None,
+) -> None:
     """Print exception with a logger."""
     # Do not print traceback if the exception has been handled and logged
     _logger_name = "Exception"
@@ -136,7 +141,9 @@ def exception_handler(exc_type: type[BaseException], exc_value: BaseException, e
 
 
 @contextmanager
-def suppress_logging(enabled: bool = True, highest_level: int | str = logging.CRITICAL) -> Generator:
+def suppress_logging(
+    enabled: bool = True, highest_level: int | str = logging.CRITICAL
+) -> Generator:
     """Context manager to temporarily suppress logging messages."""
     root = logging.getLogger()
     origin_level = root.getEffectiveLevel()

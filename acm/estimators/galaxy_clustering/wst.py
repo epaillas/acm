@@ -29,7 +29,7 @@ class WaveletScatteringTransform(BaseEstimator):
         L: int = 4,  # noqa: N803
         q: float = 0.8,
         sigma: float = 0.8,
-        init_kymatio: None = None, # FIXME: Which type here ?
+        init_kymatio: None = None,  # FIXME: Which type here ?
         kymatio_backend: str = "torch",
         **kwargs,
     ) -> None:

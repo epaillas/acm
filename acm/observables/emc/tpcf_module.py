@@ -215,7 +215,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
-    def compute_phase_correction(self, rebin: int = 4, ells: list = [0, 2, 4]) -> np.ndarray:
+    def compute_phase_correction(
+        self, rebin: int = 4, ells: list = [0, 2, 4]
+    ) -> np.ndarray:
         """
         Correction factor to bring the fixed phase precictions (p000) to the ensemble average.
 

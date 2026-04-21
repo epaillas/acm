@@ -200,7 +200,9 @@ class MinkowskiFunctionals(BaseEstimator):
         logger.info(f"Minkowski functionals elapsed in {time.time() - t0:.2f} seconds.")
         return self.MFs
 
-    def plot_mfs(self, x: list = [], label: str = "MFs", mf_cons: list = [1, 10**3, 10**5, 10**7]) -> plt.Figure:
+    def plot_mfs(
+        self, x: list = [], label: str = "MFs", mf_cons: list = [1, 10**3, 10**5, 10**7]
+    ) -> plt.Figure:
         """Plot the Minkowski functionals."""
         fig = plt.figure(constrained_layout=False, figsize=[10, 10])
         spec = fig.add_gridspec(ncols=2, nrows=2, hspace=0.2, wspace=0.3)
@@ -229,7 +231,9 @@ class MinkowskiFunctionals(BaseEstimator):
 
         return fig
 
-    def plot_v123(self, x: list = [], label: str = "MFs", mf_cons: list = [10**2, 10**3, 10**4]) -> plt.Figure:
+    def plot_v123(
+        self, x: list = [], label: str = "MFs", mf_cons: list = [10**2, 10**3, 10**4]
+    ) -> plt.Figure:
         """Plot the 1,2,3th Minkowski functionals."""
         fig = plt.figure(constrained_layout=False, figsize=[15, 4])
         spec = fig.add_gridspec(ncols=3, nrows=1, hspace=0.2, wspace=0.3)

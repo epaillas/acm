@@ -45,9 +45,7 @@ def load_abacus_cosmologies(
 
 
 def get_abacus_phases(
-    phase_dir: str | Path,
-    z: float,
-    cosmo: int = 0
+    phase_dir: str | Path, z: float, cosmo: int = 0
 ) -> tuple[list[Path], list[int]]:
     """
     Find the simulation phases for a given redshift.

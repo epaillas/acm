@@ -4,7 +4,8 @@ from typing import TypeVar
 
 from acm.utils.default import is_nersc
 
-T = TypeVar('T') # Type variable for class methods
+T = TypeVar("T")  # Type variable for class methods
+
 
 def temporary_class_state(**attrs) -> Callable:
     """
@@ -12,6 +13,7 @@ def temporary_class_state(**attrs) -> Callable:
 
     Restores original values after method execution (even if exceptions occur).
     """
+
     def decorator(method: Callable) -> Callable:
         @wraps(method)
         def wrapper(self: T, *args, **kwargs) -> T:
@@ -34,11 +36,12 @@ def temporary_class_state(**attrs) -> Callable:
 
 def require_nersc(enabled: bool = True) -> Callable:
     """Restrict a function execution to NERSC environments."""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> object:
             if enabled and not is_nersc:
-                fname = getattr(func, '__name__', 'unknown')
+                fname = getattr(func, "__name__", "unknown")
                 raise OSError(
                     f"The function '{fname}' can only be executed in a NERSC environment."
                 )

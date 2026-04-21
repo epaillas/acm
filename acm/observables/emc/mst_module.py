@@ -207,7 +207,9 @@ class MinimumSpanningTree(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -232,7 +234,9 @@ class MinimumSpanningTree(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot Minimum Spanning Tree predictions against data.
 
@@ -302,7 +306,9 @@ class MinimumSpanningTree(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_covariance_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance matrix for the observable.
 

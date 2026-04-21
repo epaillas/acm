@@ -68,7 +68,9 @@ class GalaxyMultiplets:
             return [1, 2]
         raise ValueError(f"Invalid los: {self.los}. Must be 'x', 'y', or 'z'")
 
-    def find_pairs(self, positions: np.ndarray, boxsize: float | np.ndarray) -> np.ndarray:
+    def find_pairs(
+        self, positions: np.ndarray, boxsize: float | np.ndarray
+    ) -> np.ndarray:
         """
         Find all galaxy pairs within the specified 3D and projected separations.
 
@@ -225,7 +227,12 @@ class GalaxyMultiplets:
 
         return mean
 
-    def compute_group_centers(self, positions: np.ndarray, groups_list: list[list[int]], boxsize: float | np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def compute_group_centers(
+        self,
+        positions: np.ndarray,
+        groups_list: list[list[int]],
+        boxsize: float | np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the center-of-mass for each multiplet group.
 
@@ -261,7 +268,9 @@ class GalaxyMultiplets:
 
         return group_centers, group_sizes
 
-    def identify_multiplets(self, positions: np.ndarray, boxsize: float | np.ndarray) -> dict:
+    def identify_multiplets(
+        self, positions: np.ndarray, boxsize: float | np.ndarray
+    ) -> dict:
         """
         Complete pipeline to identify all multiplets in a galaxy catalog.
 
@@ -469,7 +478,9 @@ class GalaxyMultiplets:
 
         return correlations
 
-    def get_summary_table(self, edges: tuple[np.ndarray, np.ndarray], correlations: dict) -> np.ndarray:
+    def get_summary_table(
+        self, edges: tuple[np.ndarray, np.ndarray], correlations: dict
+    ) -> np.ndarray:
         """
         Create a summary table with separation bins and correlation functions.
 

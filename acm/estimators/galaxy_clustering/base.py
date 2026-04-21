@@ -32,9 +32,7 @@ class BaseEstimator:
             )
 
     def read_density_contrast(
-        self,
-        positions: np.ndarray,
-        resampler: str = "cic"
+        self, positions: np.ndarray, resampler: str = "cic"
     ) -> np.ndarray:
         """
         Get the density contrast at the input positions.
@@ -85,7 +83,9 @@ class BaseEstimator:
         return self.backend.__getattribute__(name)
 
     @staticmethod
-    def read(filename: str | Path, **kwargs) -> types.ObservableLeaf | xr.DataArray | xr.Dataset | np.ndarray:
+    def read(
+        filename: str | Path, **kwargs
+    ) -> types.ObservableLeaf | xr.DataArray | xr.Dataset | np.ndarray:
         """
         Read estimator output from a file.
 

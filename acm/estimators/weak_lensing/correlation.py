@@ -8,7 +8,9 @@ class LensingCorrelation:
     def __init__(self) -> None:
         pass
 
-    def kappa_correlation(self, cat1: "AbacusConvergenceMap", cat2: "AbacusConvergenceMap | None" = None) -> tuple[np.ndarray, np.ndarray]:
+    def kappa_correlation(
+        self, cat1: "AbacusConvergenceMap", cat2: "AbacusConvergenceMap | None" = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the convergence (auto/cross) correlation function using TreeCorr.
 

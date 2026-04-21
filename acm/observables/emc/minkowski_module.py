@@ -65,7 +65,8 @@ class MinkowskiFunctionals(BaseObservableEMC):
             logger.info(f"Compressing {filename}")
             data = np.load(filename, allow_pickle=True).item()
             mf = [
-                data[f"Rg{i}"][threshold_index[f"Threshold_index_Rg{i}"][j], j]* (10 * i) ** j
+                data[f"Rg{i}"][threshold_index[f"Threshold_index_Rg{i}"][j], j]
+                * (10 * i) ** j
                 for i in [5, 7, 10, 15]
                 for j in range(4)
             ]
@@ -172,7 +173,8 @@ class MinkowskiFunctionals(BaseObservableEMC):
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True).item()
                 mf = [
-                    data[f"Rg{i}"][threshold_index[f"Threshold_index_Rg{i}"][j], j]* (10 * i) ** j
+                    data[f"Rg{i}"][threshold_index[f"Threshold_index_Rg{i}"][j], j]
+                    * (10 * i) ** j
                     for i in [5, 7, 10, 15]
                     for j in range(4)
                 ]
@@ -235,7 +237,9 @@ class MinkowskiFunctionals(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot multi-scale Minkowski functionals predictions against data.
 
