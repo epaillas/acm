@@ -37,6 +37,7 @@ def optimize_sunbird_module(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType
     fake_acm = ModuleType("acm")
     captured: dict[str, object] = {
         "calls": [],
+        "prune_call_indices": set(),
     }
 
     class FakeObservable:
@@ -62,14 +63,13 @@ def optimize_sunbird_module(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType
         transform_output,
         val_fraction,
         seed,
+        trial=None,
+        enable_pruning=False,
     ):
         call_index = len(captured["calls"])
         model_dir = Path(model_dir)
         (model_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
         (model_dir / "tensorboard" / "version_0").mkdir(parents=True, exist_ok=True)
-        checkpoint_path = model_dir / f"{observable.stat_name}.ckpt"
-        checkpoint_path.write_text(f"checkpoint-{call_index}")
-        (model_dir / "checkpoints" / "last.ckpt").write_text(f"last-{call_index}")
         (model_dir / "tensorboard" / "version_0" / "events.out.tfevents").write_text(
             f"events-{call_index}"
         )
@@ -85,8 +85,16 @@ def optimize_sunbird_module(monkeypatch: pytest.MonkeyPatch) -> tuple[ModuleType
                 "transform_output": transform_output,
                 "val_fraction": val_fraction,
                 "seed": seed,
+                "trial": trial,
+                "enable_pruning": enable_pruning,
             }
         )
+        if call_index in captured["prune_call_indices"]:
+            raise optuna.TrialPruned(f"trial-{call_index}-pruned")
+
+        checkpoint_path = model_dir / f"{observable.stat_name}.ckpt"
+        checkpoint_path.write_text(f"checkpoint-{call_index}")
+        (model_dir / "checkpoints" / "last.ckpt").write_text(f"last-{call_index}")
         losses = [0.4, 0.1, 0.3, 0.2]
         return losses[call_index]
 
@@ -139,6 +147,26 @@ def test_parse_args_accepts_cmaes_sampler(
     assert args.sampler == "cmaes"
 
 
+def test_parse_args_defaults_to_median_pruner(
+    optimize_sunbird_module: tuple[ModuleType, dict[str, object]],
+) -> None:
+    module, _ = optimize_sunbird_module
+
+    args = module.parse_args([])
+
+    assert args.pruner == "median"
+
+
+def test_parse_args_accepts_none_pruner(
+    optimize_sunbird_module: tuple[ModuleType, dict[str, object]],
+) -> None:
+    module, _ = optimize_sunbird_module
+
+    args = module.parse_args(["--pruner", "none"])
+
+    assert args.pruner == "none"
+
+
 @pytest.mark.parametrize(
     ("sampler_name", "sampler_type"),
     [("tpe", optuna.samplers.TPESampler), ("cmaes", optuna.samplers.CmaEsSampler)],
@@ -156,6 +184,7 @@ def test_load_or_create_study_uses_requested_sampler_for_new_study(
         statistic="projected_tpcf",
         seed=7,
         sampler_name=sampler_name,
+        pruner_name="none",
     )
 
     assert isinstance(study.sampler, sampler_type)
@@ -164,7 +193,30 @@ def test_load_or_create_study_uses_requested_sampler_for_new_study(
     assert study.trials[0].system_attrs["fixed_params"] == module.DEFAULT_INITIAL_TRIAL
 
 
-def test_load_or_create_study_keeps_existing_sampler_on_resume(
+@pytest.mark.parametrize(
+    ("pruner_name", "pruner_type"),
+    [("median", optuna.pruners.MedianPruner), ("none", optuna.pruners.NopPruner)],
+)
+def test_load_or_create_study_uses_requested_pruner_for_new_study(
+    tmp_path: Path,
+    optimize_sunbird_module: tuple[ModuleType, dict[str, object]],
+    pruner_name: str,
+    pruner_type: type[optuna.pruners.BasePruner],
+) -> None:
+    module, _ = optimize_sunbird_module
+
+    study = module._load_or_create_study(
+        study_fn=tmp_path / "study.pkl",
+        statistic="projected_tpcf",
+        seed=7,
+        sampler_name="tpe",
+        pruner_name=pruner_name,
+    )
+
+    assert isinstance(study.pruner, pruner_type)
+
+
+def test_load_or_create_study_keeps_existing_sampler_and_pruner_on_resume(
     tmp_path: Path, optimize_sunbird_module: tuple[ModuleType, dict[str, object]]
 ) -> None:
     module, _ = optimize_sunbird_module
@@ -174,6 +226,7 @@ def test_load_or_create_study_keeps_existing_sampler_on_resume(
         statistic="projected_tpcf",
         seed=7,
         sampler_name="cmaes",
+        pruner_name="none",
     )
     module.joblib.dump(original_study, study_fn)
 
@@ -182,9 +235,11 @@ def test_load_or_create_study_keeps_existing_sampler_on_resume(
         statistic="projected_tpcf",
         seed=7,
         sampler_name="tpe",
+        pruner_name="median",
     )
 
     assert isinstance(resumed_study.sampler, optuna.samplers.CmaEsSampler)
+    assert isinstance(resumed_study.pruner, optuna.pruners.NopPruner)
 
 
 def test_optimize_sunbird_retains_trial_artifacts_and_publishes_best_model(
@@ -228,6 +283,8 @@ def test_optimize_sunbird_retains_trial_artifacts_and_publishes_best_model(
     assert captured["calls"][0]["transform_output"] == "arcsinh"
     assert captured["calls"][0]["val_fraction"] == 0.25
     assert captured["calls"][0]["seed"] == 7
+    assert captured["calls"][0]["enable_pruning"] is True
+    assert captured["calls"][0]["trial"] is not None
 
     first_trial_dir = study_dir / "trials" / "trial_0000"
     second_trial_dir = study_dir / "trials" / "trial_0001"
@@ -250,6 +307,41 @@ def test_optimize_sunbird_retains_trial_artifacts_and_publishes_best_model(
         publish_dir / "tensorboard" / "version_0" / "events.out.tfevents"
     ).read_text() == "events-1"
     assert (publish_dir / "unrelated.txt").read_text() == "keep-me"
+
+
+def test_optimize_sunbird_retains_artifacts_for_pruned_trials(
+    tmp_path: Path, optimize_sunbird_module: tuple[ModuleType, dict[str, object]]
+) -> None:
+    module, captured = optimize_sunbird_module
+    captured["prune_call_indices"] = {0}
+    study_dir = tmp_path / "study"
+
+    module.main(
+        [
+            "--study_dir",
+            str(study_dir),
+            "--n_trials",
+            "2",
+            "--statistic",
+            "projected_tpcf",
+        ]
+    )
+
+    study = module.joblib.load(study_dir / "study.pkl")
+    summary = json.loads((study_dir / "best_trial.json").read_text())
+    first_trial_dir = study_dir / "trials" / "trial_0000"
+    second_trial_dir = study_dir / "trials" / "trial_0001"
+
+    assert study.trials[0].state == optuna.trial.TrialState.PRUNED
+    assert study.trials[1].state == optuna.trial.TrialState.COMPLETE
+    assert Path(study.trials[0].user_attrs["model_dir"]) == first_trial_dir
+    assert "checkpoint_path" not in study.trials[0].user_attrs
+    assert first_trial_dir.exists()
+    assert (first_trial_dir / "tensorboard" / "version_0" / "events.out.tfevents").exists()
+    assert not (first_trial_dir / "projected_tpcf.ckpt").exists()
+    assert (second_trial_dir / "projected_tpcf.ckpt").exists()
+    assert summary["number"] == 1
+    assert summary["value"] == pytest.approx(0.1)
 
 
 def test_optimize_sunbird_resumes_existing_study(

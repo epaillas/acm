@@ -71,6 +71,13 @@ def build_parser():
         help='Optuna sampler to use when creating a new study.',
     )
     parser.add_argument(
+        '--pruner',
+        type=str,
+        choices=['median', 'none'],
+        default='median',
+        help='Optuna pruner to use when creating a new study.',
+    )
+    parser.add_argument(
         '--study_dir',
         type=str,
         default=None,
@@ -237,6 +244,10 @@ class EMCObjective:
         dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.15)
         n_layers = trial.suggest_int('n_layers', 1, 10)
         n_hidden = [trial.suggest_int('n_hidden', 128, 1024)] * n_layers
+        enable_pruning = not isinstance(
+            trial.study.pruner,
+            optuna.pruners.NopPruner,
+        )
 
         trial_model_dir = _get_trial_dir(self.study_dir, trial.number)
         if trial_model_dir.exists():
@@ -244,6 +255,7 @@ class EMCObjective:
                 f'Trial directory already exists for trial {trial.number}: {trial_model_dir}'
             )
 
+        trial.set_user_attr('model_dir', str(trial_model_dir))
         self.logger.info('Running trial %s in %s', trial.number, trial_model_dir)
         val_loss = TrainFCN(
             observable=self.observable,
@@ -256,10 +268,12 @@ class EMCObjective:
             transform_output=self.transform_output,
             val_fraction=self.val_fraction,
             seed=self.seed,
+            trial=trial if enable_pruning else None,
+            enable_pruning=enable_pruning,
         )
         checkpoint_path = trial_model_dir / f'{self.observable.stat_name}.ckpt'
-        trial.set_user_attr('model_dir', str(trial_model_dir))
-        trial.set_user_attr('checkpoint_path', str(checkpoint_path))
+        if checkpoint_path.exists():
+            trial.set_user_attr('checkpoint_path', str(checkpoint_path))
         return float(val_loss)
 
 
@@ -271,36 +285,64 @@ def _make_sampler(name, seed):
     raise ValueError(f'Unknown sampler: {name}')
 
 
-def _load_or_create_study(study_fn, statistic, seed, sampler_name):
+def _make_pruner(name):
+    if name == 'median':
+        return optuna.pruners.MedianPruner(
+            n_startup_trials=10,
+            n_warmup_steps=20,
+            interval_steps=1,
+        )
+    if name == 'none':
+        return optuna.pruners.NopPruner()
+    raise ValueError(f'Unknown pruner: {name}')
+
+
+def _load_or_create_study(study_fn, statistic, seed, sampler_name, pruner_name):
     study_fn = Path(study_fn)
     if study_fn.exists():
         study = joblib.load(study_fn)
         logger = logging.getLogger('optimize_sunbird')
         actual_sampler_name = study.sampler.__class__.__name__
-        if actual_sampler_name.lower().startswith(sampler_name):
+        requested_sampler_name = _make_sampler(
+            sampler_name,
+            seed=seed,
+        ).__class__.__name__
+        actual_pruner_name = study.pruner.__class__.__name__
+        requested_pruner_name = _make_pruner(pruner_name).__class__.__name__
+        if (
+            actual_sampler_name == requested_sampler_name
+            and actual_pruner_name == requested_pruner_name
+        ):
             logger.info(
-                'Loading existing study from %s with sampler=%s',
+                'Loading existing study from %s with sampler=%s and pruner=%s',
                 study_fn,
                 actual_sampler_name,
+                actual_pruner_name,
             )
         else:
             logger.info(
-                'Loading existing study from %s with sampler=%s; ignoring requested sampler=%s',
+                'Loading existing study from %s with sampler=%s and pruner=%s; '
+                'ignoring requested sampler=%s pruner=%s',
                 study_fn,
                 actual_sampler_name,
+                actual_pruner_name,
                 sampler_name,
+                pruner_name,
             )
         return study
 
     sampler = _make_sampler(sampler_name, seed=seed)
+    pruner = _make_pruner(pruner_name)
     logging.getLogger('optimize_sunbird').info(
-        'Creating new study with sampler=%s',
+        'Creating new study with sampler=%s and pruner=%s',
         sampler.__class__.__name__,
+        pruner.__class__.__name__,
     )
     study = optuna.create_study(
         study_name=statistic,
         direction='minimize',
         sampler=sampler,
+        pruner=pruner,
     )
     study.enqueue_trial(DEFAULT_INITIAL_TRIAL)
     return study
@@ -337,6 +379,7 @@ def main(argv=None):
         statistic=args.statistic,
         seed=args.seed,
         sampler_name=args.sampler,
+        pruner_name=args.pruner,
     )
 
     started_trials = _count_started_trials(study)
