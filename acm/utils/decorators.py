@@ -1,17 +1,20 @@
+from collections.abc import Callable
 from functools import wraps
+from typing import TypeVar
 
 from acm.utils.default import is_nersc
 
+T = TypeVar('T') # Type variable for class methods
 
-def temporary_class_state(**attrs):
+def temporary_class_state(**attrs) -> Callable:
     """
-    Decorator factory to temporarily modify class attributes during a method call.
+    Temporarily modify class attributes during a method call.
+
     Restores original values after method execution (even if exceptions occur).
     """
-
-    def decorator(method):
+    def decorator(method: Callable) -> Callable:
         @wraps(method)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self: T, *args, **kwargs) -> T:
             # Save original values
             original_attrs = {key: getattr(self, key) for key in attrs}
             for key, value in attrs.items():
@@ -29,13 +32,15 @@ def temporary_class_state(**attrs):
     return decorator
 
 
-def require_nersc(enabled: bool = True):
-    def decorator(func):
+def require_nersc(enabled: bool = True) -> Callable:
+    """Restrict a function execution to NERSC environments."""
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs) -> object:
             if enabled and not is_nersc:
+                fname = getattr(func, '__name__', 'unknown')
                 raise OSError(
-                    f"The function '{func.__name__}' can only be executed in a NERSC environment."
+                    f"The function '{fname}' can only be executed in a NERSC environment."
                 )
             return func(*args, **kwargs)
 

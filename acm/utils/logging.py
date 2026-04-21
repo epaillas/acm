@@ -36,15 +36,16 @@ if __name__ == '__main__':
 '''
 
 """
-
 import datetime
 import logging
-import os
 import sys
 import time
 import traceback
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
+from types import TracebackType
+from typing import TextIO
 
 NAME_LIB_GIT = __name__.split(".")[0]
 
@@ -52,8 +53,12 @@ logger = logging.getLogger(__name__)
 
 
 def setup_logging(
-    level=logging.INFO, stream=sys.stdout, filename=None, filemode="w", **kwargs
-):
+    level: int | str = logging.INFO,
+    stream: TextIO = sys.stdout,
+    filename: str | None = None,
+    filemode: str = "w",
+    **kwargs,
+) -> None:
     """
     Set up logging.
 
@@ -61,16 +66,12 @@ def setup_logging(
     ----------
     level : string, int, default=logging.INFO
         Logging level.
-
     stream : _io.TextIOWrapper, default=sys.stdout
         Where to stream.
-
     filename : string, default=None
         If not ``None`` stream to file name.
-
     filemode : string, default='w'
         Mode to open file, only used if filename is not ``None``.
-
     kwargs : dict
         Other arguments for :func:`logging.basicConfig`.
     """
@@ -88,7 +89,7 @@ def setup_logging(
     t0 = time.time()
 
     class MyFormatter(logging.Formatter):
-        def format(self, record):
+        def format(self, record: logging.LogRecord) -> str:
             self._style._fmt = (
                 "[%09.2f] " % (time.time() - t0)
                 + " %(asctime)s %(name)s:%(lineno)d %(levelname)s %(message)s"
@@ -102,7 +103,7 @@ def setup_logging(
 
     fmt = MyFormatter(datefmt="%m-%d %H:%M ")
     if filename is not None:
-        mkdir(os.path.dirname(filename))
+        Path(filename).parent.mkdir(parents=True, exist_ok=True)
         handler = logging.FileHandler(filename, mode=filemode)
     else:
         handler = logging.StreamHandler(stream=stream)
@@ -110,11 +111,11 @@ def setup_logging(
     logging.basicConfig(level=level, handlers=[handler], **kwargs)
     sys.excepthook = exception_handler
     logger.debug(
-        f"Start logger at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        f"Start logger at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"  # noqa: DTZ005
     )
 
 
-def exception_handler(exc_type, exc_value, exc_traceback):
+def exception_handler(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None ) -> None:
     """Print exception with a logger."""
     # Do not print traceback if the exception has been handled and logged
     _logger_name = "Exception"
@@ -134,16 +135,8 @@ def exception_handler(exc_type, exc_value, exc_traceback):
         log.critical("An error occurred.")
 
 
-def mkdir(dirname):
-    """Try to create ``dirname`` and catch :class:`OSError`."""
-    try:
-        os.makedirs(dirname)  # MPI...
-    except OSError:
-        return
-
-
 @contextmanager
-def suppress_logging(enabled=True, highest_level=logging.CRITICAL):
+def suppress_logging(enabled: bool = True, highest_level: int | str = logging.CRITICAL) -> Generator:
     """Context manager to temporarily suppress logging messages."""
     root = logging.getLogger()
     origin_level = root.getEffectiveLevel()
@@ -154,7 +147,7 @@ def suppress_logging(enabled=True, highest_level=logging.CRITICAL):
         root.setLevel(origin_level)
 
 
-def get_logger_for_script(pfile):
+def get_logger_for_script(pfile: str | Path) -> logging.Logger:
     """Return a logger with root logger is defined by the path of the file.
 
     Problem for script the value of __name__ is "__main__",

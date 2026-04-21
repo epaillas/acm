@@ -1,6 +1,4 @@
-"""
-Utility functions for covariance matrix & sanity checks.
-"""
+"""Utility functions for covariance matrix & sanity checks."""
 
 import warnings
 
@@ -9,30 +7,36 @@ from scipy.stats import norm
 
 
 # %% Covariance utils methods
-def get_covariance_correction(n_s, n_d, n_theta=None, method="percival"):
+def get_covariance_correction(
+    n_s: int,
+    n_d: int,
+    n_theta: int | None = None,
+    method: str = "percival",
+) -> float:
     """
-    Correction factor to debias de inverse covariance matrix.
+    Correction factor to debias the inverse covariance matrix.
 
-    Args:
-        n_s: int
-            Number of simulations.
-        n_d: int
-            Number of bins of the data vector.
-        n_theta: int, optional
-            Number of free parameters.
-        method: str, optional
-            Method to compute the correction factor. Default to "percival".
-            Available methods are: "percival", "percival-fisher", "hartlap".
+    Parameters
+    ----------
+    n_s: int
+        Number of simulations.
+    n_d: int
+        Number of bins of the data vector.
+    n_theta: int, optional
+        Number of free parameters.
+    method: str, optional
+        Method to compute the correction factor. Default to "percival".
+        Available methods are: "percival", "percival-fisher", "hartlap".
 
     Returns
     -------
-        float
-            Correction factor
+    float
+        Correction factor
     """
-    if method == "percival":
+    if method == "percival" and n_theta is not None:
         B = (n_s - n_d - 2) / ((n_s - n_d - 1) * (n_s - n_d - 4))
         return (n_s - 1) * (1 + B * (n_d - n_theta)) / (n_s - n_d + n_theta - 1)
-    if method == "percival-fisher":
+    if method == "percival-fisher" and n_theta is not None:
         return (n_s - 1) / (n_s - n_d + n_theta - 1)
     if method == "hartlap":
         return (n_s - 1) / (n_s - n_d - 2)
@@ -41,7 +45,7 @@ def get_covariance_correction(n_s, n_d, n_theta=None, method="percival"):
     )
 
 
-def correlation_from_covariance(covariance):
+def correlation_from_covariance(covariance: np.ndarray) -> np.ndarray:
     """
     Compute the correlation matrix from the covariance matrix.
 
@@ -62,7 +66,7 @@ def correlation_from_covariance(covariance):
     return correlation
 
 
-def mad_1d(x, axis=None, keepdims=False):
+def mad_1d(x: np.ndarray, axis: int | None = None, keepdims: bool = False) -> np.ndarray:
     """Median absolute deviation with Gaussian-consistent scaling."""
     med = np.median(x, axis=axis, keepdims=True)
     mad = np.median(np.abs(x - med), axis=axis, keepdims=True)
@@ -72,15 +76,19 @@ def mad_1d(x, axis=None, keepdims=False):
     return mad
 
 
-def gk_mad_covariance(residuals, eps=1e-12):
+def gk_mad_covariance(residuals: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     """
-    Calculate the emulator covariance via Gnanadesikan–Kettenring
-    (pairwise MAD). Fast but may not be strictly positive-definite.
+    Calculate the emulator covariance via Gnanadesikan-Kettenring (pairwise MAD).
+
+    Fast but may not be strictly positive-definite.
     Section 4.2 of https://arxiv.org/abs/1810.02467
 
     Parameters
     ----------
-    residuals : np.array with emulator residuals.
+    residuals : np.array
+        Emulator residuals.
+    eps : float, optional
+        Precision parameter to avoid division by zero. Default is 1e-12.
 
     Returns
     -------
@@ -110,15 +118,19 @@ def gk_mad_covariance(residuals, eps=1e-12):
     return C
 
 
-def orthogonal_gk_mad_covariance(residuals, eps=1e-12):
+def orthogonal_gk_mad_covariance(residuals: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     """
-    Emulator covariance through the Orthogonalized Gnanadesikan-Kettenring
-    estimator, which is usually positive-definite and better conditioned
+    Emulator covariance through the Orthogonalized Gnanadesikan-Kettenring estimator.
+
+    It is usually positive-definite and better conditioned
     than plain GK. Section 4.4 of https://arxiv.org/abs/1810.02467
 
     Parameters
     ----------
-    residuals : np.array with the emulator residuals.
+    residuals : np.array
+        Emulator residuals.
+    eps : float, optional
+        Precision parameter to avoid division by zero. Default is 1e-12.
 
     Returns
     -------
@@ -148,7 +160,7 @@ def orthogonal_gk_mad_covariance(residuals, eps=1e-12):
     R = (R / d).T / d  # R = D^{-1} R D^{-1}
 
     # Eigendecomposition
-    evals, evecs = np.linalg.eigh(R)
+    _, evecs = np.linalg.eigh(R)
 
     # Rotate standardized data
     U = Z @ evecs
@@ -207,14 +219,15 @@ def check_positive_definite(matrix: np.ndarray) -> bool:
     """
     try:
         np.linalg.cholesky(matrix)
-        return True
     except np.linalg.LinAlgError:
         return False
+    else:
+        return True
 
 
-def check_condition_number(matrix, precision_threshold: float = 10):
+def check_condition_number(matrix: np.ndarray, precision_threshold: float = 10) -> int:
     """
-    Computes the condition number of the matrix to check its inversibility.
+    Compute the condition number of the matrix to check its inversibility.
 
     Parameters
     ----------

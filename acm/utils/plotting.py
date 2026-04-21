@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from functools import wraps
 
 import matplotlib.pyplot as plt
@@ -5,11 +6,11 @@ import numpy as np
 
 
 # %% Styling decorators
-def set_plot_style(func):
-    """Decorator to set the plotting style to acm standard."""
+def set_plot_style(func: Callable) -> Callable:
+    """Set the plotting style to acm standard."""
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> object:
         plt.rc("text", usetex=True)
         plt.rc("font", family="serif")
         return func(*args, **kwargs)
@@ -23,7 +24,7 @@ def plot_parameters_histogram(
     names: list[str],
     mapping: dict | None = None,
     **kwargs,
-) -> tuple:
+) -> tuple[plt.Figure, np.ndarray]:
     """
     Plot histograms of specified parameters from a list of parameter arrays.
 
@@ -77,7 +78,7 @@ def plot_parameters_triangle(
     names: list[str],
     mapping: dict | None = None,
     **kwargs,
-) -> tuple:
+) -> tuple[plt.Figure, np.ndarray]:
     """
     Plot a triangle scatter plot of specified parameter names.
 
