@@ -16,18 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge VIDE void-galaxy correlation
-    function multipoles observable.
-    """
+    """Class for the Emulator's Mock Challenge VIDE void-galaxy correlation function multipoles observable."""
 
-    def __init__(self, stat_name="vide_ccf", **kwargs):
+    def __init__(self, stat_name: str = "vide_ccf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(
         cls,
-        paths: dict,
         stat_name: str = "vide_ccf",
         save_to: str | None = None,
         ells: list = [0, 2, 4],
@@ -180,13 +176,13 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name, ells=ells)
+            cov_y = cls.compress_covariance(stat_name=stat_name, ells=ells)
             cout = xarray.merge([cout, cov_y], join="outer")
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -202,7 +198,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str | None = None):
+    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -245,7 +241,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str | None = None):
+    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance set for the observable.
 
@@ -289,7 +285,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the data, model, and residuals.
 
@@ -378,17 +374,14 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
 
 class VIDEVoidSizeFunction(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge VIDE void size function observable.
-    """
+    """Class for the Emulator's Mock Challenge VIDE void size function observable."""
 
-    def __init__(self, stat_name="vide_vsf", **kwargs):
+    def __init__(self, stat_name: str = "vide_vsf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(
         cls,
-        paths: dict,
         stat_name: str = "vide_vsf",
         save_to: str | None = None,
     ) -> xarray.Dataset:
@@ -523,13 +516,13 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
+            cov_y = cls.compress_covariance(stat_name=stat_name)
             cout = xarray.merge([cout, cov_y], join="outer")
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -545,7 +538,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str | None = None):
+    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -572,7 +565,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str | None = None):
+    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance set for the observable.
 
@@ -600,7 +593,7 @@ class VIDEVoidSizeFunction(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the data, model, and residuals.
 

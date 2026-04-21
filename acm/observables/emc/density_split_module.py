@@ -92,7 +92,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         for data_fn in data_fns:
             data = BaseEstimator.read(data_fn)
             for q in quantiles:
-                xi = data.get(quantiles=q).select(s=slice(0, None, rebin))
+                xi = data.get(quantiles=q).select(s=slice(0, None, rebin))  # ty:ignore[no-matching-overload, unresolved-attribute]
                 xi = xi.select(s=(smin, smax))
                 poles = xi.project(ells=ells)
                 s = poles.get(ells=ells[0]).coords("s")
@@ -249,8 +249,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -267,9 +267,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(
-        self, save_fn: str | None = None
-    ) -> tuple[plt.Figure, plt.Axes]:
+    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
+        """Plot the training set for the density-split correlation function multipoles."""
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
 

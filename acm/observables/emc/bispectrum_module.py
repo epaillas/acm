@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class GalaxyBispectrumMultipoles(BaseObservableEMC):
     """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 
-    def __init__(self, stat_name: str="bispectrum", **kwargs):
+    def __init__(self, stat_name: str="bispectrum", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
@@ -35,6 +35,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     ) -> xarray.Dataset:
         """
         Class method to compress the covariance array from the raw measurement files.
+
         Provided within the class for convenience.
 
         Parameters
@@ -124,6 +125,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
     ) -> xarray.Dataset:
         """
         Class method to compress the data from the raw measurement files.
+
         Provided within the class for convenience.
 
         Parameters
@@ -224,8 +226,8 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -242,7 +244,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the reconstructed galaxy bispectrum multipoles data, model, and residuals.
 

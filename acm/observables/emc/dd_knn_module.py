@@ -15,15 +15,13 @@ logger = logging.getLogger(__name__)
 
 
 class DDkNN(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge 2D DD-kNN statistic
-    """
+    """Class for the Emulator's Mock Challenge 2D DD-kNN statistic."""
 
-    def __init__(self, stat_name="dd_knn", **kwargs):
+    def __init__(self, stat_name: str = "dd_knn", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
-    def make_mask(self, train_y):
-        pass
+    def make_mask(self, train_y: xarray.DataArray) -> None:
+        """Make a mask on training data. TBD."""
 
     @classmethod
     def compress_covariance(
@@ -35,6 +33,7 @@ class DDkNN(BaseObservableEMC):
     ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
+
         Provided as a classmethod for convenience.
 
         Parameters
@@ -184,9 +183,7 @@ class DDkNN(BaseObservableEMC):
                     -1,
                 )
             )  # Just flatten if no mask is present
-            print(
-                "WARNING! kNNs require cov data do perform filtering! Cov data is not included in this compression!"
-            )
+            logger.warning("kNNs require cov data do perform filtering! Cov data is not included in this compression!")
 
         # Make xarrays
         y = xarray.DataArray(
@@ -221,8 +218,8 @@ class DDkNN(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -238,7 +235,7 @@ class DDkNN(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str | None = None):
+    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -263,7 +260,7 @@ class DDkNN(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str | None = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot DD-kNN CDFs  predictions against data.
 
@@ -335,7 +332,7 @@ class DDkNN(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str | None = None):
+    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance matrix for the observable.
 

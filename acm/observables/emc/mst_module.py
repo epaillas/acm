@@ -15,17 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class MinimumSpanningTree(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge Minimum Spanning Tree.
-    """
+    """Class for the Emulator's Mock Challenge Minimum Spanning Tree."""
 
-    def __init__(self, stat_name="mst", **kwargs):
+    def __init__(self, stat_name: str = "mst", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
     def compress_covariance(
         cls,
-        paths: dict,
         stat_name: str = "mst",
         save_to: str | None = None,
     ) -> xarray.Dataset:
@@ -34,8 +31,6 @@ class MinimumSpanningTree(BaseObservableEMC):
 
         Parameters
         ----------
-        paths : dict
-            Dictionary containing the paths to the data directories.
         stat_name : str, optional
             Name of the statistic to compress.
             Defines the name of the subfolder in the measurements directory, and the
@@ -200,7 +195,7 @@ class MinimumSpanningTree(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
+            cov_y = cls.compress_covariance(stat_name=stat_name)
             cout = xarray.merge([cout, cov_y], join="outer")
 
         if save_to is not None:
@@ -212,7 +207,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         return cout
 
     @set_plot_style
-    def plot_training_set(self, save_fn: str | None = None):
+    def plot_training_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -237,7 +232,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         return fig, ax
 
     @set_plot_style
-    def plot_observable(self, model_params: dict, save_fn: str | None = None):
+    def plot_observable(self, model_params: dict, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot Minimum Spanning Tree predictions against data.
 
@@ -307,7 +302,7 @@ class MinimumSpanningTree(BaseObservableEMC):
         return fig, lax
 
     @set_plot_style
-    def plot_covariance_set(self, save_fn: str | None = None):
+    def plot_covariance_set(self, save_fn: str | None = None) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance matrix for the observable.
 
