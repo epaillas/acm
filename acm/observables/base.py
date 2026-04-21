@@ -2,7 +2,7 @@ import logging
 import pickle
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import overload
+from typing import Any, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,9 +27,7 @@ SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 
 
 class Observable:
-    """
-    Class to load a compressed Observable file or model and apply filters to their outputs.
-    """
+    """Class to load a compressed Observable file or model and apply filters to their outputs."""
 
     def __init__(
         self,
@@ -51,8 +49,10 @@ class Observable:
         paths: dict | None = None,
         checkpoint_fn: Path | str | None = None,
         silent_load: bool = False,
-    ):
+    ) -> None:
         """
+        Initialize the Observable.
+
         Parameters
         ----------
         stat_name: str
@@ -109,7 +109,6 @@ class Observable:
             - 'error_dir': directory containing the emulator error of the data (emulator_error, emulator_covariance_y)
             - 'model_dir': directory containing the trained model checkpoint (`stat_name`.ckpt)
         """
-
         self.stat_name = stat_name
         self.numpy_output = numpy_output
         self.squeeze_output = squeeze_output
@@ -148,21 +147,17 @@ class Observable:
 
             self._dataset = dataset
             logger.info(
-                "Datasets loaded with the following coordinates: {}".format(
-                    list(self._dataset.data_vars.keys())
-                )
+                f"Datasets loaded with the following coordinates: {list(self._dataset.data_vars.keys())}"
             )
 
         # Set the filters
         self.select_filters = select_filters
         self.slice_filters = slice_filters
         self.select_indices = select_indices
-        self.select_indices_on = (
-            select_indices_on if select_indices_on else []
-        )  # Ensure list behavior
+        self.select_indices_on = select_indices_on or []  # Ensure list behavior
 
         # Store paths for reference
-        self.paths = paths if paths else {}  # Ensure dict behavior
+        self.paths = paths or {}  # Ensure dict behavior
 
     @classmethod
     def load_dataset_from_files(cls, stat_name: str, paths: dict) -> xarray.Dataset:
@@ -251,23 +246,20 @@ class Observable:
         model.eval().to("cpu")
         return model
 
-    def __repr__(self):  # pragma: no cover
-        """
-        Returns a string representation of the Observable object.
-        """
+    def __repr__(self) -> str:
+        """Return a string representation of the Observable object."""
         r = f"<{type(self).__name__}>"
         for key, value in self.__dict__.items():
             display_key = "dataset" if key == "_dataset" else key
-            r += f"\n  {display_key}: {repr(value)},"
-        if r.endswith(","):
-            r = r[:-1]
+            r += f"\n  {display_key}: {value!r},"
+        r = r.removesuffix(",")
         return r
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """
-        Returns the attribute of the class xarray _dataset,
-        with the filter applied. Also reshapes the output by stacking coordinates
-        (on one or two dims) if flat_output_dims is set.
+        Return the attribute of the class xarray _dataset with the filter applied.
+
+        Also reshapes the output by stacking coordinates (on one or two dims) if flat_output_dims is set.
         """
         # First, apply the filters
         dataset = self._dataset
@@ -294,10 +286,11 @@ class Observable:
 
         return data
 
-    def __copy__(self):
+    def __copy__(self) -> "Observable":
         """
-        Returns a shallow copy of the Observable object by returning a new class instance
-        and copying all the class attributes to that new instance.
+        Return a shallow copy of the Observable object.
+
+        Returns a new class instance and copies all the class attributes to that new instance.
         """
         # Create a new instance of the class with a minimal set of attributes
         new_cls = self.__class__(
@@ -315,10 +308,11 @@ class Observable:
             setattr(new_cls, key, copy(value))
         return new_cls
 
-    def __deepcopy__(self, memo: dict | None = None):
+    def __deepcopy__(self, memo: dict | None = None) -> "Observable":
         """
-        Returns a deep copy of the Observable object by returning a new class instance
-        and deep copying all the class attributes to that new instance.
+        Return a deep copy of the Observable object.
+
+        Returns a new class instance and deep-copies all the class attributes to that new instance.
         """
         # Create a new instance of the class with a minimal set of attributes
         new_cls = self.__class__(
@@ -338,7 +332,8 @@ class Observable:
 
     def drop_nan_dimensions(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
-        Drops dimensions that contain only NaN values in a DataArray.
+        Drop dimensions that contain only NaN values in a DataArray.
+
         Does nothing if no 'nan_dims' attribute is found.
 
         Parameters
@@ -398,7 +393,7 @@ class Observable:
         else:
             dim = attribute
 
-        dim_name = list(dim.keys())[0]
+        dim_name = next(iter(dim.keys()))  # First element
 
         if len(dim[dim_name]) != 0:
             da = dataarray.stack(**dim, **kwargs)
@@ -412,7 +407,9 @@ class Observable:
     @overload
     def apply_filters(self, dataarray: xarray.Dataset) -> xarray.Dataset: ...
 
-    def apply_filters(self, dataarray):
+    def apply_filters(
+        self, dataarray: xarray.DataArray | xarray.Dataset
+    ) -> xarray.DataArray | xarray.Dataset:
         """
         Apply the class filters on a given DataArray or Dataset.
 
@@ -454,8 +451,9 @@ class Observable:
         unstack: bool = True,
     ) -> xarray.DataArray:
         """
-        Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
-        containing the list of dimensions to stack on.
+        Flatten the output of a given DataArray.
+
+        Stacks all dimensions over attributes 'sample' and 'features', each containing the list of dimensions to stack on.
 
         If flat_output_dims is 2, stacks on both 'sample' and 'features' attributes.
         If flat_output_dims is 1, stacks all dimensions into a single dimension 'dims'.
@@ -490,6 +488,7 @@ class Observable:
     def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
         Apply the indices selection on the last dimension of a given DataArray.
+
         Should be called after filters are applied and after flattening the DataArray.
         Does nothing if select_indices is None.
 
@@ -512,9 +511,7 @@ class Observable:
         for f_str in ["select_filters", "slice_filters"]:
             f = getattr(self, f_str, None)
             if f is not None:
-                features_filters = [
-                    k for k in dataarray.attrs["features"] if k in f.keys()
-                ]
+                features_filters = [k for k in dataarray.attrs["features"] if k in f]
                 if dim_name in features_filters:
                     logger.warning(
                         f"select_indices is applied on a dimension ({dim_name}) that is also filtered with {f_str}. This might lead to unexpected results."
@@ -532,7 +529,7 @@ class Observable:
 
     def get_coordinate_list(self, name: str) -> list:
         """
-        Returns the list of values of a coordinate of the dataset
+        Return the list of values of a coordinate of the dataset.
 
         Parameters
         ----------
@@ -563,10 +560,11 @@ class Observable:
         return self.get_coordinate_list("parameters")
 
     @property
-    def emulator_error(self):
+    def emulator_error(self) -> xarray.DataArray | np.ndarray:
         """
-        Returns the emulator error of the statistic, with filters applied.
-        Reads the emulator error from the error_dir if it is provided, otherwise uses the get_emulator_error method if implemented.
+        Return the emulator error of the statistic, with filters applied.
+
+        Read the emulator error from the error_dir if it is provided, otherwise uses the get_emulator_error method if implemented.
         """
         if hasattr(self._dataset, "emulator_error"):
             data = self._dataset.emulator_error
@@ -579,18 +577,18 @@ class Observable:
             if self.numpy_output:
                 data = data.values
             return data
-        elif hasattr(self, "get_emulator_error"):
-            return self.get_emulator_error()  # pyright: ignore[reportCallIssue]
-        else:
-            raise NotImplementedError(
-                "No emulator error found. Please provide an error_dir or implement the get_emulator_error method."
-            )
+        if hasattr(self, "get_emulator_error"):
+            return self.get_emulator_error()
+        raise NotImplementedError(
+            "No emulator error found. Please provide an error_dir or implement the get_emulator_error method."
+        )
 
     @property
-    def emulator_covariance_y(self):
+    def emulator_covariance_y(self) -> xarray.DataArray | np.ndarray:
         """
-        Returns the covariance of the emulator error of the statistic, with filters applied.
-        Reads the emulator covariance from the error_dir if it is provided, otherwise uses the get_emulator_covariance_y method if implemented.
+        Return the covariance of the emulator error of the statistic, with filters applied.
+
+        Read the emulator covariance from the error_dir if it is provided, otherwise uses the get_emulator_covariance_y method if implemented.
         """
         if hasattr(self._dataset, "emulator_covariance_y"):
             data = self._dataset.emulator_covariance_y
@@ -603,21 +601,40 @@ class Observable:
             if self.numpy_output:
                 data = data.values
             return data
-        elif hasattr(self, "get_emulator_covariance_y"):
-            return self.get_emulator_covariance_y()  # pyright: ignore[reportCallIssue]
-        else:
-            raise NotImplementedError(
-                "No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method."
-            )
+        if hasattr(self, "get_emulator_covariance_y"):
+            return self.get_emulator_covariance_y()
+        raise NotImplementedError(
+            "No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method."
+        )
 
+    @overload
     def get_model_prediction(
         self,
-        x,
-        model=None,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
+        nofilters: bool = True,
+    ) -> xarray.DataArray: ...
+
+    @overload
+    def get_model_prediction(
+        self,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = False,
-    ):
+    ) -> np.ndarray | xarray.DataArray: ...
+
+    def get_model_prediction(
+        self,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
+        nofilters: bool = False,
+    ) -> np.ndarray | xarray.DataArray:
         """
         Get the prediction from the model.
 
@@ -654,8 +671,8 @@ class Observable:
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
-            x = [x[name] for name in self.x_names]
-            x = np.asarray(x).T  # Need to transpose to (n_samples, n_params)
+            x = np.asarray([x[name] for name in self.x_names])
+            x = x.T  # Need to transpose to (n_samples, n_params)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
 
@@ -684,7 +701,7 @@ class Observable:
             pred.shape[0] if len(pred.shape) > 1 else 1
         )  # Edge case if only one prediction
         coords = {
-            **{"n_pred": np.arange(n_pred)},
+            "n_pred": np.arange(n_pred),
             **coords,
         }  # Add extra coordinate for the number of predictions
         pred = pred.reshape(
@@ -714,8 +731,7 @@ class Observable:
         self, volume_factor: float = 64, prefactor: float = 1, **kwargs
     ) -> np.ndarray:
         """
-        Covariance matrix for the statistic.
-        The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
+        Get the covariance matrix of the Observable.
 
         Parameters
         ----------
@@ -760,7 +776,7 @@ class Observable:
         self, prefactor: float = 1, method: str = "median", diag: bool = False, **kwargs
     ) -> np.ndarray:
         """
-        Covariance matrix of the emulator residuals.
+        Get the covariance matrix of the emulator residuals.
 
         Parameters
         ----------
@@ -789,7 +805,9 @@ class Observable:
             )
 
         cov_y = self.flatten_output(
-            cov_y, flat_output_dims=2, unstack=False
+            cov_y,
+            flat_output_dims=2,
+            unstack=False,  # ty:ignore[invalid-argument-type]
         )  # No unstacking to avoid NaN
         cov_y = cov_y.values
 
@@ -838,18 +856,18 @@ class Observable:
 
     @overload
     def get_save_handle(self, save_dir: Path) -> Path: ...
-
     @overload
     def get_save_handle(self, save_dir: str | None = None) -> str: ...
 
     def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
         """
-        Creates a handle that includes the statistics and filters used.
+        Create a handle with the statistic name and filters used.
+
         This can be used to save anything related to this observable.
 
         Parameters
         ----------
-        save_dir : str
+        save_dir : str | Path, optional
             Directory where the results will be saved.
             If provided, the directory is created if it does not exist.
             If None, the handle is returned as a string.
@@ -993,7 +1011,6 @@ class Observable:
         fig, ax : matplotlib.figure.Figure, numpy.ndarray
             Figure and axes of the plot.
         """
-
         volume_factor = kwargs.pop("volume_factor", 64)
         prefactor = kwargs.pop("prefactor", 1)
         data_cov = self.get_covariance_matrix(

@@ -1,15 +1,16 @@
+import numpy as np
 import treecorr
 
 
 class LensingCorrelation:
-    """
-    Class to compute lensing correlation functions using TreeCorr.
-    """
+    """Class to compute lensing correlation functions using TreeCorr."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def kappa_correlation(self, cat1, cat2=None):
+    def kappa_correlation(
+        self, cat1: "AbacusConvergenceMap", cat2: "AbacusConvergenceMap | None" = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Compute the convergence (auto/cross) correlation function using TreeCorr.
 

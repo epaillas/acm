@@ -187,8 +187,8 @@ class BaseVERSUSVoidSizeFunction(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -523,8 +523,8 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -711,12 +711,12 @@ class VERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_vsf")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_vsf")
         return super().compress_data(**kwargs)
 
@@ -730,12 +730,12 @@ class ReconstructedVERSUSVoidSizeFunction(BaseVERSUSVoidSizeFunction):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_recon_vsf")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_recon_vsf")
         return super().compress_data(**kwargs)
 
@@ -751,12 +751,12 @@ class VERSUSVoidGalaxyCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_xivg")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_xivg")
         return super().compress_data(**kwargs)
 
@@ -772,12 +772,12 @@ class VERSUSVoidAutoCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_xivv")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_xivv")
         return super().compress_data(**kwargs)
 
@@ -793,12 +793,12 @@ class ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_recon_xivg")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_recon_xivg")
         return super().compress_data(**kwargs)
 
@@ -814,12 +814,12 @@ class ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles(
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_recon_xivv")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("stat_name", "sv_recon_xivv")
         return super().compress_data(**kwargs)
 

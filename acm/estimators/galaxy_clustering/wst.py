@@ -2,7 +2,6 @@ import logging
 import time
 import warnings
 from pathlib import Path
-from typing import Optional
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -22,17 +21,15 @@ logger = logging.getLogger(__name__)
 
 
 class WaveletScatteringTransform(BaseEstimator):
-    """
-    Class to compute the wavelet scattering transform.
-    """
+    """Class to compute the wavelet scattering transform."""
 
     def __init__(
         self,
-        J: int = 4,
-        L: int = 4,
+        J: int = 4,  # noqa: N803
+        L: int = 4,  # noqa: N803
         q: float = 0.8,
         sigma: float = 0.8,
-        init_kymatio=None,
+        init_kymatio: None = None,  # FIXME: Which type here ?
         kymatio_backend: str = "torch",
         **kwargs,
     ) -> None:
@@ -61,13 +58,11 @@ class WaveletScatteringTransform(BaseEstimator):
             self.init_kymatio()
 
     def init_kymatio(self) -> None:
-        """
-        Initialize the kymatio scattering transform.
-        """
+        """Initialize the kymatio scattering transform."""
         module = __import__(
             f"kymatio.{self.kymatio_backend}", fromlist=["HarmonicScattering3D"]
         )
-        HarmonicScattering3D = getattr(module, "HarmonicScattering3D")
+        HarmonicScattering3D = module.HarmonicScattering3D
 
         t0 = time.time()
         logger.info("Initializing WaveletScatteringTransform.")
@@ -131,7 +126,7 @@ class WaveletScatteringTransform(BaseEstimator):
         return np.asarray(smatavg)
 
     def run(
-        self, delta_query: Optional[npt.NDArray] = None, save_fn: Optional[str] = None
+        self, delta_query: npt.NDArray | None = None, save_fn: str | None = None
     ) -> npt.NDArray:
         """
         Run the wavelet scattering transform.
@@ -264,10 +259,8 @@ class WaveletScatteringTransform(BaseEstimator):
             )
 
     @set_plot_style
-    def plot_coefficients(self, save_fn: Optional[str] = None):
-        """
-        Plot the wavelet scattering transform coefficients.
-        """
+    def plot_coefficients(self, save_fn: str | None = None) -> plt.Figure:
+        """Plot the wavelet scattering transform coefficients."""
         fig, ax = plt.subplots(figsize=(4, 4))
         ax.plot(
             self.smatavg, ls="-", marker="o", markersize=4, label=r"{\rm AbacusSummit}"

@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -43,10 +42,10 @@ class PyreconBackend:
 
     def __init__(
         self,
-        data_positions: Optional[npt.NDArray] = None,
-        data_weights: Optional[npt.NDArray] = None,
-        randoms_positions: Optional[npt.NDArray] = None,
-        randoms_weights: Optional[npt.NDArray] = None,
+        data_positions: npt.NDArray | None = None,
+        data_weights: npt.NDArray | None = None,
+        randoms_positions: npt.NDArray | None = None,
+        randoms_weights: npt.NDArray | None = None,
         **kwargs,
     ) -> None:
         """Initialize the pyrecon backend.
@@ -80,9 +79,9 @@ class PyreconBackend:
         self.name = "pyrecon"
 
         # Extract mesh parameters
-        boxsize = kwargs.get("boxsize", None)
+        boxsize = kwargs.get("boxsize")
         boxcenter = kwargs.get("boxcenter", 0.0)
-        meshsize = kwargs.get("meshsize", None)
+        meshsize = kwargs.get("meshsize")
 
         if boxsize is None:
             raise ValueError("boxsize must be provided for pyrecon backend")
@@ -135,7 +134,7 @@ class PyreconBackend:
     def _assign_data(
         self,
         positions: npt.NDArray,
-        weights: Optional[npt.NDArray] = None,
+        weights: npt.NDArray | None = None,
         wrap: bool = True,
         clear_previous: bool = True,
     ) -> None:
@@ -166,7 +165,7 @@ class PyreconBackend:
     def _assign_randoms(
         self,
         positions: npt.NDArray,
-        weights: Optional[npt.NDArray] = None,
+        weights: npt.NDArray | None = None,
         wrap: bool = True,
     ) -> None:
         """Assign random particles to the mesh.
@@ -193,7 +192,7 @@ class PyreconBackend:
 
     def set_density_contrast(
         self,
-        smoothing_radius: Optional[float] = None,
+        smoothing_radius: float | None = None,
         check: bool = False,
         ran_min: float = 0.01,
         save_wisdom: bool = False,
@@ -266,7 +265,10 @@ class PyreconBackend:
         return self.delta_mesh
 
     def get_query_positions(
-        self, method: str = "randoms", nquery: Optional[int] = None, seed: int = 42
+        self,
+        method: str = "randoms",
+        nquery: int | None = None,
+        seed: int = 42,
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
 
@@ -319,11 +321,10 @@ class PyreconBackend:
             lattice_y = lattice_y.flatten()
             lattice_z = lattice_z.flatten()
             return np.vstack((lattice_x, lattice_y, lattice_z)).T
-        elif method == "randoms":
+        if method == "randoms":
             logger.info("Generating random query points within the box.")
-            np.random.seed(seed)
+            rng = np.random.default_rng(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
-            return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
-        else:
-            raise ValueError(f"Unknown method '{method}' for generating query points.")
+            return rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
+        raise ValueError(f"Unknown method '{method}' for generating query points.")

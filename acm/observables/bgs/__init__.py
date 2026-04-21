@@ -1,3 +1,5 @@
+"""Observables classes for the BGS scripts in acm."""
+
 from .density_split_correlation import ds_xiqg, ds_xiqq
 from .tpcf_module import tpcf
 

@@ -1,21 +1,19 @@
-import imp
 import logging
 import time
+from collections.abc import Iterator
 from functools import partial
 from pathlib import Path
-from typing import Any, Optional, Tuple, Union
 
 import jax
 import jax.numpy as jnp
-import matplotlib
-import matplotlib.animation as animation
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import xarray as xr
 from lsstypes import ObservableLeaf
 from lsstypes.external import from_pycorr
-from matplotlib import cm
+from matplotlib import animation, cm
 from matplotlib.figure import Figure
 from pycorr import TwoPointCorrelationFunction
 
@@ -29,11 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 class JaxelVoids(BaseEstimator):
-    """
-    GPU-capable voxel-void finder based on JAX arrays and in-memory processing.
-    """
+    """GPU-capable voxel-void finder based on JAX arrays and in-memory processing."""
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs) -> None:
         """Initialize the JAX voxel-void estimator.
 
         Parameters
@@ -110,8 +106,8 @@ class JaxelVoids(BaseEstimator):
 
     def find_voids(
         self,
-        save_fn: Optional[Union[str, Path]] = None,
-    ) -> Tuple[npt.NDArray, npt.NDArray]:
+        save_fn: str | Path | None = None,
+    ) -> tuple[npt.NDArray, npt.NDArray]:
         """Find voxel void centers and effective radii.
 
         Parameters
@@ -141,12 +137,10 @@ class JaxelVoids(BaseEstimator):
         )
         logger.info(f"Mean void radius: {np.mean(self.void_radii):.2f} Mpc/h.")
         if save_fn is not None:
-            self.save(save_fn, type="catalog")
+            self.save(save_fn, data_type="catalog")
         return self.voids, self.void_radii
 
-    def save_catalog(
-        self, filename: Union[str, Path], attrs: Optional[dict] = None
-    ) -> None:
+    def save_catalog(self, filename: str | Path, attrs: dict | None = None) -> None:
         """Save the current void catalog to disk.
 
         Format is automatically determined from file extension:
@@ -252,8 +246,8 @@ class JaxelVoids(BaseEstimator):
     def save_correlations(
         self,
         correlation: TwoPointCorrelationFunction,
-        filename: Union[str, Path],
-        attrs: Optional[dict] = None,
+        filename: str | Path,
+        attrs: dict | None = None,
     ) -> None:
         """Save a void-data correlation measurement to disk.
 
@@ -294,10 +288,10 @@ class JaxelVoids(BaseEstimator):
 
     def save(
         self,
-        filename: Union[str, Path],
-        data: Optional[Any] = None,
-        type: str = "catalog",
-        attrs: Optional[dict] = None,
+        filename: str | Path,
+        data: TwoPointCorrelationFunction | None = None,
+        data_type: str = "catalog",
+        attrs: dict | None = None,
     ) -> None:
         """Dispatch saving to catalog or correlation serializers.
 
@@ -305,30 +299,29 @@ class JaxelVoids(BaseEstimator):
         ----------
         filename : str or Path
             Output filename.
-        data : Any, optional
-            Data payload to save when ``type='correlation'``. If omitted,
+        data : TwoPointCorrelationFunction, optional
+            Data payload to save when ``data_type='correlation'``. If omitted,
             ``self._void_data_correlation`` is used.
-        type : {'catalog', 'correlation'}, default='catalog'
+        data_type : {'catalog', 'correlation'}, default='catalog'
             Data product to serialize.
         attrs : dict, optional
             Extra metadata passed to the specific save routine.
         """
-        if type == "catalog":
+        if data_type == "catalog":
             self.save_catalog(filename, attrs=attrs)
-        elif type == "correlation":
-            corr = (
-                data
-                if data is not None
-                else getattr(self, "_void_data_correlation", None)
-            )
-            if corr is None:
+        elif data_type == "correlation":
+            if data is not None:
+                corr = data
+            elif hasattr(self, "_void_data_correlation"):
+                corr = self._void_data_correlation
+            else:
                 raise ValueError(
                     "No void-data correlation to save. Run void_data_correlation() first."
                 )
             self.save_correlations(corr, filename, attrs=attrs)
         else:
             raise ValueError(
-                f"Unknown type '{type}'. Available types: 'catalog', 'correlation'."
+                f"Unknown type '{data_type}'. Available types: 'catalog', 'correlation'."
             )
 
     @staticmethod
@@ -396,7 +389,7 @@ class JaxelVoids(BaseEstimator):
 
         return jax.lax.fori_loop(0, nsteps, jump_step, next_idx)
 
-    def _find_voids_in_memory(self) -> Tuple[npt.NDArray, npt.NDArray]:
+    def _find_voids_in_memory(self) -> tuple[npt.NDArray, npt.NDArray]:
         """Convert watershed roots into a filtered void catalog.
 
         Returns
@@ -474,7 +467,7 @@ class JaxelVoids(BaseEstimator):
         self.zone_ptr[0] = 0
         np.cumsum(counts, out=self.zone_ptr[1:])
         self.zone_voxels = np.concatenate(
-            [sorted_voxel_ids[lo:hi] for lo, hi in zip(left, right)],
+            [sorted_voxel_ids[lo:hi] for lo, hi in zip(left, right, strict=False)],
         ).astype(np.int64)
         xpos, ypos, zpos = self.voxel_position(selected_roots.astype(np.int64))
 
@@ -483,7 +476,7 @@ class JaxelVoids(BaseEstimator):
         rads = (3.0 * vols / (4.0 * np.pi)) ** (1.0 / 3.0)
         return np.c_[xpos, ypos, zpos], rads
 
-    def _iter_zones(self):
+    def _iter_zones(self) -> Iterator[np.ndarray]:
         """Iterate over zones, yielding each zone's flat voxel-index array.
 
         Yields
@@ -492,7 +485,7 @@ class JaxelVoids(BaseEstimator):
             Flat voxel indices belonging to the current zone.  The array is
             a zero-copy view into ``self.zone_voxels``.
         """
-        for lo, hi in zip(self.zone_ptr[:-1], self.zone_ptr[1:]):
+        for lo, hi in zip(self.zone_ptr[:-1], self.zone_ptr[1:], strict=False):
             yield self.zone_voxels[lo:hi]
 
     def _get_zone(self, i: int) -> npt.NDArray:
@@ -514,7 +507,7 @@ class JaxelVoids(BaseEstimator):
 
     def voxel_position(
         self, voxel: npt.NDArray
-    ) -> Tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
+    ) -> tuple[npt.NDArray, npt.NDArray, npt.NDArray]:
         """Map flattened voxel indices to Cartesian coordinates.
 
         Parameters
@@ -557,8 +550,8 @@ class JaxelVoids(BaseEstimator):
     def void_data_correlation(
         self,
         data_positions: npt.NDArray,
-        save_fn: Optional[Union[str, Path]] = None,
-        **kwargs: Any,
+        save_fn: str | Path | None = None,
+        **kwargs,
     ) -> TwoPointCorrelationFunction:
         """Compute the void-data two-point correlation function.
 
@@ -589,9 +582,8 @@ class JaxelVoids(BaseEstimator):
                 kwargs["data_weights2"] = kwargs.pop("data_weights")
             if "randoms_weights" in kwargs:
                 kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
         self._void_data_correlation = TwoPointCorrelationFunction(
             data_positions1=self.voids,
             data_positions2=data_positions,
@@ -600,13 +592,13 @@ class JaxelVoids(BaseEstimator):
             **kwargs,
         )
         if save_fn is not None:
-            self.save(save_fn, data=self._void_data_correlation, type="correlation")
+            self.save(
+                save_fn, data=self._void_data_correlation, data_type="correlation"
+            )
         return self._void_data_correlation
 
     @set_plot_style
-    def plot_void_size_distribution(
-        self, save_fn: Optional[Union[str, Path]] = None
-    ) -> Figure:
+    def plot_void_size_distribution(self, save_fn: str | Path | None = None) -> Figure:
         """Plot the histogram of void effective radii.
 
         Parameters
@@ -632,8 +624,8 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def plot_void_data_correlation(
         self,
-        ells: Tuple[int, ...] = (0,),
-        save_fn: Optional[Union[str, Path]] = None,
+        ells: tuple[int, ...] = (0,),
+        save_fn: str | Path | None = None,
     ) -> Figure:
         """Plot multipoles of the void-data correlation function.
 
@@ -664,7 +656,7 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def plot_slice(
         self,
-        save_fn: Optional[Union[str, Path]] = None,
+        save_fn: str | Path | None = None,
     ) -> Figure:
         """Visualize a 2D projected slice of watershed zones.
 
@@ -710,7 +702,7 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def gif_void_slice(
         self,
-        save_fn: Optional[Union[str, Path]] = None,
+        save_fn: str | Path | None = None,
         interval: int = 120,
     ) -> Figure:
         """Create a GIF scanning zone-map slices along the z-axis.
@@ -760,7 +752,7 @@ class JaxelVoids(BaseEstimator):
 
         title = ax.set_title("z-slice 0", fontsize=13)
 
-        def update(zindex: int):
+        def update(zindex: int) -> tuple[plt.AxesImage, plt.Text]:
             image.set_data(zones_mesh[:, :, zindex])
             title.set_text(f"z-slice {zindex}")
             return image, title
@@ -782,8 +774,8 @@ class JaxelVoids(BaseEstimator):
     @set_plot_style
     def gif_voids_3d(
         self,
-        zone_id: Optional[int] = None,
-        save_fn: Optional[Union[str, Path]] = None,
+        zone_id: int | None = None,
+        save_fn: str | Path | None = None,
         elev: float = 20.0,
         n_turns: int = 3,
         n_frames: int = 360,
@@ -792,7 +784,7 @@ class JaxelVoids(BaseEstimator):
         padding_cells: int = 2,
         show_axes: bool = False,
     ) -> Figure:
-        """Create a rotating 3D GIF focused on a single voxel-void zone.
+        r"""Create a rotating 3D GIF focused on a single voxel-void zone.
 
         Parameters
         ----------
@@ -835,7 +827,7 @@ class JaxelVoids(BaseEstimator):
 
         def zone_indices(
             voxels: np.ndarray,
-        ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
             xi_ = voxels // nxy
             rem_ = voxels % nxy
             yi_ = rem_ // nmesh[2]
@@ -886,8 +878,8 @@ class JaxelVoids(BaseEstimator):
         filled = np.zeros(nmesh, dtype=bool)
         filled[xi, yi, zi] = True
 
-        facecolors = np.zeros(filled.shape + (4,), dtype=float)
-        color = matplotlib.colors.to_rgba("#6eaed6", alpha=0.92)
+        facecolors = np.zeros((*filled.shape, 4), dtype=float)
+        color = mpl.colors.to_rgba("#6eaed6", alpha=0.92)
         facecolors[filled] = color
 
         xmin = max(int(np.min(xi)) - padding_cells, 0)
@@ -943,7 +935,7 @@ class JaxelVoids(BaseEstimator):
         else:
             ax.set_axis_off()
 
-        def update(frame: int):
+        def update(frame: int) -> tuple[()]:
             azim = 360.0 * n_turns * frame / n_frames
             ax.view_init(elev=elev, azim=azim)
             return ()

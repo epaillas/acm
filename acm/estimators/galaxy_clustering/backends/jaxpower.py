@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional, Union
 
 import jax
 import jax.numpy as jnp
@@ -54,9 +53,9 @@ class JaxpowerBackend:
     def __init__(
         self,
         data_positions: npt.NDArray,
-        data_weights: Optional[npt.NDArray] = None,
-        randoms_positions: Optional[npt.NDArray] = None,
-        randoms_weights: Optional[npt.NDArray] = None,
+        data_weights: npt.NDArray | None = None,
+        randoms_positions: npt.NDArray | None = None,
+        randoms_weights: npt.NDArray | None = None,
         **kwargs,
     ) -> None:
         """Initialize the jaxpower backend.
@@ -94,7 +93,7 @@ class JaxpowerBackend:
             exchange=True,
             backend="jax",
         )
-        self.has_randoms = False if randoms_positions is None else True
+        self.has_randoms = randoms_positions is not None
         self.size_data = len(data_positions)
         if self.has_randoms:
             self.randoms_mesh = ParticleField(
@@ -119,10 +118,10 @@ class JaxpowerBackend:
         interlacing: bool = False,
         compensate: bool = False,
         halo_add: int = 0,
-        smoothing_radius: Optional[float] = None,
+        smoothing_radius: float | None = None,
         randoms_threshold_value: float = 0.01,
         randoms_threshold_method: str = "noise",
-    ) -> Union[RealMeshField, ComplexMeshField]:
+    ) -> RealMeshField | ComplexMeshField:
         """Compute the density contrast field.
 
         Paints particles to a mesh and computes the density contrast using
@@ -153,12 +152,12 @@ class JaxpowerBackend:
             Density contrast field.
         """
 
-        def _2r(mesh):
+        def _2r(mesh: RealMeshField | ComplexMeshField) -> RealMeshField:
             if not isinstance(mesh, RealMeshField):
                 mesh = mesh.c2r()
             return mesh
 
-        def _2c(mesh):
+        def _2c(mesh: RealMeshField | ComplexMeshField) -> ComplexMeshField:
             if not isinstance(mesh, ComplexMeshField):
                 mesh = mesh.r2c()
             return mesh
@@ -242,9 +241,8 @@ class JaxpowerBackend:
         float
             Threshold value for randoms field.
         """
-        assert threshold_method in ["noise", "mean"], (
-            "threshold_method must be one of ['noise', 'mean']"
-        )
+        if threshold_method not in ["noise", "mean"]:
+            raise ValueError("threshold_method must be one of ['noise', 'mean']")
 
         if threshold_method == "noise":
             threshold_randoms = (
@@ -257,7 +255,7 @@ class JaxpowerBackend:
     def get_query_positions(
         self,
         method: str = "randoms",
-        nquery: Optional[int] = None,
+        nquery: int | None = None,
         seed: int = 42,
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
@@ -291,10 +289,10 @@ class JaxpowerBackend:
             coords = jnp.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
             logger.info(f"Generated lattice query points in {time.time() - t0:.2f} s.")
         elif method == "randoms":
-            np.random.seed(seed)
+            rng = np.random.default_rng(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
-            coords = np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
+            coords = rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
             logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         else:
             raise ValueError("method must be one of ['lattice', 'randoms']")

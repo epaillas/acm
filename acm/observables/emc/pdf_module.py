@@ -2,12 +2,10 @@ from .base import BaseObservableEMC
 
 
 class GalaxyOverdensityPDF(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge galaxy overdensity PDF.
-    """
+    """Class for the Emulator's Mock Challenge galaxy overdensity PDF."""
 
-    def __init__(self, **kwargs):
-        super().__init__(stat_name="pdf", **kwargs)
+    def __init__(self, stat_name: str = "pdf", **kwargs) -> None:
+        super().__init__(stat_name=stat_name, **kwargs)
 
 
 # Alias
