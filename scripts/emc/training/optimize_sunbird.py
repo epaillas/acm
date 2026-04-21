@@ -64,6 +64,13 @@ def build_parser():
         help='Statistic to optimize.',
     )
     parser.add_argument(
+        '--sampler',
+        type=str,
+        choices=['tpe', 'cmaes'],
+        default='tpe',
+        help='Optuna sampler to use when creating a new study.',
+    )
+    parser.add_argument(
         '--study_dir',
         type=str,
         default=None,
@@ -256,16 +263,40 @@ class EMCObjective:
         return float(val_loss)
 
 
-def _load_or_create_study(study_fn, statistic, seed):
+def _make_sampler(name, seed):
+    if name == 'tpe':
+        return optuna.samplers.TPESampler(seed=seed)
+    if name == 'cmaes':
+        return optuna.samplers.CmaEsSampler(seed=seed)
+    raise ValueError(f'Unknown sampler: {name}')
+
+
+def _load_or_create_study(study_fn, statistic, seed, sampler_name):
     study_fn = Path(study_fn)
     if study_fn.exists():
-        logging.getLogger('optimize_sunbird').info(
-            'Loading existing study from %s',
-            study_fn,
-        )
-        return joblib.load(study_fn)
+        study = joblib.load(study_fn)
+        logger = logging.getLogger('optimize_sunbird')
+        actual_sampler_name = study.sampler.__class__.__name__
+        if actual_sampler_name.lower().startswith(sampler_name):
+            logger.info(
+                'Loading existing study from %s with sampler=%s',
+                study_fn,
+                actual_sampler_name,
+            )
+        else:
+            logger.info(
+                'Loading existing study from %s with sampler=%s; ignoring requested sampler=%s',
+                study_fn,
+                actual_sampler_name,
+                sampler_name,
+            )
+        return study
 
-    sampler = optuna.samplers.CmaEsSampler(seed=seed)
+    sampler = _make_sampler(sampler_name, seed=seed)
+    logging.getLogger('optimize_sunbird').info(
+        'Creating new study with sampler=%s',
+        sampler.__class__.__name__,
+    )
     study = optuna.create_study(
         study_name=statistic,
         direction='minimize',
@@ -305,6 +336,7 @@ def main(argv=None):
         study_fn=study_fn,
         statistic=args.statistic,
         seed=args.seed,
+        sampler_name=args.sampler,
     )
 
     started_trials = _count_started_trials(study)
