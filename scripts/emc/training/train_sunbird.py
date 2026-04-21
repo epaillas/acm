@@ -84,10 +84,53 @@ def _export_best_checkpoint(trainer, output_path):
     return output_path
 
 
+def _get_lightning_callback_classes():
+    from lightning.pytorch.callbacks import LearningRateMonitor, RichProgressBar
+
+    return LearningRateMonitor, RichProgressBar
+
+
+def _get_pruning_callback_cls():
+    try:
+        from optuna.integration import PyTorchLightningPruningCallback
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            'Optuna pruning requires `optuna-integration[pytorch_lightning]` '
+            'in the sourced cosmodesi environment.'
+        ) from exc
+
+    return PyTorchLightningPruningCallback
+
+
+def _build_trainer_callbacks(trial, checkpoint_dir):
+    LearningRateMonitor, RichProgressBar = _get_lightning_callback_classes()
+    pruning_callback_cls = _get_pruning_callback_cls()
+
+    callbacks = [
+        train.FCNTrainer.early_stop_callback(
+            monitor='val_loss',
+            patience=30,
+            min_delta=1.0e-7,
+        ),
+        train.FCNTrainer.checkpoint_callback(
+            monitor='val_loss',
+            checkpoint_dir=checkpoint_dir,
+        ),
+        LearningRateMonitor(logging_interval='step'),
+        RichProgressBar(),
+        pruning_callback_cls(trial, monitor='val_loss'),
+    ]
+    return [cb for cb in callbacks if cb is not None]
+
+
 def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
-    model_dir=None, transform_input=None, transform_output=None, val_fraction=0.1, seed=None):
+    model_dir=None, transform_input=None, transform_output=None, val_fraction=0.1,
+    seed=None, trial=None, enable_pruning=False):
 
     np.random.seed(seed)
+
+    if enable_pruning and trial is None:
+        raise ValueError('Optuna trial is required when pruning is enabled.')
 
     _require_train_test_split(observable)
 
@@ -153,7 +196,7 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     checkpoint_dir = model_dir / 'checkpoints'
     print(f'Saving model to {model_dir}')
 
-    trainer = train.FCNTrainer(
+    trainer_kwargs = dict(
         max_epochs=5000,
         devices=1,
         logger='tensorboard',
@@ -161,6 +204,13 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
         tensorboard_name='tensorboard',
         checkpoint_dir=checkpoint_dir,
     )
+    if enable_pruning:
+        trainer_kwargs['callbacks'] = _build_trainer_callbacks(
+            trial=trial,
+            checkpoint_dir=checkpoint_dir,
+        )
+
+    trainer = train.FCNTrainer(**trainer_kwargs)
     val_loss = trainer.fit(
         model=model,
         train_dataloaders=data.train_dataloader(),
