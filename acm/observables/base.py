@@ -2,7 +2,7 @@ import logging
 import pickle
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import overload
+from typing import Any, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -255,7 +255,7 @@ class Observable:
         r = r.removesuffix(",")
         return r
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """
         Return the attribute of the class xarray _dataset with the filter applied.
 
@@ -393,7 +393,7 @@ class Observable:
         else:
             dim = attribute
 
-        dim_name = list(dim.keys())[0]
+        dim_name = next(iter(dim.keys())) # First element
 
         if len(dim[dim_name]) != 0:
             da = dataarray.stack(**dim, **kwargs)
@@ -407,7 +407,7 @@ class Observable:
     @overload
     def apply_filters(self, dataarray: xarray.Dataset) -> xarray.Dataset: ...
 
-    def apply_filters(self, dataarray):
+    def apply_filters(self, dataarray: xarray.DataArray | xarray.Dataset) -> xarray.DataArray | xarray.Dataset:
         """
         Apply the class filters on a given DataArray or Dataset.
 
@@ -449,8 +449,9 @@ class Observable:
         unstack: bool = True,
     ) -> xarray.DataArray:
         """
-        Flatten the output of a given DataArray by stacking all dimensions over attributes 'sample' and 'features',
-        containing the list of dimensions to stack on.
+        Flatten the output of a given DataArray.
+
+        Stacks all dimensions over attributes 'sample' and 'features', each containing the list of dimensions to stack on.
 
         If flat_output_dims is 2, stacks on both 'sample' and 'features' attributes.
         If flat_output_dims is 1, stacks all dimensions into a single dimension 'dims'.
@@ -485,6 +486,7 @@ class Observable:
     def apply_indices_selection(self, dataarray: xarray.DataArray) -> xarray.DataArray:
         """
         Apply the indices selection on the last dimension of a given DataArray.
+
         Should be called after filters are applied and after flattening the DataArray.
         Does nothing if select_indices is None.
 
@@ -508,7 +510,7 @@ class Observable:
             f = getattr(self, f_str, None)
             if f is not None:
                 features_filters = [
-                    k for k in dataarray.attrs["features"] if k in f.keys()
+                    k for k in dataarray.attrs["features"] if k in f
                 ]
                 if dim_name in features_filters:
                     logger.warning(
@@ -527,7 +529,7 @@ class Observable:
 
     def get_coordinate_list(self, name: str) -> list:
         """
-        Returns the list of values of a coordinate of the dataset
+        Return the list of values of a coordinate of the dataset.
 
         Parameters
         ----------
@@ -558,10 +560,11 @@ class Observable:
         return self.get_coordinate_list("parameters")
 
     @property
-    def emulator_error(self):
+    def emulator_error(self) -> xarray.DataArray | np.ndarray:
         """
-        Returns the emulator error of the statistic, with filters applied.
-        Reads the emulator error from the error_dir if it is provided, otherwise uses the get_emulator_error method if implemented.
+        Return the emulator error of the statistic, with filters applied.
+
+        Read the emulator error from the error_dir if it is provided, otherwise uses the get_emulator_error method if implemented.
         """
         if hasattr(self._dataset, "emulator_error"):
             data = self._dataset.emulator_error
@@ -575,16 +578,17 @@ class Observable:
                 data = data.values
             return data
         if hasattr(self, "get_emulator_error"):
-            return self.get_emulator_error()  # pyright: ignore[reportCallIssue]
+            return self.get_emulator_error()
         raise NotImplementedError(
             "No emulator error found. Please provide an error_dir or implement the get_emulator_error method."
         )
 
     @property
-    def emulator_covariance_y(self):
+    def emulator_covariance_y(self) -> xarray.DataArray | np.ndarray:
         """
-        Returns the covariance of the emulator error of the statistic, with filters applied.
-        Reads the emulator covariance from the error_dir if it is provided, otherwise uses the get_emulator_covariance_y method if implemented.
+        Return the covariance of the emulator error of the statistic, with filters applied.
+
+        Read the emulator covariance from the error_dir if it is provided, otherwise uses the get_emulator_covariance_y method if implemented.
         """
         if hasattr(self._dataset, "emulator_covariance_y"):
             data = self._dataset.emulator_covariance_y
@@ -598,19 +602,19 @@ class Observable:
                 data = data.values
             return data
         if hasattr(self, "get_emulator_covariance_y"):
-            return self.get_emulator_covariance_y()  # pyright: ignore[reportCallIssue]
+            return self.get_emulator_covariance_y()
         raise NotImplementedError(
             "No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method."
         )
 
     def get_model_prediction(
         self,
-        x,
-        model=None,
+        x: np.ndarray | dict,
+        model: FCN | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = False,
-    ):
+    ) -> np.ndarray | xarray.DataArray:
         """
         Get the prediction from the model.
 
@@ -647,8 +651,8 @@ class Observable:
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
-            x = [x[name] for name in self.x_names]
-            x = np.asarray(x).T  # Need to transpose to (n_samples, n_params)
+            x = np.asarray([x[name] for name in self.x_names])
+            x = x.T  # Need to transpose to (n_samples, n_params)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
 
@@ -707,8 +711,7 @@ class Observable:
         self, volume_factor: float = 64, prefactor: float = 1, **kwargs
     ) -> np.ndarray:
         """
-        Covariance matrix for the statistic.
-        The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
+        Get the covariance matrix of the Observable.
 
         Parameters
         ----------
@@ -753,7 +756,7 @@ class Observable:
         self, prefactor: float = 1, method: str = "median", diag: bool = False, **kwargs
     ) -> np.ndarray:
         """
-        Covariance matrix of the emulator residuals.
+        Get the covariance matrix of the emulator residuals.
 
         Parameters
         ----------
@@ -782,7 +785,7 @@ class Observable:
             )
 
         cov_y = self.flatten_output(
-            cov_y, flat_output_dims=2, unstack=False
+            cov_y, flat_output_dims=2, unstack=False  # ty:ignore[invalid-argument-type]
         )  # No unstacking to avoid NaN
         cov_y = cov_y.values
 
@@ -831,18 +834,18 @@ class Observable:
 
     @overload
     def get_save_handle(self, save_dir: Path) -> Path: ...
-
     @overload
     def get_save_handle(self, save_dir: str | None = None) -> str: ...
 
     def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
         """
-        Creates a handle that includes the statistics and filters used.
+        Create a handle with the statistic name and filters used.
+
         This can be used to save anything related to this observable.
 
         Parameters
         ----------
-        save_dir : str
+        save_dir : str | Path, optional
             Directory where the results will be saved.
             If provided, the directory is created if it does not exist.
             If None, the handle is returned as a string.
