@@ -1,3 +1,5 @@
+"""Observables classes for the BGS scripts in acm."""
+
 from .bispectrum_module import bispectrum
 from .dd_knn_module import dd_knn
 from .density_split_module import ds_xiqg, ds_xiqq

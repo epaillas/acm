@@ -17,12 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class GalaxyBispectrumMultipoles(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 
-    def __init__(self, stat_name="bispectrum", **kwargs):
+    def __init__(self, stat_name: str="bispectrum", **kwargs):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod

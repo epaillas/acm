@@ -607,9 +607,29 @@ class Observable:
             "No emulator covariance found. Please provide an error_dir or implement the get_emulator_covariance_y method."
         )
 
+    @overload
     def get_model_prediction(
         self,
-        x: np.ndarray | dict,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
+        nofilters: bool = True,
+    ) -> xarray.DataArray: ...
+
+    @overload
+    def get_model_prediction(
+        self,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
+        nofilters: bool = False,
+    ) -> np.ndarray | xarray.DataArray: ...
+
+    def get_model_prediction(
+        self,
+        x: np.ndarray | dict | xarray.DataArray,
         model: FCN | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
