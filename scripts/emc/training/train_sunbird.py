@@ -1,4 +1,5 @@
 import numpy as np
+import shutil
 from pathlib import Path
 from sunbird.emulators import FCN, train
 from sunbird.data import ArrayDataModule
@@ -10,6 +11,9 @@ import argparse
 
 torch.set_float32_matmul_precision('high')
 
+DEFAULT_ROOT_DIR = Path('/global/cfs/cdirs/desicollab/users/epaillas/acm/')
+EMC_MEASUREMENTS_RELATIVE_DIR = Path('emc/measurements/v1.3/abacus')
+EMC_MODELS_RELATIVE_DIR = Path('emc/models/v1.3')
 REQUIRED_SPLIT_VARS = ('x_train', 'y_train', 'x_test', 'y_test')
 
 
@@ -21,6 +25,33 @@ def _build_transform(transform_name):
     if transform_name == 'arcsinh':
         return ArcsinhTransform()
     raise ValueError(f'Unknown transform: {transform_name}')
+
+
+def get_emc_paths(root_dir):
+    root_dir = Path(root_dir)
+    measurements_dir = root_dir / EMC_MEASUREMENTS_RELATIVE_DIR
+    return {
+        'data_dir': measurements_dir / 'compressed',
+        'measurements_dir': measurements_dir,
+        'param_dir': None,
+    }
+
+
+def make_observable(root_dir, statistic):
+    return Observable(
+        stat_name=statistic,
+        paths=get_emc_paths(root_dir),
+        numpy_output=True,
+        flat_output_dims=2,
+    )
+
+
+def get_default_model_dir(root_dir, statistic):
+    return Path(root_dir) / EMC_MODELS_RELATIVE_DIR / 'best' / statistic
+
+
+def get_default_study_dir(root_dir, statistic):
+    return Path(root_dir) / EMC_MODELS_RELATIVE_DIR / 'optuna' / statistic
 
 
 def _require_train_test_split(observable):
@@ -35,6 +66,22 @@ def _require_train_test_split(observable):
             f"compression. Re-run `scripts/emc/measurements/compress_files.py --statistic {stat_name}` "
             'for this statistic and try again.'
         )
+
+
+def _get_best_checkpoint_path(trainer):
+    for callback in getattr(trainer, 'callbacks', []):
+        best_model_path = getattr(callback, 'best_model_path', None)
+        if best_model_path:
+            return Path(best_model_path)
+    raise RuntimeError('Training completed without a saved best checkpoint.')
+
+
+def _export_best_checkpoint(trainer, output_path):
+    best_checkpoint_path = _get_best_checkpoint_path(trainer)
+    output_path = Path(output_path)
+    output_path.unlink(missing_ok=True)
+    shutil.copy2(best_checkpoint_path, output_path)
+    return output_path
 
 
 def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
@@ -101,18 +148,29 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
             covariance_matrix=covariance_matrix,
         )
 
-    model_dir = './' if model_dir is None else model_dir
-    Path(model_dir).mkdir(parents=True, exist_ok=True)
+    model_dir = Path('./' if model_dir is None else model_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir = model_dir / 'checkpoints'
     print(f'Saving model to {model_dir}')
 
-    val_loss, model, early_stop_callback = train.fit(
-        data=data, model=model,
-        model_dir=model_dir,
+    trainer = train.FCNTrainer(
         max_epochs=5000,
         devices=1,
         logger='tensorboard',
-        log_dir=model_dir
+        log_dir=model_dir,
+        tensorboard_name='tensorboard',
+        checkpoint_dir=checkpoint_dir,
     )
+    val_loss = trainer.fit(
+        model=model,
+        train_dataloaders=data.train_dataloader(),
+        val_dataloaders=data.val_dataloader(),
+    )
+    checkpoint_path = _export_best_checkpoint(
+        trainer,
+        model_dir / f'{observable.stat_name}.ckpt',
+    )
+    print(f'Saved best checkpoint to {checkpoint_path}')
     return val_loss
 
 if __name__ == '__main__':
@@ -121,7 +179,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--root_dir',
         type=str,
-        default='/global/cfs/cdirs/desicollab/users/epaillas/acm/',
+        default=DEFAULT_ROOT_DIR.as_posix(),
         help='Base directory for default EMC input and output paths.',
     )
     parser.add_argument('--transform_input', type=str, choices=['log', 'arcsinh'], default=None, help='Transform to apply to inputs.')
@@ -135,18 +193,12 @@ if __name__ == '__main__':
     setup_logging()
 
     root_dir = Path(args.root_dir)
-    paths = {
-        'data_dir': root_dir / 'emc/measurements/v1.3/abacus/compressed',
-        'measurements_dir': root_dir / 'emc/measurements/v1.3/abacus',
-        'param_dir': None
-    }
-
-    observable = Observable(stat_name=args.statistic, paths=paths, numpy_output=True, flat_output_dims=2)
+    observable = make_observable(root_dir=root_dir, statistic=args.statistic)
 
     if args.model_dir is not None:
         model_dir = args.model_dir
     else:
-        model_dir = root_dir / 'emc/models/v1.3/best' / args.statistic
+        model_dir = get_default_model_dir(root_dir=root_dir, statistic=args.statistic)
 
     TrainFCN(
         observable=observable,
