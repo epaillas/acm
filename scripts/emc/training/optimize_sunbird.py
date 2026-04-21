@@ -259,8 +259,9 @@ class EMCObjective:
                 log=True,
             )
         dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.15)
-        n_layers = trial.suggest_int('n_layers', 1, 10)
-        n_hidden = [trial.suggest_int('n_hidden', 128, 1024)] * n_layers
+        n_layers = trial.suggest_int('n_layers', 2, 6)
+        hidden_width = trial.suggest_categorical('n_hidden', [128, 256, 512])
+        n_hidden = [hidden_width] * n_layers
         enable_pruning = not isinstance(
             trial.study.pruner,
             optuna.pruners.NopPruner,
