@@ -6,7 +6,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 import warnings
 
 import optuna
@@ -190,7 +190,14 @@ def test_load_or_create_study_uses_requested_sampler_for_new_study(
     assert isinstance(study.sampler, sampler_type)
     assert len(study.trials) == 1
     assert study.trials[0].state == optuna.trial.TrialState.WAITING
-    assert study.trials[0].system_attrs["fixed_params"] == module.DEFAULT_INITIAL_TRIAL
+    assert study.trials[0].system_attrs["fixed_params"] == {
+        "dropout_rate": 0.0,
+        "learning_rate": 1.0e-3,
+        "n_hidden": 512,
+        "n_layers": 4,
+        "weight_decay_mode": "zero",
+    }
+    assert "weight_decay" not in study.trials[0].system_attrs["fixed_params"]
 
 
 @pytest.mark.parametrize(
@@ -240,6 +247,75 @@ def test_load_or_create_study_keeps_existing_sampler_and_pruner_on_resume(
 
     assert isinstance(resumed_study.sampler, optuna.samplers.CmaEsSampler)
     assert isinstance(resumed_study.pruner, optuna.pruners.NopPruner)
+
+
+@pytest.mark.parametrize(
+    ("weight_decay_mode", "expected_weight_decay"),
+    [("zero", 0.0), ("log", 1.0e-5)],
+)
+def test_emc_objective_uses_log_scaled_lr_and_weight_decay_sampling(
+    tmp_path: Path,
+    optimize_sunbird_module: tuple[ModuleType, dict[str, object]],
+    weight_decay_mode: str,
+    expected_weight_decay: float,
+) -> None:
+    module, captured = optimize_sunbird_module
+    captured["calls"].clear()
+
+    objective = module.EMCObjective(
+        observable=module.make_observable(root_dir=tmp_path / "root", statistic="projected_tpcf"),
+        study_dir=tmp_path / "study",
+        seed=7,
+    )
+
+    class FakeTrial:
+        def __init__(self):
+            self.number = 0
+            self.study = SimpleNamespace(pruner=optuna.pruners.NopPruner())
+            self.user_attrs: dict[str, str] = {}
+            self.float_calls: list[tuple[str, float, float, bool]] = []
+            self.int_calls: list[tuple[str, int, int]] = []
+            self.categorical_calls: list[tuple[str, tuple[str, ...]]] = []
+
+        def suggest_float(self, name, low, high, log=False):
+            self.float_calls.append((name, low, high, log))
+            values = {
+                "learning_rate": 1.0e-3,
+                "dropout_rate": 0.05,
+                "weight_decay": expected_weight_decay,
+            }
+            return values[name]
+
+        def suggest_int(self, name, low, high):
+            self.int_calls.append((name, low, high))
+            values = {
+                "n_layers": 4,
+                "n_hidden": 512,
+            }
+            return values[name]
+
+        def suggest_categorical(self, name, choices):
+            self.categorical_calls.append((name, tuple(choices)))
+            assert name == "weight_decay_mode"
+            return weight_decay_mode
+
+        def set_user_attr(self, key, value):
+            self.user_attrs[key] = value
+
+    trial = FakeTrial()
+
+    val_loss = objective(trial)
+
+    assert val_loss == pytest.approx(0.4)
+    assert trial.categorical_calls == [("weight_decay_mode", ("zero", "log"))]
+    assert ("learning_rate", 1.0e-4, 1.0e-2, True) in trial.float_calls
+    assert ("dropout_rate", 0.0, 0.15, False) in trial.float_calls
+    if weight_decay_mode == "zero":
+        assert not any(call[0] == "weight_decay" for call in trial.float_calls)
+    else:
+        assert ("weight_decay", 1.0e-8, 1.0e-3, True) in trial.float_calls
+    assert captured["calls"][0]["learning_rate"] == pytest.approx(1.0e-3)
+    assert captured["calls"][0]["weight_decay"] == pytest.approx(expected_weight_decay)
 
 
 def test_optimize_sunbird_retains_trial_artifacts_and_publishes_best_model(

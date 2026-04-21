@@ -21,7 +21,7 @@ DEFAULT_INITIAL_TRIAL = {
     'n_hidden': 512,
     'learning_rate': 1.0e-3,
     'dropout_rate': 0.0,
-    'weight_decay': 0.0,
+    'weight_decay_mode': 'zero',
 }
 
 
@@ -239,8 +239,25 @@ class EMCObjective:
         self.logger = logging.getLogger('EMCObjective')
 
     def __call__(self, trial):
-        learning_rate = trial.suggest_float('learning_rate', 1.0e-3, 0.01)
-        weight_decay = trial.suggest_float('weight_decay', 0.0, 0.001)
+        learning_rate = trial.suggest_float(
+            'learning_rate',
+            1.0e-4,
+            1.0e-2,
+            log=True,
+        )
+        weight_decay_mode = trial.suggest_categorical(
+            'weight_decay_mode',
+            ['zero', 'log'],
+        )
+        if weight_decay_mode == 'zero':
+            weight_decay = 0.0
+        else:
+            weight_decay = trial.suggest_float(
+                'weight_decay',
+                1.0e-8,
+                1.0e-3,
+                log=True,
+            )
         dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.15)
         n_layers = trial.suggest_int('n_layers', 1, 10)
         n_hidden = [trial.suggest_int('n_hidden', 128, 1024)] * n_layers
