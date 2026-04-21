@@ -313,13 +313,13 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_data(**kwargs)
@@ -332,13 +332,13 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_data(**kwargs)
