@@ -253,7 +253,7 @@ def test_load_or_create_study_keeps_existing_sampler_and_pruner_on_resume(
     ("weight_decay_mode", "expected_weight_decay"),
     [("zero", 0.0), ("log", 1.0e-5)],
 )
-def test_emc_objective_uses_log_scaled_lr_and_weight_decay_sampling(
+def test_emc_objective_uses_narrowed_architecture_and_log_scaled_optim_sampling(
     tmp_path: Path,
     optimize_sunbird_module: tuple[ModuleType, dict[str, object]],
     weight_decay_mode: str,
@@ -290,14 +290,16 @@ def test_emc_objective_uses_log_scaled_lr_and_weight_decay_sampling(
             self.int_calls.append((name, low, high))
             values = {
                 "n_layers": 4,
-                "n_hidden": 512,
             }
             return values[name]
 
         def suggest_categorical(self, name, choices):
             self.categorical_calls.append((name, tuple(choices)))
-            assert name == "weight_decay_mode"
-            return weight_decay_mode
+            values = {
+                "weight_decay_mode": weight_decay_mode,
+                "n_hidden": 512,
+            }
+            return values[name]
 
         def set_user_attr(self, key, value):
             self.user_attrs[key] = value
@@ -307,7 +309,11 @@ def test_emc_objective_uses_log_scaled_lr_and_weight_decay_sampling(
     val_loss = objective(trial)
 
     assert val_loss == pytest.approx(0.4)
-    assert trial.categorical_calls == [("weight_decay_mode", ("zero", "log"))]
+    assert trial.int_calls == [("n_layers", 2, 6)]
+    assert trial.categorical_calls == [
+        ("weight_decay_mode", ("zero", "log")),
+        ("n_hidden", (128, 256, 512)),
+    ]
     assert ("learning_rate", 1.0e-4, 1.0e-2, True) in trial.float_calls
     assert ("dropout_rate", 0.0, 0.15, False) in trial.float_calls
     if weight_decay_mode == "zero":
@@ -315,6 +321,7 @@ def test_emc_objective_uses_log_scaled_lr_and_weight_decay_sampling(
     else:
         assert ("weight_decay", 1.0e-8, 1.0e-3, True) in trial.float_calls
     assert captured["calls"][0]["learning_rate"] == pytest.approx(1.0e-3)
+    assert captured["calls"][0]["n_hidden"] == [512] * 4
     assert captured["calls"][0]["weight_decay"] == pytest.approx(expected_weight_decay)
 
 
