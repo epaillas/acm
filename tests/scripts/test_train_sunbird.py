@@ -64,13 +64,20 @@ def train_sunbird_module(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
 
 
 class FakeObservable:
-    def __init__(self, x_train: np.ndarray, y_train: np.ndarray, stat_name: str = "projected_tpcf"):
+    def __init__(
+        self,
+        x_train: np.ndarray,
+        y_train: np.ndarray,
+        covariance_y: np.ndarray,
+        stat_name: str = "projected_tpcf",
+    ):
         self.stat_name = stat_name
         self._dataset = SimpleNamespace(
             data_vars={name: object() for name in ("x_train", "y_train", "x_test", "y_test")}
         )
         self.x_train = x_train
         self.y_train = y_train
+        self.covariance_y = covariance_y
 
     @property
     def x(self):
@@ -79,10 +86,6 @@ class FakeObservable:
     @property
     def y(self):
         raise AssertionError("TrainFCN should not read the full y array")
-
-    def get_covariance_matrix(self, volume_factor: int) -> np.ndarray:
-        assert volume_factor == 64
-        return np.eye(self.y_train.shape[-1], dtype=float)
 
 
 def test_train_fcn_uses_dataset_split_and_training_only_normalization(
@@ -104,7 +107,15 @@ def test_train_fcn_uses_dataset_split_and_training_only_normalization(
             [400.0, 400.0],
         ]
     )
-    observable = FakeObservable(full_x, full_y)
+    covariance_y = np.array(
+        [
+            [1.0, 10.0],
+            [2.0, 20.0],
+            [4.0, 40.0],
+            [8.0, 80.0],
+        ]
+    )
+    observable = FakeObservable(full_x, full_y, covariance_y)
     captured: dict[str, object] = {}
 
     class FakeArrayDataModule:
@@ -166,6 +177,11 @@ def test_train_fcn_uses_dataset_split_and_training_only_normalization(
     monkeypatch.setattr(train_sunbird_module, "FCN", FakeFCN)
     monkeypatch.setattr(
         train_sunbird_module,
+        "seed_everything",
+        lambda seed, workers: captured.setdefault("seed_everything", (seed, workers)),
+    )
+    monkeypatch.setattr(
+        train_sunbird_module,
         "train",
         SimpleNamespace(FCNTrainer=FakeTrainer),
     )
@@ -188,11 +204,17 @@ def test_train_fcn_uses_dataset_split_and_training_only_normalization(
     assert "val_idx" not in captured["data_module_init"]
     np.testing.assert_array_equal(captured["data_module_init"]["x"], full_x)
     np.testing.assert_array_equal(captured["data_module_init"]["y"], full_y)
+    np.testing.assert_allclose(
+        captured["model_kwargs"]["covariance_matrix"],
+        np.cov(covariance_y, rowvar=False) / 64.0,
+    )
     np.testing.assert_allclose(captured["model_kwargs"]["mean_input"], np.array([0.5, 0.5]))
     np.testing.assert_allclose(captured["model_kwargs"]["std_input"], np.array([0.5, 0.5]))
     np.testing.assert_allclose(captured["model_kwargs"]["mean_output"], np.array([15.0, 15.0]))
     np.testing.assert_allclose(captured["model_kwargs"]["std_output"], np.array([5.0, 5.0]))
+    assert captured["seed_everything"] == (42, True)
     assert captured["trainer_init_kwargs"]["checkpoint_dir"] == model_dir / "checkpoints"
+    assert captured["trainer_init_kwargs"]["deterministic"] is True
     assert captured["trainer_init_kwargs"]["log_dir"] == model_dir
     assert captured["trainer_init_kwargs"]["logger"] == "tensorboard"
     assert captured["trainer_init_kwargs"]["tensorboard_name"] == "tensorboard"
@@ -204,12 +226,100 @@ def test_train_fcn_uses_dataset_split_and_training_only_normalization(
     assert exported_checkpoint.read_text() == "best-checkpoint"
 
 
+def test_train_fcn_recomputes_covariance_in_transformed_output_space(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, train_sunbird_module: ModuleType
+) -> None:
+    x_train = np.array([[0.0, 1.0], [1.0, 2.0], [2.0, 3.0]], dtype=float)
+    y_train = np.array([[1.0, 2.0], [2.0, 4.0], [4.0, 8.0]], dtype=float)
+    covariance_y = np.array([[1.0, 3.0], [2.0, 9.0], [4.0, 27.0]], dtype=float)
+    observable = FakeObservable(x_train, y_train, covariance_y)
+    captured: dict[str, object] = {}
+
+    class ScalingTransform:
+        def transform(self, value):
+            return np.asarray(value, dtype=float) * 10.0
+
+    class FakeArrayDataModule:
+        def __init__(self, x, y, val_fraction, batch_size, num_workers):
+            captured["data_module_init"] = {
+                "x": np.asarray(x),
+                "y": np.asarray(y),
+            }
+            self.n_input = np.asarray(x).shape[-1]
+            self.n_output = np.asarray(y).shape[-1]
+            self.ds_train = SimpleNamespace(
+                tensors=(
+                    torch.tensor(x, dtype=torch.float32),
+                    torch.tensor(y, dtype=torch.float32),
+                )
+            )
+            self._train_loader = object()
+            self._val_loader = object()
+
+        def setup(self):
+            return None
+
+        def train_dataloader(self):
+            return self._train_loader
+
+        def val_dataloader(self):
+            return self._val_loader
+
+    class FakeFCN:
+        def __init__(self, **kwargs):
+            captured["model_kwargs"] = kwargs
+
+    class FakeTrainer:
+        def __init__(self, **kwargs):
+            checkpoint_dir = kwargs["checkpoint_dir"]
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            best_checkpoint = checkpoint_dir / "epoch=02-step=3-val_loss=0.12300.ckpt"
+            best_checkpoint.write_text("best-checkpoint")
+            self.callbacks = [SimpleNamespace(best_model_path=str(best_checkpoint))]
+
+        def fit(self, *, model, train_dataloaders, val_dataloaders):
+            return 0.123
+
+    monkeypatch.setattr(train_sunbird_module, "ArrayDataModule", FakeArrayDataModule)
+    monkeypatch.setattr(train_sunbird_module, "FCN", FakeFCN)
+    monkeypatch.setattr(
+        train_sunbird_module,
+        "_build_transform",
+        lambda transform_name: ScalingTransform() if transform_name == "log" else None,
+    )
+    monkeypatch.setattr(
+        train_sunbird_module,
+        "train",
+        SimpleNamespace(FCNTrainer=FakeTrainer),
+    )
+
+    val_loss = train_sunbird_module.TrainFCN(
+        observable=observable,
+        learning_rate=1e-3,
+        n_hidden=[32, 32],
+        dropout_rate=0.0,
+        weight_decay=0.0,
+        model_dir=tmp_path / "model",
+        transform_output="log",
+        val_fraction=0.25,
+        seed=42,
+    )
+
+    assert val_loss == 0.123
+    np.testing.assert_allclose(captured["data_module_init"]["y"], y_train * 10.0)
+    np.testing.assert_allclose(
+        captured["model_kwargs"]["covariance_matrix"],
+        np.cov(covariance_y * 10.0, rowvar=False) / 64.0,
+    )
+
+
 def test_train_fcn_builds_pruning_callbacks_when_enabled(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, train_sunbird_module: ModuleType
 ) -> None:
     observable = FakeObservable(
         np.array([[0.0, 0.0], [1.0, 1.0]], dtype=float),
         np.array([[10.0, 10.0], [20.0, 20.0]], dtype=float),
+        np.array([[1.0, 2.0], [2.0, 4.0], [4.0, 8.0]], dtype=float),
     )
     captured: dict[str, object] = {}
 
@@ -283,6 +393,11 @@ def test_train_fcn_builds_pruning_callbacks_when_enabled(
     monkeypatch.setattr(train_sunbird_module, "FCN", FakeFCN)
     monkeypatch.setattr(
         train_sunbird_module,
+        "seed_everything",
+        lambda seed, workers: captured.setdefault("seed_everything", (seed, workers)),
+    )
+    monkeypatch.setattr(
+        train_sunbird_module,
         "_get_lightning_callback_classes",
         lambda: (FakeLearningRateMonitor, FakeRichProgressBar),
     )
@@ -313,7 +428,9 @@ def test_train_fcn_builds_pruning_callbacks_when_enabled(
     )
 
     assert val_loss == 0.123
+    assert captured["seed_everything"] == (42, True)
     callbacks = captured["trainer_init_kwargs"]["callbacks"]
+    assert captured["trainer_init_kwargs"]["deterministic"] is True
     assert getattr(callbacks[0], "kind", None) == "early_stop"
     assert getattr(callbacks[1], "kind", None) == "checkpoint"
     assert isinstance(callbacks[2], FakeLearningRateMonitor)

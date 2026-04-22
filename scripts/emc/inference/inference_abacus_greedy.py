@@ -96,15 +96,14 @@ def get_filters(observable_name):
     slice_filters = {}
     """Get the select and slice coordinates for the observable."""
     if observable_name == 'tpcf':
-        select_filters.update({'multipoles': [0, 2]})
+        select_filters.update({'ells': [0, 2]})
         slice_filters.update({'s': [0.0, 150]})
     elif observable_name == 'spectrum':
-        select_filters.update({'multipoles': [0, 2, 4]})
+        select_filters.update({'ells': [0, 2, 4]})
     elif observable_name == 'bispectrum':
-        select_filters.update({'multipoles': [0, 2]})
-        slice_filters.update({'k': [0.0, 0.7]})
+        select_filters.update({'ells': [0, 2]})
     elif observable_name == 'recon_spectrum':
-        select_filters.update({'multipoles': [0, 2, 4]})
+        select_filters.update({'ells': [0, 2, 4]})
         slice_filters.update({'k': [0.0, 0.7]})
     elif observable_name in {'ds_xiqg', 'ds_xiqq'}:
         select_filters.update({'statistics': ['quantile_data_power']})
@@ -123,6 +122,7 @@ def get_observable(stat_names):
             select_filters=select_filters,
             slice_filters=slice_filters,
             select_indices=select_indices,
+            paths={"model_dir": Path(args.model_dir)} if args.model_dir else None,
         )
         observables.append(obs)
     return obs if len(observables) == 1 else CombinedObservable(observables)
@@ -249,6 +249,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_diagonal_emulator_covariance', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
     parser.add_argument('--covariance_correction', type=str, default='percival', help='Covariance correction method to use.')
     parser.add_argument('--use_nbar_emulator', action='store_true', help='Enable the EMC number-density emulator constraint during sampling.')
+    parser.add_argument('--model_dir', type=str, default=None, help='Optional model directory override for emulator checkpoints.')
     parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/greedy/', help='Directory to save the results.')
 
     args = parser.parse_args()

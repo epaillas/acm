@@ -290,7 +290,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 r"$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]", fontsize=15
             )
 
-            self.select_filters.update({"multipoles": ell})
+            self.select_filters.update({"ells": ell})
 
             bin_idx = self.bin_idx.values
             data = self.y

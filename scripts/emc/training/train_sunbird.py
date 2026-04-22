@@ -1,6 +1,7 @@
 import numpy as np
 import shutil
 from pathlib import Path
+from lightning import seed_everything
 from sunbird.emulators import FCN, train
 from sunbird.data import ArrayDataModule
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
@@ -54,6 +55,32 @@ def get_default_study_dir(root_dir, statistic):
     return Path(root_dir) / EMC_MODELS_RELATIVE_DIR / 'optuna' / statistic
 
 
+def _compute_training_covariance_matrix(
+    observable,
+    output_transform=None,
+    volume_factor=64,
+):
+    covariance_samples = np.asarray(observable.covariance_y, dtype=float)
+    if covariance_samples.ndim < 2:
+        raise ValueError('Covariance samples must have at least two dimensions.')
+
+    covariance_samples = covariance_samples.reshape(covariance_samples.shape[0], -1)
+
+    if output_transform is not None:
+        covariance_samples = np.asarray(
+            output_transform.transform(covariance_samples),
+            dtype=float,
+        )
+        if not np.isfinite(covariance_samples).all():
+            stat_name = getattr(observable, 'stat_name', 'unknown')
+            raise ValueError(
+                f'Output transform produced non-finite covariance samples for '
+                f"'{stat_name}'."
+            )
+
+    return np.cov(covariance_samples, rowvar=False) / volume_factor
+
+
 def _require_train_test_split(observable):
     dataset_vars = set(observable._dataset.data_vars)
     missing = [name for name in REQUIRED_SPLIT_VARS if name not in dataset_vars]
@@ -102,15 +129,20 @@ def _get_pruning_callback_cls():
     return PyTorchLightningPruningCallback
 
 
-def _build_trainer_callbacks(trial, checkpoint_dir):
+def _build_trainer_callbacks(
+    trial,
+    checkpoint_dir,
+    early_stop_patience=30,
+    early_stop_min_delta=1.0e-7,
+):
     LearningRateMonitor, RichProgressBar = _get_lightning_callback_classes()
     pruning_callback_cls = _get_pruning_callback_cls()
 
     callbacks = [
         train.FCNTrainer.early_stop_callback(
             monitor='val_loss',
-            patience=30,
-            min_delta=1.0e-7,
+            patience=early_stop_patience,
+            min_delta=early_stop_min_delta,
         ),
         train.FCNTrainer.checkpoint_callback(
             monitor='val_loss',
@@ -127,7 +159,8 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     model_dir=None, transform_input=None, transform_output=None, val_fraction=0.1,
     seed=None, trial=None, enable_pruning=False):
 
-    np.random.seed(seed)
+    seed = 42 if seed is None else int(seed)
+    seed_everything(seed, workers=True)
 
     if enable_pruning and trial is None:
         raise ValueError('Optuna trial is required when pruning is enabled.')
@@ -138,11 +171,13 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
     train_y = observable.y_train
     print(f'Loaded training split with shape: {train_x.shape}, {train_y.shape}')
 
-    covariance_matrix = observable.get_covariance_matrix(volume_factor=64)
-    print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
-
     input_transform = _build_transform(transform_input)
     output_transform = _build_transform(transform_output)
+    covariance_matrix = _compute_training_covariance_matrix(
+        observable=observable,
+        output_transform=output_transform,
+    )
+    print(f'Loaded covariance matrix with shape: {covariance_matrix.shape}')
 
     if input_transform is not None:
         train_x = input_transform.transform(train_x)
@@ -179,7 +214,7 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
             scheduler_threshold=1.e-6,
             weight_decay=weight_decay,
             act_fn='learned_sigmoid',
-            loss='weighted_mae',
+            loss='GaussianNLoglike',
             training=True,
             mean_output=train_mean,
             std_output=train_std,
@@ -203,6 +238,7 @@ def TrainFCN(observable, learning_rate, n_hidden, dropout_rate, weight_decay,
         log_dir=model_dir,
         tensorboard_name='tensorboard',
         checkpoint_dir=checkpoint_dir,
+        deterministic=True,
     )
     if enable_pruning:
         trainer_kwargs['callbacks'] = _build_trainer_callbacks(
