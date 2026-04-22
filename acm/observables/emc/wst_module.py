@@ -90,6 +90,13 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
         # WST coefficient indices to mask due to instabilities
         mask = [
+            1,
+            26,
+            27,
+            28,
+            29,
+            33,
+            34,
             95,
             96,
             97,
@@ -111,6 +118,25 @@ class WaveletScatteringTransform(BaseObservableEMC):
             147,
             148,
             149,
+            154,
+            161,
+            175,
+            176,
+            177,
+            178,
+            179,
+            180,
+            181,
+            182,
+            184,
+            185,
+            186,
+            190,
+            195,
+            196,
+            197,
+            200,
+            201,
         ]
 
         # Get phase files from first configuration
@@ -129,9 +155,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
                     1:
                 ]  # Exclude first element
                 concatenated_coeffs.append(normalized)
-            # Concatenate coefficients from all three configurations
-            concatenated_coeffs = np.concatenate(concatenated_coeffs)
-            # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
+            concatenated_coeffs = np.delete(
+                np.concatenate(concatenated_coeffs), mask
+            )
             y.append(concatenated_coeffs)
         y = np.array(y)
 
@@ -220,6 +246,13 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
         # WST coefficient indices to mask due to instabilities
         mask = [
+            1,
+            26,
+            27,
+            28,
+            29,
+            33,
+            34,
             95,
             96,
             97,
@@ -241,6 +274,25 @@ class WaveletScatteringTransform(BaseObservableEMC):
             147,
             148,
             149,
+            154,
+            161,
+            175,
+            176,
+            177,
+            178,
+            179,
+            180,
+            181,
+            182,
+            184,
+            185,
+            186,
+            190,
+            195,
+            196,
+            197,
+            200,
+            201,
         ]
 
         y = []
@@ -275,9 +327,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
                         1:
                     ]  # Exclude first element
                     concatenated_coeffs.append(normalized)
-                # Concatenate coefficients from all three configurations
-                concatenated_coeffs = np.concatenate(concatenated_coeffs)
-                # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
+                concatenated_coeffs = np.delete(
+                    np.concatenate(concatenated_coeffs), mask
+                )
                 y.append(concatenated_coeffs)
         y = np.array(y)
         y = xarray.DataArray(

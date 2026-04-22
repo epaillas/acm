@@ -2,7 +2,7 @@ import logging
 import pickle
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import overload
+from typing import Optional, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,7 +11,7 @@ import xarray
 from scipy.stats import median_abs_deviation, norm
 from sunbird.data.data_utils import transform_filters_to_slices
 from sunbird.data.transforms_array import ArcsinhTransform, LogTransform
-from sunbird.emulators import FCN
+from sunbird.emulators import FCN, Transformer, Zhong24Transformer
 
 from acm.utils.covariance import check_covariance_matrix, orthogonal_gk_mad_covariance
 from acm.utils.decorators import temporary_class_state
@@ -26,6 +26,39 @@ logger = logging.getLogger(__name__)
 SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 
 
+def _load_checkpoint_payload(checkpoint_fn: Path | str) -> dict:
+    checkpoint_fn = Path(checkpoint_fn)
+    try:
+        return torch.load(checkpoint_fn, map_location=torch.device("cpu"))
+    except pickle.UnpicklingError as err:
+        if "Weights only load failed" not in str(err):
+            raise
+        logger.warning(
+            "Retrying checkpoint inspection with weights_only=False for %s due to PyTorch weights-only unpickling restrictions.",
+            checkpoint_fn,
+        )
+        return torch.load(
+            checkpoint_fn,
+            map_location=torch.device("cpu"),
+            weights_only=False,
+        )
+
+
+def _get_model_class_from_checkpoint(checkpoint_fn: Path | str):
+    checkpoint = _load_checkpoint_payload(checkpoint_fn)
+    hparams = checkpoint.get("hyper_parameters", {})
+    model_type = str(hparams.get("model_type", "fcn")).lower()
+    if model_type == "fcn":
+        return FCN
+    if model_type == "transformer":
+        return Transformer
+    if model_type == "zhong24_transformer":
+        return Zhong24Transformer
+    raise ValueError(
+        f"Unknown emulator model_type '{model_type}' in checkpoint {checkpoint_fn}."
+    )
+
+
 class Observable:
     """
     Class to load a compressed Observable file or model and apply filters to their outputs.
@@ -35,7 +68,7 @@ class Observable:
         self,
         stat_name: str,
         dataset: xarray.Dataset | None = None,
-        model: FCN = None,
+        model: Optional[torch.nn.Module] = None,
         select_filters: dict | None = None,
         slice_filters: dict | None = None,
         select_indices: list | None = None,
@@ -126,8 +159,13 @@ class Observable:
 
             if model is not None:
                 self.model = model
-            # Try to load model if not provided
-            elif paths is not None and "model_dir" in paths:
+            # Try to load model if not provided.
+            # `checkpoint_fn` remains supported for callers that resolve a
+            # statistic-specific checkpoint themselves and do not pass
+            # `paths["model_dir"]`.
+            elif checkpoint_fn is not None or (
+                paths is not None and "model_dir" in paths
+            ):
                 try:
                     if checkpoint_fn is not None:
                         logger.warning(
@@ -210,19 +248,19 @@ class Observable:
         return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
 
     @classmethod
-    def load_model(cls, checkpoint_fn: Path | str) -> FCN:
+    def load_model(cls, checkpoint_fn: Path | str) -> torch.nn.Module:
         """
         Trained theory model loaded from checkpoint.
 
         Parameters
         ----------
         checkpoint_fn : Path | str
-            Path to the model checkpoint file. See `sunbird.emulators.FCN.load_from_checkpoint`.
+            Path to the model checkpoint file.
 
         Returns
         -------
-        FCN
-            The loaded FCN model.
+        torch.nn.Module
+            The loaded emulator model.
         """
         # Register the classes as safe globals if torch.serialization.add_safe_globals exists
         if SAFE_CLASSES:
@@ -236,8 +274,9 @@ class Observable:
 
         # Load the model
         logger.info(f"Loading model from {checkpoint_fn}")
+        model_cls = _get_model_class_from_checkpoint(checkpoint_fn)
         try:
-            model = FCN.load_from_checkpoint(checkpoint_fn, strict=True)
+            model = model_cls.load_from_checkpoint(checkpoint_fn, strict=True)
         except pickle.UnpicklingError as err:
             if "Weights only load failed" not in str(err):
                 raise
@@ -245,7 +284,7 @@ class Observable:
                 "Retrying checkpoint load with weights_only=False for %s due to PyTorch weights-only unpickling restrictions.",
                 checkpoint_fn,
             )
-            model = FCN.load_from_checkpoint(
+            model = model_cls.load_from_checkpoint(
                 checkpoint_fn, strict=True, weights_only=False
             )
         model.eval().to("cpu")
@@ -627,7 +666,7 @@ class Observable:
             Input features for the model.
             If an array, it should have shape (n_samples, n_params).
             If a dict, it should have keys matching the model input names and values as lists/1d-arrays of shape (n_samples,).
-        model : FCN
+        model : torch.nn.Module
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
             Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
@@ -986,7 +1025,9 @@ class Observable:
         save_fn : str | None
             Filename to save the plot. If None, the plot is not saved.
         **kwargs : dict
-            Additional arguments for the plot, such as figsize, and volume_factor and prefactor for covariance calculation.
+            Additional arguments for the plot, such as figsize, chi2_bins,
+            chi2_clip_percentile, chi2_max, and volume_factor and prefactor
+            for covariance calculation.
 
         Returns
         -------
@@ -1000,10 +1041,28 @@ class Observable:
             volume_factor=volume_factor, prefactor=prefactor
         )
         data_err = np.sqrt(np.diag(data_cov))
-        residuals = self.emulator_covariance_y
+        residuals = np.atleast_2d(np.asarray(self.emulator_covariance_y))
+        chi2_solver = np.linalg.solve(data_cov, residuals.T)
+        chi2_values = np.sum(residuals * chi2_solver.T, axis=1)
+        mean_chi2 = float(np.mean(chi2_values))
 
-        figsize = kwargs.pop("figsize", (4, 4))
-        fig, ax = plt.subplots(2, 1, figsize=figsize, sharex=True)
+        figsize = kwargs.pop("figsize", (4, 6))
+        chi2_bins = kwargs.pop("chi2_bins", "auto")
+        chi2_clip_percentile = kwargs.pop("chi2_clip_percentile", 99.0)
+        chi2_max = kwargs.pop("chi2_max", None)
+        if chi2_max is None:
+            chi2_max = float(np.percentile(chi2_values, chi2_clip_percentile))
+            chi2_max = max(chi2_max, mean_chi2)
+            if not np.isfinite(chi2_max) or chi2_max <= 0:
+                chi2_max = float(np.max(chi2_values))
+            chi2_max *= 1.05
+        clipped_samples = int(np.sum(chi2_values > chi2_max))
+        fig, ax = plt.subplots(
+            3,
+            1,
+            figsize=figsize,
+            gridspec_kw={"height_ratios": [2.0, 1.2, 1.0]},
+        )
 
         for res in residuals:
             ax[0].plot(res / data_err, color="gray", alpha=0.3, lw=0.5)
@@ -1022,10 +1081,43 @@ class Observable:
                 )
 
         ax[1].axhline(1.0, color="k", ls=":", lw=0.7)
+        ax[2].hist(
+            chi2_values,
+            bins=chi2_bins,
+            range=(0, chi2_max),
+            color="0.8",
+            edgecolor="0.4",
+        )
+        ax[2].axvline(
+            mean_chi2,
+            color="C3",
+            lw=1.2,
+            label=fr"$\langle \chi^2 \rangle = {mean_chi2:.2f}$",
+        )
+        ax[0].tick_params(axis="x", labelbottom=False)
         ax[1].set_xlabel("bin index", fontsize=13)
         ax[0].set_ylabel(r"$\Delta X / \sigma_{\rm data}$", fontsize=13)
         ax[1].set_ylabel(r"$\sigma_{\rm emulator} / \sigma_{\rm data}$", fontsize=13)
+        ax[2].set_xlabel(r"$\chi^2$", fontsize=13)
+        ax[2].set_ylabel("count", fontsize=13)
+        ax[2].set_xlim(0, chi2_max)
+        if clipped_samples > 0:
+            ax[2].text(
+                0.98,
+                0.95,
+                f"{clipped_samples} sample(s) beyond x-range",
+                transform=ax[2].transAxes,
+                ha="right",
+                va="top",
+                fontsize=8,
+            )
+            logger.info(
+                "Clipped %s high-chi2 sample(s) from the histogram display for %s.",
+                clipped_samples,
+                self.stat_name,
+            )
         ax[1].legend(fontsize=8)
+        ax[2].legend(fontsize=8)
         fig.tight_layout()
         if save_fn is not None:
             plt.savefig(save_fn, dpi=300, bbox_inches="tight")

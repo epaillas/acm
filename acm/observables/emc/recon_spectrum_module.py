@@ -306,7 +306,7 @@ class ReconstructedGalaxyPowerSpectrumMultipoles(BaseObservableEMC):
                 color=f"C{i}",
                 elinewidth=1.0,
                 capsize=None,
-                label=f"$\ell={ell}$",
+                label=rf"$\ell={ell}$",
             )
             lax[0].plot(k, k * model, ls="-", color=f"C{i}")
             lax[i + 1].plot(k, (data - model) / error, ls="-", color=f"C{i}")
