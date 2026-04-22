@@ -25,9 +25,7 @@ logger = logging.getLogger(__name__)
 # with PyTorch 2.6+ (which changed weights_only default to True)
 SAFE_CLASSES = [LogTransform, ArcsinhTransform]
 EmulatorModel: TypeAlias = FCN | Transformer | Zhong24Transformer
-EmulatorModelClass: TypeAlias = (
-    type[FCN] | type[Transformer] | type[Zhong24Transformer]
-)
+EmulatorModelClass: TypeAlias = type[FCN] | type[Transformer] | type[Zhong24Transformer]
 
 
 def _load_checkpoint_payload(checkpoint_fn: Path | str) -> dict:
