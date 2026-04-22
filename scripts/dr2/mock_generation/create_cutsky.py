@@ -48,15 +48,15 @@ def get_cli_args():
     )
     parser.add_argument('--make_randoms', action='store_true', default=False)
     parser.add_argument('--n_randoms', type=int, default=1)
-    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/e/epaillas/acm/dr2/hods/cutsky/v0.2/')
+    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/a/acasella/acm/dr2/HOD/cutsky_mocks/')
 
     args = parser.parse_args()
     return args
 
 def get_hod_params(nrows=None):
     """Some example HOD parameters."""
-    hod_dir = Path(f'/pscratch/sd/e/epaillas/emc/hod_params/yuan23/')
-    hod_fn = hod_dir / f'hod_params_yuan23_c000.csv'
+    hod_dir = Path(f'/pscratch/sd/a/acasella/acm/dr2/HOD/')
+    hod_fn = hod_dir / f'test7_hod_params_c000.csv'
     df = pandas.read_csv(hod_fn, delimiter=',')
     df.columns = df.columns.str.strip()
     df.columns = list(df.columns.str.strip('# ').values)
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     release = args.release
     cosmos = list(range(args.start_cosmo, args.start_cosmo + args.n_cosmo))
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
-    hod_idx = 30  # TODO : allow varying hod_idx
+    hod_idx = 1  # TODO : allow varying hod_idx
 
     for cosmo_idx in cosmos:
         fid_cosmo = AbacusSummit(cosmo_idx)
@@ -113,7 +113,7 @@ if __name__ == '__main__':
             nz_filename= f'/global/cfs/cdirs/desi/survey/catalogs/DA2/LSS/loa-v1/LSScats/v2/{tracer}_full_HPmapcut_nz.txt'
             cutsky.apply_radial_mask(nz_filename=nz_filename)
 
-            cutsky.save(save_dir / f'{tracer}_{region}_hod{hod_idx:03}.dat.fits')
+            cutsky.save(save_dir / f'{tracer}_{region}_hod{hod_idx:03}_new_constraints5.dat.fits')
 
             if args.make_randoms:
                 for rnd_idx in range(args.n_randoms):
