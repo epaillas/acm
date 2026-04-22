@@ -310,9 +310,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseClass):
     """Class for the Emulator's Mock Challenge density-split cross-correlation function multipoles."""
 
-    def __init__(
-        self, stat_name: str = "ds_xiqg", **kwargs
-    ) -> None:
+    def __init__(self, stat_name: str = "ds_xiqg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod

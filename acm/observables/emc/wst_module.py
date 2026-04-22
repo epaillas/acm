@@ -155,9 +155,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
                     1:
                 ]  # Exclude first element
                 concatenated_coeffs.append(normalized)
-            concatenated_coeffs = np.delete(
-                np.concatenate(concatenated_coeffs), mask
-            )
+            concatenated_coeffs = np.delete(np.concatenate(concatenated_coeffs), mask)
             y.append(concatenated_coeffs)
         y = np.array(y)
 

@@ -1092,7 +1092,7 @@ class Observable:
             mean_chi2,
             color="C3",
             lw=1.2,
-            label=fr"$\langle \chi^2 \rangle = {mean_chi2:.2f}$",
+            label=rf"$\langle \chi^2 \rangle = {mean_chi2:.2f}$",
         )
         ax[0].tick_params(axis="x", labelbottom=False)
         ax[1].set_xlabel("bin index", fontsize=13)
