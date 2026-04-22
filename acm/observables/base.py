@@ -2,7 +2,7 @@ import logging
 import pickle
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import Optional, overload
+from typing import Optional, TypeAlias, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 # Register safe globals for transform classes to allow loading checkpoints
 # with PyTorch 2.6+ (which changed weights_only default to True)
 SAFE_CLASSES = [LogTransform, ArcsinhTransform]
+EmulatorModel: TypeAlias = FCN | Transformer | Zhong24Transformer
+EmulatorModelClass: TypeAlias = (
+    type[FCN] | type[Transformer] | type[Zhong24Transformer]
+)
 
 
 def _load_checkpoint_payload(checkpoint_fn: Path | str) -> dict:
@@ -44,7 +48,9 @@ def _load_checkpoint_payload(checkpoint_fn: Path | str) -> dict:
         )
 
 
-def _get_model_class_from_checkpoint(checkpoint_fn: Path | str):
+def _get_model_class_from_checkpoint(
+    checkpoint_fn: Path | str,
+) -> EmulatorModelClass:
     checkpoint = _load_checkpoint_payload(checkpoint_fn)
     hparams = checkpoint.get("hyper_parameters", {})
     model_type = str(hparams.get("model_type", "fcn")).lower()
@@ -68,7 +74,7 @@ class Observable:
         self,
         stat_name: str,
         dataset: xarray.Dataset | None = None,
-        model: Optional[torch.nn.Module] = None,
+        model: Optional[EmulatorModel] = None,
         select_filters: dict | None = None,
         slice_filters: dict | None = None,
         select_indices: list | None = None,
@@ -163,17 +169,24 @@ class Observable:
             # `checkpoint_fn` remains supported for callers that resolve a
             # statistic-specific checkpoint themselves and do not pass
             # `paths["model_dir"]`.
-            elif checkpoint_fn is not None or (
-                paths is not None and "model_dir" in paths
-            ):
+            elif checkpoint_fn is not None:
                 try:
-                    if checkpoint_fn is not None:
-                        logger.warning(
-                            "DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead."
-                        )
-                        checkpoint_fn = Path(checkpoint_fn)
-                    else:
-                        checkpoint_fn = Path(paths["model_dir"]) / f"{stat_name}.ckpt"
+                    logger.warning(
+                        "DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead."
+                    )
+                    checkpoint_fn = Path(checkpoint_fn)
+                    self.model = self.load_model(checkpoint_fn)
+                except (
+                    FileNotFoundError,
+                    OSError,
+                    RuntimeError,
+                    KeyError,
+                    ValueError,
+                ) as e:
+                    logger.warning(f"Could not load model from checkpoint: {e}")
+            elif paths is not None and "model_dir" in paths:
+                try:
+                    checkpoint_fn = Path(paths["model_dir"]) / f"{stat_name}.ckpt"
                     self.model = self.load_model(checkpoint_fn)
                 except (
                     FileNotFoundError,
@@ -248,7 +261,7 @@ class Observable:
         return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
 
     @classmethod
-    def load_model(cls, checkpoint_fn: Path | str) -> torch.nn.Module:
+    def load_model(cls, checkpoint_fn: Path | str) -> EmulatorModel:
         """
         Trained theory model loaded from checkpoint.
 
@@ -259,7 +272,7 @@ class Observable:
 
         Returns
         -------
-        torch.nn.Module
+        EmulatorModel
             The loaded emulator model.
         """
         # Register the classes as safe globals if torch.serialization.add_safe_globals exists
@@ -652,7 +665,7 @@ class Observable:
     def get_model_prediction(
         self,
         x,
-        model=None,
+        model: EmulatorModel | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = False,
@@ -666,7 +679,7 @@ class Observable:
             Input features for the model.
             If an array, it should have shape (n_samples, n_params).
             If a dict, it should have keys matching the model input names and values as lists/1d-arrays of shape (n_samples,).
-        model : torch.nn.Module
+        model : EmulatorModel
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
             Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
@@ -698,11 +711,17 @@ class Observable:
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
 
-        if model is None:
-            model = self.model
+        if model is not None:
+            resolved_model = model
+        elif hasattr(self, "model"):
+            resolved_model = self.model
+        else:
+            raise AttributeError(
+                "No model loaded. Please provide a model or initialize the observable with model paths."
+            )
 
         with torch.no_grad():
-            pred = model.get_prediction(torch.Tensor(x))
+            pred = resolved_model.get_prediction(torch.Tensor(x))
             pred = pred.numpy()
 
         if coords is None:
