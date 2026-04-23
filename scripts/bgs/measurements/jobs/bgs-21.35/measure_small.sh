@@ -25,7 +25,7 @@ PHASE=${PHASE_LIST[$ID]} # Phase to be used
 
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements/logs/small/log_small_c000_ph%03d_seed0.log" ${PHASE})
 
-cd /global/homes/s/sbouchar/acm-repo/scripts/bgs/measurements
+cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 python measure_box.py --config jobs/bgs-21.35/config.yaml --gpu --sim_type small --hods 70 157 --phases ${PHASE} --log_file "${LOGFILE}"
 # 70 is the best-fit, 157 is the best-fit of the -20 magnitude cut BGS sample (if we need it)
 

@@ -3,12 +3,12 @@
 #SBATCH --account desi_g
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node 1
-#SBATCH --qos regular
+#SBATCH --qos debug
 #SBATCH --constraint gpu&hbm80g
 
-#SBATCH --time 03:00:00
+#SBATCH --time 00:30:00
 
-#SBATCH --job-name bgs_base_outliers
+#SBATCH --job-name bgs-20_measure_base_outliers
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.out
 #SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.err
 
@@ -18,16 +18,14 @@ source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
 # Load the old pyrecon module for densitysplit
 module swap pyrecon/mpi pyrecon/main
 
-# Get the cosmology index from the SLURM_ARRAY_TASK_ID
-COSMO_LIST=(0 {1..4} 13 {100..126} {130..181}) # List of cosmologies to be used
-ID=$((SLURM_ARRAY_TASK_ID)) # ID of the cosmology to be used, starting from 0
-COSMO=${COSMO_LIST[ID]} # Cosmology to be used
+cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 
-LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/outliers/log_base_c%03d_ph000_seed0.log" ${COSMO})
+SIMTYPE=base
+METHOD=corrupted_h5
 
-OUTLIERS='/global/homes/s/sbouchar/acm-repo/scripts/bgs/measurements/outliers/all_outliers_simtype-base_ells-02_sigma-10.0.npy'
+LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/outliers/log_${SIMTYPE}_${METHOD}.log"
+OUTLIERS="jobs/bgs-20/outliers/${METHOD}-simtype_${SIMTYPE}-all_measurements.npy"
 
-cd /global/homes/s/sbouchar/acm-repo/scripts/bgs/measurements
-python measure_box.py --config jobs/bgs-20/config.yaml --gpu --cosmologies ${COSMO} --log_file "${LOGFILE}" --measurements tpcf density_split --overwrite --parameters_override "${OUTLIERS}"
+python measure_box.py --config jobs/bgs-20/config.yaml --gpu --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}" #--measurements power_spectrum density_split_power
 
-# Launch with : sbatch --array=0-84 ...
+# Launch with : sbatch ...
