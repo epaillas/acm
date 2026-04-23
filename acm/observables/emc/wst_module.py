@@ -14,36 +14,15 @@ from .base import BaseObservableEMC
 
 logger = logging.getLogger(__name__)
 
-# unused masks in methods, moved here for visibility and to avoid magic numbers in the methods
-
-# WST coefficient indices to mask due to instabilities
-wst_idx_mask = [
-    95,
-    96,
-    97,
-    98,
-    99,
-    116,
-    117,
-    118,
-    119,
-    131,
-    132,
-    133,
-    134,
-    141,
-    142,
-    143,
-    144,
-    146,
-    147,
-    148,
-    149,
-]
-
-
 class WaveletScatteringTransform(BaseObservableEMC):
     """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
+
+    mask_indices = np.loadtxt(
+        Path(__file__).with_name("data") / "wst_mask_indices.csv",
+        delimiter=",",
+        skiprows=1,
+        dtype=int,
+    )
 
     def __init__(self, stat_name: str = "wst", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
@@ -112,57 +91,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             "J5_L3_q0.8_sigma0.4",
         ]
 
-        # WST coefficient indices to mask due to instabilities
-        mask = [
-            1,
-            26,
-            27,
-            28,
-            29,
-            33,
-            34,
-            95,
-            96,
-            97,
-            98,
-            99,
-            116,
-            117,
-            118,
-            119,
-            131,
-            132,
-            133,
-            134,
-            141,
-            142,
-            143,
-            144,
-            146,
-            147,
-            148,
-            149,
-            154,
-            161,
-            175,
-            176,
-            177,
-            178,
-            179,
-            180,
-            181,
-            182,
-            184,
-            185,
-            186,
-            190,
-            195,
-            196,
-            197,
-            200,
-            201,
-        ]
-
         # Get phase files from first configuration
         first_config_dir = base_dir / configs[0]
         data_fns = list(first_config_dir.glob("wst_ph*.npy"))
@@ -179,7 +107,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
                     1:
                 ]  # Exclude first element
                 concatenated_coeffs.append(normalized)
-            concatenated_coeffs = np.delete(np.concatenate(concatenated_coeffs), mask)
+            concatenated_coeffs = np.delete(
+                np.concatenate(concatenated_coeffs), cls.mask_indices
+            )
             y.append(concatenated_coeffs)
         y = np.array(y)
 
@@ -266,57 +196,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             "J5_L3_q0.8_sigma0.4",
         ]
 
-        # WST coefficient indices to mask due to instabilities
-        mask = [
-            1,
-            26,
-            27,
-            28,
-            29,
-            33,
-            34,
-            95,
-            96,
-            97,
-            98,
-            99,
-            116,
-            117,
-            118,
-            119,
-            131,
-            132,
-            133,
-            134,
-            141,
-            142,
-            143,
-            144,
-            146,
-            147,
-            148,
-            149,
-            154,
-            161,
-            175,
-            176,
-            177,
-            178,
-            179,
-            180,
-            181,
-            182,
-            184,
-            185,
-            186,
-            190,
-            195,
-            196,
-            197,
-            200,
-            201,
-        ]
-
         y = []
         hods = {}
         for cosmo_idx in cosmos:
@@ -350,7 +229,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
                     ]  # Exclude first element
                     concatenated_coeffs.append(normalized)
                 concatenated_coeffs = np.delete(
-                    np.concatenate(concatenated_coeffs), mask
+                    np.concatenate(concatenated_coeffs), cls.mask_indices
                 )
                 y.append(concatenated_coeffs)
         y = np.array(y)
