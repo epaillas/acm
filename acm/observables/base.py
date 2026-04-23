@@ -2,7 +2,7 @@ import logging
 import pickle
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import Any, Optional, TypeAlias, overload
+from typing import Any, TypeAlias, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -70,7 +70,7 @@ class Observable:
         self,
         stat_name: str,
         dataset: xarray.Dataset | None = None,
-        model: Optional[EmulatorModel] = None,
+        model: EmulatorModel | None = None,
         select_filters: dict | None = None,
         slice_filters: dict | None = None,
         select_indices: list | None = None,
