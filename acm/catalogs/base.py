@@ -4,6 +4,7 @@ from .backends import DarkMatterBackend, load_backend
 
 logger = logging.getLogger(__name__)
 
+
 class GalaxyCatalog:
     """
     Base class for handling galaxy catalogs.
@@ -15,7 +16,7 @@ class GalaxyCatalog:
 
 class GalaxyCatalogFactory:
     """
-    Loads a dark matter backend and creates galaxy catalogs across multiple 
+    Loads a dark matter backend and creates galaxy catalogs across multiple
     redshift snapshots.
     """
 
@@ -23,7 +24,7 @@ class GalaxyCatalogFactory:
         self,
         backend: str | DarkMatterBackend,
         catalog_class: type[GalaxyCatalog] = GalaxyCatalog,
-        * args,
+        *args,
         **kwargs,
     ) -> None:
         """
@@ -65,7 +66,7 @@ class GalaxyCatalogFactory:
                 **kwargs,
             )
             self._catalogs[z] = galaxy_catalog
-    
+
     def get_catalog(self, redshift: float) -> GalaxyCatalog:
         """
         Retrieve the galaxy catalog at a given redshift.
@@ -81,17 +82,17 @@ class GalaxyCatalogFactory:
                 f"Available redshifts: {list(self._catalogs.keys())}"
             )
         return self._catalogs[redshift]
-    
+
     @property
     def redshifts(self) -> list[float]:
         """List of redshifts for which catalogs have been loaded."""
         return list(self._catalogs.keys())
-    
+
     @property
     def catalogs(self) -> dict[float, GalaxyCatalog]:
         """Dictionary of all loaded galaxy catalogs, keyed by redshift."""
         return dict(self._catalogs)
-    
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
