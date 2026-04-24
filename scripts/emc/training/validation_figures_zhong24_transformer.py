@@ -2,6 +2,8 @@ import argparse
 import inspect
 from pathlib import Path
 
+from sunbird.emulators import Zhong24Transformer
+
 from acm import setup_logging
 from acm.utils.modules import get_class_from_module
 from train_zhong24_transformer_sunbird import (
@@ -105,6 +107,7 @@ def make_observable(
     observable_cls = get_observable_class(module_path, observable_name)
     return observable_cls(
         paths=paths,
+        model_cls=Zhong24Transformer,
         **kwargs,
     )
 

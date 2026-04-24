@@ -1,5 +1,4 @@
 import logging
-import pickle
 from copy import copy, deepcopy
 from pathlib import Path
 from typing import TypeAlias, overload
@@ -10,8 +9,7 @@ import torch
 import xarray
 from scipy.stats import median_abs_deviation, norm
 from sunbird.data.data_utils import transform_filters_to_slices
-from sunbird.data.transforms_array import ArcsinhTransform, LogTransform
-from sunbird.emulators import FCN, Transformer, Zhong24Transformer
+from sunbird.emulators import BaseModel, load_model_from_checkpoint
 
 from acm.utils.covariance import check_covariance_matrix, orthogonal_gk_mad_covariance
 from acm.utils.decorators import temporary_class_state
@@ -21,46 +19,8 @@ from acm.utils.xarray import dataset_from_dict
 
 logger = logging.getLogger(__name__)
 
-# Register safe globals for transform classes to allow loading checkpoints
-# with PyTorch 2.6+ (which changed weights_only default to True)
-SAFE_CLASSES = [LogTransform, ArcsinhTransform]
-EmulatorModel: TypeAlias = FCN | Transformer | Zhong24Transformer
-EmulatorModelClass: TypeAlias = type[FCN] | type[Transformer] | type[Zhong24Transformer]
-
-
-def _load_checkpoint_payload(checkpoint_fn: Path | str) -> dict:
-    checkpoint_fn = Path(checkpoint_fn)
-    try:
-        return torch.load(checkpoint_fn, map_location=torch.device("cpu"))
-    except pickle.UnpicklingError as err:
-        if "Weights only load failed" not in str(err):
-            raise
-        logger.warning(
-            "Retrying checkpoint inspection with weights_only=False for %s due to PyTorch weights-only unpickling restrictions.",
-            checkpoint_fn,
-        )
-        return torch.load(
-            checkpoint_fn,
-            map_location=torch.device("cpu"),
-            weights_only=False,
-        )
-
-
-def _get_model_class_from_checkpoint(
-    checkpoint_fn: Path | str,
-) -> EmulatorModelClass:
-    checkpoint = _load_checkpoint_payload(checkpoint_fn)
-    hparams = checkpoint.get("hyper_parameters", {})
-    model_type = str(hparams.get("model_type", "fcn")).lower()
-    if model_type == "fcn":
-        return FCN
-    if model_type == "transformer":
-        return Transformer
-    if model_type == "zhong24_transformer":
-        return Zhong24Transformer
-    raise ValueError(
-        f"Unknown emulator model_type '{model_type}' in checkpoint {checkpoint_fn}."
-    )
+EmulatorModel: TypeAlias = BaseModel
+EmulatorModelClass: TypeAlias = type[BaseModel]
 
 
 class Observable:
@@ -87,6 +47,7 @@ class Observable:
         numpy_output: bool = False,
         paths: dict | None = None,
         checkpoint_fn: Path | str | None = None,
+        model_cls: EmulatorModelClass | None = None,
         silent_load: bool = False,
     ):
         """
@@ -96,7 +57,7 @@ class Observable:
             Name or identifier of the statistic to load. It is also the name of the loaded files if applicable.
         dataset : xarray.Dataset, optional
             The xarray Dataset containing the data variables and coordinates.
-        model : FCN, optional
+        model : BaseModel, optional
             Trained theory model. If None, the model attribute of the class remains undefined. Defaults to None.
         select_filters : dict, optional
             Filters to select values in coordinates. Defaults to None.
@@ -119,6 +80,9 @@ class Observable:
             If dataset or model is None, they will be loaded from the provided paths. Defaults to None.
         checkpoint_fn : Path | str, optional
             Legacy parameter for the model checkpoint file path. Use `paths['model_dir']/stat_name.ckpt` instead. Defaults to None.
+        model_cls : type[BaseModel], optional
+            Explicit Sunbird emulator class to use when loading a checkpoint.
+            If None, Sunbird infers the class from the checkpoint metadata.
         silent_load : bool, optional
             If True, suppresses info logging messages during dataset loading. Defaults to False.
 
@@ -163,37 +127,34 @@ class Observable:
 
             if model is not None:
                 self.model = model
-            # Try to load model if not provided.
-            # `checkpoint_fn` remains supported for callers that resolve a
-            # statistic-specific checkpoint themselves and do not pass
-            # `paths["model_dir"]`.
-            elif checkpoint_fn is not None:
-                try:
+            else:
+                checkpoint_to_load = None
+                # `checkpoint_fn` remains supported for callers that resolve a
+                # statistic-specific checkpoint themselves and do not pass
+                # `paths["model_dir"]`.
+                if checkpoint_fn is not None:
                     logger.warning(
-                        "DEPRECATED: The 'checkpoint_fn' parameter is deprecated. Please use 'paths['model_dir']/stat_name.ckpt' instead."
+                        "DEPRECATED: The 'checkpoint_fn' parameter is deprecated. "
+                        "Please use paths['model_dir']/stat_name.ckpt instead."
                     )
-                    checkpoint_fn = Path(checkpoint_fn)
-                    self.model = self.load_model(checkpoint_fn)
-                except (
-                    FileNotFoundError,
-                    OSError,
-                    RuntimeError,
-                    KeyError,
-                    ValueError,
-                ) as e:
-                    logger.warning(f"Could not load model from checkpoint: {e}")
-            elif paths is not None and "model_dir" in paths:
-                try:
-                    checkpoint_fn = Path(paths["model_dir"]) / f"{stat_name}.ckpt"
-                    self.model = self.load_model(checkpoint_fn)
-                except (
-                    FileNotFoundError,
-                    OSError,
-                    RuntimeError,
-                    KeyError,
-                    ValueError,
-                ) as e:
-                    logger.warning(f"Could not load model from checkpoint: {e}")
+                    checkpoint_to_load = Path(checkpoint_fn)
+                elif paths is not None and "model_dir" in paths:
+                    checkpoint_to_load = Path(paths["model_dir"]) / f"{stat_name}.ckpt"
+
+                if checkpoint_to_load is not None:
+                    try:
+                        self.model = self.load_model(
+                            checkpoint_to_load,
+                            model_cls=model_cls,
+                        )
+                    except (
+                        FileNotFoundError,
+                        OSError,
+                        RuntimeError,
+                        KeyError,
+                        ValueError,
+                    ) as e:
+                        logger.warning(f"Could not load model from checkpoint: {e}")
 
             self._dataset = dataset
             logger.info(
@@ -259,7 +220,11 @@ class Observable:
         return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
 
     @classmethod
-    def load_model(cls, checkpoint_fn: Path | str) -> EmulatorModel:
+    def load_model(
+        cls,
+        checkpoint_fn: Path | str,
+        model_cls: EmulatorModelClass | None = None,
+    ) -> EmulatorModel:
         """
         Trained theory model loaded from checkpoint.
 
@@ -267,39 +232,15 @@ class Observable:
         ----------
         checkpoint_fn : Path | str
             Path to the model checkpoint file.
+        model_cls : type[BaseModel], optional
+            Explicit Sunbird emulator class to use when loading a checkpoint.
 
         Returns
         -------
         EmulatorModel
             The loaded emulator model.
         """
-        # Register the classes as safe globals if torch.serialization.add_safe_globals exists
-        if SAFE_CLASSES:
-            try:
-                torch.serialization.add_safe_globals(SAFE_CLASSES)
-            except AttributeError:
-                # torch.serialization.add_safe_globals doesn't exist in older PyTorch versions
-                logger.debug(
-                    "torch.serialization.add_safe_globals not available, skipping safe globals registration"
-                )
-
-        # Load the model
-        logger.info(f"Loading model from {checkpoint_fn}")
-        model_cls = _get_model_class_from_checkpoint(checkpoint_fn)
-        try:
-            model = model_cls.load_from_checkpoint(checkpoint_fn, strict=True)
-        except pickle.UnpicklingError as err:
-            if "Weights only load failed" not in str(err):
-                raise
-            logger.warning(
-                "Retrying checkpoint load with weights_only=False for %s due to PyTorch weights-only unpickling restrictions.",
-                checkpoint_fn,
-            )
-            model = model_cls.load_from_checkpoint(
-                checkpoint_fn, strict=True, weights_only=False
-            )
-        model.eval().to("cpu")
-        return model
+        return load_model_from_checkpoint(checkpoint_fn, model_cls=model_cls)
 
     def __repr__(self):  # pragma: no cover
         """
