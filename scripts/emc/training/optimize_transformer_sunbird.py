@@ -9,103 +9,105 @@ import warnings
 import optuna
 
 from acm import setup_logging
-from train_sunbird import (
+from train_transformer_sunbird import (
     DEFAULT_ROOT_DIR,
-    TrainFCN,
+    TrainTransformer,
     get_default_study_dir,
     make_observable,
 )
 
 DEFAULT_INITIAL_TRIAL = {
-    'n_layers': 4,
-    'n_hidden': 512,
-    'learning_rate': 1.0e-3,
-    'dropout_rate': 0.0,
-    'weight_decay_mode': 'zero',
+    "d_model": 128,
+    "n_heads": 4,
+    "n_layers": 4,
+    "dim_feedforward": 512,
+    "learning_rate": 1.0e-3,
+    "dropout_rate": 0.0,
+    "weight_decay_mode": "zero",
 }
 
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        description='Optimize FCN hyperparameters for EMC observables.',
+        description="Optimize transformer hyperparameters for EMC observables.",
     )
     parser.add_argument(
-        '--root_dir',
+        "--root_dir",
         type=str,
         default=DEFAULT_ROOT_DIR.as_posix(),
-        help='Base directory for default EMC input and output paths.',
+        help="Base directory for default EMC input and output paths.",
     )
     parser.add_argument(
-        '--transform_input',
+        "--transform_input",
         type=str,
-        choices=['log', 'arcsinh'],
+        choices=["log", "arcsinh"],
         default=None,
-        help='Transform to apply to inputs.',
+        help="Transform to apply to inputs.",
     )
     parser.add_argument(
-        '--transform_output',
+        "--transform_output",
         type=str,
-        choices=['log', 'arcsinh'],
+        choices=["log", "arcsinh"],
         default=None,
-        help='Transform to apply to outputs.',
+        help="Transform to apply to outputs.",
     )
     parser.add_argument(
-        '--transform',
+        "--transform",
         type=str,
-        choices=['log', 'arcsinh'],
+        choices=["log", "arcsinh"],
         default=None,
         help=argparse.SUPPRESS,
     )
     parser.add_argument(
-        '-s',
-        '--statistic',
+        "-s",
+        "--statistic",
         type=str,
-        default='bispectrum',
-        help='Statistic to optimize.',
+        default="bispectrum",
+        help="Statistic to optimize.",
     )
     parser.add_argument(
-        '--sampler',
+        "--sampler",
         type=str,
-        choices=['tpe', 'cmaes'],
-        default='tpe',
-        help='Optuna sampler to use when creating a new study.',
+        choices=["tpe", "cmaes"],
+        default="tpe",
+        help="Optuna sampler to use when creating a new study.",
     )
     parser.add_argument(
-        '--pruner',
+        "--pruner",
         type=str,
-        choices=['median', 'none'],
-        default='median',
-        help='Optuna pruner to use when creating a new study.',
+        choices=["median", "none"],
+        default="median",
+        help="Optuna pruner to use when creating a new study.",
     )
     parser.add_argument(
-        '--study_dir',
-        type=str,
-        default=None,
-        help='Directory to save optimization artifacts.',
-    )
-    parser.add_argument(
-        '--model_dir',
+        "--study_dir",
         type=str,
         default=None,
-        help='Optional directory to publish the best trial artifacts.',
+        help="Directory to save optimization artifacts.",
     )
     parser.add_argument(
-        '--n_trials',
+        "--model_dir",
+        type=str,
+        default=None,
+        help="Optional directory to publish the best trial artifacts.",
+    )
+    parser.add_argument(
+        "--n_trials",
         type=int,
         default=100,
-        help='Total number of Optuna trials to run.',
+        help="Total number of Optuna trials to run.",
     )
     parser.add_argument(
-        '--val_fraction',
+        "--val_fraction",
         type=float,
         default=0.1,
-        help='Random fraction of training samples to hold out for validation within ArrayDataModule.',
+        help="Random fraction of training samples to hold out for validation within ArrayDataModule.",
     )
     parser.add_argument(
-        '--seed',
+        "--seed",
         type=int,
         default=42,
-        help='Random seed for reproducibility.',
+        help="Random seed for reproducibility.",
     )
     return parser
 
@@ -120,7 +122,7 @@ def _resolve_transform_output(args):
         return transform_output
 
     warnings.warn(
-        '`--transform` is deprecated; use `--transform_output` instead.',
+        "`--transform` is deprecated; use `--transform_output` instead.",
         DeprecationWarning,
         stacklevel=2,
     )
@@ -136,17 +138,17 @@ def _get_study_dir(root_dir, statistic, study_dir=None):
 
 
 def _get_trial_dir(study_dir, trial_number):
-    return Path(study_dir) / 'trials' / f'trial_{trial_number:04d}'
+    return Path(study_dir) / "trials" / f"trial_{trial_number:04d}"
 
 
 def _validate_study_dir(study_dir):
     study_dir = Path(study_dir)
-    study_fn = study_dir / 'study.pkl'
-    trials_dir = study_dir / 'trials'
+    study_fn = study_dir / "study.pkl"
+    trials_dir = study_dir / "trials"
     if not study_fn.exists() and trials_dir.exists() and any(trials_dir.iterdir()):
         raise RuntimeError(
-            f'Found retained trial directories in {trials_dir} but no {study_fn.name}. '
-            'Refusing to start a new study because trial numbering could collide.'
+            f"Found retained trial directories in {trials_dir} but no {study_fn.name}. "
+            "Refusing to start a new study because trial numbering could collide."
         )
 
 
@@ -170,14 +172,14 @@ def _build_best_trial_payload(study, published_model_dir=None):
 
     best_trial = study.best_trial
     payload = {
-        'number': best_trial.number,
-        'value': float(best_trial.value),
-        'params': best_trial.params,
-        'model_dir': best_trial.user_attrs.get('model_dir'),
-        'checkpoint_path': best_trial.user_attrs.get('checkpoint_path'),
+        "number": best_trial.number,
+        "value": float(best_trial.value),
+        "params": best_trial.params,
+        "model_dir": best_trial.user_attrs.get("model_dir"),
+        "checkpoint_path": best_trial.user_attrs.get("checkpoint_path"),
     }
     if published_model_dir is not None:
-        payload['published_model_dir'] = str(published_model_dir)
+        payload["published_model_dir"] = str(published_model_dir)
     return payload
 
 
@@ -190,7 +192,7 @@ def _write_best_trial_summary(study, summary_path, published_model_dir=None):
         return None
 
     summary_path = Path(summary_path)
-    summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
+    summary_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
     return payload
 
 
@@ -199,17 +201,17 @@ def _replace_published_artifacts(source_model_dir, destination_model_dir, stat_n
     destination_model_dir = Path(destination_model_dir)
     destination_model_dir.mkdir(parents=True, exist_ok=True)
 
-    source_checkpoint = source_model_dir / f'{stat_name}.ckpt'
+    source_checkpoint = source_model_dir / f"{stat_name}.ckpt"
     if not source_checkpoint.exists():
         raise FileNotFoundError(
-            f'Best-trial checkpoint not found at {source_checkpoint}.'
+            f"Best-trial checkpoint not found at {source_checkpoint}."
         )
 
-    destination_checkpoint = destination_model_dir / f'{stat_name}.ckpt'
+    destination_checkpoint = destination_model_dir / f"{stat_name}.ckpt"
     destination_checkpoint.unlink(missing_ok=True)
     shutil.copy2(source_checkpoint, destination_checkpoint)
 
-    for artifact_dir_name in ('checkpoints', 'tensorboard'):
+    for artifact_dir_name in ("checkpoints", "tensorboard"):
         source_artifact_dir = source_model_dir / artifact_dir_name
         destination_artifact_dir = destination_model_dir / artifact_dir_name
         if destination_artifact_dir.exists():
@@ -220,7 +222,7 @@ def _replace_published_artifacts(source_model_dir, destination_model_dir, stat_n
     return destination_model_dir
 
 
-class EMCObjective:
+class EMCTransformerObjective:
     def __init__(
         self,
         observable,
@@ -236,32 +238,36 @@ class EMCObjective:
         self.transform_output = transform_output
         self.val_fraction = val_fraction
         self.seed = seed
-        self.logger = logging.getLogger('EMCObjective')
+        self.logger = logging.getLogger("EMCTransformerObjective")
 
     def __call__(self, trial):
         learning_rate = trial.suggest_float(
-            'learning_rate',
+            "learning_rate",
             1.0e-4,
             1.0e-2,
             log=True,
         )
         weight_decay_mode = trial.suggest_categorical(
-            'weight_decay_mode',
-            ['zero', 'log'],
+            "weight_decay_mode",
+            ["zero", "log"],
         )
-        if weight_decay_mode == 'zero':
+        if weight_decay_mode == "zero":
             weight_decay = 0.0
         else:
             weight_decay = trial.suggest_float(
-                'weight_decay',
+                "weight_decay",
                 1.0e-8,
                 1.0e-3,
                 log=True,
             )
-        dropout_rate = trial.suggest_float('dropout_rate', 0.0, 0.15)
-        n_layers = trial.suggest_int('n_layers', 2, 6)
-        hidden_width = trial.suggest_categorical('n_hidden', [128, 256, 512])
-        n_hidden = [hidden_width] * n_layers
+        dropout_rate = trial.suggest_float("dropout_rate", 0.0, 0.15)
+        d_model = trial.suggest_categorical("d_model", [128, 256])
+        n_heads = trial.suggest_categorical("n_heads", [4, 8])
+        n_layers = trial.suggest_int("n_layers", 2, 6)
+        dim_feedforward = trial.suggest_categorical(
+            "dim_feedforward",
+            [256, 512, 1024],
+        )
         enable_pruning = not isinstance(
             trial.study.pruner,
             optuna.pruners.NopPruner,
@@ -270,15 +276,18 @@ class EMCObjective:
         trial_model_dir = _get_trial_dir(self.study_dir, trial.number)
         if trial_model_dir.exists():
             raise RuntimeError(
-                f'Trial directory already exists for trial {trial.number}: {trial_model_dir}'
+                f"Trial directory already exists for trial {trial.number}: {trial_model_dir}"
             )
 
-        trial.set_user_attr('model_dir', str(trial_model_dir))
-        self.logger.info('Running trial %s in %s', trial.number, trial_model_dir)
-        val_loss = TrainFCN(
+        trial.set_user_attr("model_dir", str(trial_model_dir))
+        self.logger.info("Running trial %s in %s", trial.number, trial_model_dir)
+        val_loss = TrainTransformer(
             observable=self.observable,
             learning_rate=learning_rate,
-            n_hidden=n_hidden,
+            d_model=d_model,
+            n_heads=n_heads,
+            n_layers=n_layers,
+            dim_feedforward=dim_feedforward,
             dropout_rate=dropout_rate,
             weight_decay=weight_decay,
             model_dir=trial_model_dir,
@@ -289,37 +298,37 @@ class EMCObjective:
             trial=trial if enable_pruning else None,
             enable_pruning=enable_pruning,
         )
-        checkpoint_path = trial_model_dir / f'{self.observable.stat_name}.ckpt'
+        checkpoint_path = trial_model_dir / f"{self.observable.stat_name}.ckpt"
         if checkpoint_path.exists():
-            trial.set_user_attr('checkpoint_path', str(checkpoint_path))
+            trial.set_user_attr("checkpoint_path", str(checkpoint_path))
         return float(val_loss)
 
 
 def _make_sampler(name, seed):
-    if name == 'tpe':
+    if name == "tpe":
         return optuna.samplers.TPESampler(seed=seed)
-    if name == 'cmaes':
+    if name == "cmaes":
         return optuna.samplers.CmaEsSampler(seed=seed)
-    raise ValueError(f'Unknown sampler: {name}')
+    raise ValueError(f"Unknown sampler: {name}")
 
 
 def _make_pruner(name):
-    if name == 'median':
+    if name == "median":
         return optuna.pruners.MedianPruner(
             n_startup_trials=10,
             n_warmup_steps=20,
             interval_steps=1,
         )
-    if name == 'none':
+    if name == "none":
         return optuna.pruners.NopPruner()
-    raise ValueError(f'Unknown pruner: {name}')
+    raise ValueError(f"Unknown pruner: {name}")
 
 
 def _load_or_create_study(study_fn, statistic, seed, sampler_name, pruner_name):
     study_fn = Path(study_fn)
     if study_fn.exists():
         study = joblib.load(study_fn)
-        logger = logging.getLogger('optimize_sunbird')
+        logger = logging.getLogger("optimize_transformer_sunbird")
         actual_sampler_name = study.sampler.__class__.__name__
         requested_sampler_name = _make_sampler(
             sampler_name,
@@ -332,15 +341,15 @@ def _load_or_create_study(study_fn, statistic, seed, sampler_name, pruner_name):
             and actual_pruner_name == requested_pruner_name
         ):
             logger.info(
-                'Loading existing study from %s with sampler=%s and pruner=%s',
+                "Loading existing study from %s with sampler=%s and pruner=%s",
                 study_fn,
                 actual_sampler_name,
                 actual_pruner_name,
             )
         else:
             logger.info(
-                'Loading existing study from %s with sampler=%s and pruner=%s; '
-                'ignoring requested sampler=%s pruner=%s',
+                "Loading existing study from %s with sampler=%s and pruner=%s; "
+                "ignoring requested sampler=%s pruner=%s",
                 study_fn,
                 actual_sampler_name,
                 actual_pruner_name,
@@ -351,14 +360,14 @@ def _load_or_create_study(study_fn, statistic, seed, sampler_name, pruner_name):
 
     sampler = _make_sampler(sampler_name, seed=seed)
     pruner = _make_pruner(pruner_name)
-    logging.getLogger('optimize_sunbird').info(
-        'Creating new study with sampler=%s and pruner=%s',
+    logging.getLogger("optimize_transformer_sunbird").info(
+        "Creating new study with sampler=%s and pruner=%s",
         sampler.__class__.__name__,
         pruner.__class__.__name__,
     )
     study = optuna.create_study(
         study_name=statistic,
-        direction='minimize',
+        direction="minimize",
         sampler=sampler,
         pruner=pruner,
     )
@@ -369,7 +378,7 @@ def _load_or_create_study(study_fn, statistic, seed, sampler_name, pruner_name):
 def main(argv=None):
     args = parse_args(argv)
     setup_logging()
-    logger = logging.getLogger('optimize_sunbird')
+    logger = logging.getLogger("optimize_transformer_sunbird")
 
     transform_output = _resolve_transform_output(args)
     root_dir = Path(args.root_dir)
@@ -381,10 +390,10 @@ def main(argv=None):
     study_dir.mkdir(parents=True, exist_ok=True)
     _validate_study_dir(study_dir)
 
-    study_fn = study_dir / 'study.pkl'
-    summary_fn = study_dir / 'best_trial.json'
+    study_fn = study_dir / "study.pkl"
+    summary_fn = study_dir / "best_trial.json"
     observable = make_observable(root_dir=root_dir, statistic=args.statistic)
-    objective = EMCObjective(
+    objective = EMCTransformerObjective(
         observable=observable,
         study_dir=study_dir,
         transform_input=args.transform_input,
@@ -402,7 +411,7 @@ def main(argv=None):
 
     started_trials = _count_started_trials(study)
     logger.info(
-        'Study has %s started trials before optimization.',
+        "Study has %s started trials before optimization.",
         started_trials,
     )
 
@@ -416,7 +425,7 @@ def main(argv=None):
         joblib.dump(study, study_fn)
     published_model_dir = None
     if args.model_dir is not None and _has_completed_trials(study):
-        best_model_dir = study.best_trial.user_attrs['model_dir']
+        best_model_dir = study.best_trial.user_attrs["model_dir"]
         published_model_dir = _replace_published_artifacts(
             source_model_dir=best_model_dir,
             destination_model_dir=args.model_dir,
@@ -430,12 +439,12 @@ def main(argv=None):
     )
     if payload is not None:
         logger.info(
-            'Best trial %s achieved val_loss=%s',
-            payload['number'],
-            payload['value'],
+            "Best trial %s achieved val_loss=%s",
+            payload["number"],
+            payload["value"],
         )
     return study
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

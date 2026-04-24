@@ -351,7 +351,7 @@ class VIDEVoidGalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 color=f"C{i}",
                 elinewidth=1.0,
                 capsize=None,
-                label=f"$\ell={ell}$",
+                label=rf"$\ell={ell}$",
             )
             lax[0].plot(rv, model, ls="-", color=f"C{i}")
             lax[i + 1].plot(rv, (data - model) / error, ls="-", color=f"C{i}")

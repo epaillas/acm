@@ -289,7 +289,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 r"$k_1k_2k_3 B_\ell(k)$ [$h^3\,\mathrm{{Mpc}}^{{-3}}$]", fontsize=15
             )
 
-            self.select_filters.update({"multipoles": ell})
+            self.select_filters.update({"ells": ell})
 
             bin_idx = self.bin_idx.values
             data = self.y
@@ -308,7 +308,7 @@ class GalaxyBispectrumMultipoles(BaseObservableEMC):
                 color=f"C{i}",
                 elinewidth=1.0,
                 capsize=None,
-                label=f"$\ell={ell}$",
+                label=rf"$\ell={ell}$",
             )
             lax[0].plot(bin_idx, model, ls="-", color=f"C{i}")
             lax[i + 1].plot(bin_idx, (data - model) / error, ls="-", color=f"C{i}")
