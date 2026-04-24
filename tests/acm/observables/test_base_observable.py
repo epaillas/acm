@@ -56,10 +56,9 @@ apply also filter if  name is in data_vars of _dataset attibut, ie in this examp
 * x,y, covariance_y.
 
 """
-from desilike.observables.types import ObservableCovariance
-
 import os
 from copy import copy, deepcopy
+from pathlib import Path
 
 import numpy as np
 import xarray
@@ -68,6 +67,138 @@ import pytest
 from acm.observables.base import Observable
 
 DIR_TEST = os.getenv("ACM_TEST_DATA")
+
+
+class FakeLoadedModel:
+    pass
+
+
+class FakeModelClass:
+    pass
+
+
+def test_load_model_delegates_to_sunbird_loader(monkeypatch, tmp_path):
+    checkpoint_fn = tmp_path / "model.ckpt"
+    calls = []
+
+    def fake_load_model_from_checkpoint(checkpoint_fn, model_cls=None):
+        calls.append(
+            {
+                "checkpoint_fn": Path(checkpoint_fn),
+                "model_cls": model_cls,
+            }
+        )
+        return FakeLoadedModel()
+
+    monkeypatch.setattr(
+        "acm.observables.base.load_model_from_checkpoint",
+        fake_load_model_from_checkpoint,
+    )
+
+    model = Observable.load_model(checkpoint_fn, model_cls=FakeModelClass)
+
+    assert isinstance(model, FakeLoadedModel)
+    assert calls == [
+        {
+            "checkpoint_fn": checkpoint_fn,
+            "model_cls": FakeModelClass,
+        }
+    ]
+
+
+def test_init_loads_model_from_paths_with_model_cls(monkeypatch, tmp_path):
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    dataset = xarray.Dataset()
+    calls = []
+
+    def fake_load_model_from_checkpoint(checkpoint_fn, model_cls=None):
+        calls.append(
+            {
+                "checkpoint_fn": Path(checkpoint_fn),
+                "model_cls": model_cls,
+            }
+        )
+        return FakeLoadedModel()
+
+    monkeypatch.setattr(
+        "acm.observables.base.load_model_from_checkpoint",
+        fake_load_model_from_checkpoint,
+    )
+
+    observable = Observable(
+        stat_name="statistic",
+        dataset=dataset,
+        paths={"model_dir": model_dir},
+        model_cls=FakeModelClass,
+    )
+
+    assert isinstance(observable.model, FakeLoadedModel)
+    assert calls == [
+        {
+            "checkpoint_fn": model_dir / "statistic.ckpt",
+            "model_cls": FakeModelClass,
+        }
+    ]
+
+
+def test_init_loads_legacy_checkpoint_with_model_cls(monkeypatch, tmp_path):
+    checkpoint_fn = tmp_path / "legacy.ckpt"
+    dataset = xarray.Dataset()
+    calls = []
+
+    def fake_load_model_from_checkpoint(checkpoint_fn, model_cls=None):
+        calls.append(
+            {
+                "checkpoint_fn": Path(checkpoint_fn),
+                "model_cls": model_cls,
+            }
+        )
+        return FakeLoadedModel()
+
+    monkeypatch.setattr(
+        "acm.observables.base.load_model_from_checkpoint",
+        fake_load_model_from_checkpoint,
+    )
+
+    observable = Observable(
+        stat_name="statistic",
+        dataset=dataset,
+        checkpoint_fn=checkpoint_fn,
+        model_cls=FakeModelClass,
+    )
+
+    assert isinstance(observable.model, FakeLoadedModel)
+    assert calls == [
+        {
+            "checkpoint_fn": checkpoint_fn,
+            "model_cls": FakeModelClass,
+        }
+    ]
+
+
+def test_init_uses_explicit_model_without_loading_checkpoint(monkeypatch, tmp_path):
+    checkpoint_fn = tmp_path / "model.ckpt"
+    dataset = xarray.Dataset()
+    explicit_model = FakeLoadedModel()
+
+    def unexpected_load(*args, **kwargs):
+        raise AssertionError("Explicit model should bypass checkpoint loading.")
+
+    monkeypatch.setattr(
+        "acm.observables.base.load_model_from_checkpoint",
+        unexpected_load,
+    )
+
+    observable = Observable(
+        stat_name="statistic",
+        dataset=dataset,
+        model=explicit_model,
+        checkpoint_fn=checkpoint_fn,
+        model_cls=FakeModelClass,
+    )
+
+    assert observable.model is explicit_model
 
 
 def test_init():
