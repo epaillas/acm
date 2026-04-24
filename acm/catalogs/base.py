@@ -8,8 +8,9 @@ logger = logging.getLogger(__name__)
 class GalaxyCatalog:
     """
     Base class for handling galaxy catalogs.
-    It provides common functionalities for loading and processing galaxy catalogs, which can be extended by child classes for specific use cases.
 
+    It provides common functionalities for loading and processing galaxy catalogs, 
+    which can be extended by child classes for specific use cases.
     The class is designed to handle a multi-tracer galaxy catalog at a fixed redshift.
     """
 
