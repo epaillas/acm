@@ -595,6 +595,14 @@ def compress_mocks(
         )
 
     sample_dims = {idx: np.unique(values) for idx, values in index_arrays.items()}
+    n_groups = len(groups)
+    n_expected = np.prod([len(v) for v in sample_dims.values()])
+    if n_groups != n_expected:
+        raise ValueError(
+            f"Index grid is sparse: found {n_groups} groups but expected {n_expected} "
+            f"from unique index combinations {({k: len(v) for k, v in sample_dims.items()})}. "
+            "Ensure all combinations of index values are present in the data."
+        )
 
     coords = cast_coords({**sample_dims, **features_coords})
     data = reshape_to_coords(selected_results, coords)
@@ -618,7 +626,7 @@ def compress_mocks(
 def compress_x(
     root_dir: str | Path,
     index_arrays: dict[str, list],
-) -> xarray.DataArray:
+) -> xarray.DataArray: # pragma: no cover
     """
     Compress "x" data from csv files based on collected index arrays.
 
@@ -687,7 +695,7 @@ def compress_data(
     override_last_dim: bool = True,
     save_fn: str | Path | None = None,
     **kwargs,
-) -> xarray.Dataset:
+) -> xarray.Dataset: # pragma: no cover
     """
     Compress mock measurement data into an xarray Dataset.
 
