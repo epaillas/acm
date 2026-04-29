@@ -613,6 +613,8 @@ def compress_mocks(
     )
 
     if drop_singleton_dims:
+        singleton_dims = [dim for dim in cout.dims if cout.sizes[dim] == 1]
+        logger.debug(f"Dropping singleton dimensions: {singleton_dims}")
         cout = cout.squeeze(drop=True)
 
     cout.attrs = {
