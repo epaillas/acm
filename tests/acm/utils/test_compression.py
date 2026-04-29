@@ -7,6 +7,7 @@ from acm.utils.compression import (
     collect_mocks,
     compress_mocks,
     reindex_samples,
+    split_test_set,
     reshape_to_coords,
 )
 
@@ -18,6 +19,11 @@ def test_reshape_to_coords_basic():
     result = reshape_to_coords(arr, coords)
     assert result.shape == (2, 3)
 
+def test_reshape_to_coords_single_dim():
+    arr = np.arange(3)
+    coords = {"a": [0, 1, 2]}
+    result = reshape_to_coords(arr, coords)
+    assert result.shape == (3,)
 
 def test_reshape_to_coords_mismatch_raises():
     arr = np.arange(5)
@@ -61,6 +67,18 @@ def test_cast_coords_float_not_rounded():
     result = cast_coords(d)
     assert result["k"].dtype == float
 
+def test_cast_coords_mixed():
+    # Each key is cast independently
+    d = {"idx": ["000", "001"], "k": ["0.1", "0.2"], "label": ["foo", "bar"]}
+    result = cast_coords(d)
+    assert result["idx"].dtype == int
+    assert result["k"].dtype == float
+    assert result["label"].dtype.kind in ("U", "O")
+
+
+def test_cast_coords_empty():
+    result = cast_coords({})
+    assert result == {}
 
 # %% reindex_samples
 
@@ -100,6 +118,92 @@ def test_reindex_samples_preserves_order():
     result = reindex_samples(index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx"])
     assert result["hod_idx"] == [0, 1, 2]
 
+def test_reindex_samples_no_group_by_single_group():
+    index_arrays = {"hod_idx": ["006", "008", "010"]}
+    result = reindex_samples(index_arrays, reindex=["hod_idx"])
+    assert result["hod_idx"] == [0, 1, 2]
+
+
+def test_reindex_samples_multiple_reindex():
+    index_arrays = {
+        "cosmo_idx": ["000", "001"],
+        "hod_idx":   ["006", "008"],
+        "phase_idx": ["000", "001"],
+    }
+    result = reindex_samples(index_arrays, reindex=["hod_idx", "phase_idx"])
+    assert result["hod_idx"] == [0, 1]
+    assert result["phase_idx"] == [0, 1]
+    assert result["cosmo_idx"] == ["000", "001"]  # untouched
+
+
+def test_reindex_samples_already_zero_indexed():
+    index_arrays = {"hod_idx": ["000", "001", "002"]}
+    result = reindex_samples(index_arrays, reindex=["hod_idx"])
+    assert result["hod_idx"] == [0, 1, 2]
+
+
+def test_reindex_samples_multiple_group_by_keys():
+    index_arrays = {
+        "cosmo_idx": ["000", "000", "001", "001"],
+        "phase_idx": ["000", "000", "001", "001"],
+        "hod_idx":   ["006", "008", "006", "010"],
+    }
+    result = reindex_samples(
+        index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx", "phase_idx"]
+    )
+    assert result["hod_idx"] == [0, 1, 0, 1]
+
+# %% split_test_set
+
+@pytest.fixture()
+def simple_dataset():
+    """A simple 2D dataset with cosmo and hod dimensions."""
+    x = xarray.DataArray(
+        np.random.rand(3, 4),
+        dims=["cosmo_idx", "hod_idx"],
+        coords={"cosmo_idx": [0, 1, 2], "hod_idx": [0, 1, 2, 3]},
+        name="x",
+    )
+    y = xarray.DataArray(
+        np.random.rand(3, 4),
+        dims=["cosmo_idx", "hod_idx"],
+        coords={"cosmo_idx": [0, 1, 2], "hod_idx": [0, 1, 2, 3]},
+        name="y",
+    )
+    return xarray.Dataset({"x": x, "y": y})
+
+
+def test_split_test_set_adds_test_train_variables(simple_dataset):
+    result = split_test_set(simple_dataset, filters={"cosmo_idx": [0, 1]})
+    assert "x_test" in result
+    assert "x_train" in result
+    assert "y_test" in result
+    assert "y_train" in result
+
+
+def test_split_test_set_nan_dims_attr(simple_dataset):
+    result = split_test_set(simple_dataset, filters={"cosmo_idx": [0, 1]})
+    assert result["x_test"].attrs["nan_dims"] == ["cosmo_idx"]
+    assert result["x_train"].attrs["nan_dims"] == ["cosmo_idx"]
+
+
+def test_split_test_set_missing_variable_raises(simple_dataset):
+    with pytest.raises(ValueError, match="not found"):
+        split_test_set(simple_dataset, filters={"cosmo_idx": [0]}, to_split=["z"])
+
+
+def test_split_test_set_custom_to_split(simple_dataset):
+    result = split_test_set(simple_dataset, filters={"cosmo_idx": [0, 1]}, to_split=["x"])
+    assert "x_test" in result
+    assert "x_train" in result
+    assert "y_test" not in result
+    assert "y_train" not in result
+
+
+def test_split_test_set_preserves_original_variables(simple_dataset):
+    result = split_test_set(simple_dataset, filters={"cosmo_idx": [0, 1]})
+    assert "x" in result
+    assert "y" in result
 
 # %% collect_mocks
 
@@ -154,6 +258,29 @@ def test_collect_mocks_correct_index_values(mock_file_tree):
     assert set(index_arrays["cosmo_idx"]) == {"000", "001"}
     assert set(index_arrays["hod_idx"]) == {"006", "008"}
 
+def test_collect_mocks_no_ignore_index(mock_file_tree):
+    groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN)
+    # Without ignoring 'los', each (cosmo, phase, seed, hod, los) combo is its own group
+    assert "los" in index_arrays
+    assert all(len(files) == 1 for files in groups.values())
+
+
+def test_collect_mocks_all_indexes_tracked(mock_file_tree):
+    _, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+    assert set(index_arrays.keys()) == {"cosmo_idx", "phase_idx", "seed", "hod_idx"}
+
+
+def test_collect_mocks_empty_dir(tmp_path):
+    groups, index_arrays = collect_mocks(tmp_path, GLOB_PATTERN, ignore_index=["los"])
+    assert len(groups) == 0
+    assert all(len(v) == 0 for v in index_arrays.values())
+
+
+def test_collect_mocks_sorted_files(mock_file_tree):
+    # Files within each group should be sorted
+    groups, _ = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+    for files in groups.values():
+        assert files == sorted(files)
 
 # %% compress_mocks
 
@@ -182,6 +309,25 @@ def test_compress_mocks_sparse_grid_raises(tmp_path):
     groups, index_arrays = collect_mocks(tmp_path, GLOB_PATTERN, ignore_index=["los"])
     with pytest.raises(ValueError, match="sparse"):
         compress_mocks(groups, index_arrays, reader=_dummy_reader, postprocess=_dummy_postprocess)
+
+def test_compress_mocks_correct_shape(mock_file_tree):
+    groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los", "seed", "phase_idx"])
+    result = compress_mocks(groups, index_arrays, reader=_dummy_reader, postprocess=_dummy_postprocess)
+    # (n_hod=2, n_cosmo=2, n_features=2) with singleton dims dropped
+    assert result.shape == (2, 2, 2)
+
+
+def test_compress_mocks_reader_called_once_per_group(mock_file_tree):
+    groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los", "seed", "phase_idx"])
+    call_count = 0
+
+    def counting_reader(files):
+        nonlocal call_count
+        call_count += 1
+        return len(files)
+
+    compress_mocks(groups, index_arrays, reader=counting_reader, postprocess=_dummy_postprocess)
+    assert call_count == len(groups)
 
 def test_compress_mocks_output_is_dataarray(mock_file_tree):
     groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
@@ -240,7 +386,7 @@ def test_compress_mocks_with_reindex(mock_file_tree):
 
 
 def test_compress_mocks_drop_singleton_dims(mock_file_tree):
-    groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los", "seed", "phase_idx"])
+    groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
     result = compress_mocks(
         groups, index_arrays,
         drop_singleton_dims=True,
@@ -248,7 +394,24 @@ def test_compress_mocks_drop_singleton_dims(mock_file_tree):
         postprocess=_dummy_postprocess,
     )
     assert all(s > 1 for s in result.shape)
+    assert "phase_idx" not in result.coords
+    assert "seed" not in result.coords
+    assert "phase_idx" not in result.attrs["sample"]
+    assert "seed" not in result.attrs["sample"]
 
+def test_compress_mocks_no_drop_singleton_dims(mock_file_tree):
+    groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+    result = compress_mocks(
+        groups, index_arrays,
+        drop_singleton_dims=False,
+        reader=_dummy_reader,
+        postprocess=_dummy_postprocess,
+    )
+    # Singleton dims (phase, seed) should still be present
+    assert "phase_idx" in result.coords
+    assert "seed" in result.coords
+    assert "phase_idx" in result.attrs["sample"]
+    assert "seed" in result.attrs["sample"]
 
 def test_compress_mocks_data_values(mock_file_tree):
     groups, index_arrays = collect_mocks(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
