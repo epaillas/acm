@@ -1,21 +1,22 @@
+import logging
 import re
 import time
-import logging
-from typing import Any
-from pathlib import Path
 from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
-import xarray
 import lsstypes
 import numpy as np
 import pandas as pd
+import xarray
 from pycorr import TwoPointEstimator
 
-from acm.utils.xarray import split_vars, dataset_to_dict
+from acm.utils.xarray import dataset_to_dict, split_vars
 
 logger = logging.getLogger(__name__)
 
-#%% Readers and filters for different file formats
+
+# %% Readers and filters for different file formats
 def lsstypes_reader(files: list[Path]) -> Any:
     """
     Read and average a list of lsstypes files.
@@ -34,11 +35,12 @@ def lsstypes_reader(files: list[Path]) -> Any:
     data = lsstypes.mean(loaded)
     return data
 
+
 def lsstypes_filter(
-    data: list[Any], 
-    last_dim: str, 
-    select: dict, 
-    get: dict, 
+    data: list[Any],
+    last_dim: str,
+    select: dict,
+    get: dict,
     rebin: dict | None = None,
 ) -> tuple[np.ndarray, dict]:
     """
@@ -79,16 +81,19 @@ def lsstypes_filter(
         d0 = data[0].select(**rebin).select(**select).get(**get)
     else:
         d0 = data[0].select(**select).get(**get)
-    
+
     ladt_dim_dict = {last_dim: d0.flatten(level=None)[0].coords(last_dim)}
     dims = {**get, **ladt_dim_dict}
 
     def lsstypes_match(d):
         return d.match(d0)
 
-    data_out = np.asarray([lsstypes_match(d) for d in data]) # TODO: use lsstypes.match when available ?
+    data_out = np.asarray(
+        [lsstypes_match(d) for d in data]
+    )  # TODO: use lsstypes.match when available ?
 
     return data_out, dims
+
 
 def pycorr_reader(files: list[Path]) -> TwoPointEstimator:
     """
@@ -108,6 +113,7 @@ def pycorr_reader(files: list[Path]) -> TwoPointEstimator:
     data = sum(loaded)
     return data
 
+
 def pycorr_filter(
     data: list[TwoPointEstimator],
     ells: list[int],
@@ -116,8 +122,8 @@ def pycorr_filter(
     """
     Apply optional rebinning and extract specified multipoles from a list of TwoPointEstimator objects.
 
-    For each object in ``data``, selects the specified multipoles with rebinning, 
-    and stacks the results into a numpy array. Also extracts the separation coordinates 
+    For each object in ``data``, selects the specified multipoles with rebinning,
+    and stacks the results into a numpy array. Also extracts the separation coordinates
     from the first object to include in the returned dimension dict.
 
     Parameters
@@ -127,8 +133,8 @@ def pycorr_filter(
     ells : list[int]
         List of multipole orders to extract (e.g. ``[0, 2]``).
     rebin : int, optional
-        If provided, step size for rebinning the data along the separation axis 
-        (e.g. ``3`` to take every 3rd separation bin). 
+        If provided, step size for rebinning the data along the separation axis
+        (e.g. ``3`` to take every 3rd separation bin).
         Defaults to ``None`` (no rebinning).
 
     Returns
@@ -153,9 +159,10 @@ def pycorr_filter(
     data_out = np.stack(data_out)
 
     # Create the dimension dictionary
-    dims = {'ells': ells, 's': s}
+    dims = {"ells": ells, "s": s}
 
     return data_out, dims
+
 
 def ds_reader(files: list[Path]) -> list[TwoPointEstimator]:
     """
@@ -177,6 +184,7 @@ def ds_reader(files: list[Path]) -> list[TwoPointEstimator]:
     data = sum(loaded)
     return data
 
+
 def ds_filter(
     data: list[list[TwoPointEstimator]],
     quantiles: list[int],
@@ -186,8 +194,8 @@ def ds_filter(
     """
     Apply optional rebinning and extract specified quantiles and multipoles from a list of lists of TwoPointEstimator objects.
 
-    For each object in ``data``, selects the specified quantiles and multipoles with rebinning, 
-    and stacks the results into a numpy array. Also extracts the separation coordinates 
+    For each object in ``data``, selects the specified quantiles and multipoles with rebinning,
+    and stacks the results into a numpy array. Also extracts the separation coordinates
     from the first object to include in the returned dimension dict.
 
     Parameters
@@ -199,8 +207,8 @@ def ds_filter(
     ells : list[int]
         List of multipole orders to extract (e.g. ``[0, 2]``).
     rebin : int, optional
-        If provided, step size for rebinning the data along the separation axis 
-        (e.g. ``3`` to take every 3rd separation bin). 
+        If provided, step size for rebinning the data along the separation axis
+        (e.g. ``3`` to take every 3rd separation bin).
         Defaults to ``None`` (no rebinning).
 
     Returns
@@ -226,11 +234,12 @@ def ds_filter(
     data_out = np.stack(data_out)
 
     # Create the dimension dictionary
-    dims = {'quantiles': quantiles, 'ells': ells, 's': s}
+    dims = {"quantiles": quantiles, "ells": ells, "s": s}
 
     return data_out, dims
 
-#%% Utility functions for index handling and re-indexing
+
+# %% Utility functions for index handling and re-indexing
 def cast_dims(d: dict) -> dict:
     """
     Cast dictionary values to float or int where possible, leaving others unchanged.
@@ -248,16 +257,20 @@ def cast_dims(d: dict) -> dict:
     dict
         Dictionary with values cast to int or float where possible.
     """
+
     def cast(arr: np.ndarray) -> np.ndarray:
-        try: 
+        try:
             float_arr = np.asarray(arr, dtype=float)
-            if np.all(float_arr == float_arr.astype(int)) and np.issubdtype(float_arr.dtype, np.floating):
+            if np.all(float_arr == float_arr.astype(int)) and np.issubdtype(
+                float_arr.dtype, np.floating
+            ):
                 float_arr = float_arr.astype(int)
             return float_arr
         except (ValueError, TypeError):
             return np.asarray(arr)
-        
+
     return {k: cast(v) for k, v in d.items()}
+
 
 def reindex_samples(
     index_arrays: dict[str, list],
@@ -296,11 +309,13 @@ def reindex_samples(
         'cosmo_idx': ['000', '000', '000', '001', '001', '001'],
         'hod_idx':   [0, 1, 2, 0, 1, 2],
     }
-    """ 
-    n = len(next(iter(index_arrays.values()))) # Assume all index arrays have the same length
+    """
+    n = len(
+        next(iter(index_arrays.values()))
+    )  # Assume all index arrays have the same length
     result = {k: list(v) for k, v in index_arrays.items()}
     if group_by is None:
-        group_keys = [()] * n # Single global group
+        group_keys = [()] * n  # Single global group
     else:
         group_keys = [tuple(index_arrays[g][i] for g in group_by) for i in range(n)]
 
@@ -308,29 +323,34 @@ def reindex_samples(
         if idx_name not in index_arrays:
             raise ValueError(f"Index '{idx_name}' not found in index_arrays.")
 
-        vals = index_arrays[idx_name] # Original raw values for this index
+        vals = index_arrays[idx_name]  # Original raw values for this index
 
         # Build a (group_key, raw_value) -> new_index map in one pass
-        local_maps: dict[tuple, dict] = {} # Map reindexing the values to integers within each group key
+        local_maps: dict[
+            tuple, dict
+        ] = {}  # Map reindexing the values to integers within each group key
         for gk, raw in zip(group_keys, vals):
             local_map = local_maps.setdefault(gk, {})
-            local_map.setdefault(raw, len(local_map)) # Assign a new index if this raw value hasn't been seen in this group key
+            local_map.setdefault(
+                raw, len(local_map)
+            )  # Assign a new index if this raw value hasn't been seen in this group key
 
         result[idx_name] = [local_maps[gk][raw] for gk, raw in zip(group_keys, vals)]
 
     return result
 
+
 def split_test_set(
     ds: xarray.Dataset,
-    filters: dict, 
+    filters: dict,
     to_split: list[str] | None = None,
     in_name: str = "_test",
     out_name: str = "_train",
 ) -> xarray.Dataset:
     """
     Split DataArrays into test/train sets based on filters and merge into a single Dataset.
-    
-    Based on split_vars. "in" matches the filters and is suffixed with in_name, 
+
+    Based on split_vars. "in" matches the filters and is suffixed with in_name,
     "out" is the complementary subset suffixed with out_name.
 
     Parameters
@@ -339,11 +359,11 @@ def split_test_set(
         Input dataset containing the variables to split.
         Must contain all variables listed in to_split (or defaulting to "x" and "y").
     filters : dict
-        Dictionary of dimension names and values to filter the DataArrays 
+        Dictionary of dimension names and values to filter the DataArrays
         (see "in" variables in split_vars).
     to_split : list[str], optional
         List of variable names in the dataset to apply the split to. If None,
-        defaults to ``x`` and ``y`` if they exist in the dataset. 
+        defaults to ``x`` and ``y`` if they exist in the dataset.
     in_name : str, default="_test"
         Suffix for the filtered variable names (the filtered subset).
     out_name : str, default="_train"
@@ -352,14 +372,16 @@ def split_test_set(
     Returns
     -------
     xarray.Dataset
-        Split dataset with filtered variables. New data variables have a ``nan_dims`` 
-        attribute listing the dimensions that were filtered out and filled with NaNs 
+        Split dataset with filtered variables. New data variables have a ``nan_dims``
+        attribute listing the dimensions that were filtered out and filled with NaNs
         in the complementary variable.
     """
-    to_split = to_split or ['x', 'y']
+    to_split = to_split or ["x", "y"]
     for v in to_split:
         if v not in ds:
-            raise ValueError(f"Variable '{v}' not found in dataset. Available variables: {list(ds.data_vars)}")
+            raise ValueError(
+                f"Variable '{v}' not found in dataset. Available variables: {list(ds.data_vars)}"
+            )
 
     logger.debug(f"Splitting variables: {to_split} with filters: {filters}")
 
@@ -369,13 +391,14 @@ def split_test_set(
         v_out.name = v_out.name + out_name
 
         # Mark filtered dimensions that will be filled with NaNs
-        v_in.attrs["nan_dims"] = list(filters)  
+        v_in.attrs["nan_dims"] = list(filters)
         v_out.attrs["nan_dims"] = list(filters)
 
         ds = xarray.merge([ds, v_in, v_out], join="outer")
     return ds
 
-#%% Main function to compress mocks into an xarray DataArray
+
+# %% Main function to compress mocks into an xarray DataArray
 def collect_mocks(
     root_dir: str | Path,
     glob_pattern: str,
@@ -407,23 +430,25 @@ def collect_mocks(
         Dictionary mapping tracked index names to lists of their raw string values,
         collected in the same order as the files are read for later use in coordinate construction.
     """
-    root_dir = Path(root_dir) # Ensure Path behavior
-    ignore_index = ignore_index or [] # Ensure list behavior
+    root_dir = Path(root_dir)  # Ensure Path behavior
+    ignore_index = ignore_index or []  # Ensure list behavior
 
     # Identify indexes from glob pattern
-    indexes = re.findall(r'{(.+?)}', glob_pattern)
+    indexes = re.findall(r"{(.+?)}", glob_pattern)
     track_indexes = [idx for idx in indexes if idx not in ignore_index]
-    logger.debug(f"Identified indexes: {indexes}, tracking indexes: {track_indexes}, ignored indexes: {ignore_index}")
+    logger.debug(
+        f"Identified indexes: {indexes}, tracking indexes: {track_indexes}, ignored indexes: {ignore_index}"
+    )
 
     regex_pattern = glob_pattern
     for idx in indexes:
         if idx in ignore_index:
-             # Non-capturing group for ignored indexes
+            # Non-capturing group for ignored indexes
             regex_pattern = regex_pattern.replace(f"{{{idx}}}", r"[^/]+", 1)
         else:
             # Named capture group for known indexes
             regex_pattern = regex_pattern.replace(f"{{{idx}}}", f"(?P<{idx}>[^/]+)", 1)
-    
+
     # Replace remaining wildcards (the glob * not from named indexes) with a non-capturing group
     regex_pattern = regex_pattern.replace("*", r"[^/]+")
     regex_pattern = re.compile(str(root_dir / regex_pattern))
@@ -443,7 +468,7 @@ def collect_mocks(
         if m:
             return tuple((idx, m.group(idx)) for idx in track_indexes)
         return None
-    
+
     groups = {}
     for f in files:
         key = get_index_key(f)
@@ -455,9 +480,12 @@ def collect_mocks(
         for idx, value in key:
             index_arrays[idx].append(value)
 
-    logger.debug(f"Found {len(files)} files grouped into {len(groups)} unique index combinations.")
+    logger.debug(
+        f"Found {len(files)} files grouped into {len(groups)} unique index combinations."
+    )
 
     return groups, index_arrays
+
 
 def compress_mocks(
     groups: dict[tuple, list[Path]],
@@ -529,31 +557,39 @@ def compress_mocks(
     # Read all files in order
     t0 = time.time()
     results = [reader(group_files) for group_files in groups.values()]
-    logger.debug(f"Read {sum(len(v) for v in groups.values())} files in {time.time() - t0:.2f} seconds.")
+    logger.debug(
+        f"Read {sum(len(v) for v in groups.values())} files in {time.time() - t0:.2f} seconds."
+    )
 
     selected_results, features_dims = filter(results, **kwargs)
-    logger.debug(f"Filtered data shape: {selected_results.shape}, feature dimensions: {features_dims}")
+    logger.debug(
+        f"Filtered data shape: {selected_results.shape}, feature dimensions: {features_dims}"
+    )
 
     if reindex:
-        index_arrays = reindex_samples(index_arrays, reindex=reindex, group_by=reindex_group_by)
-        logger.debug(f"Re-indexed samples for indexes: {reindex} with group_by: {reindex_group_by}")
-    
+        index_arrays = reindex_samples(
+            index_arrays, reindex=reindex, group_by=reindex_group_by
+        )
+        logger.debug(
+            f"Re-indexed samples for indexes: {reindex} with group_by: {reindex_group_by}"
+        )
+
     sample_dims = {idx: np.unique(values) for idx, values in index_arrays.items()}
-    
+
     dims = cast_dims({**sample_dims, **features_dims})
     shape = [len(v) for v in dims.values()]
 
-    # TODO: drop singleton dims here instead ? 
+    # TODO: drop singleton dims here instead ?
     # Otherwise they still exist in the DataArray, which can be confusing
 
     cout = xarray.DataArray(
-        data = selected_results.reshape(shape),
-        coords = dims,
-        dims = list(dims),
-        attrs = {
-            'sample': list(sample_dims),
-            'features': list(features_dims),
-        }
+        data=selected_results.reshape(shape),
+        coords=dims,
+        dims=list(dims),
+        attrs={
+            "sample": list(sample_dims),
+            "features": list(features_dims),
+        },
     )
 
     if drop_singleton_dims:
@@ -562,7 +598,7 @@ def compress_mocks(
     return cout
 
 
-#%% NOTE: Examples compression function (project-dependent, to be moved somewhere else ?)
+# %% NOTE: Examples compression function (project-dependent, to be moved somewhere else ?)
 def compress_x(
     root_dir: str | Path,
     index_arrays: dict[str, list],
@@ -572,7 +608,7 @@ def compress_x(
 
     Example of a custom compression function to read and stack "x" data from csv files based on the collected index arrays.
     This is a placeholder implementation and should be adapted to the specific file structure and data format of the "x" data.
-    
+
     Parameters
     ----------
     root_dir : str or Path
@@ -586,10 +622,12 @@ def compress_x(
     xarray.DataArray
         DataArray containing the compressed "x" data with appropriate dimensions and coordinates based on the index arrays.
     """
-    logger.warning("Using a placeholder compress_x function. Please adapt this function to your specific file structure and data format.")
+    logger.warning(
+        "Using a placeholder compress_x function. Please adapt this function to your specific file structure and data format."
+    )
     root_dir = Path(root_dir)
-    cosmos = np.asarray(index_arrays['cosmo_idx'], dtype=int)
-    hods = np.asarray(index_arrays['hod_idx'], dtype=int)
+    cosmos = np.asarray(index_arrays["cosmo_idx"], dtype=int)
+    hods = np.asarray(index_arrays["hod_idx"], dtype=int)
 
     x = []  # Placeholder for the compressed data
     for c in np.unique(cosmos):
@@ -603,23 +641,28 @@ def compress_x(
     x_names = df.columns.str.replace(r"[ #]", "", regex=True)
 
     # Create dimensions
-    index_arrays = reindex_samples(index_arrays, reindex=['hod_idx'], group_by=['cosmo_idx'])
-    sample_dims = {idx: np.unique(index_arrays[idx]) for idx in ['cosmo_idx', 'hod_idx']}
-    features_dims = {'parameters': x_names}
+    index_arrays = reindex_samples(
+        index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx"]
+    )
+    sample_dims = {
+        idx: np.unique(index_arrays[idx]) for idx in ["cosmo_idx", "hod_idx"]
+    }
+    features_dims = {"parameters": x_names}
 
     dims = cast_dims({**sample_dims, **features_dims})
     shape = [len(v) for v in dims.values()]
 
     cout = xarray.DataArray(
-        data = df.to_numpy().reshape(shape),
-        coords = dims,
-        dims = list(dims),
-        attrs = {
-            'sample': list(sample_dims),
-            'features': list(features_dims),
-        }
+        data=df.to_numpy().reshape(shape),
+        coords=dims,
+        dims=list(dims),
+        attrs={
+            "sample": list(sample_dims),
+            "features": list(features_dims),
+        },
     )
     return cout
+
 
 def compress_data(
     glob_fn: str,
@@ -636,25 +679,25 @@ def compress_data(
     Parameters
     ----------
     glob_fn : str
-        Glob pattern for collecting mock measurement filenames, 
+        Glob pattern for collecting mock measurement filenames,
         relative to the encoded glob pattern.
     paths : dict[str, str]
-        Dictionary containing paths for measurements and parameters, 
+        Dictionary containing paths for measurements and parameters,
         with keys "measurements_dir" and "params_dir".
     covariance_hod : int, optional
-        HOD index to use for the covariance data, if available. 
+        HOD index to use for the covariance data, if available.
         If None, covariance data will not be included in the output dataset.
         Defaults to 157.
     test_filters : dict[str, list], optional
-        Dictionary of filters to apply for splitting the test set, 
-        passed to ``split_test_set``. 
+        Dictionary of filters to apply for splitting the test set,
+        passed to ``split_test_set``.
         Defaults to None (no splitting).
     override_last_dim : bool, default=True
-        If True and covariance data is included, override the coordinates of 
-        the last dimension of the covariance DataArray to match those of 
+        If True and covariance data is included, override the coordinates of
+        the last dimension of the covariance DataArray to match those of
         the "y" DataArray, ensuring they are aligned for later use.
     save_fn : str or Path, optional
-        If provided, path to save the compressed dataset as a numpy file. 
+        If provided, path to save the compressed dataset as a numpy file.
         The dataset is converted to a dictionary and saved as a numpy array
         for later loading. Defaults to None (no saving).
     **kwargs
@@ -663,43 +706,49 @@ def compress_data(
     Returns
     -------
     xarray.Dataset
-        Dataset containing the compressed "x" and "y", and optionally "covariance_y" data, 
-        with appropriate dimensions and coordinates based on the collected index arrays. 
-        If test_filters are provided, the dataset will also 
+        Dataset containing the compressed "x" and "y", and optionally "covariance_y" data,
+        with appropriate dimensions and coordinates based on the collected index arrays.
+        If test_filters are provided, the dataset will also
         include split test/train variables with "_test" and "_train" suffixes.
     """
-    logger.warning("Using a placeholder compress_data function. Please adapt this function to your specific file structure, data format, and desired processing steps.")
+    logger.warning(
+        "Using a placeholder compress_data function. Please adapt this function to your specific file structure, data format, and desired processing steps."
+    )
     groups, index_arrays = collect_mocks(
-        root_dir = paths["measurements_dir"] + "base",
-        glob_pattern = 'c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/' + glob_fn,
+        root_dir=paths["measurements_dir"] + "base",
+        glob_pattern="c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + glob_fn,
         # ignore_index = ['los'],
     )
 
     x = compress_x(
-        root_dir = paths["param_dir"],
-        index_arrays = index_arrays,
+        root_dir=paths["param_dir"],
+        index_arrays=index_arrays,
     )
 
     y = compress_mocks(
-        groups = groups,
-        index_arrays = index_arrays,
-        reindex = ['hod_idx'],
-        reindex_group_by = ['cosmo_idx', 'phase_idx', 'seed'],
+        groups=groups,
+        index_arrays=index_arrays,
+        reindex=["hod_idx"],
+        reindex_group_by=["cosmo_idx", "phase_idx", "seed"],
         **kwargs,
     )
-    logger.info(f"Compressed x and y data with shapes {x.shape} and {y.shape} respectively.")
-    data_vars = {'x': x, 'y': y}
+    logger.info(
+        f"Compressed x and y data with shapes {x.shape} and {y.shape} respectively."
+    )
+    data_vars = {"x": x, "y": y}
 
     # Covariance
     if covariance_hod is not None:
         groups, index_arrays = collect_mocks(
-            root_dir = paths["measurements_dir"] + "small",
-            glob_pattern = 'c{cosmo_idx}_ph{phase_idx}/seed{seed}/' + f'hod{covariance_hod:03d}/' + glob_fn,
+            root_dir=paths["measurements_dir"] + "small",
+            glob_pattern="c{cosmo_idx}_ph{phase_idx}/seed{seed}/"
+            + f"hod{covariance_hod:03d}/"
+            + glob_fn,
             # ignore_index = ['los'],
         )
         covariance_y = compress_mocks(
-            groups = groups,
-            index_arrays = index_arrays,
+            groups=groups,
+            index_arrays=index_arrays,
             **kwargs,
         )
         if override_last_dim:
@@ -707,12 +756,14 @@ def compress_data(
             lcy = covariance_y.coords[covariance_y.dims[-1]]
             ly = y.coords[y.dims[-1]]
             if lcy.name != ly.name:
-                logger.warning(f"Inconsistent last dimensions between covariance_y and y: {lcy.name} vs {ly.name}.")
+                logger.warning(
+                    f"Inconsistent last dimensions between covariance_y and y: {lcy.name} vs {ly.name}."
+                )
             if lcy.shape != ly.shape:
                 raise ValueError(
                     f"Cannot override last dimension of covariance_y due to shape mismatch: {lcy.shape} vs {ly.shape}. "
                     "Ensure that the coordinates along this dimension are compatible for alignment."
-                ) 
+                )
             covariance_y = covariance_y.assign_coords({lcy.name: ly})
             logger.debug(
                 f"Overriding last dimension of covariance_y with y coordinates along {ly.name}."
@@ -722,13 +773,13 @@ def compress_data(
                 "Not overriding last dimension of covariance_y. Ensure that the coordinates are aligned with y to avoid nan values."
             )
         logger.info(f"Compressed covariance_y data with shape {covariance_y.shape}.")
-        data_vars['covariance_y'] = covariance_y
+        data_vars["covariance_y"] = covariance_y
 
-    cout = xarray.Dataset(data_vars = data_vars)
+    cout = xarray.Dataset(data_vars=data_vars)
 
     if test_filters is not None:
         cout = split_test_set(cout, test_filters)
-    
+
     if save_fn is not None:
         Path(save_fn).parent.mkdir(parents=True, exist_ok=True)
         payload = np.array(dataset_to_dict(cout), dtype=object)
