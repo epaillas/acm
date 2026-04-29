@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import lsstypes
@@ -11,6 +12,8 @@ from acm.utils.plotting import set_plot_style
 from acm.utils.xarray import dataset_to_dict, split_vars
 
 from .base import BaseObservableBGS
+
+logger = logging.getLogger(__name__)
 
 K_MIN = 2 * np.pi / 500  # lower limit fixed by small boxsize
 K_MAX = (
@@ -32,15 +35,13 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         hod_idx: int = 157,
         seed: int = 0,
         los: list[str] = ["x", "y", "z"],
-        save_to: str = None,
+        save_to: str | None = None,
         kmin: float = K_MIN,
         kmax: float = K_MAX,
         rebin: int = 3,
         ells: list = [0, 2],
-        overwrite_k: np.ndarray = None,
-    ) -> xarray.DataArray:
-        logger = cls.get_logger()
-
+        overwrite_k: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         small_dir = Path(paths["measurements_dir"]) / "small"
 
         y = []
@@ -57,7 +58,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
                 / f"hod{hod_idx:03d}"
             )
             fns = [
-                fn_dir / f"power_spectrum_los_{l}.h5" for l in los
+                fn_dir / f"power_spectrum_los_{_l}.h5" for _l in los
             ]  # NOTE: Hardcoded !
             existing_fns = [fn for fn in fns if fn.exists()]
 
@@ -102,7 +103,8 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -114,20 +116,18 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         los: list[str] = ["x", "y", "z"],
         kmin: float = K_MIN,
         kmax: float = K_MAX,
         rebin: int = 3,
         ells: list = [0, 2],
         cosmos: list = cosmo_list,
-        n_hod: int = None,
-        density_threshold: float = None,
-        test_filters: dict = None,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
-        logger = cls.get_logger()
-
         x = cls.compress_x(
             paths=paths, cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod
         )
@@ -151,7 +151,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
                     f"Loading data for c{cosmo_idx:03d}_hod{fn_dir.stem.split('hod')[-1]}"
                 )
                 fns = [
-                    fn_dir / f"power_spectrum_los_{l}.h5" for l in los
+                    fn_dir / f"power_spectrum_los_{_l}.h5" for _l in los
                 ]  # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
 
@@ -228,7 +228,8 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
@@ -237,7 +238,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
     def plot_observable(
         self,
         model_params: dict,
-        save_fn: str = None,
+        save_fn: str | None = None,
         ells: list = [0, 2],
         xscale: str = "linear",
         **kwargs,
