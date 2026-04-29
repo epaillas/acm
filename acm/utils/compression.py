@@ -610,14 +610,15 @@ def compress_mocks(
     cout = xarray.DataArray(
         data=data,
         coords=coords,
-        attrs={
-            "sample": list(sample_dims),
-            "features": list(features_coords),
-        },
     )
 
     if drop_singleton_dims:
         cout = cout.squeeze(drop=True)
+    
+    cout.attrs = {
+        "sample": [s for s in sample_dims if s in cout.dims],
+        "features": [s for s in sample_dims if s in cout.dims],
+    } # Assign attrs here to avoid singleton dimension in attrs
 
     return cout
 
