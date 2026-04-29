@@ -1,4 +1,3 @@
-
 """
 Script to optimize the model hyperparameters for different observables using Optuna. 
 
@@ -75,7 +74,7 @@ if __name__ == '__main__':
         
         # sigma clipping
         if args.sigma > 0:
-            mask = sigma_clip(lhc_y, sigma=args.sigma, masked=True, axis=0).mask.any(axis=1)
+            mask = sigma_clip(lhc_y, sigma=args.sigma, masked=True, axis=0).mask.any(axis=1)  # ty:ignore[unresolved-attribute]
             lhc_x = lhc_x[~mask]
             lhc_y = lhc_y[~mask]
             logger.info(f'Removed {mask.sum()} outliers from training data using sigma={args.sigma} clipping')
