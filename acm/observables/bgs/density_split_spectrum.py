@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import lsstypes
@@ -11,6 +12,8 @@ from acm.utils.plotting import set_plot_style
 from acm.utils.xarray import dataset_to_dict, split_vars
 
 from .base import BaseObservableBGS
+
+logger = logging.getLogger(__name__)
 
 K_MIN = 2 * np.pi / 500  # lower limit fixed by small boxsize
 K_MAX = (
@@ -37,14 +40,14 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         hod_idx: int = 157,
         seed: int = 0,
         los: list[str] = ["x", "y", "z"],
-        save_to: str = None,
+        save_to: str | None = None,
         rebin: int = 3,
         kmin: float = K_MIN,
         kmax: float = K_MAX,
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
-        overwrite_k: np.ndarray = None,
-    ) -> xarray.DataArray:
+        overwrite_k: np.ndarray | None = None,
+    ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
 
@@ -87,11 +90,9 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
 
         Returns
         -------
-        xarray.DataArray
-            Covariance array.
+        xarray.Dataset
+            Covariance dataset.
         """
-        logger = cls.get_logger()
-
         small_dir = Path(paths["measurements_dir"]) / "small"
 
         y = []
@@ -111,7 +112,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
                     / f"hod{hod_idx:03d}"
                 )
                 fns = [
-                    fn_dir / f"{measurement_root}_los_{l}.h5" for l in los
+                    fn_dir / f"{measurement_root}_los_{_l}.h5" for _l in los
                 ]  # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
 
@@ -162,7 +163,8 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed covariance file to {save_fn}")
         return cout
 
@@ -175,7 +177,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         phase: int = 0,
         seed: int = 0,
         add_covariance: bool = False,
-        save_to: str = None,
+        save_to: str | None = None,
         los: list[str] = ["x", "y", "z"],
         rebin: int = 3,
         kmin: float = K_MIN,
@@ -183,9 +185,9 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         ells: list = [0, 2],
         quantiles: list = [0, 1, 3, 4],
         cosmos: list = cosmo_list,
-        n_hod: int = None,
-        density_threshold: float = None,
-        test_filters: dict = None,
+        n_hod: int | None = None,
+        density_threshold: float | None = None,
+        test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
         """
@@ -247,8 +249,6 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
             Compressed dataset containing 'x' and 'y' DataArrays.
             If add_covariance is True, also contains 'covariance_y' DataArray.
         """
-        logger = cls.get_logger()
-
         x = cls.compress_x(
             paths=paths, cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod
         )
@@ -270,7 +270,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
             for fn_dir in hod_fns:
                 y_quantiles = []
                 fns = [
-                    fn_dir / f"{measurement_root}_los_{l}.h5" for l in los
+                    fn_dir / f"{measurement_root}_los_{_l}.h5" for _l in los
                 ]  # NOTE: Hardcoded !
                 existing_fns = [fn for fn in fns if fn.exists()]
                 if len(existing_fns) == 0:
@@ -351,7 +351,8 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
         if save_to is not None:
             Path(save_to).mkdir(parents=True, exist_ok=True)
             save_fn = Path(save_to) / f"{stat_name}.npy"
-            np.save(save_fn, dataset_to_dict(cout))
+            payload = np.array(dataset_to_dict(cout), dtype=object)
+            np.save(save_fn, payload)
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
@@ -360,7 +361,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
     def plot_observable(
         self,
         model_params: dict,
-        save_fn: str = None,
+        save_fn: str | None = None,
         quantiles: list = [0, 1, 3, 4],
         ell: int = 0,
         xscale: str = "linear",
@@ -475,7 +476,7 @@ class DensitySplitQuantileGalaxySpectrumMultipoles(DensitySplitSpectrumBaseClass
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_power"
         )
@@ -500,7 +501,7 @@ class DensitySplitQuantileSpectrumMultipoles(DensitySplitSpectrumBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.DataArray:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
         kwargs["measurement_root"] = kwargs.pop("measurement_root", "quantile_power")
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_pkqq")
         return super().compress_covariance(**kwargs)
