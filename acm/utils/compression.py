@@ -594,17 +594,17 @@ def compress_mocks(
             f"Re-indexed samples for indexes: {reindex} with group_by: {reindex_group_by}"
         )
 
-    sample_dims = {idx: np.unique(values) for idx, values in index_arrays.items()}
+    sample_coords = {idx: np.unique(values) for idx, values in index_arrays.items()}
     n_groups = len(groups)
-    n_expected = np.prod([len(v) for v in sample_dims.values()])
+    n_expected = np.prod([len(v) for v in sample_coords.values()])
     if n_groups != n_expected:
         raise ValueError(
             f"Index grid is sparse: found {n_groups} groups but expected {n_expected} "
-            f"from unique index combinations { ({k: len(v) for k, v in sample_dims.items()}) }. "
+            f"from unique index combinations { ({k: len(v) for k, v in sample_coords.items()}) }. "
             "Ensure all combinations of index values are present in the data."
         )
 
-    coords = cast_coords({**sample_dims, **features_coords})
+    coords = cast_coords({**sample_coords, **features_coords})
     data = reshape_to_coords(selected_results, coords)
 
     cout = xarray.DataArray(
@@ -618,8 +618,8 @@ def compress_mocks(
         cout = cout.squeeze(drop=True)
 
     cout.attrs = {
-        "sample": [s for s in sample_dims if s in cout.dims],
-        "features": [s for s in sample_dims if s in cout.dims],
+        "sample": [s for s in sample_coords if s in cout.dims],
+        "features": [s for s in features_coords if s in cout.dims],
     }  # Assign attrs here to avoid singleton dimension in attrs
 
     return cout
