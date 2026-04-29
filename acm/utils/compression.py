@@ -92,7 +92,7 @@ def lsstypes_postprocess(
         [lsstypes_match(d) for d in data]
     )  # TODO: use lsstypes.match when available ?
 
-    tmp_coords = {'data': np.arange(len(data)), **coords}
+    tmp_coords = {"data": np.arange(len(data)), **coords}
     data_out = reshape_to_coords(data_out, tmp_coords)
 
     return data_out, coords
@@ -160,7 +160,7 @@ def pycorr_postprocess(
         data_out.append(poles)
     data_out = np.stack(data_out)
 
-    tmp_coords = {'data': np.arange(len(data)), **coords}
+    tmp_coords = {"data": np.arange(len(data)), **coords}
     data_out = reshape_to_coords(data_out, tmp_coords)
 
     return data_out, coords
@@ -234,7 +234,7 @@ def ds_postprocess(
             data_out.append(poles)
     data_out = np.stack(data_out)
 
-    tmp_coords = {'data': np.arange(len(data)), **coords}
+    tmp_coords = {"data": np.arange(len(data)), **coords}
     data_out = reshape_to_coords(data_out, tmp_coords)
 
     return data_out, coords
@@ -263,6 +263,7 @@ def reshape_to_coords(arr: np.ndarray, coords: dict) -> np.ndarray:
             f"Cannot reshape array of size {arr.size} to shape {shape} based on provided coordinates."
         )
     return arr.reshape(shape)
+
 
 def cast_coords(d: dict) -> dict:
     """
@@ -458,7 +459,9 @@ def collect_mocks(
         f"Identified indexes: {indexes}, tracking indexes: {track_indexes}, ignored indexes: {ignore_index}"
     )
 
-    regex_pattern = re.escape(str(root_dir / glob_pattern))  # Escape special characters for regex
+    regex_pattern = re.escape(
+        str(root_dir / glob_pattern)
+    )  # Escape special characters for regex
     for idx in indexes:
         placeholder = re.escape(f"{{{idx}}}")
         if idx in ignore_index:
@@ -727,7 +730,7 @@ def compress_data(
         "Using a placeholder compress_data function. Please adapt this function to your specific file structure, data format, and desired processing steps."
     )
     groups, index_arrays = collect_mocks(
-        root_dir = Path(paths["measurements_dir"]) / "base",
+        root_dir=Path(paths["measurements_dir"]) / "base",
         glob_pattern="c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + glob_fn,
         # ignore_index = ['los'],
     )
@@ -752,7 +755,7 @@ def compress_data(
     # Covariance
     if covariance_hod is not None:
         groups, index_arrays = collect_mocks(
-            root_dir = Path(paths["measurements_dir"]) / "small",
+            root_dir=Path(paths["measurements_dir"]) / "small",
             glob_pattern="c{cosmo_idx}_ph{phase_idx}/seed{seed}/"
             + f"hod{covariance_hod:03d}/"
             + glob_fn,
