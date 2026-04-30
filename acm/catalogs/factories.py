@@ -56,7 +56,11 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
                 **kwargs,
             )
 
-            galaxy_catalog = self.catalog_class(redshift=z)
+            galaxy_catalog = self.catalog_class(
+                redshift=z,
+                cosmo=self.cosmo,
+                cosmo_fid=self.cosmo_fid
+            )
             for tracer, data in tracer_data.items():
                 galaxy_catalog.set_tracer_data(tracer, data)
 
