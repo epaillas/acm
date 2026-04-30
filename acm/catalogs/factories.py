@@ -5,12 +5,13 @@ from .dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
 
+
 class GalaxyCatalogFactory(BaseCatalogFactory):
     """
-    Snapshot-based factory: Load a dark matter backend 
+    Snapshot-based factory: Load a dark matter backend
     and create galaxy catalogs across multiple redshift snapshots.
     """
-    
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
@@ -25,8 +26,8 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
         return list(self._catalogs.keys())
 
     def make_catalogs(
-        self, 
-        redshifts: list[float], 
+        self,
+        redshifts: list[float],
         tracers: list[Tracer] | dict[float, list[Tracer]],
         **kwargs,
     ) -> None:
@@ -49,7 +50,9 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
             logger.info(f"Loading dark matter catalog at redshift z={z:.3f}")
             dm_catalog = self.backend.get_dark_matter_catalog(redshift=z, **kwargs)
 
-            logger.info(f"Populating galaxy catalog at redshift z={z:.3f} for tracers {[t.name for t in snapshot_tracers]}")
+            logger.info(
+                f"Populating galaxy catalog at redshift z={z:.3f} for tracers {[t.name for t in snapshot_tracers]}"
+            )
             tracer_data = self.backend.make_galaxy_catalog(
                 dm_catalog=dm_catalog,
                 tracers=snapshot_tracers,
@@ -57,9 +60,7 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
             )
 
             galaxy_catalog = self.catalog_class(
-                redshift=z,
-                cosmo=self.cosmo,
-                cosmo_fid=self.cosmo_fid
+                redshift=z, cosmo=self.cosmo, cosmo_fid=self.cosmo_fid
             )
             for tracer, data in tracer_data.items():
                 galaxy_catalog.set_tracer_data(tracer, data)
