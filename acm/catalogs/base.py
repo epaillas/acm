@@ -2,6 +2,9 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
+from cosmoprimo import Cosmology
+from cosmoprimo.fiducial import DESI
+
 from .dataclasses import Tracer
 from .backends import DarkMatterBackend, load_backend
 
@@ -16,14 +19,25 @@ class GalaxyCatalog:
     which can be extended by child classes for specific use cases.
     The class is designed to handle a multi-tracer galaxy catalog at a fixed redshift.
     """
-    def __init__(self, redshift: float) -> None:
+    def __init__(
+        self, 
+        redshift: float, 
+        cosmo:Cosmology = None, 
+        cosmo_fid: Cosmology = None,
+    ) -> None:
         """
         Parameters
         ----------
         redshift : float
             Redshift of the snapshot.
+        cosmo : cosmoprimo.Cosmology, optional
+            The cosmology for the simulation.
+        cosmo_fid : cosmoprimo.Cosmology, optional
+            The fiducial cosmology.
         """
         self.redshift = redshift
+        self.cosmo = cosmo
+        self.cosmo_fid = cosmo_fid
         self.tracers: dict[str, Tracer] = {}
         self._data: dict[str, Any] = {}
 
@@ -32,6 +46,34 @@ class GalaxyCatalog:
             f"{self.__class__.__name__}("
             f"redshift={self.redshift}, "
             f"tracers={list(self.tracers.keys())})"
+        )
+    
+    @property
+    def az(self) -> float:
+        """Scale factor at this snapshot's redshift."""
+        return 1.0 / (1.0 + self.redshift)
+
+    @property
+    def hubble(self) -> float:
+        """H(z) in km/s/(Mpc/h) for the simulation cosmology."""
+        return 100.0 * self.cosmo.efunc(self.redshift)
+
+    @property
+    def hubble_fid(self) -> float:
+        """H(z) in km/s/(Mpc/h) for the fiducial cosmology."""
+        return 100.0 * self.cosmo_fid.efunc(self.redshift)
+
+    @property
+    def q_par(self) -> float:
+        """AP parallel scaling factor."""
+        return self.hubble_fid / self.hubble
+
+    @property
+    def q_perp(self) -> float:
+        """AP perpendicular scaling factor."""
+        return (
+            self.cosmo.angular_diameter_distance(self.redshift)
+            / self.cosmo_fid.angular_diameter_distance(self.redshift)
         )
     
     def register_tracer(self, tracer: Tracer) -> None:
@@ -62,7 +104,9 @@ class BaseCatalogFactory(ABC):
     def __init__(
         self,
         backend: str | DarkMatterBackend,
+        cosmo: Cosmology = None,
         catalog_class: type[GalaxyCatalog] = GalaxyCatalog,
+        cosmo_fid: Cosmology = None,
         **kwargs,
     ) -> None:
         """
@@ -70,12 +114,18 @@ class BaseCatalogFactory(ABC):
         ----------
         backend : str | DarkMatterBackend
             The dark matter backend to load catalogs from.
+        cosmo : cosmoprimo.Cosmology, optional
+            Simulation cosmology, passed down to every catalog.
         catalog_class : type[GalaxyCatalog]
             The galaxy catalog class to instantiate. Defaults to GalaxyCatalog.
+        cosmo_fid : cosmoprimo.Cosmology, optional
+            Fiducial cosmology. Defaults to DESI().
         **kwargs
-            Keyword arguments to pass to the backend and catalog class constructors.
+            Keyword arguments to pass to the backend constructor.
         """
         self.backend = load_backend(backend, **kwargs)
+        self.cosmo = cosmo
+        self.cosmo_fid = cosmo_fid if cosmo_fid is not None else DESI()
         self.catalog_class = catalog_class
         self._catalogs: dict = {}
     
