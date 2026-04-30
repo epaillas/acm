@@ -1,6 +1,9 @@
 import logging
+from typing import Any
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+
+from .dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,12 @@ class DarkMatterBackend(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def make_galaxy_catalog(self, **kwargs):
+    def make_galaxy_catalog(
+        self,
+        dm_catalog: Any,
+        tracers: list[Tracer], 
+        **kwargs,
+    ) -> list[Tracer, Any]:
         """
         Populate the galaxy catalog based on the provided parameters.
         """
@@ -68,7 +76,9 @@ def register_backend(
 
 
 def load_backend(
-    backend: str | DarkMatterBackend, *args, **kwargs
+    backend: str | DarkMatterBackend, 
+    *args, 
+    **kwargs
 ) -> DarkMatterBackend:
     """
     Load a registered dark matter backend by name or pass trough an existing instance.
