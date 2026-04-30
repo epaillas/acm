@@ -5,8 +5,8 @@ from typing import Any
 from cosmoprimo import Cosmology
 from cosmoprimo.fiducial import DESI
 
-from .dataclasses import Tracer
 from .backends import DarkMatterBackend, load_backend
+from .dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +19,11 @@ class GalaxyCatalog:
     which can be extended by child classes for specific use cases.
     The class is designed to handle a multi-tracer galaxy catalog at a fixed redshift.
     """
+
     def __init__(
-        self, 
-        redshift: float, 
-        cosmo:Cosmology = None, 
+        self,
+        redshift: float,
+        cosmo: Cosmology = None,
         cosmo_fid: Cosmology = None,
     ) -> None:
         """
@@ -47,7 +48,7 @@ class GalaxyCatalog:
             f"redshift={self.redshift}, "
             f"tracers={list(self.tracers.keys())})"
         )
-    
+
     @property
     def az(self) -> float:
         """Scale factor at this snapshot's redshift."""
@@ -71,18 +72,17 @@ class GalaxyCatalog:
     @property
     def q_perp(self) -> float:
         """AP perpendicular scaling factor."""
-        return (
-            self.cosmo.angular_diameter_distance(self.redshift)
-            / self.cosmo_fid.angular_diameter_distance(self.redshift)
-        )
-    
+        return self.cosmo.angular_diameter_distance(
+            self.redshift
+        ) / self.cosmo_fid.angular_diameter_distance(self.redshift)
+
     def register_tracer(self, tracer: Tracer) -> None:
         if tracer.name in self.tracers:
             logger.warning(f"Tracer '{tracer.name}' already exists.")
         self.tracers[tracer.name] = tracer
 
     def set_tracer_data(self, tracer: Tracer, data: Any) -> None:
-        self.register_tracer(tracer) # Ensure tracer is registered before setting data
+        self.register_tracer(tracer)  # Ensure tracer is registered before setting data
         self._data[tracer.name] = data
 
     def get_tracer_data(self, tracer_name: str) -> Any:
@@ -100,7 +100,7 @@ class BaseCatalogFactory(ABC):
     Child classes should implement the specific logic for loading and processing
     the catalogs based on the chosen backend and galaxy catalog structure.
     """
-    
+
     def __init__(
         self,
         backend: str | DarkMatterBackend,
@@ -128,14 +128,14 @@ class BaseCatalogFactory(ABC):
         self.cosmo_fid = cosmo_fid if cosmo_fid is not None else DESI()
         self.catalog_class = catalog_class
         self._catalogs: dict = {}
-    
+
     def __repr__(self) -> str:
         return (
             f"{self.__class__.__name__}("
             f"backend={self.backend.__class__.__name__}, "
             f"catalog_class={self.catalog_class.__name__})"
         )
-    
+
     @property
     def catalogs(self) -> dict:
         """Dictionary of all loaded galaxy catalogs, keyed by redshift."""
@@ -146,4 +146,3 @@ class BaseCatalogFactory(ABC):
 
     @abstractmethod
     def get_catalog(self): ...
-

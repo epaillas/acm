@@ -1,5 +1,6 @@
-from typing import Any
 from dataclasses import dataclass, field
+from typing import Any
+
 
 @dataclass
 class Tracer:
@@ -14,6 +15,7 @@ class Tracer:
         Tracer-specific parameters forwarded to the backend
         (e.g. HOD parameters, magnitude cuts, color selections).
     """
+
     name: str
     params: dict[str, Any] = field(default_factory=dict)
 
