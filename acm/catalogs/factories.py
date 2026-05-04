@@ -30,6 +30,7 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
         self,
         redshifts: list[float],
         tracers: list[Tracer] | dict[float, list[Tracer]],
+        dark_matter_kwargs: dict | None = None,
         **kwargs,
     ) -> None:
         """
@@ -42,6 +43,8 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
         tracers : list[Tracer] | dict[float, list[Tracer]]
             Tracers to populate for each redshift. Can be a single list applied to all redshifts
             or a dictionary mapping each redshift to its own list of tracers.
+        dark_matter_kwargs : dict, optional
+            Keyword arguments forwarded to the backend when loading the dark matter catalog (e.g. default tracer parameters).
         **kwargs
             Extra arguments forwarded to the backend.
         """
@@ -49,7 +52,8 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
             snapshot_tracers = tracers if isinstance(tracers, list) else tracers[z]
 
             logger.info(f"Loading dark matter catalog at redshift z={z:.3f}")
-            dm_catalog = self.backend.get_dark_matter_catalog(redshift=z, **kwargs)
+            dm_kwargs = dark_matter_kwargs or {}
+            dm_catalog = self.backend.get_dark_matter_catalog(redshift=z, **dm_kwargs)
 
             logger.info(
                 f"Populating galaxy catalog at redshift z={z:.3f} for tracers {[t.name for t in snapshot_tracers]}"

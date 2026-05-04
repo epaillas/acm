@@ -42,7 +42,7 @@ class DarkMatterBackend(ABC):
         dm_catalog: Any,
         tracers: list[Tracer],
         **kwargs,
-    ) -> list[Tracer, DataFrame]:
+    ) -> dict[Tracer, DataFrame]:
         """
         Populate the galaxy catalog based on the provided parameters.
         """
