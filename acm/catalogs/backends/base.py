@@ -3,7 +3,9 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
-from .dataclasses import Tracer
+from pandas import DataFrame
+
+from ..dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,7 @@ class DarkMatterBackend(ABC):
         dm_catalog: Any,
         tracers: list[Tracer],
         **kwargs,
-    ) -> list[Tracer, Any]:
+    ) -> list[Tracer, DataFrame]:
         """
         Populate the galaxy catalog based on the provided parameters.
         """
@@ -116,8 +118,3 @@ def load_backend(
     raise TypeError(
         f"backend must be a string or a DarkMatterBackend instance, got {type(backend)}"
     )
-
-
-@register_backend("AbacusHOD")
-class AbacusHODBackend(DarkMatterBackend):
-    pass

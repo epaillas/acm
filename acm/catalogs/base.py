@@ -107,7 +107,7 @@ class BaseCatalogFactory(ABC):
 
     def __init__(
         self,
-        backend: str | DarkMatterBackend,
+        backend: str | type[DarkMatterBackend],
         catalog_class: type[BaseGalaxyCatalog],
         cosmo: Cosmology = None,
         cosmo_fid: Cosmology = None,
