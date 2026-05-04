@@ -1,7 +1,8 @@
 import logging
 
-from .base import BaseCatalogFactory, GalaxyCatalog
+from .base import BaseCatalogFactory
 from .dataclasses import Tracer
+from .galaxy_catalogs import GalaxyCatalog
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,9 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
             )
 
             galaxy_catalog = self.catalog_class(
-                redshift=z, cosmo=self.cosmo, cosmo_fid=self.cosmo_fid
+                redshift=z, 
+                cosmo=self.cosmo, 
+                cosmo_fid=self.cosmo_fid,
             )
             for tracer, data in tracer_data.items():
                 galaxy_catalog.set_tracer_data(tracer, data)

@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
+from pandas import DataFrame
 from cosmoprimo import Cosmology
 from cosmoprimo.fiducial import DESI
 
@@ -11,7 +12,7 @@ from .dataclasses import Tracer
 logger = logging.getLogger(__name__)
 
 
-class GalaxyCatalog:
+class BaseGalaxyCatalog(ABC):
     """
     Abstract base class for galaxy catalogs at a fixed redshift.
 
@@ -40,7 +41,7 @@ class GalaxyCatalog:
         self.cosmo = cosmo
         self.cosmo_fid = cosmo_fid
         self.tracers: dict[str, Tracer] = {}
-        self._data: dict[str, Any] = {}
+        self._data: dict[str, DataFrame] = {}
 
     def __repr__(self):
         return (
@@ -81,14 +82,17 @@ class GalaxyCatalog:
             logger.warning(f"Tracer '{tracer.name}' already exists.")
         self.tracers[tracer.name] = tracer
 
-    def set_tracer_data(self, tracer: Tracer, data: Any) -> None:
+    def set_tracer_data(self, tracer: Tracer, data: DataFrame) -> None:
         self.register_tracer(tracer)  # Ensure tracer is registered before setting data
         self._data[tracer.name] = data
 
-    def get_tracer_data(self, tracer_name: str) -> Any:
+    def get_tracer_data(self, tracer_name: str) -> DataFrame:
         if tracer_name not in self._data:
             raise KeyError(f"No data loaded for tracer '{tracer_name}'.")
         return self._data[tracer_name]
+    
+    def __getitem__(self, tracer_name: str) -> DataFrame:
+        return self.get_tracer_data(tracer_name)
 
 
 class BaseCatalogFactory(ABC):
@@ -104,8 +108,8 @@ class BaseCatalogFactory(ABC):
     def __init__(
         self,
         backend: str | DarkMatterBackend,
+        catalog_class: type[BaseGalaxyCatalog],
         cosmo: Cosmology = None,
-        catalog_class: type[GalaxyCatalog] = GalaxyCatalog,
         cosmo_fid: Cosmology = None,
         **kwargs,
     ) -> None:
@@ -114,20 +118,21 @@ class BaseCatalogFactory(ABC):
         ----------
         backend : str | DarkMatterBackend
             The dark matter backend to load catalogs from.
+        catalog_class : type[BaseGalaxyCatalog]
+            The galaxy catalog class to instantiate.
         cosmo : cosmoprimo.Cosmology, optional
             Simulation cosmology, passed down to every catalog.
-        catalog_class : type[GalaxyCatalog]
-            The galaxy catalog class to instantiate. Defaults to GalaxyCatalog.
         cosmo_fid : cosmoprimo.Cosmology, optional
             Fiducial cosmology. Defaults to DESI().
         **kwargs
             Keyword arguments to pass to the backend constructor.
         """
         self.backend = load_backend(backend, **kwargs)
-        self.cosmo = cosmo
-        self.cosmo_fid = cosmo_fid if cosmo_fid is not None else DESI()
         self.catalog_class = catalog_class
         self._catalogs: dict = {}
+
+        self.cosmo = cosmo
+        self.cosmo_fid = cosmo_fid if cosmo_fid is not None else DESI()
 
     def __repr__(self) -> str:
         return (
