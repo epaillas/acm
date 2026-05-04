@@ -1,4 +1,5 @@
 import logging
+from typing import override
 
 from .base import BaseCatalogFactory
 from .dataclasses import Tracer
@@ -26,6 +27,7 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
         """List of redshifts for which catalogs have been loaded."""
         return list(self._catalogs.keys())
 
+    @override
     def make_catalogs(
         self,
         redshifts: list[float],
@@ -74,6 +76,7 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
 
             self._catalogs[z] = galaxy_catalog
 
+    @override
     def get_catalog(self, redshift: float) -> GalaxyCatalog:
         """
         Retrieve the galaxy catalog at a given redshift.

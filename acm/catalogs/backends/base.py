@@ -1,7 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
 
 from pandas import DataFrame
 
@@ -39,7 +38,7 @@ class DarkMatterBackend(ABC):
     @abstractmethod
     def make_galaxy_catalog(
         self,
-        dm_catalog: Any,
+        dm_catalog: object,
         tracers: list[Tracer],
         **kwargs,
     ) -> dict[Tracer, DataFrame]:

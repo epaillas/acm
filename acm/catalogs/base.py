@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
 
 from pandas import DataFrame
 from cosmoprimo import Cosmology
@@ -24,8 +23,8 @@ class BaseGalaxyCatalog(ABC):
     def __init__(
         self,
         redshift: float,
-        cosmo: Cosmology = None,
-        cosmo_fid: Cosmology = None,
+        cosmo: Cosmology,
+        cosmo_fid: Cosmology,
     ) -> None:
         """
         Parameters
@@ -107,10 +106,10 @@ class BaseCatalogFactory(ABC):
 
     def __init__(
         self,
-        backend: str | type[DarkMatterBackend],
+        backend: str | DarkMatterBackend,
         catalog_class: type[BaseGalaxyCatalog],
-        cosmo: Cosmology = None,
-        cosmo_fid: Cosmology = None,
+        cosmo: Cosmology ,
+        cosmo_fid: Cosmology | None = None,
         **kwargs,
     ) -> None:
         """
@@ -120,7 +119,7 @@ class BaseCatalogFactory(ABC):
             The dark matter backend to load catalogs from.
         catalog_class : type[BaseGalaxyCatalog]
             The galaxy catalog class to instantiate.
-        cosmo : cosmoprimo.Cosmology, optional
+        cosmo : cosmoprimo.Cosmology
             Simulation cosmology, passed down to every catalog.
         cosmo_fid : cosmoprimo.Cosmology, optional
             Fiducial cosmology. Defaults to DESI().
@@ -147,7 +146,7 @@ class BaseCatalogFactory(ABC):
         return dict(self._catalogs)
 
     @abstractmethod
-    def make_catalogs(self): ...
+    def make_catalogs(self, **kwargs): ...
 
     @abstractmethod
-    def get_catalog(self): ...
+    def get_catalog(self, **kwargs): ...

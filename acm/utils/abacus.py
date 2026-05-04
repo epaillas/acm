@@ -1,6 +1,7 @@
 import logging
 import re
 from pathlib import Path
+from typing import overload
 
 import pandas as pd
 
@@ -32,6 +33,12 @@ def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
     else:
         return f"AbacusSummit_{sim_type}_c{cosmo_idx:03d}_ph{phase_idx:03d}"
 
+@overload
+def map_params(params: dict, mapping: dict[str, list[str]] | None = None) -> dict:
+    ...
+@overload
+def map_params(params: list[str], mapping: dict[str, list[str]] | None = None) -> list[str]:
+    ...
 def map_params(
     params: dict | list[str], 
     mapping: dict[str, list[str]] | None = None,
