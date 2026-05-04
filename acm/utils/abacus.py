@@ -6,6 +6,17 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+BOXSIZES = {
+    "base": 2000,
+    "high": 1000,
+    "highbase": 1000,
+    "huge": 7500,
+    "hugebase": 2000,
+    "fixedbase": 1185,
+    "small": 500,
+    "png": 2000,
+}
+
 ABACUS_MAP = {
     "logM1": ["log_1"],
     "Acent": ["A_cen"],
@@ -13,6 +24,13 @@ ABACUS_MAP = {
     "Bcent": ["B_cen"],
     "Bsat": ["B_sat"],
 }
+
+def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
+    """Build the Abacus simulation name based on the provided parameters."""
+    if sim_type == "png":
+        return f"Abacus_{sim_type}base_c{cosmo_idx:03d}_ph{phase_idx:03d}"
+    else:
+        return f"AbacusSummit_{sim_type}_c{cosmo_idx:03d}_ph{phase_idx:03d}"
 
 def map_params(
     params: dict | list[str], 

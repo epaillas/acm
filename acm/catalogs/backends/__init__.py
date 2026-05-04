@@ -1,1 +1,1 @@
-from .base import DarkMatterBackend
+from .base import DarkMatterBackend, load_backend
