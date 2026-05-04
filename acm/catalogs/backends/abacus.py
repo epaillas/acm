@@ -1,20 +1,21 @@
 import logging
-from pathlib import Path
 import time
+from pathlib import Path
 from typing import override
 
-import yaml
 import numpy as np
 import pandas as pd
-from pandas import DataFrame
+import yaml
 from abacusnbody.hod.abacus_hod import AbacusHOD
+from pandas import DataFrame
 
 from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
 
-from .base import DarkMatterBackend, register_backend
 from ..dataclasses import Tracer
+from .base import DarkMatterBackend, register_backend
 
 logger = logging.getLogger(__name__)
+
 
 @register_backend("AbacusHOD")
 class AbacusHODBackend(DarkMatterBackend):
@@ -23,7 +24,7 @@ class AbacusHODBackend(DarkMatterBackend):
     """
 
     def __init__(
-        self, 
+        self,
         cosmo_idx: int = 0,
         phase_idx: int = 0,
         sim_type: str = "base",
@@ -40,13 +41,13 @@ class AbacusHODBackend(DarkMatterBackend):
         phase_idx : int
             Index of the phase to use from the AbacusSummit suite.
         sim_type : str
-            Type of simulation to use (e.g. "base", "huge", "small"). 
+            Type of simulation to use (e.g. "base", "huge", "small").
             This determines the box size and resolution of the simulation.
         config_file : str | Path, optional
-            Path to the configuration file containing simulation and HOD parameters. 
+            Path to the configuration file containing simulation and HOD parameters.
             If not provided, default parameters will be used.
         **kwargs
-            Extra parameters to override simulation parameters. 
+            Extra parameters to override simulation parameters.
             These will take precedence over the config file parameters.
 
         Raises
@@ -57,13 +58,17 @@ class AbacusHODBackend(DarkMatterBackend):
             If the config file is not found.
         """
         if sim_type not in BOXSIZES:
-            raise ValueError(f"Unknown simulation type '{sim_type}'. Available types: {list(BOXSIZES)}")
-        
+            raise ValueError(
+                f"Unknown simulation type '{sim_type}'. Available types: {list(BOXSIZES)}"
+            )
+
         # Default config file if not provided
         config_file = config_file or Path(__file__).parent / "abacus_default.yaml"
-        config_file = Path(config_file) # Ensure Path behavior
+        config_file = Path(config_file)  # Ensure Path behavior
         if not config_file.exists():
-            raise ValueError(f"Config file '{config_file}' not found. Please provide a valid config file with simulation and HOD parameters.")
+            raise ValueError(
+                f"Config file '{config_file}' not found. Please provide a valid config file with simulation and HOD parameters."
+            )
 
         # Get sim_params and HOD_params from config file
         config = yaml.safe_load(config_file.open())
@@ -76,18 +81,22 @@ class AbacusHODBackend(DarkMatterBackend):
         sim_params.update(kwargs)
 
         # Build simname based on the provided parameters
-        sim_name = get_abacus_simname(sim_type, cosmo_idx, phase_idx) 
+        sim_name = get_abacus_simname(sim_type, cosmo_idx, phase_idx)
         sim_params["sim_name"] = sim_name
-        
-        logger.debug(f"Loading AbacusHODBackend {sim_type} with parameters: {sim_params}")
+
+        logger.debug(
+            f"Loading AbacusHODBackend {sim_type} with parameters: {sim_params}"
+        )
 
         # Store relevant parameters as attributes for later use
         self.sim_type = sim_type
         self.sim_params = sim_params
         self.hod_params = hod_params
-        
+
     @override
-    def get_dark_matter_catalog(self, redshift: float, tracers: list[Tracer], **kwargs) -> AbacusHOD:
+    def get_dark_matter_catalog(
+        self, redshift: float, tracers: list[Tracer], **kwargs
+    ) -> AbacusHOD:
         """
         Load the dark matter catalog for the specified redshift and tracers.
 
@@ -102,7 +111,7 @@ class AbacusHODBackend(DarkMatterBackend):
             If parameters are set in the tracer instance, they will override the default HOD parameters for this specific tracer.
         **kwargs
             Extra parameters to override HOD parameters for this specific redshift.
-        
+
         Returns
         -------
         AbacusHOD
@@ -123,7 +132,7 @@ class AbacusHODBackend(DarkMatterBackend):
         tracer_flags = hod_params.get("tracer_flags", {})
         for tracer in tracer_flags:
             tracer_flags[tracer] = False  # Initialize all tracer flags to False
-        
+
         for tracer in tracers:
             tracer_key = f"{tracer.name}_params"
 
@@ -133,18 +142,24 @@ class AbacusHODBackend(DarkMatterBackend):
             hod_params[tracer_key] = tracer_params
 
             if len(tracer_params) == 0:
-                raise ValueError(f"Default HOD parameters for tracer '{tracer.name}' must be provided either through the config file, as kwargs, or in the tracer instance.")
+                raise ValueError(
+                    f"Default HOD parameters for tracer '{tracer.name}' must be provided either through the config file, as kwargs, or in the tracer instance."
+                )
 
-            logger.debug(f"Setting default HOD parameters for tracer '{tracer.name}': {tracer_params}")
+            logger.debug(
+                f"Setting default HOD parameters for tracer '{tracer.name}': {tracer_params}"
+            )
 
             tracer_flags[tracer.name] = True
-        
+
         # Update tracer_flags in hod_params
         hod_params["tracer_flags"] = tracer_flags
 
         t0 = time.time()
         dark_matter_catalog = AbacusHOD(sim_params, hod_params)
-        logger.debug(f"Loaded dark matter catalog for redshift z={redshift:.3f} in {time.time() - t0:.2f} seconds.")
+        logger.debug(
+            f"Loaded dark matter catalog for redshift z={redshift:.3f} in {time.time() - t0:.2f} seconds."
+        )
 
         return dark_matter_catalog
 
@@ -193,8 +208,10 @@ class AbacusHODBackend(DarkMatterBackend):
             If any HOD parameter key is not a valid AbacusHOD parameter for that tracer.
         """
         if any(t.name == "BGS" for t in tracers) and len(tracers) > 1:
-            raise ValueError("BGS tracer cannot be generated together with other tracers using the current implementation. Please generate BGS separately or remove it from the tracers list.")
-        
+            raise ValueError(
+                "BGS tracer cannot be generated together with other tracers using the current implementation. Please generate BGS separately or remove it from the tracers list."
+            )
+
         # Extract and update HOD parameters to modify and pass to run_hod
         catalog_tracers = dm_catalog.tracers.copy()
         final_tracers = {}
@@ -202,12 +219,14 @@ class AbacusHODBackend(DarkMatterBackend):
             tracer_name = self._resolve_tracer_name(tracer.name)
 
             default_params = catalog_tracers[tracer_name]
-            hod_params = tracer.params.copy() 
-            hod_params = map_params(hod_params, mapping=mapping)  # Map custom parameter names to AbacusHOD parameter names if needed
+            hod_params = tracer.params.copy()
+            hod_params = map_params(
+                hod_params, mapping=mapping
+            )  # Map custom parameter names to AbacusHOD parameter names if needed
 
             # Convert log(sigma) to sigma and/or remove logsigma
             if use_logsigma and "sigma" in hod_params:
-                hod_params["sigma"] = 10 ** hod_params["sigma"]  
+                hod_params["sigma"] = 10 ** hod_params["sigma"]
             if "logsigma" in hod_params:
                 hod_params["sigma"] = 10 ** hod_params.pop("logsigma")
 
@@ -215,15 +234,19 @@ class AbacusHODBackend(DarkMatterBackend):
             if not set(hod_params).issubset(set(default_params)):
                 invalid = set(hod_params) - set(default_params)
                 valid = set(default_params)
-                raise ValueError(f"HOD parameters for tracer '{tracer.name}' contain invalid keys: {invalid}. Valid keys are: {valid}.")
-            
+                raise ValueError(
+                    f"HOD parameters for tracer '{tracer.name}' contain invalid keys: {invalid}. Valid keys are: {valid}."
+                )
+
             # NOTE: Do we want to provide this option to the user ?
-            hod_params["ic"] = 1 # set incompleteness to 1 (i.e. no incompleteness)
+            hod_params["ic"] = 1  # set incompleteness to 1 (i.e. no incompleteness)
 
             default_params.update(hod_params)
             final_tracers[tracer_name] = default_params
-            logger.debug(f"Updating tracer '{tracer.name}' with HOD parameters: {hod_params}")
-            
+            logger.debug(
+                f"Updating tracer '{tracer.name}' with HOD parameters: {hod_params}"
+            )
+
         # Handle kwarg names for backwards compatibility
         reseed = kwargs.pop("reseed", None) or kwargs.pop("seed", None)
         Nthread = kwargs.pop("Nthread", None) or kwargs.pop("nthreads", None) or 1
@@ -235,10 +258,10 @@ class AbacusHODBackend(DarkMatterBackend):
         # TODO: handle NFW profile for ELG here ?
 
         galaxy_dict = dm_catalog.run_hod(
-            final_tracers, 
-            want_rsd = False, 
-            reseed = reseed,
-            Nthread = Nthread,
+            final_tracers,
+            want_rsd=False,
+            reseed=reseed,
+            Nthread=Nthread,
             **kwargs,
         )
 
@@ -246,11 +269,13 @@ class AbacusHODBackend(DarkMatterBackend):
         galaxy_catalogs = {}
         for tracer in tracers:
             tracer_name = self._resolve_tracer_name(tracer.name)
-            
+
             self._add_centrals(galaxy_dict, tracer_name)
 
             columns = [k.upper() for k in galaxy_dict[tracer_name]]
-            galaxy_catalogs[tracer] = pd.DataFrame.from_dict(galaxy_dict[tracer_name], columns=columns)
+            galaxy_catalogs[tracer] = pd.DataFrame.from_dict(
+                galaxy_dict[tracer_name], columns=columns
+            )
 
         return galaxy_catalogs
 
@@ -277,14 +302,18 @@ class AbacusHODBackend(DarkMatterBackend):
         """
         n_cent = galaxy_dict[tracer_name].pop("Ncent", None)
         if n_cent is None:
-            raise KeyError(f"'Ncent' key not found in galaxy_dict for tracer '{tracer_name}'.")
+            raise KeyError(
+                f"'Ncent' key not found in galaxy_dict for tracer '{tracer_name}'."
+            )
 
         n_gal = len(galaxy_dict[tracer_name]["x"])
-        logger.debug(f"Adding central/satellite flag for tracer '{tracer_name}' with {n_gal} galaxies (Ncent={n_cent}).")
+        logger.debug(
+            f"Adding central/satellite flag for tracer '{tracer_name}' with {n_gal} galaxies (Ncent={n_cent})."
+        )
         is_central = np.zeros(n_gal, dtype=bool)
         is_central[:n_cent] = 1
         galaxy_dict[tracer_name]["is_cent"] = is_central
-    
+
     _TRACER_NAME_ALIASES = {"BGS": "LRG"}
 
     def _resolve_tracer_name(self, name: str) -> str:
@@ -303,7 +332,9 @@ class AbacusHODBackend(DarkMatterBackend):
         """
         resolved = self._TRACER_NAME_ALIASES.get(name, name)
         if resolved != name:
-            logger.warning(f"Tracer '{name}' is not directly supported. Using '{resolved}' as a proxy.")
+            logger.warning(
+                f"Tracer '{name}' is not directly supported. Using '{resolved}' as a proxy."
+            )
         return resolved
 
     # NOTE: do we really need this here ?

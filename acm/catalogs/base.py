@@ -1,9 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 
-from pandas import DataFrame
 from cosmoprimo import Cosmology
 from cosmoprimo.fiducial import DESI
+from pandas import DataFrame
 
 from .backends import DarkMatterBackend, load_backend
 from .dataclasses import Tracer
@@ -89,7 +89,7 @@ class BaseGalaxyCatalog(ABC):
         if tracer_name not in self._data:
             raise KeyError(f"No data loaded for tracer '{tracer_name}'.")
         return self._data[tracer_name]
-    
+
     def __getitem__(self, tracer_name: str) -> DataFrame:
         return self.get_tracer_data(tracer_name)
 
@@ -108,7 +108,7 @@ class BaseCatalogFactory(ABC):
         self,
         backend: str | DarkMatterBackend,
         catalog_class: type[BaseGalaxyCatalog],
-        cosmo: Cosmology ,
+        cosmo: Cosmology,
         cosmo_fid: Cosmology | None = None,
         **kwargs,
     ) -> None:

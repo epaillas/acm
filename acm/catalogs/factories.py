@@ -67,8 +67,8 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
             )
 
             galaxy_catalog = self.catalog_class(
-                redshift=z, 
-                cosmo=self.cosmo, 
+                redshift=z,
+                cosmo=self.cosmo,
                 cosmo_fid=self.cosmo_fid,
             )
             for tracer, data in tracer_data.items():

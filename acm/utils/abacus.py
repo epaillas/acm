@@ -26,6 +26,7 @@ ABACUS_MAP = {
     "Bsat": ["B_sat"],
 }
 
+
 def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
     """Build the Abacus simulation name based on the provided parameters."""
     if sim_type == "png":
@@ -33,14 +34,15 @@ def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
     else:
         return f"AbacusSummit_{sim_type}_c{cosmo_idx:03d}_ph{phase_idx:03d}"
 
+
 @overload
-def map_params(params: dict, mapping: dict[str, list[str]] | None = None) -> dict:
-    ...
+def map_params(params: dict, mapping: dict[str, list[str]] | None = None) -> dict: ...
 @overload
-def map_params(params: list[str], mapping: dict[str, list[str]] | None = None) -> list[str]:
-    ...
 def map_params(
-    params: dict | list[str], 
+    params: list[str], mapping: dict[str, list[str]] | None = None
+) -> list[str]: ...
+def map_params(
+    params: dict | list[str],
     mapping: dict[str, list[str]] | None = None,
 ) -> dict | list[str]:
     """
@@ -65,7 +67,7 @@ def map_params(
         If the type of params is not dict or list.
     """
     mapping = mapping or ABACUS_MAP
-    
+
     if type(params) not in [dict, list]:
         raise ValueError("Invalid type for params. Must be either dict or list.")
 
@@ -78,6 +80,7 @@ def map_params(
                 else:  # is list
                     params[params.index(custom_key)] = abacus_key
     return params
+
 
 def load_abacus_cosmologies(
     filename: Path | str,

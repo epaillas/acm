@@ -12,7 +12,6 @@ from acm.utils.abacus import map_params
 SIM_PARAMS_MAP = {"z_mock": ["redshift"]}
 
 
-
 def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
     """
     Get Abacus simulation name based on the simulation type, cosmology index, and phase index.
