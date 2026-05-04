@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import yaml
 from abacusnbody.hod.abacus_hod import AbacusHOD
-from pandas import DataFrame
 
 from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
 
@@ -171,7 +170,7 @@ class AbacusHODBackend(DarkMatterBackend):
         use_logsigma: bool = False,
         mapping: dict | None = None,
         **kwargs,
-    ) -> dict[Tracer, DataFrame]:
+    ) -> dict[Tracer, pd.DataFrame]:
         """
         Generate galaxy catalogs for each tracer using the HOD model.
 
