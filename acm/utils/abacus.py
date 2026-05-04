@@ -6,6 +6,51 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+ABACUS_MAP = {
+    "logM1": ["log_1"],
+    "Acent": ["A_cen"],
+    "Asat": ["A_sat"],
+    "Bcent": ["B_cen"],
+    "Bsat": ["B_sat"],
+}
+
+def map_params(
+    params: dict | list[str], 
+    mapping: dict[str, list[str]] = ABACUS_MAP,
+) -> dict | list[str]:
+    """
+    Map custom parameters names to fixed parameters.
+
+    Parameters
+    ----------
+    params : dict | list[str]
+        Dictionary or list of custom parameters.
+    mapping : dict[str, list[str]]
+        Mapping from custom parameter names to fixed parameter names.
+        Keys are fixed parameter names, values are lists of custom parameter names that map to the fixed parameter name.
+
+    Returns
+    -------
+    dict | list[str]
+        Dictionary or list of fixed parameters. Use the same type as the input params.
+
+    Raises
+    ------
+    ValueError
+        If the type of params is not dict or list.
+    """
+    if type(params) not in [dict, list]:
+        raise ValueError("Invalid type for params. Must be either dict or list.")
+
+    for abacus_key, custom_keys in mapping.items():
+        for custom_key in custom_keys:
+            if custom_key in params:  # Check if the custom key is used
+                # Replace custom key with Abacus key
+                if isinstance(params, dict):
+                    params[abacus_key] = params.pop(custom_key)
+                else:  # is list
+                    params[params.index(custom_key)] = abacus_key
+    return params
 
 def load_abacus_cosmologies(
     filename: Path | str,
