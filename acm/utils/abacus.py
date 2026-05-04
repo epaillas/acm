@@ -34,7 +34,7 @@ def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
 
 def map_params(
     params: dict | list[str], 
-    mapping: dict[str, list[str]] = ABACUS_MAP,
+    mapping: dict[str, list[str]] | None = None,
 ) -> dict | list[str]:
     """
     Map custom parameters names to fixed parameters.
@@ -57,6 +57,8 @@ def map_params(
     ValueError
         If the type of params is not dict or list.
     """
+    mapping = mapping or ABACUS_MAP
+    
     if type(params) not in [dict, list]:
         raise ValueError("Invalid type for params. Must be either dict or list.")
 
