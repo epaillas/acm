@@ -95,68 +95,13 @@ class AbacusHODBackend(SnapshotBackend):
     def get_dark_matter_catalog(
         self, 
         redshift: float, 
-        tracers: list[Tracer] | None = None, 
         **kwargs,
     ) -> AbacusHOD:
-        """
-        Load the dark matter catalog for the specified redshift and tracers.
-
-        Note: Default HOD parameters for each tracers are required by AbacusHOD at initalization.
-
-        Parameters
-        ----------
-        redshift : float
-            Redshift at which to load the dark matter catalog.
-        tracers : list[Tracer], optional
-            List of tracer instances to populate in the galaxy catalog.
-            They will override the default HOD parameters for this specific tracer.
-            Default is None (only the default HOD parameters & flags will be used).
-        **kwargs
-            Extra parameters to override HOD parameters for this specific redshift.
-
-        Returns
-        -------
-        AbacusHOD
-            An instance of the AbacusHOD class containing the dark matter catalog and HOD parameters.
-
-        Raises
-        ------
-        ValueError
-            If default HOD parameters for the tracers are not provided either through the config file, as kwargs, or in the tracer instance.
-        """
         sim_params = self.sim_params.copy()
         sim_params["z_mock"] = redshift
 
-        hod_params = self.hod_params.copy()
-        hod_params.update(kwargs)  # Override HOD parameters with any provided kwargs
-
-        # TODO: solve tracer None issue
-        # Ensure default HOD parameters are set for all required tracers
-        tracer_flags = hod_params.get("tracer_flags", {})
-        for tracer in tracer_flags:
-            tracer_flags[tracer] = False  # Initialize all tracer flags to False
-
-        for tracer in tracers:
-            tracer_key = f"{tracer.name}_params"
-
-            # Override tracer-specific HOD parameters with any provided in the tracer instance
-            tracer_params = hod_params.get(tracer_key, {})
-            tracer_params.update(tracer.params)
-            hod_params[tracer_key] = tracer_params
-
-            if len(tracer_params) == 0:
-                raise ValueError(
-                    f"Default HOD parameters for tracer '{tracer.name}' must be provided either through the config file, as kwargs, or in the tracer instance."
-                )
-
-            logger.debug(
-                f"Setting default HOD parameters for tracer '{tracer.name}': {tracer_params}"
-            )
-
-            tracer_flags[tracer.name] = True
-
-        # Update tracer_flags in hod_params
-        hod_params["tracer_flags"] = tracer_flags
+        hod_params = self.hod_params
+        self.update_default_tracers(hod_params, **kwargs)
 
         t0 = time.time()
         dark_matter_catalog = AbacusHOD(sim_params, hod_params)
@@ -250,12 +195,11 @@ class AbacusHODBackend(SnapshotBackend):
                 f"Updating tracer '{tracer.name}' with HOD parameters: {hod_params}"
             )
 
-        # Handle kwarg names for backwards compatibility
-        reseed = kwargs.pop("reseed", None) or kwargs.pop("seed", None)
-        Nthread = kwargs.pop("Nthread", None) or kwargs.pop("nthreads", None) or 1
-
-        # AbacusHOD uses None for no reseeding, while 0 is often used in other contexts
-        reseed = None if reseed == 0 else reseed
+        # Handle kwarg names for backwards compatibility (pop all)
+        seed = kwargs.pop("seed", None)
+        reseed = kwargs.pop("reseed", None) or seed or None # default to None if not specified or 0
+        nthreads = kwargs.pop("nthreads", None)
+        Nthread = kwargs.pop("Nthread", None) or nthreads or 1 # default to 1 thread if not specified
 
         # TODO: handle density & incompleteness here ? NOTE: requires cosmology information !
         # TODO: handle NFW profile for ELG here ?
@@ -281,6 +225,58 @@ class AbacusHODBackend(SnapshotBackend):
             )
 
         return galaxy_catalogs
+    
+    def update_default_tracers(self, hod_params: dict, tracers: list[Tracer] | None = None) -> None:
+        """
+        Update the default HOD parameters dictionary for each tracer in hod_params based on the provided tracer instances.
+
+        Required for the correct loading of the AbacusHOD class, which expects default HOD parameters for each tracer at initialization.
+        If 
+
+        Parameters
+        ----------
+        hod_params : dict
+            The initial HOD parameters to be passed to AbacusHOD, which may contain default parameters for each tracer.
+        tracers : list[Tracer], optional
+            List of tracer instances to override the default HOD parameters.
+            HOD parameters in each tracer instance will override the defaults in hod_params.
+
+        Raises
+        ------
+        ValueError
+            If default HOD parameters for any tracer are missing after the update.
+        """
+        tracers = tracers or []
+        tracer_flags = hod_params.get("tracer_flags", {})
+
+        for tracer in tracers:
+            tracer_key = f"{tracer.name}_params"
+
+            # Override tracer-specific HOD parameters with any provided in the tracer instance
+            tracer_params = hod_params.get(tracer_key, {})
+            tracer_params.update(tracer.params)
+            hod_params[tracer_key] = tracer_params
+
+            if len(tracer_params) == 0:
+                raise ValueError(
+                    f"Default HOD parameters for tracer '{tracer.name}' must be provided either through the config file, as kwargs, or in the tracer instance."
+                )
+
+            logger.debug(
+                f"Setting default HOD parameters for tracer '{tracer.name}': {tracer_params}"
+            )
+
+            # Ensure flag is True, even if it wasn't set in the config file
+            tracer_flags[tracer.name] = True 
+
+        # Update tracer_flags in hod_params
+        hod_params["tracer_flags"] = tracer_flags
+        active_tracers = [k for k in tracer_flags if tracer_flags[k]]
+        if len(active_tracers) == 0:
+            raise ValueError(
+                "At least one tracer must be active (i.e. have tracer_flags[tracer_name] = True). Please check your config file and tracer parameters."
+            )
+        logger.debug(f"Loading AbacusHOD for tracers: {active_tracers}")
 
     @staticmethod
     def _add_centrals(galaxy_dict: dict, tracer_name: str) -> None:
