@@ -6,9 +6,7 @@ from typing import override
 import numpy as np
 import pandas as pd
 import yaml
-from abacusnbody.hod.abacus_hod import (
-    AbacusHOD,  # pyright: ignore[reportMissingImports]
-)
+from abacusnbody.hod.abacus_hod import AbacusHOD# pyright: ignore[reportMissingImports]
 
 from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
 

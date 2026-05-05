@@ -2,12 +2,72 @@
 
 import logging
 from typing import override
+from abc import abstractmethod
 
-from acm.catalogs.base import SnapshotCatalogFactory
+from cosmoprimo import Cosmology
+
+from acm.catalogs.base import BaseCatalogFactory
+from acm.catalogs.backends import SnapshotBackend
 from acm.catalogs.dataclasses import Tracer
-from acm.catalogs.galaxy_catalogs import GalaxyCatalog
+from acm.catalogs.galaxy_catalogs import SnapshotCatalog
 
 logger = logging.getLogger(__name__)
+
+
+class SnapshotCatalogFactory(BaseCatalogFactory):
+    """
+    Abstract base class for snapshot-based catalog factories.
+
+    Subclasses must implement make_catalogs and get_catalog.
+    """
+
+    def __init__(
+        self,
+        backend: str | SnapshotBackend,
+        catalog_class: type[SnapshotCatalog],
+        cosmo: Cosmology,
+        cosmo_fid: Cosmology | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(backend, catalog_class, cosmo, cosmo_fid, **kwargs)
+        self.backend: SnapshotBackend  # type hint for better autocompletion
+        self.catalog_class: type[SnapshotCatalog]  # type hint for better autocompletion
+
+    @abstractmethod
+    def make_catalogs(
+        self,
+        redshifts: list[float],
+        tracers: list[Tracer] | dict[float, list[Tracer]],
+        **kwargs,
+    ) -> None:
+        """
+        Load dark matter snapshots and populate galaxy catalogs for each redshift.
+
+        Parameters
+        ----------
+        redshifts : list[float]
+            List of redshifts at which to load dark matter snapshots.
+        tracers : list[Tracer] | dict[float, list[Tracer]]
+            Tracers to populate for each redshift. Can be a single list applied to all redshifts
+            or a dictionary mapping each redshift to its own list of tracers.
+        dark_matter_kwargs : dict, optional
+            Keyword arguments forwarded to the backend when loading the dark matter catalog (e.g. default tracer parameters).
+        **kwargs
+            Extra arguments forwarded to the backend.
+        """
+        ...
+
+    @abstractmethod
+    def get_catalog(self, redshift: float) -> SnapshotCatalog:
+        """
+        Retrieve the galaxy catalog at a given redshift.
+
+        Parameters
+        ----------
+        redshift : float
+            The redshift of the desired snapshot.
+        """
+        ...
 
 
 class GalaxyCatalogFactory(SnapshotCatalogFactory):
@@ -61,7 +121,7 @@ class GalaxyCatalogFactory(SnapshotCatalogFactory):
             self._catalogs[z] = galaxy_catalog
 
     @override
-    def get_catalog(self, redshift: float) -> GalaxyCatalog:
+    def get_catalog(self, redshift: float) -> SnapshotCatalog:
         """
         Retrieve the galaxy catalog at a given redshift.
 

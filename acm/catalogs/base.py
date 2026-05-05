@@ -18,7 +18,7 @@ from cosmoprimo import Cosmology
 from cosmoprimo.fiducial import DESI
 from pandas import DataFrame
 
-from acm.catalogs.backends import DarkMatterBackend, SnapshotBackend, load_backend
+from acm.catalogs.backends import DarkMatterBackend, load_backend
 from acm.catalogs.dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class BaseGalaxyCatalog:
     """
-    Stores galaxy data for multiple tracers at a fixed redshift.
+    Stores galaxy data for multiple tracers.
 
     GalaxyCatalog is geometry-agnostic: it does not know how the data was
     produced or what columns it contains. Subclasses (CubicGalaxyCatalog,
@@ -39,62 +39,30 @@ class BaseGalaxyCatalog:
 
     def __init__(
         self,
-        redshift: float,
         cosmo: Cosmology,
         cosmo_fid: Cosmology,
     ) -> None:
         """
-        Initialize the galaxy catalog with the given redshift and cosmologies.
+        Initialize the galaxy catalog with the given cosmologies.
 
         Parameters
         ----------
-        redshift : float
-            Redshift of the snapshot.
         cosmo : cosmoprimo.Cosmology, optional
             The cosmology for the simulation.
         cosmo_fid : cosmoprimo.Cosmology, optional
             The fiducial cosmology.
         """
-        self.redshift = redshift
         self.cosmo = cosmo
         self.cosmo_fid = cosmo_fid
         self.tracers: dict[str, Tracer] = {}
         self._data: dict[str, DataFrame] = {}
 
     def __repr__(self) -> str:
-        """Provide a string representation of the galaxy catalog, including redshift and tracer information."""
+        """Provide a string representation of the galaxy catalog, including tracer information."""
         return (
             f"{self.__class__.__name__}("
-            f"redshift={self.redshift}, "
             f"tracers={list(self.tracers.keys())})"
         )
-
-    @property
-    def az(self) -> float:
-        """Scale factor at this snapshot's redshift."""
-        return 1.0 / (1.0 + self.redshift)
-
-    @property
-    def hubble(self) -> float:
-        """H(z) in km/s/(Mpc/h) for the simulation cosmology."""
-        return 100.0 * self.cosmo.efunc(self.redshift)
-
-    @property
-    def hubble_fid(self) -> float:
-        """H(z) in km/s/(Mpc/h) for the fiducial cosmology."""
-        return 100.0 * self.cosmo_fid.efunc(self.redshift)
-
-    @property
-    def q_par(self) -> float:
-        """AP parallel scaling factor."""
-        return self.hubble_fid / self.hubble
-
-    @property
-    def q_perp(self) -> float:
-        """AP perpendicular scaling factor."""
-        return self.cosmo.angular_diameter_distance(
-            self.redshift
-        ) / self.cosmo_fid.angular_diameter_distance(self.redshift)
 
     def register_tracer(self, tracer: Tracer) -> None:
         """Register a tracer in the catalog."""
@@ -177,58 +145,3 @@ class BaseCatalogFactory(ABC):
 
     @abstractmethod
     def get_catalog(self, *args, **kwargs) -> BaseGalaxyCatalog: ...
-
-
-class SnapshotCatalogFactory(BaseCatalogFactory):
-    """
-    Abstract base class for snapshot-based catalog factories.
-
-    Subclasses must implement make_catalogs and get_catalog.
-    """
-
-    def __init__(
-        self,
-        backend: str | SnapshotBackend,
-        catalog_class: type[BaseGalaxyCatalog],
-        cosmo: Cosmology,
-        cosmo_fid: Cosmology | None = None,
-        **kwargs,
-    ) -> None:
-        super().__init__(backend, catalog_class, cosmo, cosmo_fid, **kwargs)
-        self.backend: SnapshotBackend  # type hint for better autocompletion
-
-    @abstractmethod
-    def make_catalogs(
-        self,
-        redshifts: list[float],
-        tracers: list[Tracer] | dict[float, list[Tracer]],
-        **kwargs,
-    ) -> None:
-        """
-        Load dark matter snapshots and populate galaxy catalogs for each redshift.
-
-        Parameters
-        ----------
-        redshifts : list[float]
-            List of redshifts at which to load dark matter snapshots.
-        tracers : list[Tracer] | dict[float, list[Tracer]]
-            Tracers to populate for each redshift. Can be a single list applied to all redshifts
-            or a dictionary mapping each redshift to its own list of tracers.
-        dark_matter_kwargs : dict, optional
-            Keyword arguments forwarded to the backend when loading the dark matter catalog (e.g. default tracer parameters).
-        **kwargs
-            Extra arguments forwarded to the backend.
-        """
-        ...
-
-    @abstractmethod
-    def get_catalog(self, redshift: float) -> BaseGalaxyCatalog:
-        """
-        Retrieve the galaxy catalog at a given redshift.
-
-        Parameters
-        ----------
-        redshift : float
-            The redshift of the desired snapshot.
-        """
-        ...
