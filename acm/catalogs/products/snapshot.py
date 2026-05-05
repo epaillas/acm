@@ -1,7 +1,10 @@
+import logging
+
 from cosmoprimo import Cosmology
 
-from acm.catalogs.base import BaseGalaxyCatalog
+from acm.catalogs.products import BaseGalaxyCatalog
 
+logger = logging.getLogger(__name__)
 
 class SnapshotCatalog(BaseGalaxyCatalog):
     """Snapshot-based galaxy catalog at a fixed redshift."""

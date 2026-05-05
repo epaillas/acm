@@ -6,9 +6,7 @@ from typing import override
 import numpy as np
 import pandas as pd
 import yaml
-from abacusnbody.hod.abacus_hod import (
-    AbacusHOD,  # pyright: ignore[reportMissingImports]
-)
+from abacusnbody.hod.abacus_hod import AbacusHOD
 
 from acm.catalogs.backends.base import SnapshotBackend, register_backend
 from acm.catalogs.dataclasses import Tracer
