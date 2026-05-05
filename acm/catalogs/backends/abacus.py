@@ -6,18 +6,17 @@ from typing import override
 import numpy as np
 import pandas as pd
 import yaml
-from abacusnbody.hod.abacus_hod import AbacusHOD
+from abacusnbody.hod.abacus_hod import AbacusHOD # pyright: ignore[reportMissingImports]
 
 from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
 
 from ..dataclasses import Tracer
-from .base import DarkMatterBackend, register_backend
+from .base import SnapshotBackend, register_backend
 
 logger = logging.getLogger(__name__)
 
-
 @register_backend("AbacusHOD")
-class AbacusHODBackend(DarkMatterBackend):
+class AbacusHODBackend(SnapshotBackend):
     """
     Dark matter backend for AbacusSummit simulations using a simple HOD model to populate the galaxy catalog.
     """
@@ -94,7 +93,10 @@ class AbacusHODBackend(DarkMatterBackend):
 
     @override
     def get_dark_matter_catalog(
-        self, redshift: float, tracers: list[Tracer], **kwargs
+        self, 
+        redshift: float, 
+        tracers: list[Tracer] | None = None, 
+        **kwargs,
     ) -> AbacusHOD:
         """
         Load the dark matter catalog for the specified redshift and tracers.
@@ -105,9 +107,10 @@ class AbacusHODBackend(DarkMatterBackend):
         ----------
         redshift : float
             Redshift at which to load the dark matter catalog.
-        tracers : list[Tracer]
+        tracers : list[Tracer], optional
             List of tracer instances to populate in the galaxy catalog.
-            If parameters are set in the tracer instance, they will override the default HOD parameters for this specific tracer.
+            They will override the default HOD parameters for this specific tracer.
+            Default is None (only the default HOD parameters & flags will be used).
         **kwargs
             Extra parameters to override HOD parameters for this specific redshift.
 
@@ -127,6 +130,7 @@ class AbacusHODBackend(DarkMatterBackend):
         hod_params = self.hod_params.copy()
         hod_params.update(kwargs)  # Override HOD parameters with any provided kwargs
 
+        # TODO: solve tracer None issue
         # Ensure default HOD parameters are set for all required tracers
         tracer_flags = hod_params.get("tracer_flags", {})
         for tracer in tracer_flags:
