@@ -34,7 +34,7 @@ def temporary_class_state(**attrs) -> Callable:
 
 def require_nersc(enabled: bool = True) -> Callable:
     """Restrict function execution to NERSC environments.
-    
+
     Parameters
     ----------
     enabled: bool
