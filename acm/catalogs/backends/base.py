@@ -1,3 +1,13 @@
+"""
+Abstract backend interfaces for dark matter simulations.
+
+A backend is responsible for two things:
+  1. Loading a dark matter halo catalog from a simulation (get_dark_matter_catalog)
+  2. Populating it with galaxies via an HOD or similar model (make_galaxy_catalog)
+
+To implement a new backend, subclass SnapshotBackend or LightconeBackend
+and register it with @register_backend("<name>").
+"""
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -10,30 +20,14 @@ logger = logging.getLogger(__name__)
 
 _BACKEND_REGISTRY = {}
 
-
 class DarkMatterBackend(ABC):
     """
-    Backend to load the dark matter catalog and populate the galaxy catalog.
+    Root abstract class for all dark matter backends.
+
+    Defines the one method common to all geometries: make_galaxy_catalog,
+    which converts a loaded dark matter catalog into per-tracer galaxy data.
+    get_dark_matter_catalog is geometry-dependent and is declared in the respective subclasses.
     """
-
-    @abstractmethod
-    def __init__(self, *args, **kwargs):
-        """
-        Initialize the dark matter backend with any necessary parameters.
-
-        This method can be used to set up connections, load configuration files,
-        or perform any other setup required to access the dark matter snapshots.
-        DO NOT load the dark matter snapshots here, as this should be done
-        in the `get_dark_matter_catalog` method to allow for lazy loading of the data.
-        """
-        pass
-
-    @abstractmethod
-    def get_dark_matter_catalog(self, **kwargs):
-        """
-        Get the dark matter catalog based on the provided parameters.
-        """
-        raise NotImplementedError
 
     @abstractmethod
     def make_galaxy_catalog(
@@ -43,10 +37,55 @@ class DarkMatterBackend(ABC):
         **kwargs,
     ) -> dict[Tracer, DataFrame]:
         """
-        Populate the galaxy catalog based on the provided parameters.
-        """
-        raise NotImplementedError
+        Generate galaxy data for each tracer from a dark matter catalog.
+        
+        This part is common to all backends regardless of geometry.
 
+        Parameters
+        ----------
+        dm_catalog : object
+            The dark matter catalog to use for generating the galaxy catalog.
+        tracers : list[Tracer]
+            The list of tracers to generate the galaxy catalog for.
+        **kwargs
+            Additional keyword for backend-specific options.
+
+        Returns
+        -------
+        dict[Tracer, DataFrame]
+            A dictionary mapping each tracer to its corresponding galaxy catalog as a DataFrame.
+        """
+        ...
+    
+    @abstractmethod
+    def get_dark_matter_catalog(self, *args, **kwargs) -> object: ...
+
+class SnapshotBackend(DarkMatterBackend):
+    """
+    Base for snapshot-based backends.
+    
+    Snapshot backends load one dark matter catalog per redshift, which maps
+    naturally to N-body simulation suites.
+    """
+
+    @abstractmethod
+    def get_dark_matter_catalog(self, redshift: float, **kwargs) -> object:
+        """
+        Load the dark matter catalog for the specified redshift and tracers.
+
+        Parameters
+        ----------
+        redshift : float
+            Redshift at which to load the dark matter catalog.
+        **kwargs
+            Extra parameters to pass to the loader.
+
+        Returns
+        -------
+        object
+            The loaded dark matter catalog, in a format specific to the backend.
+        """
+        ...
 
 def register_backend(
     name: str,

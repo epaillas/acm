@@ -1,14 +1,16 @@
+"""
+Concrete catalog factories for snapshot-based pipelines.
+"""
 import logging
 from typing import override
 
-from .base import BaseCatalogFactory
+from .base import SnapshotCatalogFactory
 from .dataclasses import Tracer
 from .galaxy_catalogs import GalaxyCatalog
 
 logger = logging.getLogger(__name__)
 
-
-class GalaxyCatalogFactory(BaseCatalogFactory):
+class GalaxyCatalogFactory(SnapshotCatalogFactory):
     """
     Snapshot-based factory: Load a dark matter backend
     and create galaxy catalogs across multiple redshift snapshots.
@@ -35,21 +37,6 @@ class GalaxyCatalogFactory(BaseCatalogFactory):
         dark_matter_kwargs: dict | None = None,
         **kwargs,
     ) -> None:
-        """
-        Load dark matter snapshots and populate galaxy catalogs for each redshift.
-
-        Parameters
-        ----------
-        redshifts : list[float]
-            List of redshifts at which to load dark matter snapshots.
-        tracers : list[Tracer] | dict[float, list[Tracer]]
-            Tracers to populate for each redshift. Can be a single list applied to all redshifts
-            or a dictionary mapping each redshift to its own list of tracers.
-        dark_matter_kwargs : dict, optional
-            Keyword arguments forwarded to the backend when loading the dark matter catalog (e.g. default tracer parameters).
-        **kwargs
-            Extra arguments forwarded to the backend.
-        """
         for z in redshifts:
             snapshot_tracers = tracers if isinstance(tracers, list) else tracers[z]
 
