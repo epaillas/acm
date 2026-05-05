@@ -47,9 +47,7 @@ def require_nersc(enabled: bool = True) -> Callable:
         def wrapper(*args, **kwargs) -> object:
             if enabled and os.environ.get("NERSC_HOST") != "perlmutter":
                 _name = getattr(func, "__name__", "Callable")
-                raise OSError(
-                    f"'{_name}' can only be executed in a NERSC environment."
-                )
+                raise OSError(f"'{_name}' can only be executed in a NERSC environment.")
             return func(*args, **kwargs)
 
         return wrapper
