@@ -32,6 +32,7 @@ def temporary_class_state(**attrs) -> Callable:
 
     return decorator
 
+
 def require_nersc(enabled: bool = True) -> Callable:
     """Restrict function execution to NERSC environments.
 
@@ -40,6 +41,7 @@ def require_nersc(enabled: bool = True) -> Callable:
     enabled: bool
         If False, the restriction is lifted (e.g. for local development).
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> object:
