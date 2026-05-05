@@ -3,8 +3,6 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TypeVar
 
-from acm.utils.default import is_nersc
-
 T = TypeVar("T")  # Type variable for class methods
 
 
