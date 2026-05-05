@@ -49,18 +49,18 @@ def require_nersc(enabled: bool = ENABLE_NERSC) -> Callable:
 
 def kwargs_alias(**aliases: str) -> Callable:
     """
-    Decorator to resolve keyword argument aliases before passing them to a function.
+    Resolve keyword argument aliases before passing them to a function.
 
     Parameters
     ----------
     **aliases: str
-        Mapping of canonical name to aan alias string.
+        Mapping of canonical names to alias strings.
 
     Examples
     --------
-    @kwargs_aliases(canonical="old_alias")
-    def make_galaxy_catalog(self, ..., old_alias=2, **kwargs):
-        var = canonical  # 'canonical' will be set to the value of 'old_alias' if provided
+    >>> @kwargs_aliases(canonical="old_alias")
+    ... def make_galaxy_catalog(self, ..., old_alias=2, **kwargs):
+    ...    var = canonical  # 'canonical' will be set to the value of 'old_alias' if provided
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
