@@ -144,4 +144,4 @@ class BaseCatalogFactory(ABC):
         return dict(self._catalogs)
 
     @abstractmethod
-    def get_catalog(self, *args, **kwargs) -> BaseGalaxyCatalog: ...
+    def get_catalog(self, *args, **kwargs) -> BaseGalaxyCatalog: ... #noqa: D102

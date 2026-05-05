@@ -30,8 +30,24 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
         **kwargs,
     ) -> None:
         super().__init__(backend, catalog_class, cosmo, cosmo_fid, **kwargs)
-        self.backend: SnapshotBackend  # type hint for better autocompletion
-        self.catalog_class: type[SnapshotCatalog]  # type hint for better autocompletion
+        # Type hints
+        self.backend: SnapshotBackend  
+        self.catalog_class: type[SnapshotCatalog]
+        self._catalogs: dict[float, SnapshotCatalog]
+
+    def __repr__(self) -> str:
+        """Provide a string representation of the factory, including backend, catalog class, and loaded redshifts."""
+        return (
+            f"{self.__class__.__name__}("
+            f"backend={self.backend.__class__.__name__}, "
+            f"catalog_class={self.catalog_class.__name__}, "
+            f"redshifts={self.redshifts})"
+        )
+
+    @property
+    def redshifts(self) -> list[float]:
+        """List of redshifts for which catalogs have been loaded."""
+        return list(self._catalogs.keys())
 
     @abstractmethod
     def make_catalogs(
@@ -72,19 +88,6 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
 
 class GalaxyCatalogFactory(SnapshotCatalogFactory):
     """Snapshot-based factory: Load a dark matter backend and create galaxy catalogs across multiple redshift snapshots."""
-
-    def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}("
-            f"backend={self.backend.__class__.__name__}, "
-            f"catalog_class={self.catalog_class.__name__}, "
-            f"redshifts={self.redshifts})"
-        )
-
-    @property
-    def redshifts(self) -> list[float]:
-        """List of redshifts for which catalogs have been loaded."""
-        return list(self._catalogs.keys())
 
     @override
     def make_catalogs(

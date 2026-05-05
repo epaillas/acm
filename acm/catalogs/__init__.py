@@ -1,3 +1,1 @@
-"""
-Module generating galaxy catalogs.
-"""
+"""Module generating galaxy catalogs."""
