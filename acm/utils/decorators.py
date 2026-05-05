@@ -46,8 +46,9 @@ def require_nersc(enabled: bool = True) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> object:
             if enabled and os.environ.get("NERSC_HOST") != "perlmutter":
+                _name = getattr(func, "__name__", "Callable")
                 raise OSError(
-                    f"'{func.__name__}' can only be executed in a NERSC environment."
+                    f"'{_name}' can only be executed in a NERSC environment."
                 )
             return func(*args, **kwargs)
 
@@ -77,8 +78,9 @@ def kwargs_alias(**aliases: str) -> Callable:
         def wrapper(*args, **kwargs) -> object:
             for canonical, alias in aliases.items():
                 if alias in kwargs and canonical in kwargs:
+                    _name = getattr(func, "__name__", "Callable")
                     raise ValueError(
-                        f"{func.__name__} cannot use both '{canonical}' and '{alias}' as arguments."
+                        f"{_name} cannot use both '{canonical}' and '{alias}' as arguments."
                     )
                 if alias in kwargs:
                     kwargs[canonical] = kwargs.pop(alias)
