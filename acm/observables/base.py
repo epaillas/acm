@@ -127,7 +127,6 @@ class Observable:
             if model is not None:
                 self.model = model
             else:
-                checkpoint_to_load = None
                 # `checkpoint_fn` remains supported for callers that resolve a
                 # statistic-specific checkpoint themselves and do not pass
                 # `paths["model_dir"]`.
@@ -136,14 +135,14 @@ class Observable:
                         "DEPRECATED: The 'checkpoint_fn' parameter is deprecated. "
                         "Please use paths['model_dir']/stat_name.ckpt instead."
                     )
-                    checkpoint_to_load = Path(checkpoint_fn)
+                    checkpoint_fn = Path(checkpoint_fn)
                 elif paths is not None and "model_dir" in paths:
-                    checkpoint_to_load = Path(paths["model_dir"]) / f"{stat_name}.ckpt"
+                    checkpoint_fn = Path(paths["model_dir"]) / f"{stat_name}.ckpt"
 
-                if checkpoint_to_load is not None:
+                if checkpoint_fn is not None:
                     try:
                         self.model = self.load_model(
-                            checkpoint_to_load,
+                            checkpoint_fn,
                             model_cls=model_cls,
                         )
                     except (
