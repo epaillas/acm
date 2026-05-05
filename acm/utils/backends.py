@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class BackendRegistry(Generic[T]):
+class BackendRegistry[T]:
     """
     A generic registry for loading backend classes by name.
 
@@ -30,6 +30,8 @@ class BackendRegistry(Generic[T]):
 
     def __init__(self, base_class: type[T]) -> None:
         """
+        Initialize the registry with a specified base class.
+
         Parameters
         ----------
         base_class : type[T]
@@ -40,7 +42,7 @@ class BackendRegistry(Generic[T]):
 
     def register(self, name: str) -> Callable[[type[T]], type[T]]:
         """
-        Decorator to register a backend class under a given name.
+        Register a backend class under a given name.
 
         Parameters
         ----------
