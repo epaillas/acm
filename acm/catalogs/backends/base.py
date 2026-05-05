@@ -1,15 +1,13 @@
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from typing import Callable
 
 from pandas import DataFrame
 
 from acm.catalogs.dataclasses import Tracer
+from acm.utils.backends import BackendRegistry
 
 logger = logging.getLogger(__name__)
-
-_BACKEND_REGISTRY = {}
-
 
 class DarkMatterBackend(ABC):
     """
@@ -81,74 +79,7 @@ class SnapshotBackend(DarkMatterBackend):
         """
         ...
 
-
-def register_backend(
-    name: str,
-) -> Callable[[type[DarkMatterBackend]], type[DarkMatterBackend]]:
-    """
-    Register a dark matter backend class with a given name.
-
-    This allows for easy retrieval of the backend class by name later on.
-
-    Parameters
-    ----------
-    name : str
-        The name to register the backend class under.
-    """
-
-    def decorator(cls: type[DarkMatterBackend]) -> type[DarkMatterBackend]:
-        if not issubclass(cls, DarkMatterBackend):
-            raise TypeError(
-                f"Class {cls.__name__} must inherit from DarkMatterBackend to be registered."
-            )
-        if name in _BACKEND_REGISTRY:
-            logger.warning(
-                f"Overwriting existing backend registration for name '{name}'."
-            )
-        _BACKEND_REGISTRY[name] = cls
-        return cls
-
-    return decorator
-
-
-def load_backend(
-    backend: str | DarkMatterBackend, *args, **kwargs
-) -> DarkMatterBackend:
-    """
-    Load a registered dark matter backend by name or pass trough an existing instance.
-
-    Parameters
-    ----------
-    backend : str | DarkMatterBackend
-        The name of the backend to load or an existing backend instance.
-    *args
-        Positional arguments to pass to the backend constructor.
-    **kwargs
-        Keyword arguments to pass to the backend constructor.
-
-    Returns
-    -------
-    DarkMatterBackend
-        An instance of the requested dark matter backend.
-
-    Raises
-    ------
-    ValueError
-        If no backend is registered under the given name.
-    """
-    if isinstance(backend, DarkMatterBackend):
-        logger.info(f"Using provided backend instance: {backend.__class__.__name__}")
-        return backend
-
-    if isinstance(backend, str):
-        if backend not in _BACKEND_REGISTRY:
-            available = list(_BACKEND_REGISTRY.keys())
-            raise KeyError(
-                f"Unknown backend '{backend}'. Available backends: {available}"
-            )
-        logger.info(f"Loading backend '{backend}'")
-        return _BACKEND_REGISTRY[backend](*args, **kwargs)
-
-    raise TypeError(
-        f"backend must be a string or a DarkMatterBackend instance, got {type(backend)}"
-    )
+# Create a registry for dark matter backends
+_registry = BackendRegistry(DarkMatterBackend)
+register_backend = _registry.register
+load_backend = _registry.load
