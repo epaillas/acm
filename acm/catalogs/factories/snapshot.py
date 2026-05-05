@@ -7,8 +7,8 @@ from typing import override
 from cosmoprimo import Cosmology
 
 from acm.catalogs.backends import SnapshotBackend
-from acm.catalogs.factories import BaseCatalogFactory
 from acm.catalogs.dataclasses import Tracer
+from acm.catalogs.factories import BaseCatalogFactory
 from acm.catalogs.products import SnapshotCatalog
 
 logger = logging.getLogger(__name__)

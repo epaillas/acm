@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable
 
 from pandas import DataFrame
 
@@ -8,6 +7,7 @@ from acm.catalogs.dataclasses import Tracer
 from acm.utils.backends import BackendRegistry
 
 logger = logging.getLogger(__name__)
+
 
 class DarkMatterBackend(ABC):
     """
@@ -78,6 +78,7 @@ class SnapshotBackend(DarkMatterBackend):
             The loaded dark matter catalog, in a format specific to the backend.
         """
         ...
+
 
 # Create a registry for dark matter backends
 _registry = BackendRegistry(DarkMatterBackend)

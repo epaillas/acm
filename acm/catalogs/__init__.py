@@ -6,4 +6,5 @@ The pipeline is organized in three layers:
   2. products       — store and provide access to per-tracer galaxy data
   3. factories      — orchestrate the backend and catalog classes
 """
+
 from .factories import SnapshotCatalogFactory

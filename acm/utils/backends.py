@@ -1,5 +1,6 @@
 import logging
-from typing import Callable, TypeVar, Generic
+from collections.abc import Callable
+from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -54,15 +55,19 @@ class BackendRegistry[T]:
         TypeError
             If the class does not inherit from the base class.
         """
+
         def decorator(cls: type[T]) -> type[T]:
             if not issubclass(cls, self.base_class):
                 raise TypeError(
                     f"{cls.__name__} must inherit from {self.base_class.__name__} to be registered."
                 )
             if name in self._registry:
-                logger.warning(f"Overwriting existing backend registration for name '{name}'.")
+                logger.warning(
+                    f"Overwriting existing backend registration for name '{name}'."
+                )
             self._registry[name] = cls
             return cls
+
         return decorator
 
     def load(self, backend: str | T, *args, **kwargs) -> T:
@@ -89,7 +94,9 @@ class BackendRegistry[T]:
             If backend is neither a string nor an instance of the base class.
         """
         if isinstance(backend, self.base_class):
-            logger.info(f"Using provided backend instance: {backend.__class__.__name__}")
+            logger.info(
+                f"Using provided backend instance: {backend.__class__.__name__}"
+            )
             return backend
 
         if isinstance(backend, str):

@@ -9,6 +9,7 @@ from acm.catalogs.products import BaseGalaxyCatalog
 
 logger = logging.getLogger(__name__)
 
+
 class BaseCatalogFactory(ABC):
     """
     Abstract base class for all catalog factories.

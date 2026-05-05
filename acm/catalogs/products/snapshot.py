@@ -6,6 +6,7 @@ from acm.catalogs.products import BaseGalaxyCatalog
 
 logger = logging.getLogger(__name__)
 
+
 class SnapshotCatalog(BaseGalaxyCatalog):
     """Snapshot-based galaxy catalog at a fixed redshift."""
 
