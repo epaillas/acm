@@ -34,7 +34,7 @@ class AbacusLensingMap(ABC):
         phase_idx: int = 0,
         sim_type: str = "base",
         base_dir: str | Path | None = None,
-    ):
+    ) -> None:
         """
         Initialize the AbacusLensingMap with snapshot index, cosmology index, phase index, and simulation type.
 
@@ -55,11 +55,10 @@ class AbacusLensingMap(ABC):
         self.snap_idx = snap_idx
         self.cosmo_idx = cosmo_idx
         self.phase_idx = phase_idx
-        if sim_type == "huge":
-            if phase_idx not in HUGE_PHASE_INDICES:
-                raise ValueError(
-                    f"Phase index for 'huge' simulation must be one of {HUGE_PHASE_INDICES}."
-                )
+        if sim_type == "huge" and phase_idx not in HUGE_PHASE_INDICES:
+            raise ValueError(
+                f"Phase index for 'huge' simulation must be one of {HUGE_PHASE_INDICES}."
+            )
         self.sim_type = sim_type
         self.nside = 16384
         if base_dir is None:
@@ -68,15 +67,18 @@ class AbacusLensingMap(ABC):
         self.map = self.read_map()
 
     @abstractmethod
-    def read_map(self):
+    def read_map(self) -> None:
         """
         Abstract method to read the map data from an ASDF file.
+
         This method should be implemented by subclasses.
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
     def sample_mask(self) -> None:
         """
+        Get the unmasked pixel coordinates (RA, Dec) from the binary mask.
+
         Read the binary mask that tells us whether we are in a region of the sky with data
         and calculates the right ascension and declination of the unmasked pixels.
         """
@@ -115,9 +117,7 @@ class AbacusLensingMap(ABC):
 
 
 class AbacusConvergenceMap(AbacusLensingMap):
-    """
-    Class for AbacusLensing convergence Maps.
-    """
+    """Class for AbacusLensing convergence Maps."""
 
     def __init__(
         self,
@@ -126,14 +126,12 @@ class AbacusConvergenceMap(AbacusLensingMap):
         phase_idx: int = 0,
         sim_type: str = "base",
         base_dir: str | Path | None = None,
-    ):
+    ) -> None:
         self.map_type = "kappa"
         super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
 
     def read_map(self) -> None:
-        """
-        Read the convergence map from the ASDF file.
-        """
+        """Read the convergence map from the ASDF file."""
         map_dir = (
             f"AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}"
         )
@@ -146,18 +144,14 @@ class AbacusConvergenceMap(AbacusLensingMap):
         self.kappa.mask = self.kappa == 0
 
     def to_treecorr(self) -> None:
-        """
-        Convert the map to a TreeCorr catalog and store in self.treecorr.
-        """
+        """Convert the map to a TreeCorr catalog and store in self.treecorr."""
         self.treecorr = treecorr.Catalog(
             ra=self.ra, dec=self.dec, k=self.kappa, ra_units="deg", dec_units="deg"
         )
 
 
 class AbacusShearMap(AbacusLensingMap):
-    """
-    Class for AbacusLensing shear Maps.
-    """
+    """Class for AbacusLensing shear Maps."""
 
     def __init__(
         self,
@@ -166,14 +160,12 @@ class AbacusShearMap(AbacusLensingMap):
         phase_idx: int = 0,
         sim_type: str = "base",
         base_dir: str | Path | None = None,
-    ):
+    ) -> None:
         self.map_type = "gamma"
         super().__init__(snap_idx, cosmo_idx, phase_idx, sim_type, base_dir)
 
     def read_map(self) -> None:
-        """
-        Read the shear map from the ASDF file.
-        """
+        """Read the shear map from the ASDF file."""
         map_dir = (
             f"AbacusSummit_{self.sim_type}_c{self.cosmo_idx:03}_ph{self.phase_idx:03}"
         )
@@ -188,9 +180,7 @@ class AbacusShearMap(AbacusLensingMap):
         self.gamma2.mask = self.gamma2 == 0
 
     def to_treecorr(self) -> None:
-        """
-        Convert the map to a TreeCorr catalog and store in self.treecorr.
-        """
+        """Convert the map to a TreeCorr catalog and store in self.treecorr."""
         self.treecorr = treecorr.Catalog(
             ra=self.ra,
             dec=self.dec,

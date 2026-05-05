@@ -1,9 +1,11 @@
 import logging
 from pathlib import Path
+from typing import overload
 
 import numpy as np
 import torch
 import xarray
+from sunbird.emulators import FCN
 
 from acm.observables import Observable
 from acm.utils import lookup_registry_path
@@ -16,25 +18,26 @@ logger = logging.getLogger(__name__)
 
 
 class BaseObservableEMC(Observable):
-    """
-    Base class for all the observables in the EMC project.
-    """
+    """Base class for all the observables in the EMC project."""
 
     def __init__(
-        self, flat_output_dims: int = 2, phase_correction: bool = False, **kwargs
-    ):
+        self,
+        flat_output_dims: int = 2,
+        phase_correction: bool = False,
+        **kwargs,
+    ) -> None:
         if phase_correction and hasattr(self, "compute_phase_correction"):
             logger.info("Computing phase correction.")
             self.phase_correction = self.compute_phase_correction()
 
-        dataset = kwargs.get("dataset", None)
+        dataset = kwargs.get("dataset")
         paths = kwargs.pop("paths", None)
         if dataset is None and paths is None:
             paths = lookup_registry_path("projects.yaml", "emc")
 
         # Get checkpoint_fn from registry if not provided
         stat_name = kwargs.get("stat_name")  # Required for super() anyways
-        model = kwargs.get("model", None)
+        model = kwargs.get("model")
         if (
             model is None
             and paths is not None
@@ -54,7 +57,7 @@ class BaseObservableEMC(Observable):
         self, nofilters: bool = False
     ) -> xarray.DataArray | np.ndarray:
         """
-        Returns the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
+        Return the unfiltered covariance array of the emulator error of the statistic, with shape (n_test, n_statistics).
 
         Parameters
         ----------
@@ -103,7 +106,7 @@ class BaseObservableEMC(Observable):
             0
         ]  # Indexing on n_test to prevent filtering issues later on
         y = self._dataset.y.unstack()
-        shape = (n_test,) + y.shape[len(y.attrs["sample"]) :]
+        shape = (n_test, *y.shape[len(y.attrs["sample"]) :])
         emulator_covariance_y = xarray.DataArray(
             diff.reshape(shape),
             coords={
@@ -134,7 +137,7 @@ class BaseObservableEMC(Observable):
 
     def get_emulator_error(self) -> xarray.DataArray | np.ndarray:
         """
-        Returns the unfiltered emulator error of the statistic, with shape (n_statistics, ).
+        Return the unfiltered emulator error of the statistic, with shape (n_statistics, ).
 
         Returns
         -------
@@ -175,14 +178,34 @@ class BaseObservableEMC(Observable):
         return emulator_error
 
     # NOTE: Override Observable prediction to add the phase correction if needed !
+    @overload
     def get_model_prediction(
         self,
-        x,
-        model=None,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
+        nofilters: bool = True,
+    ) -> xarray.DataArray: ...
+
+    @overload
+    def get_model_prediction(
+        self,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = False,
-    ):
+    ) -> np.ndarray | xarray.DataArray: ...
+
+    def get_model_prediction(
+        self,
+        x: np.ndarray | dict | xarray.DataArray,
+        model: FCN | None = None,
+        coords: dict | None = None,
+        attrs: dict | None = None,
+        nofilters: bool = False,
+    ) -> np.ndarray | xarray.DataArray:
         """
         Get the prediction from the model.
 
@@ -192,7 +215,7 @@ class BaseObservableEMC(Observable):
             Input features for the model.
             If an array, it should have shape (n_samples, n_params).
             If a dict, it should have keys matching the model input names and values as lists/1d-arrays of shape (n_samples,).
-        model : FCN
+        model : FCN, optional
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
             Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
@@ -219,8 +242,8 @@ class BaseObservableEMC(Observable):
                     "Input x dictionary contains unexpected keys not used by the model. "
                     f"Unexpected keys: {extra}"
                 )
-            x = [x[name] for name in self.x_names]
-            x = np.asarray(x).T  # Need to transpose to (n_samples, n_params)
+            x = np.asarray([x[name] for name in self.x_names])
+            x = x.T  # Need to transpose to (n_samples, n_params)
         else:
             x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
 
@@ -252,7 +275,7 @@ class BaseObservableEMC(Observable):
             pred.shape[0] if len(pred.shape) > 1 else 1
         )  # Edge case if only one prediction
         coords = {
-            **{"n_pred": np.arange(n_pred)},
+            "n_pred": np.arange(n_pred),
             **coords,
         }  # Add extra coordinate for the number of predictions
         pred = pred.reshape(
@@ -387,7 +410,7 @@ class BaseObservableEMC(Observable):
             x_hod = hod_params[f"c{cosmo_idx:03}"]
             x_hod_names = list(x_hod.keys())
             x_hod = np.array(
-                [x_hod[param] for param in x_hod.keys()]
+                [x_hod[param] for param in x_hod]
             ).T  # Make x_hod into an array
 
             # Cosmo parameters
@@ -441,7 +464,7 @@ class BaseObservableEMC(Observable):
         slice_filters=None,
         select_indices=None,
     )
-    def compress_emulator_error(self, save_to: str | None = None):
+    def compress_emulator_error(self, save_to: str | None = None) -> xarray.Dataset:
         """
         From the statistics files for the simulations, the associated parameters, and the covariance array, create the emulator error file.
 

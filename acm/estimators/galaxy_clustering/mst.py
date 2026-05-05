@@ -12,36 +12,36 @@ logger = logging.getLogger(__name__)
 
 
 class MinimumSpanningTree(BaseEstimator):
-    """
-    Class to compute the minimum spanning tree statistics, following https://arxiv.org/abs/1907.00989
-    but using a new set of powerful percolation statistics (default).
+    """Class to compute the minimum spanning tree statistics.
+
+    Following https://arxiv.org/abs/1907.00989, but using a new set of powerful percolation statistics (default).
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         logger.info("Initializing MinimumSpanningTree.")
         super().__init__(**kwargs)
 
     def setup(
         self,
-        sigmaJ: float,
+        sigma_j: float,
         boxsize: float | np.ndarray,
-        Nthpoint: int,
+        nth_point: int,
         origin: float = 0.0,
         split: int = 1,
         iterations: int = 1,
         quartiles: int = 50,
-    ):
+    ) -> None:
         """
-        Setup the minimum spanning tree percolation statistics variables.
+        Setups the minimum spanning tree percolation statistics variables.
 
         Parameters
         ----------
-        sigmaJ : float
+        sigma_j : float
             The jitter dispersion scale (see https://arxiv.org/abs/2410.06202) to apply a
             point process smoothing on the positions of points.
         boxsize : float or numpy.ndarray
             Size of the simulation box.
-        Nthpoint : int
+        nth_point : int
             Percolation statistics N-Point, i.e. the number of linking edges from each node to
             compute the length and straight line distance.
         origin : float, optional
@@ -55,13 +55,13 @@ class MinimumSpanningTree(BaseEstimator):
         quartiles : int, optional
             The number of bins used for the MST distributions.
         """
-        self.sigmaJ = sigmaJ
+        self.sigma_j = sigma_j
         if np.isscalar(boxsize):
             _boxsize = [boxsize, boxsize, boxsize]
         else:
             _boxsize = boxsize
         self.boxsize = np.asarray(_boxsize)
-        self.Nthpoint = Nthpoint
+        self.nth_point = nth_point
         if np.isscalar(origin):
             _origin = [origin, origin, origin]
         else:
@@ -71,7 +71,9 @@ class MinimumSpanningTree(BaseEstimator):
         self.iterations = iterations
         self.quartiles = quartiles
 
-    def _periodic(self, x, y, z):
+    def _periodic(
+        self, x: np.ndarray, y: np.ndarray, z: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Imposes periodic boundary condition on the input data.
 
@@ -79,8 +81,12 @@ class MinimumSpanningTree(BaseEstimator):
         ----------
         x, y, z : array_like
             Coordinate positions.
-        """
 
+        Returns
+        -------
+        x, y, z : array_like
+            Coordinate positions with periodic boundary conditions applied.
+        """
         for i, dim in enumerate([x, y, z]):
             cond = np.where(dim < 0.0)[0]
             dim[cond] += self.boxsize[i]
@@ -89,53 +95,72 @@ class MinimumSpanningTree(BaseEstimator):
 
         return x, y, z
 
-    def _smooth(self, x, y, z, periodic=True):
+    def _smooth(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        z: np.ndarray,
+        periodic: bool = True,
+        seed: int | None = 42,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-        Adds jitter dispersion to apply point-process smoothing to the input coordinates..
+        Add jitter dispersion to apply point-process smoothing to the input coordinates.
 
         Parameters
         ----------
         x, y, z : array_like
             Coordinate positions.
+        periodic : bool, optional
+            Whether to apply periodic boundary conditions after smoothing, by default True.
+
+        Returns
+        -------
+        x, y, z : array_like
+            Smoothed coordinate positions.
         """
-        x += self.sigmaJ * np.random.normal(size=len(x))
-        y += self.sigmaJ * np.random.normal(size=len(x))
-        z += self.sigmaJ * np.random.normal(size=len(x))
+        rng = np.random.default_rng(seed=seed)
+        x += self.sigma_j * rng.normal(size=len(x))
+        y += self.sigma_j * rng.normal(size=len(x))
+        z += self.sigma_j * rng.normal(size=len(x))
         if periodic:
             x, y, z = self._periodic(x, y, z)
         return x, y, z
 
-    def _get_even_splits(self, length, N):
+    def _get_even_splits(
+        self, length: int, n_splits: int
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Finds the intervals to split any array into roughly N segments.
+        Find the intervals to split any array into roughly N segments.
 
         Parameters
         ----------
         length : int
             Length of the array.
-        N : int
+        n_splits : int
             The number of splits.
 
         Returns
         -------
         split1, split2 : array_like
-            Arrays corresponding to the minimum and maximum index for each N split.
+            Arrays corresponding to the minimum and maximum index for each n split.
         """
-        split_equal = length / N
+        split_equal = length / n_splits
         split_floor = np.floor(split_equal)
         split_remain = split_equal - split_floor
-        counts = split_floor * np.ones(N)
-        counts[: int(np.round(split_remain * N, decimals=0))] += 1
+        counts = split_floor * np.ones(n_splits)
+        counts[: int(np.round(split_remain * n_splits, decimals=0))] += 1
         counts = counts.astype("int")
-        splits = np.zeros(N + 1, dtype="int")
+        splits = np.zeros(n_splits + 1, dtype="int")
         splits[1:] = np.cumsum(counts)
         split1 = splits[:-1]
         split2 = splits[1:]
         return split1, split2
 
-    def get_percolation_statistics(self, data_pos, useknn=True, k=20):
+    def get_percolation_statistics(
+        self, data_pos: np.ndarray, useknn: bool = True, k: int = 20
+    ) -> dict:
         """
-        Computes the percolation statistics on the input galaxy data.
+        Compute the percolation statistics on the input galaxy data.
 
         Parameters
         ----------
@@ -151,7 +176,7 @@ class MinimumSpanningTree(BaseEstimator):
         # remove origin
         x, y, z = (data_pos[:, i] - self.origin[i] for i in range(3))
         # apply point-process smoothing
-        if self.sigmaJ > 0.0:
+        if self.sigma_j > 0.0:
             x, y, z = self._smooth(x, y, z, periodic=True)
 
         # Create subbox regions for segmenting the box.
@@ -165,8 +190,8 @@ class MinimumSpanningTree(BaseEstimator):
         izs = izs.flatten()
 
         mstdict = {}
-        for niter in range(0, self.iterations):
-            for j in range(0, len(ixs)):
+        for niter in range(self.iterations):
+            for j in range(len(ixs)):
                 xmin, xmax = xedges[ixs[j]], xedges[ixs[j] + 1]
                 ymin, ymax = yedges[iys[j]], yedges[iys[j] + 1]
                 zmin, zmax = zedges[izs[j]], zedges[izs[j] + 1]
@@ -198,7 +223,7 @@ class MinimumSpanningTree(BaseEstimator):
                 # construct edge index dictionary for fast edge weight finding.
                 edge_dict = mist.tree.get_edge_dict(edge_idx, wei)
                 # construct an adjacency tree/lists.
-                adj_idx, adj_wei = mist.tree.get_adjacents(edge_idx, wei, Nnodes)
+                adj_idx, _adj_wei = mist.tree.get_adjacents(edge_idx, wei, Nnodes)
                 # the 1-point MST edge length distribution.
                 weiNpt = wei
 
@@ -210,7 +235,7 @@ class MinimumSpanningTree(BaseEstimator):
                 meanperbin = np.array(
                     [
                         np.mean(weiNpt[sortID[split1[i] : split2[i]]])
-                        for i in range(0, len(split1))
+                        for i in range(len(split1))
                     ]
                 )
 
@@ -221,7 +246,7 @@ class MinimumSpanningTree(BaseEstimator):
                     mstdict["mst1pt"] += meanperbin
 
                 # compute the N-point MST PDFs
-                for N in range(2, self.Nthpoint + 1):
+                for N in range(2, self.nth_point + 1):
                     # get the percolation paths from each point into the tree for the N-th placed point.
                     if N == 2:
                         percpaths = mist.tree.perc_from_all_by_N(adj_idx, N)
@@ -246,37 +271,41 @@ class MinimumSpanningTree(BaseEstimator):
                     meanperbin = np.array(
                         [
                             np.mean(weiNpt[sortID[split1[i] : split2[i]]])
-                            for i in range(0, len(split1))
+                            for i in range(len(split1))
                         ]
                     )
                     # compute the N-endpoint MST PDF
                     endperbin = np.array(
                         [
                             np.mean(endNpt[sortID[split1[i] : split2[i]]])
-                            for i in range(0, len(split1))
+                            for i in range(len(split1))
                         ]
                     )
 
                     # store the N-point MST PDF into the vectors dictionary
                     if niter == 0 and j == 0:
-                        mstdict["mst%ipt" % N] = meanperbin
-                        mstdict["end%ipt" % N] = endperbin
+                        mstdict["mst%ipt" % N] = meanperbin  # noqa: UP031
+                        mstdict["end%ipt" % N] = endperbin  # noqa: UP031
                     else:
-                        mstdict["mst%ipt" % N] += meanperbin
-                        mstdict["end%ipt" % N] += endperbin
+                        mstdict["mst%ipt" % N] += meanperbin  # noqa: UP031
+                        mstdict["end%ipt" % N] += endperbin  # noqa: UP031
 
         # Normalise by iterations and splits
         mstdict["mst1pt"] /= self.iterations * len(ixs)
-        for N in range(2, self.Nthpoint + 1):
-            mstdict["mst%ipt" % N] /= self.iterations * len(ixs)
-            mstdict["end%ipt" % N] /= self.iterations * len(ixs)
+        for N in range(2, self.nth_point + 1):
+            mstdict["mst%ipt" % N] /= self.iterations * len(ixs)  # noqa: UP031
+            mstdict["end%ipt" % N] /= self.iterations * len(ixs)  # noqa: UP031
 
         return mstdict
 
     @set_plot_style
     def plot_percolation_statistics(
-        self, mstdict, cmap="viridis", figsize=(10, 4), fname=None
-    ):
+        self,
+        mstdict: dict,
+        cmap: str = "viridis",
+        figsize: tuple = (10, 4),
+        fname: str | None = None,
+    ) -> None:
         """
         Plot the percolation statistics.
 
@@ -302,28 +331,28 @@ class MinimumSpanningTree(BaseEstimator):
             color=colormap((1 - 1) / (10 - 1)),
         )
         xticks = [50.0]
-        xlabel = ["%i" % 1]
-        for N in range(2, self.Nthpoint + 1):
+        xlabel = ["%i" % 1]  # noqa: UP031
+        for N in range(2, self.nth_point + 1):
             plt.plot(
                 100 * (N - 1) + percentmids,
-                mstdict["mst%ipt" % N],
+                mstdict["mst%ipt" % N],  # noqa: UP031
                 linestyle="-",
                 linewidth=2.0,
-                color=colormap((N - 1) / (self.Nthpoint - 1)),
+                color=colormap((N - 1) / (self.nth_point - 1)),
             )
             plt.plot(
                 100 * (N - 1) + percentmids,
-                mstdict["end%ipt" % N],
+                mstdict["end%ipt" % N],  # noqa: UP031
                 linestyle="--",
                 linewidth=2.0,
-                color=colormap((N - 1) / (self.Nthpoint - 1)),
+                color=colormap((N - 1) / (self.nth_point - 1)),
             )
             plt.axvline(100 * (N - 1), color="k", linestyle=":")
             xticks.append(100.0 * N - 50.0)
-            xlabel.append("%i" % N)
+            xlabel.append("%i" % N)  # noqa: UP031
         plt.plot([], [], color="k", linestyle="-", label="Percolation Distance")
         plt.plot([], [], color="k", linestyle="--", label="End-to-End Distance")
-        plt.xlim(0.0, 100 * self.Nthpoint)
+        plt.xlim(0.0, 100 * self.nth_point)
         plt.ylim(0.0, None)
         plt.xticks(xticks, xlabel)
         plt.xlabel(r"MST Percolation Order")

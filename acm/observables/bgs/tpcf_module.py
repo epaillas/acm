@@ -269,8 +269,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableBGS):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs

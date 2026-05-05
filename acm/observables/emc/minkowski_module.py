@@ -16,12 +16,9 @@ logger = logging.getLogger(__name__)
 
 
 class MinkowskiFunctionals(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 
-    def __init__(self, stat_name="minkowski", **kwargs):
+    def __init__(self, stat_name: str = "minkowski", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
@@ -67,14 +64,19 @@ class MinkowskiFunctionals(BaseObservableEMC):
         for filename in data_fns:
             logger.info(f"Compressing {filename}")
             data = np.load(filename, allow_pickle=True).item()
-            mf = []
-            for i in [5, 7, 10, 15]:
-                Rg = f"Rg{i}"
-                for j in range(4):
-                    mf.append(
-                        data[Rg][threshold_index[f"Threshold_index_{Rg}"][j], j]
-                        * (10 * i) ** j
-                    )
+            mf = [
+                data[f"Rg{i}"][threshold_index[f"Threshold_index_Rg{i}"][j], j]
+                * (10 * i) ** j
+                for i in [5, 7, 10, 15]
+                for j in range(4)
+            ]
+            # for i in [5, 7, 10, 15]:
+            #     Rg = f"Rg{i}"
+            #     for j in range(4):
+            #         mf.append(
+            #             data[Rg][threshold_index[f"Threshold_index_{Rg}"][j], j]
+            #             * (10 * i) ** j
+            #         )
             y.append(np.concatenate(mf))
         y = np.array(y)
 
@@ -170,14 +172,19 @@ class MinkowskiFunctionals(BaseObservableEMC):
             logger.info(f"Number of HODs: {len(hods[cosmo_idx])}")
             for filename in filenames:
                 data = np.load(filename, allow_pickle=True).item()
-                mf = []
-                for i in [5, 7, 10, 15]:
-                    Rg = f"Rg{i}"
-                    for j in range(4):
-                        mf.append(
-                            data[Rg][threshold_index[f"Threshold_index_{Rg}"][j], j]
-                            * (10 * i) ** j
-                        )
+                mf = [
+                    data[f"Rg{i}"][threshold_index[f"Threshold_index_Rg{i}"][j], j]
+                    * (10 * i) ** j
+                    for i in [5, 7, 10, 15]
+                    for j in range(4)
+                ]
+                # for i in [5, 7, 10, 15]:
+                #     Rg = f"Rg{i}"
+                #     for j in range(4):
+                #         mf.append(
+                #             data[Rg][threshold_index[f"Threshold_index_{Rg}"][j], j]
+                #             * (10 * i) ** j
+                #         )
                 y.append(np.concatenate(mf))
         y = np.array(y)
 
@@ -212,8 +219,8 @@ class MinkowskiFunctionals(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -230,7 +237,9 @@ class MinkowskiFunctionals(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None):
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot multi-scale Minkowski functionals predictions against data.
 

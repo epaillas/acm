@@ -1,3 +1,5 @@
+"""Observables classes for the BGS scripts in acm."""
+
 from .bispectrum_module import bispectrum
 from .dd_knn_module import dd_knn
 from .density_split_module import ds_xiqg, ds_xiqq
@@ -19,23 +21,23 @@ from .vide_module import vide_ccf, vide_vsf
 from .wst_module import wst
 
 __all__ = [
-    "tpcf",
-    "projected_tpcf",
-    "spectrum",
     "bispectrum",
-    "recon_spectrum",
-    "minkowski",
     "dd_knn",
     "ds_xiqg",
     "ds_xiqq",
+    "minkowski",
+    "pdf",
+    "projected_tpcf",
+    "recon_spectrum",
+    "spectrum",
+    "sv_recon_vsf",
+    "sv_recon_xivg",
+    "sv_recon_xivv",
+    "sv_vsf",
+    "sv_xivg",
+    "sv_xivv",
+    "tpcf",
     "vide_ccf",
     "vide_vsf",
     "wst",
-    "sv_vsf",
-    "sv_recon_vsf",
-    "sv_xivg",
-    "sv_recon_xivg",
-    "sv_xivv",
-    "sv_recon_xivv",
-    "pdf",
 ]

@@ -1,6 +1,5 @@
 import logging
 import time
-from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
@@ -41,9 +40,9 @@ class PypowerBackend:
     def __init__(
         self,
         data_positions: npt.NDArray,
-        data_weights: Optional[npt.NDArray] = None,
-        randoms_positions: Optional[npt.NDArray] = None,
-        randoms_weights: Optional[npt.NDArray] = None,
+        data_weights: npt.NDArray | None = None,
+        randoms_positions: npt.NDArray | None = None,
+        randoms_weights: npt.NDArray | None = None,
         **kwargs,
     ) -> None:
         """Initialize the pypower backend.
@@ -104,7 +103,7 @@ class PypowerBackend:
 
     def set_density_contrast(
         self,
-        smoothing_radius: Optional[float] = None,
+        smoothing_radius: float | None = None,
         compensate: bool = False,
         filter_shape: str = "Gaussian",
     ) -> npt.NDArray:
@@ -162,7 +161,7 @@ class PypowerBackend:
     def get_query_positions(
         self,
         method: str = "randoms",
-        nquery: Optional[int] = None,
+        nquery: int | None = None,
         seed: int = 42,
     ) -> npt.NDArray:
         """Generate query positions to sample the density PDF.
@@ -215,16 +214,15 @@ class PypowerBackend:
             lattice_y = lattice_y.flatten()
             lattice_z = lattice_z.flatten()
             return np.vstack((lattice_x, lattice_y, lattice_z)).T
-        elif method == "randoms":
+        if method == "randoms":
             logger.info("Generating random query points within the box.")
-            np.random.seed(seed)
+            rng = np.random.default_rng(seed)
             if nquery is None:
                 nquery = 5 * self.size_data
-            return np.random.rand(nquery, 3) * boxsize + (boxcenter - boxsize / 2)
-        else:
-            raise ValueError(f"Unknown method '{method}' for generating query points.")
+            return rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
+        raise ValueError(f"Unknown method '{method}' for generating query points.")
 
-    class TopHat(object):
+    class TopHat:
         """Top-hat filter in Fourier space.
 
         Implements a top-hat filter that can be applied to mesh fields in
@@ -269,7 +267,7 @@ class PypowerBackend:
             w[k == 0] = 1.0
             return w * v
 
-    class Gaussian(object):
+    class Gaussian:
         """Gaussian filter in Fourier space.
 
         Implements a Gaussian smoothing filter that can be applied to mesh

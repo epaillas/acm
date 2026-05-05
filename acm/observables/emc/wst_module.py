@@ -14,18 +14,43 @@ from .base import BaseObservableEMC
 
 logger = logging.getLogger(__name__)
 
+# unused masks in methods, moved here for visibility and to avoid magic numbers in the methods
+
+# WST coefficient indices to mask due to instabilities
+wst_idx_mask = [
+    95,
+    96,
+    97,
+    98,
+    99,
+    116,
+    117,
+    118,
+    119,
+    131,
+    132,
+    133,
+    134,
+    141,
+    142,
+    143,
+    144,
+    146,
+    147,
+    148,
+    149,
+]
+
 
 class WaveletScatteringTransform(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 
-    def __init__(self, stat_name="wst", **kwargs):
+    def __init__(self, stat_name: str = "wst", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @staticmethod
-    def renorm_wst(inpt, config="J5_L3_q0.8_sigma0.4"):
+    def renorm_wst(inpt: np.ndarray, config: str = "J5_L3_q0.8_sigma0.4") -> np.ndarray:
+        """Renormalize the WST coefficients according to the configuration."""
         if config == "J5_L3_q0.8_sigma0.4":
             s0 = inpt[0]
             s12 = inpt[1:].reshape(21, 4)
@@ -38,16 +63,15 @@ class WaveletScatteringTransform(BaseObservableEMC):
             outp[20:, :] = s12[20:, :] / s12[4, :]
             sfin = np.hstack((1.0, outp.flatten()))
             return sfin
-        else:
-            s0 = inpt[0]
-            s12 = inpt[1:].reshape(15, 5)
-            outp = np.zeros_like(s12)
-            outp[:5, :] = s12[:5, :] / s0
-            outp[5:9, :] = s12[5:9, :] / s12[0, :]
-            outp[9:12, :] = s12[9:12, :] / s12[1, :]
-            outp[12:14, :] = s12[12:14, :] / s12[2, :]
-            outp[14:, :] = s12[14:, :] / s12[3, :]
-            sfin = np.hstack((1.0, outp.flatten()))
+        s0 = inpt[0]
+        s12 = inpt[1:].reshape(15, 5)
+        outp = np.zeros_like(s12)
+        outp[:5, :] = s12[:5, :] / s0
+        outp[5:9, :] = s12[5:9, :] / s12[0, :]
+        outp[9:12, :] = s12[9:12, :] / s12[1, :]
+        outp[12:14, :] = s12[12:14, :] / s12[2, :]
+        outp[14:, :] = s12[14:, :] / s12[3, :]
+        sfin = np.hstack((1.0, outp.flatten()))
         return sfin
 
     @classmethod
@@ -86,31 +110,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             "J4_L4_q1_sigma0.8",
             "J4_L4_q1_sigma1.0",
             "J5_L3_q0.8_sigma0.4",
-        ]
-
-        # WST coefficient indices to mask due to instabilities
-        mask = [
-            95,
-            96,
-            97,
-            98,
-            99,
-            116,
-            117,
-            118,
-            119,
-            131,
-            132,
-            133,
-            134,
-            141,
-            142,
-            143,
-            144,
-            146,
-            147,
-            148,
-            149,
         ]
 
         # Get phase files from first configuration
@@ -218,31 +217,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             "J5_L3_q0.8_sigma0.4",
         ]
 
-        # WST coefficient indices to mask due to instabilities
-        mask = [
-            95,
-            96,
-            97,
-            98,
-            99,
-            116,
-            117,
-            118,
-            119,
-            131,
-            132,
-            133,
-            134,
-            141,
-            142,
-            143,
-            144,
-            146,
-            147,
-            148,
-            149,
-        ]
-
         y = []
         hods = {}
         for cosmo_idx in cosmos:
@@ -311,8 +285,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -329,7 +303,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_training_set(self, save_fn: str | None = None):
+    def plot_training_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the training set for the observable.
 
@@ -339,7 +315,6 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Path to save the figure. If None, the figure is not saved.
             Default is None.
         """
-
         fig, ax = plt.subplots(figsize=(5, 4))
 
         for data in self.y:
@@ -356,7 +331,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_observable(self, model_params: dict, save_fn: str | None = None):
+    def plot_observable(
+        self, model_params: dict, save_fn: str | None = None
+    ) -> tuple[plt.Figure, np.ndarray]:
         """
         Plot multi-scale Minkowski functionals predictions against data.
 
@@ -427,7 +404,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
 
     @set_plot_style
     @temporary_class_state(flat_output_dims=2, numpy_output=False)
-    def plot_covariance_set(self, save_fn: str | None = None):
+    def plot_covariance_set(
+        self, save_fn: str | None = None
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the covariance matrix for the observable.
 

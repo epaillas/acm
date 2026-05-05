@@ -1,7 +1,9 @@
 import logging
+from collections.abc import Iterator
 from contextlib import nullcontext
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import linalg
@@ -14,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class CombinedModel:
-    """
-    Class for the combination of theory models.
-    """
+    """Class for the combination of theory models."""
 
-    def __init__(self, observables: list[Observable]):
+    def __init__(self, observables: list[Observable]) -> None:
         """
+        Initialize the CombinedModel with a list of observables.
+
         Parameters
         ----------
         observables : list[Observable]
@@ -28,7 +30,7 @@ class CombinedModel:
         self.observables = observables
         self.models = [obs.model for obs in self.observables]
 
-    def get_prediction(self, x):
+    def get_prediction(self, x: np.ndarray | dict) -> np.ndarray:
         """
         Get the prediction from the model.
 
@@ -50,11 +52,14 @@ class CombinedModel:
 class CombinedObservable:
     """
     Class for the combination of observables.
+
     It has list properties, that allow to access easily self.observables for readibility.
     """
 
-    def __init__(self, observables: list[Observable]):
+    def __init__(self, observables: list[Observable]) -> None:
         """
+        Initialize the CombinedObservable with a list of observables.
+
         Parameters
         ----------
         observables : list[Observable]
@@ -70,95 +75,74 @@ class CombinedObservable:
                 "Not all observables have flat_output_dims=2. Some outputs might not be properly reshaped, which might cause concatenation issues."
             )
 
-    def __str__(self):
-        """
-        Returns a string representation of the object (statistic names and slice filters).
-        """
-        return self.get_save_handle()
+    def __str__(self) -> str:
+        """Return a string representation of the object (statistic names and slice filters)."""
+        return str(self.get_save_handle())
 
-    def __getitem__(self, item):
-        """
-        Allows to access the observables by their statistic name or their index.
-        """
+    def __getitem__(self, item: int | str) -> Observable:
+        """Access the observables by their statistic name or their index."""
         if isinstance(item, int):
             return self.observables[item]
-        elif isinstance(item, str):
+        if isinstance(item, str):
             try:
                 idx = self.stat_name.index(item)
                 return self.observables[idx]
-            except ValueError:  # If the item is not found in the list, raise an error
-                raise KeyError(f"Observable with name {item} not found.")
+            except (
+                ValueError
+            ) as ve:  # If the item is not found in the list, raise an error
+                raise KeyError(f"Observable with name {item} not found.") from ve
         else:
             raise TypeError(f"Item must be an int or str, not {type(item)}.")
 
-    def __setitem__(self, item, value):
-        """
-        Allows to set the observable at the given index.
-        """
+    def __setitem__(self, item: int, value: Observable) -> None:
+        """Set the observable at the given index."""
         if not isinstance(value, Observable):
             raise TypeError(f"Value must be a Observable, not {type(value)}.")
         if not isinstance(item, int):
             raise TypeError(f"Item must be an int, not {type(item)}.")
         self.observables[item] = value
 
-    def __len__(self):
-        """
-        Returns the number of observables in the combination.
-        """
+    def __len__(self) -> int:
+        """Return the number of observables in the combination."""
         return len(self.observables)
 
-    def __iter__(self):
-        """
-        Returns an iterator over the observables in the combination.
-        """
+    def __iter__(self) -> Iterator:
+        """Return an iterator over the observables in the combination."""
         return iter(self.observables)
 
-    def __contains__(self, item):
-        """
-        Checks if the observable with the given statistic name is in the combination.
-        """
+    def __contains__(self, item: str) -> bool:
+        """Check if the observable with the given statistic name is in the combination."""
         return item in self.stat_name
 
-    def __reversed__(self):
-        """
-        Returns a reversed iterator over the observables in the combination.
-        """
+    def __reversed__(self) -> Iterator[Observable]:
+        """Return a reversed iterator over the observables in the combination."""
         return reversed(self.observables)
 
-    def __add__(self, other):
-        """
-        Allows to add two CombinedObservable objects together or to add a new observable to the existing Observable.
-        """
+    def __add__(self, other: "CombinedObservable | Observable") -> "CombinedObservable":
+        """Add two CombinedObservable objects together or to add a new observable to the existing Observable."""
         if isinstance(other, CombinedObservable):
             return CombinedObservable(self.observables + other.observables)
-        elif isinstance(other, Observable):
-            return CombinedObservable(self.observables + [other])
-        else:
-            raise TypeError(f"Cannot add {type(other)} to CombinedObservable.")
+        if isinstance(other, Observable):
+            return CombinedObservable([*self.observables, other])
+        raise TypeError(f"Cannot add {type(other)} to CombinedObservable.")
 
-    def __getattr__(self, name):
-        """
-        Allows to access the observables by their statistic name as an attribute,
-        or the concatenated output of their attributes.
-        """
+    def __getattr__(self, name: str) -> Observable | np.ndarray:
+        """Access the observables by their statistic name as an attribute, or the concatenated output of their attributes."""
         if name in self.stat_name:
             idx = self.stat_name.index(name)
             return self.observables[idx]
-        else:
-            try:
-                return np.concatenate(
-                    [getattr(obs, name) for obs in self.observables], axis=-1
-                )
-            except AttributeError:
-                raise AttributeError(
-                    f"'CombinedObservable' object has no attribute '{name}'"
-                )
+        try:
+            return np.concatenate(
+                [getattr(obs, name) for obs in self.observables], axis=-1
+            )
+        except AttributeError as ae:
+            raise AttributeError(
+                f"'CombinedObservable' object has no attribute '{name}'"
+            ) from ae
 
     @property
     def stat_name(self) -> list:
-        """
-        Name of the statistic.
-        """
+        """Name of the statistic."""
         return [obs.stat_name for obs in self.observables]
 
     @property
@@ -169,7 +153,7 @@ class CombinedObservable:
         Note: We assume all observable have the same input features, so we just
         return the first from the list.
         """
-        return [obs.x for obs in self.observables][0]
+        return next(obs.x for obs in self.observables)
 
     @property
     def x_names(self) -> list:
@@ -179,18 +163,19 @@ class CombinedObservable:
         Note: We assume all observable have the same input features, so we just
         return the first from the list.
         """
-        return [obs.x_names for obs in self.observables][0]
+        return next(obs.x_names for obs in self.observables)
 
     @property
-    def model(self):
+    def model(self) -> CombinedModel:
         """
         Theory model of the combination of observables.
+
         `model.get_prediction(x)` returns the prediction of the combination of observables,
         with the respective filters applied to each observable.
         """
         return CombinedModel(self.observables)
 
-    def get_model_prediction(self, x) -> np.ndarray:
+    def get_model_prediction(self, x: np.ndarray | dict) -> np.ndarray:
         """
         Get the prediction from the model.
 
@@ -209,11 +194,13 @@ class CombinedObservable:
         )
 
     def get_covariance_matrix(
-        self, volume_factor: float = 64, prefactor: float = 1, **kwargs
+        self,
+        volume_factor: float = 64,
+        prefactor: float = 1,
+        **kwargs,
     ) -> np.ndarray:
         """
         Covariance matrix for the statistic.
-        The prefactor is here for corrections if needed, and the volume factor is the volume correction of the boxes.
 
         Parameters
         ----------
@@ -229,7 +216,7 @@ class CombinedObservable:
         np.ndarray
             The combined data covariance matrix.
         """
-        cov_y = self.covariance_y
+        cov_y = np.asarray(self.covariance_y)  # Ensure covariance_y is a numpy array
         prefactor = prefactor / volume_factor
 
         cov = prefactor * np.cov(
@@ -241,10 +228,15 @@ class CombinedObservable:
         return cov
 
     def get_emulator_covariance_matrix(
-        self, prefactor: float = 1, method: str = "median", diag: bool = False, **kwargs
+        self,
+        prefactor: float = 1,
+        method: str = "median",
+        diag: bool = False,
+        **kwargs,
     ) -> np.ndarray:
         """
         Covariance matrix of the emulator residuals for a combination of multiple summary statistics.
+
         The matrix is block-diagonal, with each block corresponding to the covariance matrix of each
         individual observable.
 
@@ -282,8 +274,9 @@ class CombinedObservable:
 
     def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
         """
-        Creates a handle that combines the handles of the observables,
-        separated by a '+'. They contain the statistic name and the filters used.
+        Create a handle that combines the handles of the observables, separated by a '+'.
+
+        They contain the statistic name and the filters used.
         This can be used to save anything related to this observable.
 
         Parameters
@@ -320,7 +313,7 @@ class CombinedObservable:
         self,
         model_params: dict,
         save_fn: str | Path | None = None,
-    ):
+    ) -> plt.Figure:
         """
         Plot a compilation of all summary statistics included at class instantiation.
 
@@ -345,8 +338,8 @@ class CombinedObservable:
                     f"save_fn must have a .pdf extension, got {save_fn.suffix}"
                 )
         with PdfPages(save_fn) if save_fn is not None else nullcontext() as pdf:
-            for i, observable in enumerate(self.observables):
-                fig, ax = observable.plot_observable(model_params=model_params)
+            for observable in self.observables:
+                fig, _ = observable.plot_observable(model_params=model_params)
                 if pdf is not None:
                     pdf.savefig(fig, bbox_inches="tight", pad_inches=0.2)
                 else:

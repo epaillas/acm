@@ -168,9 +168,7 @@ class BaseCutskyCatalog(ABC):
             The cutsky catalog is modified in place.
         """
         mpicomm_rank = getattr(self.mpicomm, "rank", 0)
-        cosmo = getattr(
-            self, "cosmo"
-        )  # NOTE: assumes the cutsky catalog has a cosmology attribute
+        cosmo = self.cosmo  # ty: ignore[unresolved-attribute]
 
         if mpicomm_rank == self.mpiroot:
             logger.info(f"Applying radial mask using n(z) file {nz_filename}.")
@@ -317,24 +315,23 @@ class BaseCutskyCatalog(ABC):
                 "SGC": "south_mid_sgc",
             }
             return pixels, dr9_footprint(convert_dict[region])[pixels]
-        else:
-            mask = np.ones_like(ra, dtype="?")
-            if region == "DES":
-                raise ValueError("Do not know DES cuts, install regressis")
-            dec_cut = 32.375
-            if region == "N":
-                mask &= dec > dec_cut
-            else:  # S
-                mask &= dec < dec_cut
-            if region in ["DN", "DS", "SNGC", "SSGC"]:
-                mask_ra = ra > 100 - dec
-                mask_ra &= ra < 280 + dec
-                if region in ["DN", "SNGC"]:
-                    mask &= mask_ra
-                else:  # DS
-                    mask &= dec > -25
-                    mask &= ~mask_ra
-            return np.nan * np.ones(ra.size), mask
+        mask = np.ones_like(ra, dtype="?")
+        if region == "DES":
+            raise ValueError("Do not know DES cuts, install regressis")
+        dec_cut = 32.375
+        if region == "N":
+            mask &= dec > dec_cut
+        else:  # S
+            mask &= dec < dec_cut
+        if region in ["DN", "DS", "SNGC", "SSGC"]:
+            mask_ra = ra > 100 - dec
+            mask_ra &= ra < 280 + dec
+            if region in ["DN", "SNGC"]:
+                mask &= mask_ra
+            else:  # DS
+                mask &= dec > -25
+                mask &= ~mask_ra
+        return np.nan * np.ones(ra.size), mask
 
     @staticmethod
     def add_columns_fiberassign(catalog, seed: int = 0) -> None:
@@ -346,7 +343,6 @@ class BaseCutskyCatalog(ABC):
         seed : int, optional
             Random seed for reproducibility. Defaults to 0.
         """
-
         priority = {
             "LRG": 3200,
             "QSO": 3400,
@@ -455,9 +451,7 @@ class BaseCutskyCatalog(ABC):
 
         rng = np.random.RandomState(seed=seed)
 
-        tracer = getattr(
-            self, "tracer"
-        )  # NOTE: assumes the cutsky catalog has a single tracer attribute
+        tracer = self.tracer  # ty: ignore[unresolved-attribute]
         mpicomm_rank = getattr(self.mpicomm, "rank", 0)
 
         if mpicomm_rank == mpiroot:
@@ -662,7 +656,6 @@ class BaseCutskyCatalog(ABC):
         filename : str
             The path to the output file.
         """
-
         # Gather data from all ranks to root
         catalog_gathered = {}
         for key in self.catalog.keys():
@@ -1058,6 +1051,7 @@ class CutskyHOD(BaseCutskyCatalog):
         """
         Get the shifts that need to be applied to replicate the box along
         one or more axes of the simulation.
+
         Parameters
         ----------
         pos_min : np.ndarray
@@ -1250,8 +1244,7 @@ class CutskyHOD(BaseCutskyCatalog):
         )
         if boxpad > 1:
             return pos_min - boxpad, pos_max + boxpad
-        else:
-            return pos_min - boxpad * self.boxsize, pos_max + boxpad * self.boxsize
+        return pos_min - boxpad * self.boxsize, pos_max + boxpad * self.boxsize
 
     def get_target_nbar(
         self,

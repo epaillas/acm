@@ -237,7 +237,6 @@ class BoxHOD:
         logger.warning
             If the values are outside of the tolerance.
         """
-
         # ensure number density matches expectation of HMF
         N_gal_mock = len(hod_dict[self.tracer]["x"])
         n_gal_mock = N_gal_mock / self.boxsize**3
@@ -503,7 +502,6 @@ class BoxHOD:
         ValueError
             If the type of hod_params is not dict or list.
         """
-
         # Add custom keys here if needed.
         # Be careful to the one-to-one position mapping in the list !!
         abacus_keys = ["logM1", "Acent", "Asat", "Bcent", "Bsat"]
@@ -562,8 +560,7 @@ class BoxHOD:
         if not add_ap:
             if isinstance(boxsize, list):
                 return np.asarray(boxsize)
-            else:
-                return boxsize
+            return boxsize
 
         if los is None or q_par is None or q_perp is None:
             raise ValueError(

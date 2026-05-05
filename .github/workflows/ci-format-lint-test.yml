@@ -41,9 +41,9 @@ jobs:
 
       - name: Format
         id: format
-        run: |
-            ruff check --select I --fix acm
-            ruff format --config quality/ruff.toml acm
+        run: | # Using config from pyproject.toml
+            ruff check acm --output-format github --fix 
+            ruff format acm
 
       - name: Check if there are changes
         id: check_changes

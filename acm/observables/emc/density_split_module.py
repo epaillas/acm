@@ -92,7 +92,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
         for data_fn in data_fns:
             data = BaseEstimator.read(data_fn)
             for q in quantiles:
-                xi = data.get(quantiles=q).select(s=slice(0, None, rebin))
+                xi = data.get(quantiles=q).select(s=slice(0, None, rebin))  # ty:ignore[no-matching-overload, unresolved-attribute]
                 xi = xi.select(s=(smin, smax))
                 poles = xi.project(ells=ells)
                 s = poles.get(ells=ells[0]).coords("s")
@@ -249,8 +249,8 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -270,6 +270,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
     def plot_training_set(
         self, save_fn: str | None = None
     ) -> tuple[plt.Figure, plt.Axes]:
+        """Plot the training set for the density-split correlation function multipoles."""
         ells = self._dataset.y.coords["ells"].values.tolist()
         quantiles = self._dataset.y.coords["quantiles"].values.tolist()
 
@@ -314,13 +315,13 @@ class DensitySplitQuantileGalaxyCorrelationFunctionMultipoles(DensitySplitBaseCl
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqg")
         kwargs.setdefault("stat_name", "ds_xiqg")
         return super().compress_data(**kwargs)
@@ -333,13 +334,13 @@ class DensitySplitQuantileCorrelationFunctionMultipoles(DensitySplitBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs.setdefault("measurement_root", "dsc_xiqq")
         kwargs.setdefault("stat_name", "ds_xiqq")
         return super().compress_data(**kwargs)

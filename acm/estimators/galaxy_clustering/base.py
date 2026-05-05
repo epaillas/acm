@@ -1,34 +1,30 @@
 import logging
 import time
 from pathlib import Path
+from typing import Any
 
 import lsstypes as types
 import numpy as np
-import numpy.typing as npt
 import xarray as xr
+
+from .backends.jaxpower import JaxpowerBackend
+from .backends.pypower import PypowerBackend
+from .backends.pyrecon import PyreconBackend
 
 logger = logging.getLogger(__name__)
 
 
 class BaseEstimator:
-    """
-    Base estimator class.
-    """
+    """Base estimator class."""
 
     def __init__(self, backend: str = "jaxpower", **kwargs) -> None:
         logger.info(f"Initializing {self.__class__.__name__}.")
         # Lazy import of backend classes to avoid forcing installation of all backends
         if backend == "jaxpower":
-            from .backends.jaxpower import JaxpowerBackend
-
             self.backend = JaxpowerBackend(**kwargs)
         elif backend == "pypower":
-            from .backends.pypower import PypowerBackend
-
             self.backend = PypowerBackend(**kwargs)
         elif backend == "pyrecon":
-            from .backends.pyrecon import PyreconBackend
-
             self.backend = PyreconBackend(**kwargs)
         else:
             raise ValueError(
@@ -36,8 +32,8 @@ class BaseEstimator:
             )
 
     def read_density_contrast(
-        self, positions: npt.NDArray, resampler: str = "cic"
-    ) -> npt.NDArray:
+        self, positions: np.ndarray, resampler: str = "cic"
+    ) -> np.ndarray:
         """
         Get the density contrast at the input positions.
 
@@ -70,7 +66,7 @@ class BaseEstimator:
         logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
         return delta
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """
         Delegate attribute access to the backend.
 
@@ -87,7 +83,9 @@ class BaseEstimator:
         return self.backend.__getattribute__(name)
 
     @staticmethod
-    def read(filename: str | Path, **kwargs):
+    def read(
+        filename: str | Path, **kwargs
+    ) -> types.ObservableLeaf | xr.DataArray | xr.Dataset | np.ndarray:
         """
         Read estimator output from a file.
 
@@ -128,17 +126,16 @@ class BaseEstimator:
         path = Path(filename)
 
         # Determine format from file extension
-        if path.suffix == ".hdf5" or path.suffix == ".h5":
+        if path.suffix in [".hdf5", ".h5"]:
             return types.read(filename)
-        elif path.suffix == ".nc":
+        if path.suffix == ".nc":
             return xr.open_dataarray(filename, **kwargs)
-        elif str(filename).endswith(".zarr"):
+        if str(filename).endswith(".zarr"):
             return xr.open_zarr(filename, **kwargs)
-        elif path.suffix == ".npy":
+        if path.suffix == ".npy":
             return np.load(filename, **kwargs)
-        else:
-            raise ValueError(
-                f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
-                f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
-                f".zarr (xarray Zarr), .npy (numpy)."
-            )
+        raise ValueError(
+            f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
+            f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
+            f".zarr (xarray Zarr), .npy (numpy)."
+        )

@@ -6,13 +6,15 @@ def check_catalog(
     boxsize: np.ndarray | list[float] | float,
     check_in_float32: bool = True,
     center_at_zero: bool = False,
-):
+) -> None:
     """
-    This function perofms all reasonable safety checks on a provided catalog
-    in a periodic box. It should be called before any clustering statistic is
+    Perform safety checks on a periodic cubic galaxy catalog.
+
+    It should be called before any clustering statistic is
     measured and any failed checks will cause an assertion error
 
-    Parameters:
+    Parameters
+    ----------
     - positions: np.array of shape (N_galaxies,3,)
     - boxsize: np.array of shape (3,) or (1,) or list of floats of same lenghts or float
     - check_in_float32: bool. If True, all checks are performed in single precision
@@ -48,9 +50,11 @@ def check_catalog(
 
     # Do checks
     for i in range(positions.shape[1]):
-        assert np.all(positions[:, i] >= L[i]), (
-            f"{repr(np.min(positions[:, i]))} falls out of the box on the left edge {repr(L[i])} along the 0-th axis"
-        )
-        assert np.all(positions[:, i] < R[i]), (
-            f"{repr(np.max(positions[:, i]))} falls out of the box on the right edge {repr(R[i])} along the 0-th axis"
-        )
+        if not np.all(positions[:, i] >= L[i]):
+            raise ValueError(
+                f"{np.min(positions[:, i])!r} falls out of the box on the left edge {L[i]!r} along the 0-th axis"
+            )
+        if not np.all(positions[:, i] < R[i]):
+            raise ValueError(
+                f"{np.max(positions[:, i])!r} falls out of the box on the right edge {R[i]!r} along the 0-th axis"
+            )

@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 import xarray as xr
 
 
@@ -54,9 +56,9 @@ def dataset_from_dict(data_dict: dict) -> xr.Dataset:
     return xr.Dataset(data_vars=data_vars)
 
 
-def split_vars(*data_vars, **kwargs):
+def split_vars(*data_vars, **kwargs) -> Iterator[tuple[xr.DataArray, xr.DataArray]]:
     """
-    Splits variables of a DataSet in two: the selected values, and the non-selected values.
+    Split variables of a DataSet in two: the selected values, and the non-selected values.
 
     Parameters
     ----------
@@ -66,7 +68,7 @@ def split_vars(*data_vars, **kwargs):
         The selection criteria (e.g., dim=value) to pass to sel and drop_sel.
 
     Yields
-    -------
+    ------
     v_in : xr.DataArray
         The selected values.
     v_out : xr.DataArray

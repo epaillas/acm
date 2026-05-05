@@ -29,19 +29,20 @@ logger = logging.getLogger(__name__)
 class DensitySplit(BaseEstimator):
     """
     Class to compute density-split clustering, as in http://arxiv.org/abs/2309.16541.
+
     Expects all positions passed in cartesian coordinates of shape (N, 3).
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     def set_quantiles(
         self,
-        query_positions=None,
-        query_method="randoms",
-        nquery_factor=5,
-        nquantiles=5,
-    ):
+        query_positions: np.ndarray | None = None,
+        query_method: str = "randoms",
+        nquery_factor: int = 5,
+        nquantiles: int = 5,
+    ) -> tuple[list[np.ndarray], np.ndarray, np.ndarray]:
         """
         Get the quantiles of the overdensity density field.
 
@@ -71,23 +72,24 @@ class DensitySplit(BaseEstimator):
                 raise ValueError(
                     "query_positions must be provided when working with a non-uniform geometry."
                 )
-            else:
-                query_positions = self.get_query_positions(
-                    method=query_method, nquery=nquery_factor * self.size_data
-                )
+            query_positions = self.get_query_positions(
+                method=query_method, nquery=nquery_factor * self.size_data
+            )
         self.query_method = query_method
         self.query_positions = query_positions
         self.delta_query = self.read_density_contrast(query_positions)
         self.quantiles_idx = qcut(self.delta_query, nquantiles, labels=False)
-        quantiles = []
-        for i in range(nquantiles):
-            quantiles.append(self.query_positions[self.quantiles_idx == i])
+        quantiles = [
+            self.query_positions[self.quantiles_idx == i] for i in range(nquantiles)
+        ]
         self.quantiles = quantiles
         self.nquantiles = nquantiles
         logger.info(f"Quantiles calculated in {time.time() - t0:.2f} seconds.")
         return self.quantiles, self.quantiles_idx, self.delta_query
 
-    def save(self, data, filename, type="correlation"):
+    def save(
+        self, data: list, filename: str | Path, data_type: str = "correlation"
+    ) -> None:
         """
         Save the per-quantile correlations or power spectra to disk.
 
@@ -97,7 +99,7 @@ class DensitySplit(BaseEstimator):
             List of per-quantile correlation or power-spectrum measurements.
         filename : str or path-like
             Output filename where the data will be written.
-        type : str, optional
+        data_type : str, optional
             Type of data being saved. Options are 'correlation' or 'power'.
         """
         attrs = {
@@ -106,16 +108,21 @@ class DensitySplit(BaseEstimator):
             "boxsize": self.boxsize,
             "meshsize": self.meshsize,
         }
-        if type == "correlation":
+        if data_type == "correlation":
             self.save_correlations(data, filename, attrs=attrs)
-        elif type == "power":
+        elif data_type == "power":
             self.save_powers(data, filename, attrs=attrs)
         else:
             raise ValueError(
-                f"Unknown type '{type}'. Available types: 'correlation', 'power'"
+                f"Unknown type '{data_type}'. Available types: 'correlation', 'power'"
             )
 
-    def save_correlations(self, correlations, filename, attrs=None):
+    def save_correlations(
+        self,
+        correlations: list,
+        filename: str | Path,
+        attrs: dict | None = None,
+    ) -> None:
         """
         Save a list of pycorr correlation objects to an lsstypes ObservableTree.
 
@@ -151,7 +158,12 @@ class DensitySplit(BaseEstimator):
                 "Supported extensions are: .hdf5, .h5, .npy"
             )
 
-    def save_powers(self, powers: list, filename: str, attrs=None) -> None:
+    def save_powers(
+        self,
+        powers: list,
+        filename: str | Path,
+        attrs: dict | None = None,
+    ) -> None:
         """
         Save a list of per-quantile power-spectrum objects to an lsstypes ObservableTree.
 
@@ -169,11 +181,7 @@ class DensitySplit(BaseEstimator):
         logger.info(f"Saving to {filename}")
 
         if path.suffix in [".hdf5", ".h5"]:
-            leaves = []
-            for quantile in range(self.nquantiles):
-                leaves.append(
-                    powers[quantile]
-                )  # assumes power is calculated with jax-power
+            leaves = [powers[quantile] for quantile in range(self.nquantiles)]
             tree = ObservableTree(
                 leaves, quantiles=list(range(self.nquantiles)), attrs=attrs
             )
@@ -188,10 +196,14 @@ class DensitySplit(BaseEstimator):
                 "Supported extensions are: .hdf5, .h5, .npy"
             )
 
-    def quantile_data_correlation(self, data_positions, save_fn=None, **kwargs):
+    def quantile_data_correlation(
+        self,
+        data_positions: np.ndarray,
+        save_fn: str | Path | None = None,
+        **kwargs,
+    ) -> list:
         """
-        Compute the cross-correlation function between the density field
-        quantiles and the data.
+        Compute the cross-correlation function between the density field quantiles and the data.
 
         Parameters
         ----------
@@ -205,7 +217,7 @@ class DensitySplit(BaseEstimator):
 
         Returns
         -------
-        quantile_data_ccf : array_like
+        quantile_data_ccf : list
             Cross-correlation function between quantiles and data.
         """
         if self.has_randoms:
@@ -222,9 +234,8 @@ class DensitySplit(BaseEstimator):
             if "randoms_weights" in kwargs:
                 kwargs["randoms_weights1"] = None
                 kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
         self._quantile_data_correlation = []
         R1R2 = None
         for quantile in self.quantiles:
@@ -237,16 +248,15 @@ class DensitySplit(BaseEstimator):
                 **kwargs,
             )
             self._quantile_data_correlation.append(result)
-            if "estimator" in kwargs:
-                if not kwargs["estimator"] == "davispeebles":
-                    R1R2 = result.R1R2
+            if "estimator" in kwargs and kwargs["estimator"] != "davispeebles":
+                R1R2 = result.R1R2
 
             # R1R2 = result.R1R2
         if save_fn is not None:
-            self.save(self._quantile_data_correlation, save_fn, type="correlation")
+            self.save(self._quantile_data_correlation, save_fn, data_type="correlation")
         return self._quantile_data_correlation
 
-    def quantile_correlation(self, save_fn=None, **kwargs):
+    def quantile_correlation(self, save_fn: str | Path | None = None, **kwargs) -> list:
         """
         Compute the auto-correlation function of the density field quantiles.
 
@@ -260,7 +270,7 @@ class DensitySplit(BaseEstimator):
 
         Returns
         -------
-        quantile_acf : array_like
+        quantile_acf : list
             Auto-correlation function of quantiles.
         """
         if self.has_randoms:
@@ -271,9 +281,8 @@ class DensitySplit(BaseEstimator):
             kwargs["randoms_positions1"] = kwargs.pop("randoms_positions")
             kwargs["data_weights1"] = None  # setting default weights for quantiles
             kwargs["randoms_weights1"] = None
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
         self._quantile_correlation = []
         R1R2 = None
         for quantile in self.quantiles:
@@ -285,25 +294,24 @@ class DensitySplit(BaseEstimator):
                 **kwargs,
             )
             self._quantile_correlation.append(result)
-            if "estimator" in kwargs:
-                if not kwargs["estimator"] == "davispeebles":
-                    R1R2 = result.R1R2
+            if "estimator" in kwargs and kwargs["estimator"] != "davispeebles":
+                R1R2 = result.R1R2
         if save_fn is not None:
-            self.save(self._quantile_correlation, save_fn, type="correlation")
+            self.save(self._quantile_correlation, save_fn, data_type="correlation")
         return self._quantile_correlation
 
     def quantile_data_power(
         self,
-        data_positions,
-        edges={"step": 0.001},
-        ells=(0, 2, 4),
-        los="z",
-        resampler="tsc",
-        interlacing=0,
-        compensate=True,
-        save_fn=None,
+        data_positions: np.ndarray,
+        edges: dict = {"step": 0.001},
+        ells: tuple | list = (0, 2, 4),
+        los: str = "z",
+        resampler: str = "tsc",
+        interlacing: int = 0,
+        compensate: bool = True,
+        save_fn: str | Path | None = None,
         **kwargs,
-    ):
+    ) -> list:
         """
         Compute the cross-power spectrum between the data and the density field quantiles.
 
@@ -331,7 +339,7 @@ class DensitySplit(BaseEstimator):
 
         Returns
         -------
-        quantile_data_power : array_like
+        quantile_data_power : list
             Cross-power spectrum between quantiles and data.
         """
         if self.has_randoms:
@@ -348,9 +356,8 @@ class DensitySplit(BaseEstimator):
             if "randoms_weights" in kwargs:
                 kwargs["randoms_weights1"] = None
                 kwargs["randoms_weights2"] = kwargs.pop("randoms_weights")
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
 
         # TODO handle survey-mode geometry with FKPField for data mesh
 
@@ -358,7 +365,7 @@ class DensitySplit(BaseEstimator):
             compute_mesh2_spectrum, static_argnames=["los"], donate_argnums=[0]
         )
 
-        bin = BinMesh2SpectrumPoles(
+        bin_mesh = BinMesh2SpectrumPoles(
             self.mattrs,
             edges=edges,
             ells=ells,
@@ -380,33 +387,33 @@ class DensitySplit(BaseEstimator):
                 quantile_positions, attrs=self.mattrs, exchange=True, backend="jax"
             )
 
-            norm = compute_box2_normalization(quantile, data, bin=bin)
+            norm = compute_box2_normalization(quantile, data, bin=bin_mesh)
 
             quantile_mesh = quantile.paint(**kw, out="real")
             quantile_mesh = quantile_mesh - quantile_mesh.mean()
 
             spectrum = jitted_compute_mesh2_spectrum(
-                quantile_mesh, data_mesh, bin=bin, los=los
+                quantile_mesh, data_mesh, bin=bin_mesh, los=los
             )
             spectrum = spectrum.clone(norm=norm)
 
             self._quantile_data_power.append(spectrum)
             logger.info(f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s.")
         if save_fn is not None:
-            self.save(self._quantile_data_power, save_fn, type="power")
+            self.save(self._quantile_data_power, save_fn, data_type="power")
         return self._quantile_data_power
 
     def quantile_power(
         self,
-        edges={"step": 0.001},
-        ells=(0, 2, 4),
-        los="z",
-        resampler="tsc",
-        interlacing=0,
-        compensate=True,
-        save_fn=None,
+        edges: dict = {"step": 0.001},
+        ells: tuple | list = (0, 2, 4),
+        los: str = "z",
+        resampler: str = "tsc",
+        interlacing: int = 0,
+        compensate: bool = True,
+        save_fn: str | Path | None = None,
         **kwargs,
-    ):
+    ) -> list:
         """
         Compute the auto-power spectrum of the density field quantiles.
 
@@ -434,7 +441,7 @@ class DensitySplit(BaseEstimator):
 
         Returns
         -------
-        quantile_power : array_like
+        quantile_power : list
             Auto-power spectrum of quantiles.
         """
         if self.has_randoms:
@@ -445,9 +452,8 @@ class DensitySplit(BaseEstimator):
             kwargs["randoms_positions1"] = kwargs.pop("randoms_positions")
             kwargs["data_weights1"] = None  # setting default weights for quantiles
             kwargs["randoms_weights1"] = None
-        else:
-            if "boxsize" not in kwargs:
-                kwargs["boxsize"] = self.boxsize
+        elif "boxsize" not in kwargs:
+            kwargs["boxsize"] = self.boxsize
 
         # TODO handle survey-mode geometry with FKPField for data mesh
 
@@ -455,7 +461,7 @@ class DensitySplit(BaseEstimator):
             compute_mesh2_spectrum, static_argnames=["los"], donate_argnums=[0]
         )
 
-        bin = BinMesh2SpectrumPoles(
+        bin_mesh = BinMesh2SpectrumPoles(
             self.mattrs,
             edges=edges,
             ells=ells,
@@ -470,28 +476,31 @@ class DensitySplit(BaseEstimator):
                 quantile_positions, attrs=self.mattrs, exchange=True, backend="jax"
             )
 
-            norm = compute_box2_normalization(quantile, bin=bin)
-            num_shotnoise = compute_fkp2_shotnoise(quantile, bin=bin)
+            norm = compute_box2_normalization(quantile, bin=bin_mesh)
+            num_shotnoise = compute_fkp2_shotnoise(quantile, bin=bin_mesh)
 
             quantile_mesh = quantile.paint(**kw, out="real")
             # quantile_mesh = quantile_mesh / quantile_mesh.mean() - 1.
             quantile_mesh = quantile_mesh - quantile_mesh.mean()
 
-            spectrum = jitted_compute_mesh2_spectrum(quantile_mesh, bin=bin, los=los)
+            spectrum = jitted_compute_mesh2_spectrum(
+                quantile_mesh, bin=bin_mesh, los=los
+            )
             spectrum = spectrum.clone(norm=norm, num_shotnoise=num_shotnoise)
 
             self._quantile_power.append(spectrum)
             logger.info(f"Q{i} auto-spectrum calculated in {time.time() - t0:.2f} s.")
         if save_fn is not None:
-            self.save(self._quantile_power, save_fn, type="power")
+            self.save(self._quantile_power, save_fn, data_type="power")
         return self._quantile_power
 
     @set_plot_style
-    def plot_quantiles(self, save_fn=None):
+    def plot_quantiles(self, save_fn: str | Path | None = None) -> plt.Figure:
+        """Plot the quantiles of the overdensity field."""
         fig, ax = plt.subplots(figsize=(4, 4))
         cmap = cm.get_cmap("coolwarm")
         colors = cmap(np.linspace(0.01, 0.99, 5))
-        hist, bin_edges, bar_container = ax.hist(
+        _, bin_edges, bar_container = ax.hist(
             self.delta_query,
             bins=200,
             density=True,
@@ -520,7 +529,10 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_data_correlation(self, ell=0, save_fn=None):
+    def plot_quantile_data_correlation(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
+        """Plot the cross-correlation functions for each quantile with the data."""
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
@@ -544,7 +556,10 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_correlation(self, ell=0, save_fn=None):
+    def plot_quantile_correlation(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
+        """Plot the auto-correlation functions for each quantile."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             s, multipoles = self._quantile_correlation[i](
@@ -561,7 +576,10 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_data_power(self, ell=0, save_fn=None):
+    def plot_quantile_data_power(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
+        """Plot the power spectrum for each quantile with the data."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             k, poles = self._quantile_data_power[i](
@@ -578,7 +596,10 @@ class DensitySplit(BaseEstimator):
         return fig
 
     @set_plot_style
-    def plot_quantile_power(self, ell=0, save_fn=None):
+    def plot_quantile_power(
+        self, ell: int = 0, save_fn: str | Path | None = None
+    ) -> plt.Figure:
+        """Plot the power spectrum for each quantile."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.quantiles)):
             k, poles = self._quantile_power[i](

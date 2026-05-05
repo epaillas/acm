@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import yaml
 
@@ -11,9 +12,9 @@ def lookup_registry_path(
     filename: str,
     *keys: str,
     loader: Callable = yaml.safe_load,
-) -> Any:
+) -> Any:  # noqa: ANN401
     """
-    Reads a file and parses the arguments as nested keys to return the corresponding value.
+    Read a file and parses the arguments as nested keys to return the corresponding value.
 
     Parameters
     ----------
@@ -40,7 +41,7 @@ def lookup_registry_path(
     if not fn.exists():
         fn = here / filename  # Relative to this script's directory
 
-    with open(fn, "r") as file:
+    with fn.open("r") as file:
         data = loader(file)
 
         for key in keys:
@@ -56,7 +57,14 @@ def list_registry_files(
     recursive: bool = False,
 ) -> list[str]:
     """
-    Lists all available registry files shipped with this package
+    List all available registry files shipped with this package.
+
+    Parameters
+    ----------
+    ext : tuple[str, ...]
+        A tuple of file extensions to look for. Default is (".yaml", ".yml").
+    recursive : bool
+        Whether to search for files recursively in subdirectories. Default is False.
 
     Returns
     -------

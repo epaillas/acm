@@ -14,12 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
-    """
-    Class for the Emulator's Mock Challenge galaxy correlation
-    function multipoles.
-    """
+    """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 
-    def __init__(self, stat_name="tpcf", **kwargs):
+    def __init__(self, stat_name: str = "tpcf", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
@@ -202,8 +199,8 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -218,7 +215,9 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             logger.info(f"Saving compressed data to {save_fn}")
         return cout
 
-    def compute_phase_correction(self, rebin: int = 4, ells: list = [0, 2, 4]):
+    def compute_phase_correction(
+        self, rebin: int = 4, ells: list = [0, 2, 4]
+    ) -> np.ndarray:
         """
         Correction factor to bring the fixed phase precictions (p000) to the ensemble average.
 
@@ -234,7 +233,6 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
         np.ndarray
             Correction factor for the fixed phase predictions.
         """
-
         base_dir = self.paths["measurements_dir"] + f"base/{self.stat_name}/"
 
         multipoles_mean = []
@@ -246,7 +244,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                     Path(data_dir) / f"tpcf_hod{hod:03}.npy"
                 )  # NOTE: File name format hardcoded !
                 data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
-                s, multipoles = data(ells=ells, return_sep=True)
+                multipoles = data(ells=ells)
                 multipoles_hods.append(multipoles)
             multipoles_hods = np.array(multipoles_hods).mean(axis=0)
             multipoles_mean.append(multipoles_hods)
@@ -259,15 +257,16 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 Path(data_dir) / f"tpcf_hod{hod:03}.npy"
             )  # NOTE: File name format hardcoded !
             data = TwoPointCorrelationFunction.load(data_fn)[::4]
-            s, multipoles = data(ells=ells, return_sep=True)
+            multipoles = data(ells=ells)
             multipoles_ph0.append(multipoles)
         multipoles_ph0 = np.array(multipoles_ph0).mean(axis=0)
         delta = ((multipoles_mean + 1) - (multipoles_ph0 + 1)) / (multipoles_ph0 + 1)
         return delta.reshape(-1)
 
-    def apply_phase_correction(self, prediction):
+    def apply_phase_correction(self, prediction: np.ndarray) -> np.ndarray:
         """
         Apply the phase correction to the predictions.
+
         We apply this to (1 + prediction) to avoid zero-crossings.
 
         Parameters

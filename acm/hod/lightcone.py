@@ -68,13 +68,9 @@ class BaseLightconeCatalog(ABC):
         None
             The lightcone catalog is modified in place.
         """
-        catalog = getattr(
-            self, "catalog"
-        )  # NOTE: Assumes the class has a catalog attribute
-        cosmo = getattr(self, "cosmo")  # NOTE: Assumes the class has a cosmo attribute
-        boxsize = getattr(
-            self, "boxsize"
-        )  # NOTE: Assumes the class has a boxsize attribute
+        catalog = self.catalog  # ty: ignore[unresolved-attribute]
+        cosmo = self.cosmo  # ty: ignore[unresolved-attribute]
+        boxsize = self.boxsize  # ty: ignore[unresolved-attribute]
 
         data_nbar = self.get_data_nbar(catalog, full_sky)
         logger.info(f"Raw data nbar: {data_nbar}")
@@ -161,20 +157,16 @@ class BaseLightconeCatalog(ABC):
         Compute the number density of the data catalog, which is defined
         by an octant of the spherical shell delimited by the redshift cuts.
         """
-        cosmo = getattr(self, "cosmo")  # NOTE: Assumes the class has a cosmo attribute
-        zrange = getattr(
-            self, "zrange"
-        )  # NOTE: Assumes the class has a zrange attribute
-        sim_type = getattr(
-            self, "sim_type"
-        )  # NOTE: Assumes the class has a sim_type attribute
+        cosmo = self.cosmo  # ty: ignore[unresolved-attribute]
+        zrange = self.zrange  # ty: ignore[unresolved-attribute]
+        sim_type = self.sim_type  # ty: ignore[unresolved-attribute]
 
         dmin, dmax = cosmo.comoving_radial_distance(zrange)
 
         if sim_type == "base":
             # Abacus base
             # Monte Carlo sampling of Abacus lightcone volume
-            nsamples_per_box = getattr(self, "monte_carlo_sampling_count")
+            nsamples_per_box = self.monte_carlo_sampling_count  # ty: ignore[unresolved-attribute]
             samples_x = np.random.uniform(low=0, high=2000, size=(3 * nsamples_per_box))
             samples_y = np.concatenate(
                 [
@@ -208,16 +200,12 @@ class BaseLightconeCatalog(ABC):
         return nbar
 
     def shell_filling_fraction(self, shells):
-        sim_type = getattr(
-            self, "sim_type"
-        )  # NOTE: Assumes the class has a sim_type attribute
-        boxsize = getattr(
-            self, "boxsize"
-        )  # NOTE: Assumes the class has a boxsize attribute
+        sim_type = self.sim_type  # ty: ignore[unresolved-attribute]
+        boxsize = self.boxsize  # ty: ignore[unresolved-attribute]
 
         # Muller-Marsaglia octant sampling
         # evenly distribute points along an octant of a unit sphere
-        num_samples = getattr(self, "monte_carlo_sampling_count")
+        num_samples = self.monte_carlo_sampling_count  # ty: ignore[unresolved-attribute]
         sample_points = np.abs(np.random.normal(0, 1, (3, num_samples)))
         sample_points /= np.linalg.norm(sample_points, axis=0)
 
@@ -360,7 +348,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
                 1.025,
                 1.100,
             ]
-        elif self.tracer == "QSO" or self.tracer == "ELG":
+        if self.tracer == "QSO" or self.tracer == "ELG":
             # fills shell between 0.763 and 2.627
             return [
                 0.800,
@@ -381,11 +369,10 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
                 2.250,
                 2.500,
             ]
-        elif self.tracer == "BGS":
+        if self.tracer == "BGS":
             raise ValueError("BGS lightcone snap_redshifts not yet implemented")
-        else:
-            error_string = f"invalid tracer for lightcone snap_redshifts: {self.tracer}"
-            raise ValueError(error_string)
+        error_string = f"invalid tracer for lightcone snap_redshifts: {self.tracer}"
+        raise ValueError(error_string)
 
     @property
     def snapshots(self):
@@ -572,6 +559,7 @@ class LightconeHOD(CutskyHOD, BaseLightconeCatalog):
             If True, match only the shape of the n(z), disregarding the amplitude.
         full_sky: bool
             If True, the survey volunme is scaled to the full sky rather than an octant
+
         Returns
         -------
         None
@@ -599,6 +587,7 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
         Initialize the CutskyRandoms class. This generates randoms in a cutsky region
         that has a certain right ascension, declination and redshift range, but
         the proper angular and radial mask needs to be applied later with the dedicated methods.
+
         Parameters
         ----------
         rarange : tuple, optional
@@ -681,6 +670,7 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             If True, match only the shape of the n(z), disregarding the amplitude.
         full_sky: bool
             If True, the survey volunme is scaled to the full sky rather than an octant
+
         Returns
         -------
         None
