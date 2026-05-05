@@ -11,7 +11,7 @@ class Tracer:
     ----------
     name : str
         Unique identifier for the tracer (e.g. "LRG", "ELG", "QSO").
-    params : dict
+    params : dict[str, Any]
         Tracer-specific parameters forwarded to the backend
         (e.g. HOD parameters, magnitude cuts, color selections).
     """
@@ -19,5 +19,6 @@ class Tracer:
     name: str
     params: dict[str, Any] = field(default_factory=dict)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Provide a string representation of the tracer, including its name and parameters."""
         return f"Tracer(name={self.name!r}, params={self.params})"

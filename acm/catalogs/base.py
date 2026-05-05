@@ -18,8 +18,8 @@ from cosmoprimo import Cosmology
 from cosmoprimo.fiducial import DESI
 from pandas import DataFrame
 
-from .backends import DarkMatterBackend, SnapshotBackend, load_backend
-from .dataclasses import Tracer
+from acm.catalogs.backends import DarkMatterBackend, SnapshotBackend, load_backend
+from acm.catalogs.dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +44,8 @@ class BaseGalaxyCatalog:
         cosmo_fid: Cosmology,
     ) -> None:
         """
+        Initialize the galaxy catalog with the given redshift and cosmologies.
+
         Parameters
         ----------
         redshift : float
@@ -59,7 +61,8 @@ class BaseGalaxyCatalog:
         self.tracers: dict[str, Tracer] = {}
         self._data: dict[str, DataFrame] = {}
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Provide a string representation of the galaxy catalog, including redshift and tracer information."""
         return (
             f"{self.__class__.__name__}("
             f"redshift={self.redshift}, "
@@ -160,6 +163,7 @@ class BaseCatalogFactory(ABC):
         self.cosmo_fid = cosmo_fid if cosmo_fid is not None else DESI()
 
     def __repr__(self) -> str:
+        """Provide a string representation of the catalog factory, including backend and catalog class information"""
         return (
             f"{self.__class__.__name__}("
             f"backend={self.backend.__class__.__name__}, "

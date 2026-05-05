@@ -1,0 +1,3 @@
+"""
+Module generating galaxy catalogs.
+"""

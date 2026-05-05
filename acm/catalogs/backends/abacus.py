@@ -12,17 +12,16 @@ from abacusnbody.hod.abacus_hod import (
 
 from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
 
-from ..dataclasses import Tracer
-from .base import SnapshotBackend, register_backend
+from acm.catalogs.dataclasses import Tracer
+from acm.catalogs.backends.base import SnapshotBackend, register_backend
 
 logger = logging.getLogger(__name__)
 
+_TRACER_NAME_ALIASES = {"BGS": "LRG"}
 
 @register_backend("AbacusHOD")
 class AbacusHODBackend(SnapshotBackend):
-    """
-    Dark matter backend for AbacusSummit simulations using a simple HOD model to populate the galaxy catalog.
-    """
+    """Dark matter backend for AbacusSummit simulations using a simple HOD model to populate the galaxy catalog."""
 
     def __init__(
         self,
@@ -322,8 +321,6 @@ class AbacusHODBackend(SnapshotBackend):
         is_central[:n_cent] = 1
         galaxy_dict[tracer_name]["is_cent"] = is_central
 
-    _TRACER_NAME_ALIASES = {"BGS": "LRG"}
-
     def _resolve_tracer_name(self, name: str) -> str:
         """
         Resolve a tracer name to the name expected by AbacusHOD, using the _TRACER_NAME_ALIASES mapping.
@@ -338,7 +335,7 @@ class AbacusHODBackend(SnapshotBackend):
         str
             Tracer name as expected by AbacusHOD (e.g. "LRG").
         """
-        resolved = self._TRACER_NAME_ALIASES.get(name, name)
+        resolved = _TRACER_NAME_ALIASES.get(name, name)
         if resolved != name:
             logger.warning(
                 f"Tracer '{name}' is not directly supported. Using '{resolved}' as a proxy."

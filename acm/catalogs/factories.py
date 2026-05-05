@@ -1,22 +1,17 @@
-"""
-Concrete catalog factories for snapshot-based pipelines.
-"""
+"""Concrete catalog factories for snapshot-based pipelines."""
 
 import logging
 from typing import override
 
-from .base import SnapshotCatalogFactory
-from .dataclasses import Tracer
-from .galaxy_catalogs import GalaxyCatalog
+from acm.catalogs.base import SnapshotCatalogFactory
+from acm.catalogs.dataclasses import Tracer
+from acm.catalogs.galaxy_catalogs import GalaxyCatalog
 
 logger = logging.getLogger(__name__)
 
 
 class GalaxyCatalogFactory(SnapshotCatalogFactory):
-    """
-    Snapshot-based factory: Load a dark matter backend
-    and create galaxy catalogs across multiple redshift snapshots.
-    """
+    """Snapshot-based factory: Load a dark matter backend and create galaxy catalogs across multiple redshift snapshots."""
 
     def __repr__(self) -> str:
         return (

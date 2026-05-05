@@ -15,7 +15,7 @@ from collections.abc import Callable
 
 from pandas import DataFrame
 
-from ..dataclasses import Tracer
+from acm.catalogs.dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,9 @@ class DarkMatterBackend(ABC):
         ...
 
     @abstractmethod
-    def get_dark_matter_catalog(self, *args, **kwargs) -> object: ...
+    def get_dark_matter_catalog(self, *args, **kwargs) -> object: 
+        """Load the dark matter catalog, to be implemented by geometry-specific subclasses."""
+        ...
 
 
 class SnapshotBackend(DarkMatterBackend):
@@ -95,7 +97,8 @@ def register_backend(
     name: str,
 ) -> Callable[[type[DarkMatterBackend]], type[DarkMatterBackend]]:
     """
-    Decorator to register a dark matter backend class with a given name.
+    Register a dark matter backend class with a given name.
+
     This allows for easy retrieval of the backend class by name later on.
 
     Parameters

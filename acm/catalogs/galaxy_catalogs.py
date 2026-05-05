@@ -1,7 +1,5 @@
-from .base import BaseGalaxyCatalog
+from acm.catalogs.base import BaseGalaxyCatalog
 
 
 class GalaxyCatalog(BaseGalaxyCatalog):
-    """
-    Snapshot-based galaxy catalog at a fixed redshift.
-    """
+    """Snapshot-based galaxy catalog at a fixed redshift."""
