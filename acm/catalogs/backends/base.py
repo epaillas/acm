@@ -8,6 +8,7 @@ A backend is responsible for two things:
 To implement a new backend, subclass SnapshotBackend or LightconeBackend
 and register it with @register_backend("<name>").
 """
+
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -19,6 +20,7 @@ from ..dataclasses import Tracer
 logger = logging.getLogger(__name__)
 
 _BACKEND_REGISTRY = {}
+
 
 class DarkMatterBackend(ABC):
     """
@@ -38,7 +40,7 @@ class DarkMatterBackend(ABC):
     ) -> dict[Tracer, DataFrame]:
         """
         Generate galaxy data for each tracer from a dark matter catalog.
-        
+
         This part is common to all backends regardless of geometry.
 
         Parameters
@@ -56,14 +58,15 @@ class DarkMatterBackend(ABC):
             A dictionary mapping each tracer to its corresponding galaxy catalog as a DataFrame.
         """
         ...
-    
+
     @abstractmethod
     def get_dark_matter_catalog(self, *args, **kwargs) -> object: ...
+
 
 class SnapshotBackend(DarkMatterBackend):
     """
     Base for snapshot-based backends.
-    
+
     Snapshot backends load one dark matter catalog per redshift, which maps
     naturally to N-body simulation suites.
     """
@@ -86,6 +89,7 @@ class SnapshotBackend(DarkMatterBackend):
             The loaded dark matter catalog, in a format specific to the backend.
         """
         ...
+
 
 def register_backend(
     name: str,

@@ -1,5 +1,5 @@
 from .base import (
     DarkMatterBackend,
-    SnapshotBackend, 
+    SnapshotBackend,
     load_backend,
 )

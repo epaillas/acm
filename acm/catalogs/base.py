@@ -10,6 +10,7 @@ Two geometry-specific branches are provided:
   - Snapshot-based (SnapshotBackend / SnapshotCatalogFactory)
   - Lightcone-based (LightconeBackend / LightconeCatalogFactory) - TODO
 """
+
 import logging
 from abc import ABC, abstractmethod
 
@@ -21,6 +22,7 @@ from .backends import DarkMatterBackend, SnapshotBackend, load_backend
 from .dataclasses import Tracer
 
 logger = logging.getLogger(__name__)
+
 
 class BaseGalaxyCatalog:
     """
@@ -168,14 +170,15 @@ class BaseCatalogFactory(ABC):
     def catalogs(self) -> dict:
         """Dictionary of all loaded galaxy catalogs, keyed by redshift."""
         return dict(self._catalogs)
-    
+
     @abstractmethod
     def get_catalog(self, *args, **kwargs) -> BaseGalaxyCatalog: ...
+
 
 class SnapshotCatalogFactory(BaseCatalogFactory):
     """
     Abstract base class for snapshot-based catalog factories.
-    
+
     Subclasses must implement make_catalogs and get_catalog.
     """
 
@@ -215,7 +218,7 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
         ...
 
     @abstractmethod
-    def get_catalog(self, redshift: float) -> BaseGalaxyCatalog: 
+    def get_catalog(self, redshift: float) -> BaseGalaxyCatalog:
         """
         Retrieve the galaxy catalog at a given redshift.
 

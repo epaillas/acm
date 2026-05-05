@@ -1,6 +1,7 @@
 """
 Concrete catalog factories for snapshot-based pipelines.
 """
+
 import logging
 from typing import override
 
@@ -9,6 +10,7 @@ from .dataclasses import Tracer
 from .galaxy_catalogs import GalaxyCatalog
 
 logger = logging.getLogger(__name__)
+
 
 class GalaxyCatalogFactory(SnapshotCatalogFactory):
     """

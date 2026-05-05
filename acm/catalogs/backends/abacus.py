@@ -6,7 +6,9 @@ from typing import override
 import numpy as np
 import pandas as pd
 import yaml
-from abacusnbody.hod.abacus_hod import AbacusHOD # pyright: ignore[reportMissingImports]
+from abacusnbody.hod.abacus_hod import (
+    AbacusHOD,  # pyright: ignore[reportMissingImports]
+)
 
 from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
 
@@ -14,6 +16,7 @@ from ..dataclasses import Tracer
 from .base import SnapshotBackend, register_backend
 
 logger = logging.getLogger(__name__)
+
 
 @register_backend("AbacusHOD")
 class AbacusHODBackend(SnapshotBackend):
@@ -93,8 +96,8 @@ class AbacusHODBackend(SnapshotBackend):
 
     @override
     def get_dark_matter_catalog(
-        self, 
-        redshift: float, 
+        self,
+        redshift: float,
         **kwargs,
     ) -> AbacusHOD:
         sim_params = self.sim_params.copy()
@@ -197,9 +200,13 @@ class AbacusHODBackend(SnapshotBackend):
 
         # Handle kwarg names for backwards compatibility (pop all)
         seed = kwargs.pop("seed", None)
-        reseed = kwargs.pop("reseed", None) or seed or None # default to None if not specified or 0
+        reseed = (
+            kwargs.pop("reseed", None) or seed or None
+        )  # default to None if not specified or 0
         nthreads = kwargs.pop("nthreads", None)
-        Nthread = kwargs.pop("Nthread", None) or nthreads or 1 # default to 1 thread if not specified
+        Nthread = (
+            kwargs.pop("Nthread", None) or nthreads or 1
+        )  # default to 1 thread if not specified
 
         # TODO: handle density & incompleteness here ? NOTE: requires cosmology information !
         # TODO: handle NFW profile for ELG here ?
@@ -225,13 +232,15 @@ class AbacusHODBackend(SnapshotBackend):
             )
 
         return galaxy_catalogs
-    
-    def update_default_tracers(self, hod_params: dict, tracers: list[Tracer] | None = None) -> None:
+
+    def update_default_tracers(
+        self, hod_params: dict, tracers: list[Tracer] | None = None
+    ) -> None:
         """
         Update the default HOD parameters dictionary for each tracer in hod_params based on the provided tracer instances.
 
         Required for the correct loading of the AbacusHOD class, which expects default HOD parameters for each tracer at initialization.
-        If 
+        If
 
         Parameters
         ----------
@@ -267,7 +276,7 @@ class AbacusHODBackend(SnapshotBackend):
             )
 
             # Ensure flag is True, even if it wasn't set in the config file
-            tracer_flags[tracer.name] = True 
+            tracer_flags[tracer.name] = True
 
         # Update tracer_flags in hod_params
         hod_params["tracer_flags"] = tracer_flags
