@@ -11,6 +11,7 @@ from abacusnbody.hod.abacus_hod import AbacusHOD
 from acm.catalogs.backends.base import SnapshotBackend, register_backend
 from acm.catalogs.dataclasses import Tracer
 from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
+from acm.utils.decorators import kwargs_alias
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,7 @@ class AbacusHODBackend(SnapshotBackend):
         return dark_matter_catalog
 
     @override
+    @kwargs_alias(reseed="seed", Nthread="nthreads")
     def make_galaxy_catalog(
         self,
         dm_catalog: AbacusHOD,
@@ -195,15 +197,8 @@ class AbacusHODBackend(SnapshotBackend):
                 f"Updating tracer '{tracer.name}' with HOD parameters: {hod_params}"
             )
 
-        # Handle kwarg names for backwards compatibility (pop all)
-        seed = kwargs.pop("seed", None)
-        reseed = (
-            kwargs.pop("reseed", None) or seed or None
-        )  # default to None if not specified or 0
-        nthreads = kwargs.pop("nthreads", None)
-        Nthread = (
-            kwargs.pop("Nthread", None) or nthreads or 1
-        )  # default to 1 thread if not specified
+        # Handle kwarg default values
+        reseed = kwargs.pop("reseed", None) or None # Default to None if 0
 
         # TODO: handle density & incompleteness here ? NOTE: requires cosmology information !
         # TODO: handle NFW profile for ELG here ?
@@ -212,7 +207,6 @@ class AbacusHODBackend(SnapshotBackend):
             final_tracers,
             want_rsd=False,
             reseed=reseed,
-            Nthread=Nthread,
             **kwargs,
         )
 
