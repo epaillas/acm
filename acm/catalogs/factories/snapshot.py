@@ -1,13 +1,13 @@
 """Concrete catalog factories for snapshot-based pipelines."""
 
 import logging
-from typing import override
 from abc import abstractmethod
+from typing import override
 
 from cosmoprimo import Cosmology
 
-from acm.catalogs.base import BaseCatalogFactory
 from acm.catalogs.backends import SnapshotBackend
+from acm.catalogs.base import BaseCatalogFactory
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.galaxy_catalogs import SnapshotCatalog
 
@@ -31,7 +31,7 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
     ) -> None:
         super().__init__(backend, catalog_class, cosmo, cosmo_fid, **kwargs)
         # Type hints
-        self.backend: SnapshotBackend  
+        self.backend: SnapshotBackend
         self.catalog_class: type[SnapshotCatalog]
         self._catalogs: dict[float, SnapshotCatalog]
 

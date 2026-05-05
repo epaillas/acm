@@ -31,8 +31,7 @@ def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
     """Build the Abacus simulation name based on the provided parameters."""
     if sim_type == "png":
         return f"Abacus_{sim_type}base_c{cosmo_idx:03d}_ph{phase_idx:03d}"
-    else:
-        return f"AbacusSummit_{sim_type}_c{cosmo_idx:03d}_ph{phase_idx:03d}"
+    return f"AbacusSummit_{sim_type}_c{cosmo_idx:03d}_ph{phase_idx:03d}"
 
 
 @overload

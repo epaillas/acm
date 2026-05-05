@@ -36,7 +36,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             f"redshift={self.redshift}, "
             f"tracers={list(self.tracers.keys())})"
         )
-    
+
     @property
     def az(self) -> float:
         """Scale factor at this snapshot's redshift."""

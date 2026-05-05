@@ -6,16 +6,18 @@ from typing import override
 import numpy as np
 import pandas as pd
 import yaml
-from abacusnbody.hod.abacus_hod import AbacusHOD# pyright: ignore[reportMissingImports]
+from abacusnbody.hod.abacus_hod import (
+    AbacusHOD,  # pyright: ignore[reportMissingImports]
+)
 
-from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
-
-from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.backends.base import SnapshotBackend, register_backend
+from acm.catalogs.dataclasses import Tracer
+from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
 
 logger = logging.getLogger(__name__)
 
 _TRACER_NAME_ALIASES = {"BGS": "LRG"}
+
 
 @register_backend("AbacusHOD")
 class AbacusHODBackend(SnapshotBackend):

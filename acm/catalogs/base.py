@@ -59,10 +59,7 @@ class BaseGalaxyCatalog:
 
     def __repr__(self) -> str:
         """Provide a string representation of the galaxy catalog, including tracer information."""
-        return (
-            f"{self.__class__.__name__}("
-            f"tracers={list(self.tracers.keys())})"
-        )
+        return f"{self.__class__.__name__}(tracers={list(self.tracers.keys())})"
 
     def register_tracer(self, tracer: Tracer) -> None:
         """Register a tracer in the catalog."""
@@ -144,4 +141,4 @@ class BaseCatalogFactory(ABC):
         return dict(self._catalogs)
 
     @abstractmethod
-    def get_catalog(self, *args, **kwargs) -> BaseGalaxyCatalog: ... #noqa: D102
+    def get_catalog(self, *args, **kwargs) -> BaseGalaxyCatalog: ...  # noqa: D102

@@ -60,7 +60,7 @@ class DarkMatterBackend(ABC):
         ...
 
     @abstractmethod
-    def get_dark_matter_catalog(self, *args, **kwargs) -> object: 
+    def get_dark_matter_catalog(self, *args, **kwargs) -> object:
         """Load the dark matter catalog, to be implemented by geometry-specific subclasses."""
         ...
 
