@@ -198,7 +198,7 @@ class AbacusHODBackend(SnapshotBackend):
             )
 
         # Handle kwarg default values
-        reseed = kwargs.pop("reseed", None) or None # Default to None if 0
+        reseed = kwargs.pop("reseed", None) or None  # Default to None if 0
 
         # TODO: handle density & incompleteness here ? NOTE: requires cosmology information !
         # TODO: handle NFW profile for ELG here ?
