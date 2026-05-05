@@ -19,8 +19,8 @@ from acm.utils.xarray import dataset_from_dict
 
 logger = logging.getLogger(__name__)
 
-EmulatorModel: TypeAlias = BaseModel
-EmulatorModelClass: TypeAlias = type[BaseModel]
+type EmulatorModel = BaseModel
+type EmulatorModelClass = type[BaseModel]
 
 
 class Observable:
