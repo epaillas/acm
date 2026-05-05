@@ -34,21 +34,20 @@ def temporary_class_state(**attrs) -> Callable:
 
     return decorator
 
-
-# Provides a global toggle for NERSC-only function restrictions, defaulting to enabled.
-ENABLE_NERSC = os.getenv("ACM_ENABLE_NERSC_ONLY", "1") == "1"
-
-
-def require_nersc(enabled: bool = ENABLE_NERSC) -> Callable:
-    """Restrict a function execution to NERSC environments."""
-
+def require_nersc(enabled: bool = True) -> Callable:
+    """Restrict function execution to NERSC environments.
+    
+    Parameters
+    ----------
+    enabled: bool
+        If False, the restriction is lifted (e.g. for local development).
+    """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> object:
-            if enabled and not is_nersc:
-                fname = getattr(func, "__name__", "unknown")
+            if enabled and os.environ.get("NERSC_HOST") != "perlmutter":
                 raise OSError(
-                    f"The function '{fname}' can only be executed in a NERSC environment."
+                    f"'{func.__name__}' can only be executed in a NERSC environment."
                 )
             return func(*args, **kwargs)
 
