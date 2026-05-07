@@ -89,8 +89,8 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
     def save(self, path: str | Path) -> None:
         """
         Save all loaded catalogs to a directory, one HDF5 file per redshift.
-        
-        Catalogs are saved with filenames like "catalog_z0.500.h5" 
+
+        Catalogs are saved with filenames like "catalog_z0.500.h5"
         using the save method of the catalog class.
 
         Parameters
@@ -107,8 +107,8 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
     def load_catalogs(self, path: str | Path) -> None:
         """
         Load all HDF5 catalogs from a directory into the factory.
-        
-        Searches for files with names like "catalog_z0.500.h5" 
+
+        Searches for files with names like "catalog_z0.500.h5"
         and loads them using the load method of the catalog class.
 
         Parameters

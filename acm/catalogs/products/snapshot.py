@@ -431,11 +431,13 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         boxsize : np.ndarray
             Box dimensions in each axis, used to scale the random positions.
         """
+        rng = np.random.default_rng()  
         return pd.DataFrame({
-            "x": np.random.uniform(0, boxsize[0], n_gal),
-            "y": np.random.uniform(0, boxsize[1], n_gal),
-            "z": np.random.uniform(0, boxsize[2], n_gal),
+            "x": rng.uniform(0, boxsize[0], n_gal),
+            "y": rng.uniform(0, boxsize[1], n_gal),
+            "z": rng.uniform(0, boxsize[2], n_gal),
         })
 
-    def rsd(self, los: str = "z") -> None:
+    def rsd(self, los: str = "z") -> None: 
+        """Raise an error if RSD is attempted on a random catalog, since velocities are not defined."""
         raise NotImplementedError("RSD is not available for random catalogs.")
