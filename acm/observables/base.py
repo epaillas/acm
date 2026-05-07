@@ -19,9 +19,6 @@ from acm.utils.xarray import dataset_from_dict
 
 logger = logging.getLogger(__name__)
 
-type EmulatorModel = BaseModel
-type EmulatorModelClass = type[BaseModel]
-
 
 class Observable:
     """Class to load a compressed Observable file or model and apply filters to their outputs."""
@@ -30,7 +27,7 @@ class Observable:
         self,
         stat_name: str,
         dataset: xarray.Dataset | None = None,
-        model: EmulatorModel | None = None,
+        model: BaseModel | None = None,
         select_filters: dict | None = None,
         slice_filters: dict | None = None,
         select_indices: list | None = None,
@@ -45,7 +42,7 @@ class Observable:
         numpy_output: bool = False,
         paths: dict | None = None,
         checkpoint_fn: Path | str | None = None,
-        model_cls: EmulatorModelClass | None = None,
+        model_cls: type[BaseModel] | None = None,
         silent_load: bool = False,
     ) -> None:
         """
@@ -217,8 +214,8 @@ class Observable:
     def load_model(
         cls,
         checkpoint_fn: Path | str,
-        model_cls: EmulatorModelClass | None = None,
-    ) -> EmulatorModel:
+        model_cls: type[BaseModel] | None = None,
+    ) -> BaseModel:
         """
         Trained theory model loaded from checkpoint.
 
@@ -231,7 +228,7 @@ class Observable:
 
         Returns
         -------
-        EmulatorModel
+        BaseModel
             The loaded emulator model.
         """
         return load_model_from_checkpoint(checkpoint_fn, model_cls=model_cls)
@@ -601,7 +598,7 @@ class Observable:
     def get_model_prediction(
         self,
         x: np.ndarray | dict | xarray.DataArray,
-        model: EmulatorModel | None = None,
+        model: BaseModel | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = True,
@@ -611,7 +608,7 @@ class Observable:
     def get_model_prediction(
         self,
         x: np.ndarray | dict | xarray.DataArray,
-        model: EmulatorModel | None = None,
+        model: BaseModel | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = False,
@@ -620,7 +617,7 @@ class Observable:
     def get_model_prediction(
         self,
         x: np.ndarray | dict | xarray.DataArray,
-        model: EmulatorModel | None = None,
+        model: BaseModel | None = None,
         coords: dict | None = None,
         attrs: dict | None = None,
         nofilters: bool = False,
@@ -634,7 +631,7 @@ class Observable:
             Input features for the model.
             If an array, it should have shape (n_samples, n_params).
             If a dict, it should have keys matching the model input names and values as lists/1d-arrays of shape (n_samples,).
-        model : EmulatorModel
+        model : BaseModel
             Trained theory model. If None, the model attribute of the class is used. Defaults to None.
         coords : dict, optional
             Coordinates for the output DataArray. If None, the coordinates of _dataset.y are used. Defaults to None.
