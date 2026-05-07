@@ -1,10 +1,10 @@
-import logging
 import json
-from typing import Self
-import h5py
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Self
 
+import h5py
 import pandas as pd
 from cosmoprimo import Cosmology
 
@@ -76,7 +76,7 @@ class BaseGalaxyCatalog(ABC):
         for transform in self._transforms.values():
             data = transform.apply(data)
         return data
-    
+
     def get_raw_tracer_data(self, tracer: str) -> pd.DataFrame:
         """Return the raw tracer data without applying transforms."""
         if tracer not in self._data:
@@ -134,9 +134,9 @@ class BaseGalaxyCatalog(ABC):
 
         with h5py.File(path, "w") as f:
             f.attrs["catalog_class"] = self.__class__.__name__
-            f.attrs["tracers"] = json.dumps({
-                name: tracer.params for name, tracer in self.tracers.items()
-            })
+            f.attrs["tracers"] = json.dumps(
+                {name: tracer.params for name, tracer in self.tracers.items()}
+            )
             self._save_attrs(f)  # subclass-specific attributes
 
             for tracer_name, data in self._data.items():
@@ -171,7 +171,9 @@ class BaseGalaxyCatalog(ABC):
             tracer_meta = json.loads(f.attrs["tracers"])
             extra_attrs = dict(f.attrs)  # Extra attributes saved by the subclass
 
-            catalog = cls._from_attrs(extra_attrs, cosmo, cosmo_fid)  # subclass reconstruction
+            catalog = cls._from_attrs(
+                extra_attrs, cosmo, cosmo_fid
+            )  # subclass reconstruction
 
             for tracer_name, params in tracer_meta.items():
                 tracer = Tracer(name=tracer_name, params=params)

@@ -2,8 +2,8 @@
 
 import logging
 from abc import abstractmethod
-from typing import override
 from pathlib import Path
+from typing import override
 
 from cosmoprimo import Cosmology
 
@@ -103,7 +103,7 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
         for z, catalog in self._catalogs.items():
             catalog.save(path / f"catalog_z{z:.3f}.h5")
         logger.info(f"Saved {len(self._catalogs)} catalog(s) to {path}")
-        
+
     def load_catalogs(self, path: str | Path) -> None:
         """
         Load all HDF5 catalogs from a directory into the factory.
@@ -124,6 +124,7 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
             catalog = self.catalog_class.load(file, self.cosmo, self.cosmo_fid)
             self._catalogs[catalog.redshift] = catalog
         logger.info(f"Loaded {len(files)} catalog(s) from {path}")
+
 
 class GalaxyCatalogFactory(SnapshotCatalogFactory):
     """Snapshot-based factory: Load a dark matter backend and create galaxy catalogs across multiple redshift snapshots."""

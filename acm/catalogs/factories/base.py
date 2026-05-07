@@ -70,9 +70,9 @@ class BaseCatalogFactory(ABC):
 
     @abstractmethod
     def get_catalog(self, *args, **kwargs) -> BaseGalaxyCatalog: ...  # noqa: D102
-    
+
     @abstractmethod
     def save(self, path: str | Path) -> None: ...  # noqa: D102
-    
+
     @abstractmethod
     def load_catalogs(self, path: str | Path) -> None: ...  # noqa: D102

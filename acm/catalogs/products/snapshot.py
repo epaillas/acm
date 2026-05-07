@@ -365,7 +365,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
     def _save_attrs(self, f: h5py.File) -> None:
         f.attrs["redshift"] = self.redshift
         f.attrs["boxsize"] = self._boxsize  # raw, pre-AP boxsize
-        
+
         # Cosmology parameters (just in case; not used to reconstruct the class)
         f.attrs["cosmo_h"] = self.hubble
         f.attrs["cosmo_fid_h"] = self.hubble_fid
@@ -394,7 +394,7 @@ class RandomSnapshotCatalog(SnapshotCatalog):
 
     pos_columns = ("x", "y", "z")
     vel_columns = ()  # No velocities for random catalogs
-    
+
     @classmethod
     def from_snapshot(cls, catalog: SnapshotCatalog) -> Self:
         """
@@ -416,7 +416,9 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         )
         for tracer_name, tracer in catalog.tracers.items():
             n_gal = len(catalog._data[tracer_name])
-            random_catalog.set_tracer_data(tracer, cls._random_positions(n_gal, catalog._boxsize))
+            random_catalog.set_tracer_data(
+                tracer, cls._random_positions(n_gal, catalog._boxsize)
+            )
         return random_catalog
 
     @staticmethod
@@ -431,13 +433,15 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         boxsize : np.ndarray
             Box dimensions in each axis, used to scale the random positions.
         """
-        rng = np.random.default_rng()  
-        return pd.DataFrame({
-            "x": rng.uniform(0, boxsize[0], n_gal),
-            "y": rng.uniform(0, boxsize[1], n_gal),
-            "z": rng.uniform(0, boxsize[2], n_gal),
-        })
+        rng = np.random.default_rng()
+        return pd.DataFrame(
+            {
+                "x": rng.uniform(0, boxsize[0], n_gal),
+                "y": rng.uniform(0, boxsize[1], n_gal),
+                "z": rng.uniform(0, boxsize[2], n_gal),
+            }
+        )
 
-    def rsd(self, los: str = "z") -> None: 
+    def rsd(self, los: str = "z") -> None:
         """Raise an error if RSD is attempted on a random catalog, since velocities are not defined."""
         raise NotImplementedError("RSD is not available for random catalogs.")
