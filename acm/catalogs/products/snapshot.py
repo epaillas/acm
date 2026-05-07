@@ -36,7 +36,13 @@ def _apply_rsd(data: DataFrame, los: str, hubble: float, az: float) -> DataFrame
     data[los] = data[los] + data[v_col] / (hubble * az)
     return data
 
-def _apply_ap(data: DataFrame, los: str, q_par: float, q_perp: float) -> DataFrame:
+def _apply_ap(
+    data: DataFrame,
+    los: str,
+    q_par: float,
+    q_perp: float,
+    pos_columns: tuple[str],
+) -> DataFrame:
     """
     Apply AP scaling: q_par along los, q_perp along transverse axes.
     
@@ -50,6 +56,8 @@ def _apply_ap(data: DataFrame, los: str, q_par: float, q_perp: float) -> DataFra
         AP scaling factor along the line-of-sight.
     q_perp : float
         AP scaling factor along the transverse directions.
+    pos_columns : tuple[str]
+        Names of the position columns, e.g. ('x', 'y', 'z').
     
     Returns
     -------
@@ -57,7 +65,7 @@ def _apply_ap(data: DataFrame, los: str, q_par: float, q_perp: float) -> DataFra
         Transformed galaxy data with AP scaling applied.
     """
     data = data.copy()
-    for ax in ("x", "y", "z"): # FIXME: Hardcoded !
+    for ax in pos_columns:
         data[ax] = data[ax] * (q_par if ax == los else q_perp)
     return data
 
@@ -255,7 +263,12 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         self._add_transform(Transform(
             name="ap",
             func=_apply_ap,
-            kwargs={"los": los, "q_par": self.q_par, "q_perp": self.q_perp},
+            kwargs={
+                "los": los,
+                "q_par": self.q_par,
+                "q_perp": self.q_perp,
+                "pos_columns": self.pos_columns,
+            },
         ))
 
     def downsample(
@@ -280,6 +293,11 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             Fraction of galaxies to keep, between 0 and 1.
         nbar : float, optional
             Target number density in (Mpc/h)^-3.
+            
+        Raises
+        ------
+        ValueError
+            If not exactly one of n_gal, f_gal or nbar is provided.
         """
         provided = sum(p is not None for p in (n_gal, f_gal, nbar))
         if provided != 1:
@@ -317,7 +335,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         
     @property
     def nbar(self) -> float:
-        """Number density of galaxies in the catalog."""
+        """Number density of galaxies in the entire catalog."""
         if not self.tracers:
             raise RuntimeError("No tracers loaded in the catalog, cannot compute nbar.")
         volume = np.prod(self.boxsize)
