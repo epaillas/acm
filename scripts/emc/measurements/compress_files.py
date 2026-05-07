@@ -49,7 +49,7 @@ LEGACY_TO_ALIAS = {
     "WaveletScatteringTransform": "wst",
 }
 
-TEST_FILTERS = {'cosmo_idx': [0, 1, 2, 3, 4, 13]}
+TEST_FILTERS = {"cosmo_idx": [0, 1, 2, 3, 4, 13]}
 
 
 def resolve_statistic_name(statistic: str) -> str:
@@ -62,33 +62,56 @@ def resolve_statistic_name(statistic: str) -> str:
     return statistic
 
 
-parser = argparse.ArgumentParser(description='Compress EMC measurement files.')
+parser = argparse.ArgumentParser(description="Compress EMC measurement files.")
 parser.add_argument(
-    '--module',
+    "--module",
     type=str,
-    default='acm.observables.emc',
-    help='Module to load the observable classes from.',
+    default="acm.observables.emc",
+    help="Module to load the observable classes from.",
 )
 parser.add_argument(
-    '-s',
-    '--statistic',
+    "-s",
+    "--statistic",
     type=str,
     choices=ALIASES,
-    help='Observable alias to compress.',
-    default='spectrum',
+    help="Observable alias to compress.",
+    default="spectrum",
 )
-parser.add_argument('--n_hod', type=int, default=250, help='Number of HOD realizations to use for compression.')
-parser.add_argument('--add_covariance', action='store_true', help='Whether to add covariance to the compressed data.')
+parser.add_argument(
+    "--n_hod",
+    type=int,
+    default=250,
+    help="Number of HOD realizations to use for compression.",
+)
+parser.add_argument(
+    "--add_covariance",
+    action="store_true",
+    help="Whether to add covariance to the compressed data.",
+)
+parser.add_argument(
+    "--mask_csv", type=str, default=None, help="Optional WST coefficient mask CSV."
+)
 
 args = parser.parse_args()
 statistic = resolve_statistic_name(args.statistic)
 module = args.module
 n_hod = args.n_hod
 add_covariance = args.add_covariance
+mask_csv = args.mask_csv
 
 setup_logging()
 
-paths = lookup_registry_path('projects.yaml', 'emc')
+paths = lookup_registry_path("projects.yaml", "emc")
 
 observable = get_class_from_module(module, statistic)
-observable.compress_data(paths=paths, save_to=paths['data_dir'], add_covariance=add_covariance, n_hod=n_hod, test_filters=TEST_FILTERS)
+compress_kwargs = {}
+if statistic == "wst":
+    compress_kwargs["mask_csv"] = mask_csv
+observable.compress_data(
+    paths=paths,
+    save_to=paths["data_dir"],
+    add_covariance=add_covariance,
+    n_hod=n_hod,
+    test_filters=TEST_FILTERS,
+    **compress_kwargs,
+)
