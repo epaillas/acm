@@ -225,7 +225,9 @@ class AbacusHODBackend(SnapshotBackend):
         return galaxy_catalogs
 
     def update_default_tracers(
-        self, hod_params: dict, tracers: list[Tracer] | None = None
+        self, 
+        hod_params: dict, 
+        tracers: list[Tracer] | None = None,
     ) -> None:
         """
         Update the default HOD parameters dictionary for each tracer in hod_params based on the provided tracer instances.

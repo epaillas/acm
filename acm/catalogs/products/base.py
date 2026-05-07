@@ -1,14 +1,15 @@
+from abc import ABC, abstractmethod
 import logging
 
 from cosmoprimo import Cosmology
 from pandas import DataFrame
 
-from acm.catalogs.dataclasses import Tracer
+from acm.catalogs.dataclasses import Tracer, Transform
 
 logger = logging.getLogger(__name__)
 
 
-class BaseGalaxyCatalog:
+class BaseGalaxyCatalog(ABC):
     """
     Stores galaxy data for multiple tracers.
 
@@ -40,6 +41,7 @@ class BaseGalaxyCatalog:
         self.cosmo_fid = cosmo_fid
         self.tracers: dict[str, Tracer] = {}
         self._data: dict[str, DataFrame] = {}
+        self._transforms: dict[str, Transform] = {}
 
     def __repr__(self) -> str:
         """Provide a string representation of the galaxy catalog, including tracer information."""
@@ -54,14 +56,40 @@ class BaseGalaxyCatalog:
     def set_tracer_data(self, tracer: Tracer, data: DataFrame) -> None:
         """Set the galaxy data for a given tracer."""
         self.register_tracer(tracer)  # Ensure tracer is registered before setting data
+        if not self._check_data_columns(data):
+            raise ValueError(f"Data for tracer '{tracer.name}' is missing required columns.")
         self._data[tracer.name] = data
 
-    def get_tracer_data(self, tracer_name: str) -> DataFrame:
-        """Get the galaxy data for a given tracer."""
-        if tracer_name not in self._data:
-            raise KeyError(f"No data loaded for tracer '{tracer_name}'.")
-        return self._data[tracer_name]
+    def get_tracer_data(self, tracer: str) -> DataFrame:
+        """Return tracer data with all pipeline transforms applied."""
+        if tracer not in self._data:
+            raise KeyError(f"No data loaded for tracer '{tracer}'.")
+        data = self._data[tracer].copy()
+        for transform in self._transforms.values():
+            data = transform.apply(data)
+        return data
+    
+    @abstractmethod
+    def _check_data_columns(self, data: DataFrame) -> bool:
+        """Check that the required columns for a tracer are present in the data before assignment."""
+        ...
+        
+    def _add_transform(self, transform: Transform) -> None:
+        """Register or replace a transform in the pipeline."""
+        if transform.name in self._transforms:
+            logger.warning(f"Transform '{transform.name}' already exists and will be replaced.")
+        self._transforms[transform.name] = transform
+
+    def _remove_transform(self, name: str) -> None:
+        """Remove a transform from the pipeline."""
+        if name not in self._transforms:
+            raise KeyError(f"Transform '{name}' is not in the pipeline.")
+        del self._transforms[name]
 
     def __getitem__(self, tracer_name: str) -> DataFrame:
         """Allow direct indexing to get tracer data, e.g. catalog['ELG']."""
         return self.get_tracer_data(tracer_name)
+    
+    def __len__(self) -> int:
+        """Return the total number of galaxies across all tracers."""
+        return sum(len(data) for data in self._data.values())

@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
+
+from pandas import DataFrame
 
 
 @dataclass
@@ -22,3 +24,24 @@ class Tracer:
     def __repr__(self) -> str:
         """Provide a string representation of the tracer, including its name and parameters."""
         return f"Tracer(name={self.name!r}, params={self.params})"
+
+@dataclass
+class Transform:
+    """
+    A named transform with its arguments, stored in the pipeline.
+
+    Parameters
+    ----------
+    name : str
+        Unique identifier, used to avoid duplicate transforms (e.g. "rsd", "ap").
+    func : Callable[[DataFrame, ...], DataFrame]
+        Pure function that takes a DataFrame and returns a transformed DataFrame.
+    kwargs : dict
+        Arguments forwarded to func at application time.
+    """
+    name: str
+    func: Callable[[DataFrame], DataFrame]
+    kwargs: dict = field(default_factory=dict)
+
+    def apply(self, data: DataFrame) -> DataFrame:
+        return self.func(data, **self.kwargs)
