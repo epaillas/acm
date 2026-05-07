@@ -1,6 +1,7 @@
 from sunbird.inference.pocomc import PocoMCSampler
 from sunbird.inference import priors as sunbird_priors
 from sunbird.cosmology.model_params import get_model_params
+from sunbird.emulators import load_model_from_checkpoint
 from sunbird.inference.samples import Chain
 
 from acm.observables import CombinedObservable, Observable
@@ -17,28 +18,28 @@ import logging
 
 
 LEGACY_TO_ALIAS = {
-    'GalaxyCorrelationFunctionMultipoles': 'tpcf',
-    'ProjectedGalaxyCorrelationFunction': 'projected_tpcf',
-    'GalaxyPowerSpectrumMultipoles': 'spectrum',
-    'GalaxyBispectrumMultipoles': 'bispectrum',
-    'ReconstructedGalaxyPowerSpectrumMultipoles': 'recon_spectrum',
-    'DensitySplitQuantileGalaxyCorrelationFunctionMultipoles': 'ds_xiqg',
-    'DensitySplitQuantileCorrelationFunctionMultipoles': 'ds_xiqq',
-    'MinkowskiFunctionals': 'minkowski',
-    'GalaxyOverdensityPDF': 'pdf',
-    'WaveletScatteringTransform': 'wst',
-    'VIDEVoidGalaxyCorrelationFunctionMultipoles': 'vide_ccf',
-    'VIDEVoidSizeFunction': 'vide_vsf',
-    'VERSUSVoidSizeFunction': 'sv_vsf',
-    'ReconstructedVERSUSVoidSizeFunction': 'sv_recon_vsf',
-    'VERSUSVoidGalaxyCorrelationFunctionMultipoles': 'sv_xivg',
-    'ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles': 'sv_recon_xivg',
-    'VERSUSVoidAutoCorrelationFunctionMultipoles': 'sv_xivv',
-    'ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles': 'sv_recon_xivv',
+    "GalaxyCorrelationFunctionMultipoles": "tpcf",
+    "ProjectedGalaxyCorrelationFunction": "projected_tpcf",
+    "GalaxyPowerSpectrumMultipoles": "spectrum",
+    "GalaxyBispectrumMultipoles": "bispectrum",
+    "ReconstructedGalaxyPowerSpectrumMultipoles": "recon_spectrum",
+    "DensitySplitQuantileGalaxyCorrelationFunctionMultipoles": "ds_xiqg",
+    "DensitySplitQuantileCorrelationFunctionMultipoles": "ds_xiqq",
+    "MinkowskiFunctionals": "minkowski",
+    "GalaxyOverdensityPDF": "pdf",
+    "WaveletScatteringTransform": "wst",
+    "VIDEVoidGalaxyCorrelationFunctionMultipoles": "vide_ccf",
+    "VIDEVoidSizeFunction": "vide_vsf",
+    "VERSUSVoidSizeFunction": "sv_vsf",
+    "ReconstructedVERSUSVoidSizeFunction": "sv_recon_vsf",
+    "VERSUSVoidGalaxyCorrelationFunctionMultipoles": "sv_xivg",
+    "ReconstructedVERSUSVoidGalaxyCorrelationFunctionMultipoles": "sv_recon_xivg",
+    "VERSUSVoidAutoCorrelationFunctionMultipoles": "sv_xivv",
+    "ReconstructedVERSUSVoidAutoCorrelationFunctionMultipoles": "sv_recon_xivv",
 }
 
 NBAR_EMULATOR_CHECKPOINT = Path(
-    '/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.3/best/number_density.ckpt'
+    "/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/models/v1.3/best/number_density.ckpt"
 )
 NBAR_TARGET_DENSITY = 4.85e-4
 
@@ -53,7 +54,7 @@ def get_priors(cosmo=True, hod=True):
     and labels for cosmological and HOD parameters in a format
     that is readable by PocoMCSampler.
     """
-    stats_module = 'scipy.stats'
+    stats_module = "scipy.stats"
     priors, ranges, labels = {}, {}, {}
     if cosmo:
         priors.update(sunbird_priors.AbacusSummit(stats_module).priors)
@@ -73,31 +74,32 @@ def get_fixed_params(cosmo_model, hod_model):
     """
     free = []
     # cosmology
-    if 'base' in cosmo_model:
-        free += ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s']
-    if 'w0' in cosmo_model:
-        free += ['w0_fld']
-    if 'wa' in cosmo_model:
-        free += ['wa_fld']
-    if 'Nur' in cosmo_model:
-        free += ['N_ur']
-    if 'nrun' in cosmo_model:
-        free += ['nrun']
-    if 'fixed-ns' in cosmo_model:
-        free.remove('n_s')
+    if "base" in cosmo_model:
+        free += ["omega_b", "omega_cdm", "sigma8_m", "n_s"]
+    if "w0" in cosmo_model:
+        free += ["w0_fld"]
+    if "wa" in cosmo_model:
+        free += ["wa_fld"]
+    if "Nur" in cosmo_model:
+        free += ["N_ur"]
+    if "nrun" in cosmo_model:
+        free += ["nrun"]
+    if "fixed-ns" in cosmo_model:
+        free.remove("n_s")
     # HOD
-    if 'base' in hod_model:
-        free += ['logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa']
-    if 'AB' in hod_model:
-        free += ['B_cen', 'B_sat']
+    if "base" in hod_model:
+        free += ["logM_cut", "logM_1", "sigma", "alpha", "kappa"]
+    if "AB" in hod_model:
+        free += ["B_cen", "B_sat"]
     if "CB" in hod_model:
         free += ["A_cen", "A_sat"]
-    if 'VB' in hod_model:
-        free += ['alpha_c', 'alpha_s']
-    if '_s' in hod_model or '-s' in hod_model:
-        free += ['s']
+    if "VB" in hod_model:
+        free += ["alpha_c", "alpha_s"]
+    if "_s" in hod_model or "-s" in hod_model:
+        free += ["s"]
     fixed = [par for par in priors.keys() if par not in free]
     return fixed
+
 
 def get_filters(observable_name):
     """
@@ -105,24 +107,24 @@ def get_filters(observable_name):
     This function returns dictionaries that specify which coordinates to select
     and which to slice for the given observable.
     """
-    select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx}
+    select_filters = {"cosmo_idx": args.cosmo_idx, "hod_idx": args.hod_idx}
     slice_filters = {}
     """Get the select and slice coordinates for the observable."""
     observable_name = resolve_statistic_name(observable_name)
-    if observable_name == 'tpcf':
-        select_filters.update({'multipoles': [0, 2]})
-        slice_filters.update({'s': [0.0, 150]})
-    elif observable_name == 'spectrum':
-        select_filters.update({'multipoles': [0, 2, 4]})
-    elif observable_name == 'bispectrum':
-        select_filters.update({'multipoles': [0, 2]})
-        slice_filters.update({'k': [0.0, 0.7]})
-    elif observable_name == 'recon_spectrum':
-        select_filters.update({'multipoles': [0, 2, 4]})
-        slice_filters.update({'k': [0.0, 0.7]})
-    elif observable_name in {'ds_xiqg', 'ds_xiqq'}:
-        select_filters.update({'statistics': ['quantile_data_power']})
+    if observable_name == "tpcf":
+        select_filters.update({"ells": [0, 2]})
+        slice_filters.update({"s": [0.0, 150]})
+    elif observable_name == "spectrum":
+        select_filters.update({"ells": [0, 2, 4]})
+    elif observable_name == "bispectrum":
+        select_filters.update({"ells": [0, 2]})
+    elif observable_name == "recon_spectrum":
+        select_filters.update({"ells": [0, 2, 4]})
+        slice_filters.update({"k": [0.0, 0.7]})
+    elif observable_name in {"ds_xiqg", "ds_xiqq"}:
+        select_filters.update({"statistics": ["quantile_data_power"]})
     return select_filters, slice_filters
+
 
 def get_observable(observable_names):
     """Get the observable class by name."""
@@ -137,6 +139,7 @@ def get_observable(observable_names):
             squeeze_output=True,
             select_filters=select_filters,
             slice_filters=slice_filters,
+            paths={"model_dir": Path(args.model_dir)} if args.model_dir else None,
         )
         observables.append(obs)
     return obs if len(observables) == 1 else CombinedObservable(observables)
@@ -144,8 +147,9 @@ def get_observable(observable_names):
 
 def load_number_density_model():
     """Load the optional EMC number-density emulator checkpoint."""
-    logger.info(f'Loading number density emulator from {NBAR_EMULATOR_CHECKPOINT}')
-    return Observable.load_model(NBAR_EMULATOR_CHECKPOINT)
+    logger.info(f"Loading number density emulator from {NBAR_EMULATOR_CHECKPOINT}")
+    return load_model_from_checkpoint(NBAR_EMULATOR_CHECKPOINT)
+
 
 def get_data_model_cov(observable):
     """
@@ -156,12 +160,12 @@ def get_data_model_cov(observable):
     data_x = observable.x
     data_x_names = observable.x_names
     data_y = observable.y
-    logger.info(f'Loaded data_x with shape: {data_x.shape}')
-    logger.info(f'Loaded data_y with shape {data_y.shape}')
+    logger.info(f"Loaded data_x with shape: {data_x.shape}")
+    logger.info(f"Loaded data_y with shape {data_y.shape}")
 
     # load the covariance matrix, including emulator error and Percival correction
     cov = observable.get_covariance_matrix(volume_factor=64)
-    logger.info(f'Loaded covariance matrix with shape: {cov.shape}')
+    logger.info(f"Loaded covariance matrix with shape: {cov.shape}")
     if args.use_emulator_covariance:
         cov += observable.get_emulator_covariance_matrix(
             method=args.emulator_covariance_method,
@@ -180,6 +184,7 @@ def get_data_model_cov(observable):
 
     return data_x, data_x_names, data_y, cov, model
 
+
 def fit_abacus(observable):
     """
     Fit the AbacusSummit data using the PocoMCSampler.
@@ -197,9 +202,13 @@ def fit_abacus(observable):
     fixed_params = {key: data_x[data_x_names.index(key)] for key in fixed_param_names}
 
     # a 'markers' dictionary containing the true values of the parameters
-    markers = {key: data_x[data_x_names.index(key)] for key in data_x_names if key not in fixed_params}
+    markers = {
+        key: data_x[data_x_names.index(key)]
+        for key in data_x_names
+        if key not in fixed_params
+    }
     cosmo = fiducial.AbacusSummit(args.cosmo_idx)
-    markers.update({'Omega_m': cosmo['Omega_m'], 'h': cosmo['h']})
+    markers.update({"Omega_m": cosmo["Omega_m"], "h": cosmo["h"]})
 
     number_density_model = None
     target_density = None
@@ -225,6 +234,7 @@ def fit_abacus(observable):
 
     return sampler
 
+
 def save_and_plot(sampler, observable):
     """
     Save and plot the results of the sampler.
@@ -234,39 +244,96 @@ def save_and_plot(sampler, observable):
     statistics = observable.stat_name
     # join if multiple statistics are used
     if isinstance(statistics, list):
-        statistics = '+'.join(statistics)
-    if args.identifier is not None: statistics += f'_{args.identifier}'
-    save_dir = Path(args.save_dir) / f'c{args.cosmo_idx:03}_hod{args.hod_idx:03}/cosmo-{cosmo_model}_hod-{hod_model}/'
+        statistics = "+".join(statistics)
+    if args.identifier is not None:
+        statistics += f"_{args.identifier}"
+    save_dir = (
+        Path(args.save_dir)
+        / f"c{args.cosmo_idx:03}_hod{args.hod_idx:03}/cosmo-{cosmo_model}_hod-{hod_model}/"
+    )
     Path(save_dir).mkdir(parents=True, exist_ok=True)
 
     """Save the chain data and plots to the specified directory."""
-    sampler.save_chain(save_fn=save_dir / f'chain_{statistics}.npy', metadata={'markers': sampler.markers, 'zeff': 0.5})
-    sampler.save_table(save_fn=save_dir / f'chain_{statistics}_stats.txt')
-    chain = Chain.load(save_dir / f'chain_{statistics}.npy')
-    chain.plot_triangle(save_fn=save_dir / f'chain_{statistics}_triangle.pdf', thin=128,
-                        markers=sampler.markers, title_limit=1)
-    chain.plot_trace(save_fn=save_dir / f'chain_{statistics}_trace.pdf', thin=128)
-    observable.plot_observable(model_params=chain.bestfit, save_fn=save_dir / f'chain_{statistics}_bestfit.pdf')
+    sampler.save_chain(
+        save_fn=save_dir / f"chain_{statistics}.npy",
+        metadata={"markers": sampler.markers, "zeff": 0.5},
+    )
+    sampler.save_table(save_fn=save_dir / f"chain_{statistics}_stats.txt")
+    chain = Chain.load(save_dir / f"chain_{statistics}.npy")
+    chain.plot_triangle(
+        save_fn=save_dir / f"chain_{statistics}_triangle.pdf",
+        thin=128,
+        markers=sampler.markers,
+        title_limit=1,
+    )
+    chain.plot_trace(save_fn=save_dir / f"chain_{statistics}_trace.pdf", thin=128)
+    observable.plot_observable(
+        model_params=chain.bestfit, save_fn=save_dir / f"chain_{statistics}_bestfit.pdf"
+    )
 
 
 if __name__ == "__main__":
-
     logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--module', type=str, default='acm.observables.emc', help='Module to load the observable classes from.')
-    parser.add_argument('-s', '--statistics', nargs='+', help='List of statistics to use, e.g. spectrum')
+    parser.add_argument(
+        "--module",
+        type=str,
+        default="acm.observables.emc",
+        help="Module to load the observable classes from.",
+    )
+    parser.add_argument(
+        "-s", "--statistics", nargs="+", help="List of statistics to use, e.g. spectrum"
+    )
     parser.add_argument("--cosmo_idx", type=int, default=0)
     parser.add_argument("--hod_idx", type=int, default=0)
-    parser.add_argument('--use_emulator_covariance', action='store_true', help='Whether to add emulator covariance or not.')
-    parser.add_argument('--cosmo_model', type=str, default='base', help='Cosmological model to use.')
-    parser.add_argument('--hod_model', type=str, default='base-VB-AB-CB-s', help='HOD model to use.')
-    parser.add_argument('--identifier', type=str, default=None, help='Identifier for the run.')
-    parser.add_argument('--emulator_covariance_method', type=str, default='median', help='Method to compute the emulator covariance.')
-    parser.add_argument('--use_diagonal_emulator_covariance', action='store_true', help='Whether to use only the diagonal of the emulator covariance.')
-    parser.add_argument('--covariance_correction', type=str, default='percival', help='Covariance correction method to use.')
-    parser.add_argument('--use_nbar_emulator', action='store_true', help='Enable the EMC number-density emulator constraint during sampling.')
-    parser.add_argument('--save_dir', type=str, default='/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/apr20')
+    parser.add_argument(
+        "--use_emulator_covariance",
+        action="store_true",
+        help="Whether to add emulator covariance or not.",
+    )
+    parser.add_argument(
+        "--cosmo_model", type=str, default="base", help="Cosmological model to use."
+    )
+    parser.add_argument(
+        "--hod_model", type=str, default="base-VB-AB-CB-s", help="HOD model to use."
+    )
+    parser.add_argument(
+        "--identifier", type=str, default=None, help="Identifier for the run."
+    )
+    parser.add_argument(
+        "--emulator_covariance_method",
+        type=str,
+        default="median",
+        help="Method to compute the emulator covariance.",
+    )
+    parser.add_argument(
+        "--use_diagonal_emulator_covariance",
+        action="store_true",
+        help="Whether to use only the diagonal of the emulator covariance.",
+    )
+    parser.add_argument(
+        "--covariance_correction",
+        type=str,
+        default="percival",
+        help="Covariance correction method to use.",
+    )
+    parser.add_argument(
+        "--use_nbar_emulator",
+        action="store_true",
+        help="Enable the EMC number-density emulator constraint during sampling.",
+    )
+    parser.add_argument(
+        "--model_dir",
+        type=str,
+        default=None,
+        help="Optional model directory override for emulator checkpoints.",
+    )
+    parser.add_argument(
+        "--save_dir",
+        type=str,
+        default="/global/cfs/cdirs/desicollab/users/epaillas/acm/emc/fits/abacus/apr20",
+    )
 
     args = parser.parse_args()
     setup_logging()
@@ -276,7 +343,9 @@ if __name__ == "__main__":
     hod_model = args.hod_model
     identifier = args.identifier
 
-    logger.info(f'Running inference for cosmo model: {cosmo_model}, hod model: {hod_model}')
+    logger.info(
+        f"Running inference for cosmo model: {cosmo_model}, hod model: {hod_model}"
+    )
 
     priors, ranges, labels = get_priors(cosmo=True, hod=True)
     fixed_param_names = get_fixed_params(cosmo_model, hod_model)

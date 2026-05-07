@@ -20,8 +20,8 @@ Coordinates:
   * ells          (ells) int64 16B 0 2
   * s             (s) float64 400B 1.5 4.5 7.5 10.5 ... 139.5 142.5 145.5 148.5
   * phase_idx     (phase_idx) int64 13kB 3000 3001 3002 3003 ... 4997 4998 4999
-  
-Data variables: (data_vars attribute of xarray.Dataset) 
+
+Data variables: (data_vars attribute of xarray.Dataset)
 https://docs.xarray.dev/en/stable/api/dataset.html#attributes
     x             (cosmo_idx, hod_idx, parameters) float64 1MB 0.02237 ... 0....
     y             (cosmo_idx, hod_idx, ells, s) float64 7MB 2.486 ... -0.001705
@@ -49,17 +49,17 @@ From ckpt file in 'model_dir' parameter
     (mlp5): Linear(in_features=549, out_features=100, bias=True)
   )
   (loss_fct): L1Loss()
-  
-  
+
+
 __getattr__(name) method of Observable class is used to access the attributes of the dataset.
 apply also filter if  name is in data_vars of _dataset attibut, ie in this example:
 * x,y, covariance_y.
 
 """
-from desilike.observables.types import ObservableCovariance
 
 import os
 from copy import copy, deepcopy
+from pathlib import Path
 
 import numpy as np
 import xarray
@@ -68,6 +68,112 @@ import pytest
 from acm.observables.base import Observable
 
 DIR_TEST = os.getenv("ACM_TEST_DATA")
+
+
+class FakeLoadedModel:
+    pass
+
+
+class FakeModelClass:
+    pass
+
+
+def test_init_loads_model_from_paths_with_model_cls(monkeypatch, tmp_path):
+    """Load a model from paths["model_dir"] while forwarding model_cls."""
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+    dataset = xarray.Dataset()
+    calls = []
+
+    def fake_load_model_from_checkpoint(checkpoint_fn, model_cls=None):
+        calls.append(
+            {
+                "checkpoint_fn": Path(checkpoint_fn),
+                "model_cls": model_cls,
+            }
+        )
+        return FakeLoadedModel()
+
+    monkeypatch.setattr(
+        "acm.observables.base.load_model_from_checkpoint",
+        fake_load_model_from_checkpoint,
+    )
+
+    observable = Observable(
+        stat_name="statistic",
+        dataset=dataset,
+        paths={"model_dir": model_dir},
+        model_cls=FakeModelClass,
+    )
+
+    assert isinstance(observable.model, FakeLoadedModel)
+    assert calls == [
+        {
+            "checkpoint_fn": model_dir / "statistic.ckpt",
+            "model_cls": FakeModelClass,
+        }
+    ]
+
+
+def test_init_loads_legacy_checkpoint_with_model_cls(monkeypatch, tmp_path):
+    """Load a legacy checkpoint_fn while forwarding model_cls."""
+    checkpoint_fn = tmp_path / "legacy.ckpt"
+    dataset = xarray.Dataset()
+    calls = []
+
+    def fake_load_model_from_checkpoint(checkpoint_fn, model_cls=None):
+        calls.append(
+            {
+                "checkpoint_fn": Path(checkpoint_fn),
+                "model_cls": model_cls,
+            }
+        )
+        return FakeLoadedModel()
+
+    monkeypatch.setattr(
+        "acm.observables.base.load_model_from_checkpoint",
+        fake_load_model_from_checkpoint,
+    )
+
+    observable = Observable(
+        stat_name="statistic",
+        dataset=dataset,
+        checkpoint_fn=checkpoint_fn,
+        model_cls=FakeModelClass,
+    )
+
+    assert isinstance(observable.model, FakeLoadedModel)
+    assert calls == [
+        {
+            "checkpoint_fn": checkpoint_fn,
+            "model_cls": FakeModelClass,
+        }
+    ]
+
+
+def test_init_uses_explicit_model_without_loading_checkpoint(monkeypatch, tmp_path):
+    """Use an explicit model without attempting checkpoint loading."""
+    checkpoint_fn = tmp_path / "model.ckpt"
+    dataset = xarray.Dataset()
+    explicit_model = FakeLoadedModel()
+
+    def unexpected_load(*args, **kwargs):
+        raise AssertionError("Explicit model should bypass checkpoint loading.")
+
+    monkeypatch.setattr(
+        "acm.observables.base.load_model_from_checkpoint",
+        unexpected_load,
+    )
+
+    observable = Observable(
+        stat_name="statistic",
+        dataset=dataset,
+        model=explicit_model,
+        checkpoint_fn=checkpoint_fn,
+        model_cls=FakeModelClass,
+    )
+
+    assert observable.model is explicit_model
 
 
 def test_init():
@@ -132,7 +238,7 @@ def test_copy_method():
     AttributeError: 'Dataset' object has no attribute 'paths'
 
     """
-    
+
     OBS_TEST = Observable(
         stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
     )
@@ -178,7 +284,7 @@ def test_drop_nan_dimensions():
     Test that the method drop_nan_dimensions correctly drops dimensions with NaN values in the dataset.
     """
     temperature = [
-        [np.nan,0, 2, 9],
+        [np.nan, 0, 2, 9],
         [np.nan, np.nan, np.nan, np.nan],
         [np.nan, 4, 2, 0],
         [np.nan, 1, 0, 0],
@@ -191,65 +297,74 @@ def test_drop_nan_dimensions():
             lon=("X", np.array([10.0, 10.25, 10.5, 10.75])),
         ),
     )
-    obst = Observable(stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST))
+    obst = Observable(
+        stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
+    )
     out_daa = obst.drop_nan_dimensions(daa)
     xarray.testing.assert_equal(daa, out_daa)
     daa.attrs["nan_dims"] = ["Y"]
     out_daa = obst.drop_nan_dimensions(daa)
     assert daa.values.shape == (4, 4)
-    assert out_daa.values.shape == (3,4)
+    assert out_daa.values.shape == (3, 4)
     daa.attrs["nan_dims"] = ["X"]
     out_daa = obst.drop_nan_dimensions(daa)
-    assert out_daa.values.shape == (4,3)
+    assert out_daa.values.shape == (4, 3)
     daa.attrs["nan_dims"] = ["X", "Y"]
     out_daa = obst.drop_nan_dimensions(daa)
-    assert out_daa.values.shape == (3,3)
+    assert out_daa.values.shape == (3, 3)
+
 
 @pytest.mark.skip(reason="Test temporarily skipped")
 def test_get_covariance_matrix():
     """
-    Test that the method get_covariance_matrix correctly returns the covariance matrix from the dataset.
-    
-CODE of method get_covariance_matrix()
+        Test that the method get_covariance_matrix correctly returns the covariance matrix from the dataset.
 
-    cov_y = self.covariance_y  # Filtered and flattened DataArray
-    cov_y = self.flatten_output(cov_y, flat_output_dims=2, unstack=False)  # No unstacking to avoid NaN
-    cov_y = cov_y.values
-    prefactor = prefactor / volume_factor
-    cov = prefactor * np.cov(cov_y, rowvar=False)
+    CODE of method get_covariance_matrix()
 
-
-Comments about method:
-    * use self._dataset.covariance_y to get the covariance matrix from the dataset
-    * Observe apply filter : cov_y = self.covariance_y 
+        cov_y = self.covariance_y  # Filtered and flattened DataArray
+        cov_y = self.flatten_output(cov_y, flat_output_dims=2, unstack=False)  # No unstacking to avoid NaN
+        cov_y = cov_y.values
+        prefactor = prefactor / volume_factor
+        cov = prefactor * np.cov(cov_y, rowvar=False)
 
 
-    1) covariance_y shape is (phase_idx, ells, s) = (1643, 2, 50) 
-    covariance matrix must be square.
-    
-In [2]: np.sqrt(1643)
-Out[2]: 40.53393639902249
-
-maybe triangle plus diagonal: n(n-1)/2 = 1643
-
-np.roots([1,-1,-1643*2])
-Out[6]: array([ 57.82582315, -56.82582315])
-
-neither , so ?
+    Comments about method:
+        * use self._dataset.covariance_y to get the covariance matrix from the dataset
+        * Observe apply filter : cov_y = self.covariance_y
 
 
-    2) cov = prefactor * np.cov(cov_y, rowvar=False)
-    covariance is defined by covariance method of numpy with covariance  ...?
+        1) covariance_y shape is (phase_idx, ells, s) = (1643, 2, 50)
+        covariance matrix must be square.
+
+    In [2]: np.sqrt(1643)
+    Out[2]: 40.53393639902249
+
+    maybe triangle plus diagonal: n(n-1)/2 = 1643
+
+    np.roots([1,-1,-1643*2])
+    Out[6]: array([ 57.82582315, -56.82582315])
+
+    neither , so ?
+
+
+        2) cov = prefactor * np.cov(cov_y, rowvar=False)
+        covariance is defined by covariance method of numpy with covariance  ...?
     """
-    obst = Observable(stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST))
+    obst = Observable(
+        stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
+    )
     cov_matrix = obst.get_covariance_matrix()
     assert False
-    
+
 
 def test_flatten_output():
     arr = xarray.DataArray(
-        np.arange(24).reshape(2, 3,4),
-        coords=[("x", ["a", "b"]), ("features", [0, 1, 2]), ("sample", [10, 20, 30, 40])],
+        np.arange(24).reshape(2, 3, 4),
+        coords=[
+            ("x", ["a", "b"]),
+            ("features", [0, 1, 2]),
+            ("sample", [10, 20, 30, 40]),
+        ],
     )
     res = Observable.flatten_output(arr, flat_output_dims=1)
     print(res)

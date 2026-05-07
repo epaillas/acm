@@ -14,39 +14,31 @@ from .base import BaseObservableEMC
 
 logger = logging.getLogger(__name__)
 
-# unused masks in methods, moved here for visibility and to avoid magic numbers in the methods
-
-# WST coefficient indices to mask due to instabilities
-wst_idx_mask = [
-    95,
-    96,
-    97,
-    98,
-    99,
-    116,
-    117,
-    118,
-    119,
-    131,
-    132,
-    133,
-    134,
-    141,
-    142,
-    143,
-    144,
-    146,
-    147,
-    148,
-    149,
-]
-
 
 class WaveletScatteringTransform(BaseObservableEMC):
     """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 
-    def __init__(self, stat_name: str = "wst", **kwargs) -> None:
+    def __init__(
+        self, stat_name: str = "wst", mask_csv: str | Path | None = None, **kwargs
+    ) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
+        self.mask_indices = self._load_mask_indices(mask_csv)
+
+    @staticmethod
+    def _load_mask_indices(mask_csv: str | Path | None = None) -> np.ndarray:
+        """Load WST coefficient mask indices from a caller-provided CSV."""
+        if mask_csv is None:
+            return np.array([], dtype=int)
+        return np.atleast_1d(np.loadtxt(mask_csv, delimiter=",", skiprows=1, dtype=int))
+
+    @staticmethod
+    def _mask_coefficients(
+        coefficients: np.ndarray, mask_indices: np.ndarray
+    ) -> np.ndarray:
+        """Remove masked WST coefficients when a mask is provided."""
+        if len(mask_indices) == 0:
+            return coefficients
+        return np.delete(coefficients, mask_indices)
 
     @staticmethod
     def renorm_wst(inpt: np.ndarray, config: str = "J5_L3_q0.8_sigma0.4") -> np.ndarray:
@@ -80,6 +72,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         paths: dict,
         stat_name: str = "wst",
         save_to: str | None = None,
+        mask_csv: str | Path | None = None,
     ) -> xarray.Dataset:
         """
         Compress the covariance array from the raw measurement files.
@@ -96,6 +89,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
         save_to : str, optional
             Path of the directory where to save the compressed covariance and bin_values. If None, it is not saved.
             Default is None.
+        mask_csv : str | Path, optional
+            Path to a CSV containing WST coefficient indices to mask. If None, no coefficients are masked.
 
         Returns
         -------
@@ -111,6 +106,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
             "J4_L4_q1_sigma1.0",
             "J5_L3_q0.8_sigma0.4",
         ]
+        mask_indices = cls._load_mask_indices(mask_csv)
 
         # Get phase files from first configuration
         first_config_dir = base_dir / configs[0]
@@ -128,9 +124,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
                     1:
                 ]  # Exclude first element
                 concatenated_coeffs.append(normalized)
-            # Concatenate coefficients from all three configurations
-            concatenated_coeffs = np.concatenate(concatenated_coeffs)
-            # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
+            concatenated_coeffs = cls._mask_coefficients(
+                np.concatenate(concatenated_coeffs), mask_indices
+            )
             y.append(concatenated_coeffs)
         y = np.array(y)
 
@@ -170,6 +166,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
         phase: int = 0,
         seed: int = 0,
         test_filters: dict | None = None,
+        mask_csv: str | Path | None = None,
     ) -> xarray.Dataset:
         """
         Compress the data from raw measurement files.
@@ -201,6 +198,8 @@ class WaveletScatteringTransform(BaseObservableEMC):
             Dictionary of filters to split the dataset into training and test sets.
             Keys are the dimension names and values are the values to filter on for the test set.
             If None, no splitting is done. Default is None.
+        mask_csv : str | Path, optional
+            Path to a CSV containing WST coefficient indices to mask. If None, no coefficients are masked.
 
         Returns
         -------
@@ -216,6 +215,7 @@ class WaveletScatteringTransform(BaseObservableEMC):
             "J4_L4_q1_sigma1.0",
             "J5_L3_q0.8_sigma0.4",
         ]
+        mask_indices = cls._load_mask_indices(mask_csv)
 
         y = []
         hods = {}
@@ -249,9 +249,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
                         1:
                     ]  # Exclude first element
                     concatenated_coeffs.append(normalized)
-                # Concatenate coefficients from all three configurations
-                concatenated_coeffs = np.concatenate(concatenated_coeffs)
-                # concatenated_coeffs = np.delete(concatenated_coeffs, mask)  # Apply mask to remove unstable coefficients
+                concatenated_coeffs = cls._mask_coefficients(
+                    np.concatenate(concatenated_coeffs), mask_indices
+                )
                 y.append(concatenated_coeffs)
         y = np.array(y)
         y = xarray.DataArray(
@@ -280,7 +280,9 @@ class WaveletScatteringTransform(BaseObservableEMC):
             },
         )
         if add_covariance:
-            cov_y = cls.compress_covariance(paths=paths, stat_name=stat_name)
+            cov_y = cls.compress_covariance(
+                paths=paths, stat_name=stat_name, mask_csv=mask_csv
+            )
             cout = xarray.merge([cout, cov_y], join="outer")
 
         if test_filters is not None:
