@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 # %% Readers and processors for different file formats
-def lsstypes_reader(files: list[Path]) -> Any:
+def lsstypes_reader(files: list[Path]) -> object:
     """
     Read and average a list of lsstypes files.
 
@@ -28,7 +28,7 @@ def lsstypes_reader(files: list[Path]) -> Any:
 
     Returns
     -------
-    Any
+    object
         Averaged lsstypes object across all input files.
     """
     loaded = [lsstypes.read(f) for f in files]
@@ -85,7 +85,7 @@ def lsstypes_postprocess(
     last_dim_dict = {last_dim: d0.flatten(level=None)[0].coords(last_dim)}
     coords = {**get, **last_dim_dict}
 
-    def lsstypes_match(d):
+    def lsstypes_match(d) -> object:
         return d.match(d0)
 
     data_out = np.asarray(
@@ -290,9 +290,10 @@ def cast_coords(d: dict) -> dict:
                 float_arr.dtype, np.floating
             ):
                 float_arr = float_arr.astype(int)
-            return float_arr
         except (ValueError, TypeError):
             return np.asarray(arr)
+        else:
+            return float_arr
 
     return {k: cast(v) for k, v in d.items()}
 
@@ -354,13 +355,13 @@ def reindex_samples(
         local_maps: dict[
             tuple, dict
         ] = {}  # Map reindexing the values to integers within each group key
-        for gk, raw in zip(group_keys, vals):
+        for gk, raw in zip(group_keys, vals, strict=False):
             local_map = local_maps.setdefault(gk, {})
             local_map.setdefault(
                 raw, len(local_map)
             )  # Assign a new index if this raw value hasn't been seen in this group key
 
-        result[idx_name] = [local_maps[gk][raw] for gk, raw in zip(group_keys, vals)]
+        result[idx_name] = [local_maps[gk][raw] for gk, raw in zip(group_keys, vals, strict=False)]
 
     return result
 
@@ -485,7 +486,7 @@ def collect_measurements(
     files = sorted(root_dir.glob(flat_glob))
 
     # Group files sharing the same index combination
-    def get_index_key(path) -> tuple | None:
+    def get_index_key(path: Path | str) -> tuple | None:
         m = regex_pattern.match(str(path))
         if m:
             return tuple((idx, m.group(idx)) for idx in track_indexes)
