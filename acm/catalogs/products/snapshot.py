@@ -178,6 +178,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         return (
             f"{self.__class__.__name__}("
             f"redshift={self.redshift}, "
+            f"boxsize={self.boxsize}, "
             f"tracers={list(self.tracers.keys())})"
         )
 

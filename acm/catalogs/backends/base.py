@@ -79,8 +79,8 @@ class SnapshotBackend(DarkMatterBackend):
         """
         ...
 
-    @abstractmethod
     @property
+    @abstractmethod
     def boxsize(self) -> float | list[float]:
         """Size of the simulation box in Mpc/h. Can be a single float (same for all dimensions) or a list of three floats for each dimension."""
         ...
