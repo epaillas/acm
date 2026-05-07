@@ -168,10 +168,8 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         boxsize : float or list of 3 floats
             Size of the simulation box in Mpc/h. Can be a single float (same for all dimensions) or a list of three floats for each dimension.
         """
-        super().__init__()
+        super().__init__(cosmo, cosmo_fid)
         self.redshift = redshift
-        self.cosmo = cosmo
-        self.cosmo_fid = cosmo_fid
         self.boxsize = boxsize  # uses the setter
 
     def __repr__(self) -> str:
