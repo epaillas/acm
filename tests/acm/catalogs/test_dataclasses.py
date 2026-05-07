@@ -1,6 +1,5 @@
 import pytest
 import pandas as pd
-import numpy as np
 from acm.catalogs.dataclasses import Tracer, Transform
 
 
