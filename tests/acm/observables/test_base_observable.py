@@ -79,6 +79,7 @@ class FakeModelClass:
 
 
 def test_init_loads_model_from_paths_with_model_cls(monkeypatch, tmp_path):
+    """Load a model from paths["model_dir"] while forwarding model_cls."""
     model_dir = tmp_path / "models"
     model_dir.mkdir()
     dataset = xarray.Dataset()
@@ -115,6 +116,7 @@ def test_init_loads_model_from_paths_with_model_cls(monkeypatch, tmp_path):
 
 
 def test_init_loads_legacy_checkpoint_with_model_cls(monkeypatch, tmp_path):
+    """Load a legacy checkpoint_fn while forwarding model_cls."""
     checkpoint_fn = tmp_path / "legacy.ckpt"
     dataset = xarray.Dataset()
     calls = []
@@ -150,6 +152,7 @@ def test_init_loads_legacy_checkpoint_with_model_cls(monkeypatch, tmp_path):
 
 
 def test_init_uses_explicit_model_without_loading_checkpoint(monkeypatch, tmp_path):
+    """Use an explicit model without attempting checkpoint loading."""
     checkpoint_fn = tmp_path / "model.ckpt"
     dataset = xarray.Dataset()
     explicit_model = FakeLoadedModel()
