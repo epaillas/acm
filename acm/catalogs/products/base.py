@@ -87,6 +87,11 @@ class BaseGalaxyCatalog(ABC):
     def _check_data_columns(self, data: pd.DataFrame) -> bool:
         """Check that the required columns for a tracer are present in the data before assignment."""
         ...
+        
+    @property
+    def transform_pipeline(self) -> list[str]:
+        """Return the list of transform names in the current pipeline."""
+        return list(self._transforms)
 
     def _add_transform(self, transform: Transform) -> None:
         """Register or replace a transform in the pipeline."""
@@ -101,6 +106,10 @@ class BaseGalaxyCatalog(ABC):
         if name not in self._transforms:
             raise KeyError(f"Transform '{name}' is not in the pipeline.")
         del self._transforms[name]
+    
+    def reset_transforms(self) -> None:
+        """Clear all transforms from the pipeline."""
+        self._transforms.clear()
 
     def __getitem__(self, tracer_name: str) -> pd.DataFrame:
         """Allow direct indexing to get tracer data, e.g. catalog['ELG']."""

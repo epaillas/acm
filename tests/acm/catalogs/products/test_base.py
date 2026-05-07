@@ -131,6 +131,13 @@ class TestTransforms:
         with caplog.at_level("WARNING"):
             catalog._add_transform(t2)
         assert catalog._transforms["t1"] is t2
+    
+    def test_transform_pipeline_property(self, catalog):
+        t1 = Transform(name="t1", func=lambda d: d, kwargs={})
+        t2 = Transform(name="t2", func=lambda d: d * 2, kwargs={})
+        catalog._add_transform(t1)
+        catalog._add_transform(t2)
+        assert catalog.transform_pipeline == ["t1", "t2"]
 
     def test_remove_transform(self, catalog):
         t = Transform(name="t1", func=lambda d: d, kwargs={})
@@ -150,6 +157,12 @@ class TestTransforms:
         populated_catalog._add_transform(t2)
         result = populated_catalog.get_tracer_data("FOO") # (original + 1) * 2
         assert result["x"].tolist() == pytest.approx([(1.0 + 1.0) * 2.0, (2.0 + 1.0) * 2.0])
+        
+    def test_reset_transforms(self, populated_catalog):
+        t = Transform(name="t1", func=lambda d: d, kwargs={})
+        populated_catalog._add_transform(t)
+        populated_catalog.reset_transforms()
+        assert len(populated_catalog._transforms) == 0
 
 
 class TestMagicMethods:
