@@ -86,12 +86,17 @@ class TestTracers:
             catalog.set_tracer_data(tracer_foo, bad_data)
 
     def test_get_tracer_data_returns_data(self, populated_catalog, valid_data):
+        """If no transforms are registered, get_tracer_data should return the raw data."""
         result = populated_catalog.get_tracer_data("FOO")
         pd.testing.assert_frame_equal(result, valid_data)
 
     def test_get_tracer_data_missing_raises(self, catalog):
         with pytest.raises(KeyError, match="FOO"):
             catalog.get_tracer_data("FOO")
+            
+    def test_get_raw_tracer_data_missing_raises(self, catalog):
+        with pytest.raises(KeyError, match="FOO"):
+            catalog.get_raw_tracer_data("FOO")
 
 class TestTransforms:
 
