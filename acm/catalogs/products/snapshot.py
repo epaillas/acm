@@ -4,8 +4,8 @@ from typing import Self
 
 import h5py
 import numpy as np
+import pandas as pd
 from cosmoprimo import Cosmology
-from pandas import DataFrame
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products import BaseGalaxyCatalog
@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 # %% Pure transform functions that can be used in the pipeline
-def _apply_rsd(data: DataFrame, los: str, hubble: float, az: float) -> DataFrame:
+def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float) -> pd.DataFrame:
     """
     Apply RSD shift along the los axis.
 
     Parameters
     ----------
-    data : DataFrame
+    data : pd.DataFrame
         Galaxy data containing position and velocity columns.
     los : str
         Line-of-sight axis, one of 'x', 'y', 'z'.
@@ -31,7 +31,7 @@ def _apply_rsd(data: DataFrame, los: str, hubble: float, az: float) -> DataFrame
 
     Returns
     -------
-    DataFrame
+    pd.DataFrame
         Transformed galaxy data with RSD applied.
     """
     data = data.copy()
@@ -41,18 +41,18 @@ def _apply_rsd(data: DataFrame, los: str, hubble: float, az: float) -> DataFrame
 
 
 def _apply_ap(
-    data: DataFrame,
+    data: pd.DataFrame,
     los: str,
     q_par: float,
     q_perp: float,
     pos_columns: tuple[str],
-) -> DataFrame:
+) -> pd.DataFrame:
     """
     Apply AP scaling: q_par along los, q_perp along transverse axes.
 
     Parameters
     ----------
-    data : DataFrame
+    data : pd.DataFrame
         Galaxy data containing position columns.
     los : str
         Line-of-sight axis, one of 'x', 'y', 'z'.
@@ -65,7 +65,7 @@ def _apply_ap(
 
     Returns
     -------
-    DataFrame
+    pd.DataFrame
         Transformed galaxy data with AP scaling applied.
     """
     data = data.copy()
@@ -75,19 +75,19 @@ def _apply_ap(
 
 
 def _apply_downsample(
-    data: DataFrame,
+    data: pd.DataFrame,
     tracer: str,
     n_gal: int | None,
     f_gal: float | None,
     nbar: float | None,
     boxsize: Callable[[], np.ndarray] | None = None,
-) -> DataFrame:
+) -> pd.DataFrame:
     """
     Randomly downsample a tracer DataFrame.
 
     Parameters
     ----------
-    data : DataFrame
+    data : pd.DataFrame
         Galaxy data for a specific tracer.
     tracer : str
         Tracer name, used for logging.
@@ -102,7 +102,7 @@ def _apply_downsample(
 
     Returns
     -------
-    DataFrame
+    pd.DataFrame
         Downsampled galaxy data.
 
     Raises
@@ -234,7 +234,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             self.redshift
         ) / self.cosmo_fid.angular_diameter_distance(self.redshift)
 
-    def _check_data_columns(self, data: DataFrame) -> bool:
+    def _check_data_columns(self, data: pd.DataFrame) -> bool:
         """Check that the position and velocity columns for a tracer are present in the data before assignment."""
         required_columns = set(self.pos_columns + self.vel_columns)
         missing_columns = required_columns - set(data.columns)
@@ -381,3 +381,61 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             cosmo_fid=cosmo_fid,
             boxsize=np.array(attrs["boxsize"]),
         )
+
+
+class RandomSnapshotCatalog(SnapshotCatalog):
+    """
+    Snapshot catalog with randomized galaxy positions.
+
+    Replaces true galaxy positions with uniform random positions within the
+    simulation box. Intended for null tests and covariance estimation.
+    Velocities and RSD are not available for random catalogs.
+    """
+
+    pos_columns = ("x", "y", "z")
+    vel_columns = ()  # No velocities for random catalogs
+    
+    @classmethod
+    def from_snapshot(cls, catalog: SnapshotCatalog) -> Self:
+        """
+        Create a random catalog from an existing SnapshotCatalog.
+
+        Inherits redshift, cosmology, boxsize and tracers from the source catalog,
+        replacing all position data with uniform random draws.
+
+        Parameters
+        ----------
+        catalog : SnapshotCatalog
+            Source catalog to copy metadata and tracer counts from.
+        """
+        random_catalog = cls(
+            redshift=catalog.redshift,
+            cosmo=catalog.cosmo,
+            cosmo_fid=catalog.cosmo_fid,
+            boxsize=catalog._boxsize,
+        )
+        for tracer_name, tracer in catalog.tracers.items():
+            n_gal = len(catalog._data[tracer_name])
+            random_catalog.set_tracer_data(tracer, cls._random_positions(n_gal, catalog._boxsize))
+        return random_catalog
+
+    @staticmethod
+    def _random_positions(n_gal: int, boxsize: np.ndarray) -> pd.DataFrame:
+        """
+        Generate a pandas DataFrame of uniform random positions within the box.
+
+        Parameters
+        ----------
+        n_gal : int
+            Number of random galaxies to generate.
+        boxsize : np.ndarray
+            Box dimensions in each axis, used to scale the random positions.
+        """
+        return pd.DataFrame({
+            "x": np.random.uniform(0, boxsize[0], n_gal),
+            "y": np.random.uniform(0, boxsize[1], n_gal),
+            "z": np.random.uniform(0, boxsize[2], n_gal),
+        })
+
+    def rsd(self, los: str = "z") -> None:
+        raise NotImplementedError("RSD is not available for random catalogs.")
