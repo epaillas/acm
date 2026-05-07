@@ -14,6 +14,7 @@ from .base import BaseObservableEMC
 
 logger = logging.getLogger(__name__)
 
+
 class WaveletScatteringTransform(BaseObservableEMC):
     """Class for the Emulator's Mock Challenge galaxy correlation function multipoles."""
 

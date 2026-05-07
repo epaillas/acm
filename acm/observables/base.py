@@ -1,7 +1,7 @@
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import Any, TypeAlias, overload
+from typing import Any, overload
 
 import matplotlib.pyplot as plt
 import numpy as np
