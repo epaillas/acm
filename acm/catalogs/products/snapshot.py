@@ -125,7 +125,7 @@ def _apply_downsample(
                 "boxsize function must be provided when downsampling by nbar."
             )
         # Callable to get current boxsize, which may include AP scaling
-        volume = np.prod(boxsize())  
+        volume = np.prod(boxsize())
         n_target = int(nbar * volume)
 
     if n_target >= n_current:
