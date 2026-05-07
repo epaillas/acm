@@ -3,7 +3,6 @@ import re
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
 
 import lsstypes
 import numpy as np
@@ -361,7 +360,9 @@ def reindex_samples(
                 raw, len(local_map)
             )  # Assign a new index if this raw value hasn't been seen in this group key
 
-        result[idx_name] = [local_maps[gk][raw] for gk, raw in zip(group_keys, vals, strict=False)]
+        result[idx_name] = [
+            local_maps[gk][raw] for gk, raw in zip(group_keys, vals, strict=False)
+        ]
 
     return result
 
@@ -574,7 +575,6 @@ def compress_measurements(
     Files are sorted before grouping, ensuring a deterministic ordering of
     index values in the output coordinates.
     """
-
     # Read all files in order
     t0 = time.time()
     results = [reader(group_files) for group_files in groups.values()]
@@ -769,8 +769,7 @@ def compress_data(
         groups, index_arrays = collect_measurements(
             root_dir=Path(paths["measurements_dir"]) / "small",
             glob_pattern="c{cosmo_idx}_ph{phase_idx}/seed{seed}/"
-            + f"hod{covariance_hod:03d}/"
-            + glob_fn,
+            f"hod{covariance_hod:03d}/" + glob_fn,
             # ignore_index = ['los'],
         )
         covariance_y = compress_measurements(
