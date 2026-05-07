@@ -37,7 +37,7 @@ def lsstypes_reader(files: list[Path]) -> object:
 
 
 def lsstypes_postprocess(
-    data: list[Any],
+    data: list[object],
     last_dim: str,
     select: dict,
     get: dict,
@@ -52,7 +52,7 @@ def lsstypes_postprocess(
 
     Parameters
     ----------
-    data : list[Any]
+    data : list[object]
         List of lsstypes objects to process.
     last_dim : str
         Name of the last (feature) dimension, used to extract coordinates
@@ -85,7 +85,7 @@ def lsstypes_postprocess(
     last_dim_dict = {last_dim: d0.flatten(level=None)[0].coords(last_dim)}
     coords = {**get, **last_dim_dict}
 
-    def lsstypes_match(d) -> object:
+    def lsstypes_match(d: object) -> object:
         return d.match(d0)
 
     data_out = np.asarray(
