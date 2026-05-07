@@ -138,7 +138,7 @@ class Observable:
 
                 if checkpoint_fn is not None:
                     try:
-                        self.model = self.load_model(
+                        self.model = load_model_from_checkpoint(
                             checkpoint_fn,
                             model_cls=model_cls,
                         )
@@ -209,29 +209,6 @@ class Observable:
 
         _dataset = xarray.merge(datasets, join="outer")
         return _dataset  # pyright: ignore[reportReturnType] (xarray.merge return type is not well defined)
-
-    @classmethod
-    def load_model(
-        cls,
-        checkpoint_fn: Path | str,
-        model_cls: type[BaseModel] | None = None,
-    ) -> BaseModel:
-        """
-        Trained theory model loaded from checkpoint.
-
-        Parameters
-        ----------
-        checkpoint_fn : Path | str
-            Path to the model checkpoint file.
-        model_cls : type[BaseModel], optional
-            Explicit Sunbird emulator class to use when loading a checkpoint.
-
-        Returns
-        -------
-        BaseModel
-            The loaded emulator model.
-        """
-        return load_model_from_checkpoint(checkpoint_fn, model_cls=model_cls)
 
     def __repr__(self) -> str:
         """Return a string representation of the Observable object."""
