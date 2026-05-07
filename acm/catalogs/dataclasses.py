@@ -44,4 +44,5 @@ class Transform:
     kwargs: dict = field(default_factory=dict)
 
     def apply(self, data: DataFrame) -> DataFrame:
+        """Apply the transform function to the data with the stored kwargs."""
         return self.func(data, **self.kwargs)

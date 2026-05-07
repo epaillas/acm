@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def _apply_rsd(data: DataFrame, los: str, hubble: float, az: float) -> DataFrame:
     """
     Apply RSD shift along the los axis.
-    
+
     Parameters
     ----------
     data : DataFrame
@@ -25,7 +25,7 @@ def _apply_rsd(data: DataFrame, los: str, hubble: float, az: float) -> DataFrame
         Hubble parameter H(z) in km/s/(Mpc/h) for the simulation cosmology.
     az : float
         Scale factor a(z) at the snapshot's redshift.
-    
+
     Returns
     -------
     DataFrame
@@ -45,7 +45,7 @@ def _apply_ap(
 ) -> DataFrame:
     """
     Apply AP scaling: q_par along los, q_perp along transverse axes.
-    
+
     Parameters
     ----------
     data : DataFrame
@@ -58,7 +58,7 @@ def _apply_ap(
         AP scaling factor along the transverse directions.
     pos_columns : tuple[str]
         Names of the position columns, e.g. ('x', 'y', 'z').
-    
+
     Returns
     -------
     DataFrame
@@ -79,7 +79,7 @@ def _apply_downsample(
 ) -> DataFrame:
     """
     Randomly downsample a tracer DataFrame.
-    
+
     Parameters
     ----------
     data : DataFrame
@@ -94,12 +94,12 @@ def _apply_downsample(
         Target number density in (Mpc/h)^-3.
     boxsize : callable, optional
         Function that returns the current boxsize, needed to compute target n_gal when downsampling by nbar.
-        
+
     Returns
     -------
     DataFrame
         Downsampled galaxy data.
-    
+
     Raises
     ------
     ValueError
@@ -293,7 +293,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             Fraction of galaxies to keep, between 0 and 1.
         nbar : float, optional
             Target number density in (Mpc/h)^-3.
-            
+
         Raises
         ------
         ValueError
@@ -327,7 +327,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         return sum(self._ngal(tracer) for tracer in self.tracers)
     
     def _nbar(self, tracer: str) -> float:
-        """Number density of galaxies for a specific tracer."""
+        """Return the number density of galaxies for a specific tracer."""
         n_gal = self._ngal(tracer)
         boxsize = self.boxsize
         volume = np.prod(boxsize)
