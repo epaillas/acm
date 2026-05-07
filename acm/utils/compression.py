@@ -417,8 +417,8 @@ def split_test_set(
     return ds
 
 
-# %% Main function to compress mocks into an xarray DataArray
-def collect_mocks(
+# %% Main function to compress measurements into an xarray DataArray
+def collect_measurements(
     root_dir: str | Path,
     glob_pattern: str,
     ignore_index: list[str] | None = None,
@@ -509,7 +509,7 @@ def collect_mocks(
     return groups, index_arrays
 
 
-def compress_mocks(
+def compress_measurements(
     groups: dict[tuple, list[Path]],
     index_arrays: dict[str, list],
     reindex: list[str] | None = None,
@@ -520,7 +520,7 @@ def compress_mocks(
     **kwargs,
 ) -> xarray.DataArray:
     """
-    Average, processes, and package mock measurement files into an xarray DataArray.
+    Average, processes, and package measurement files into an xarray DataArray.
 
     Averages each file group using ``reader``, applies ``postprocess`` to extract features
     and coordinates, and assembles the results into a labelled multi-dimensional array.
@@ -529,7 +529,7 @@ def compress_mocks(
     ----------
     groups : dict[tuple, list[Path]]
         Dictionary mapping unique index combinations (as tuples of (index_name, value))
-        to lists of file paths that share those index values, as returned by ``collect_mocks``.
+        to lists of file paths that share those index values, as returned by ``collect_measurements``.
     index_arrays : dict[str, list]
         Dictionary mapping tracked index names to lists of their raw string values,
         collected in the same order as the files are read for later use in coordinate construction.
@@ -700,12 +700,12 @@ def compress_data(
     **kwargs,
 ) -> xarray.Dataset:  # pragma: no cover
     """
-    Compress mock measurement data into an xarray Dataset.
+    Compress measurement data into an xarray Dataset.
 
     Parameters
     ----------
     glob_fn : str
-        Glob pattern for collecting mock measurement filenames,
+        Glob pattern for collecting measurement filenames,
         relative to the encoded glob pattern.
     paths : dict[str, str]
         Dictionary containing paths for measurements and parameters,
@@ -727,7 +727,7 @@ def compress_data(
         The dataset is converted to a dictionary and saved as a numpy array
         for later loading. Defaults to None (no saving).
     **kwargs
-        Additional keyword arguments forwarded to ``compress_mocks``.
+        Additional keyword arguments forwarded to ``compress_measurements``.
 
     Returns
     -------
@@ -740,7 +740,7 @@ def compress_data(
     logger.warning(
         "Using a placeholder compress_data function. Please adapt this function to your specific file structure, data format, and desired processing steps."
     )
-    groups, index_arrays = collect_mocks(
+    groups, index_arrays = collect_measurements(
         root_dir=Path(paths["measurements_dir"]) / "base",
         glob_pattern="c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + glob_fn,
         # ignore_index = ['los'],
@@ -751,7 +751,7 @@ def compress_data(
         index_arrays=index_arrays,
     )
 
-    y = compress_mocks(
+    y = compress_measurements(
         groups=groups,
         index_arrays=index_arrays,
         reindex=["hod_idx"],
@@ -765,14 +765,14 @@ def compress_data(
 
     # Covariance
     if covariance_hod is not None:
-        groups, index_arrays = collect_mocks(
+        groups, index_arrays = collect_measurements(
             root_dir=Path(paths["measurements_dir"]) / "small",
             glob_pattern="c{cosmo_idx}_ph{phase_idx}/seed{seed}/"
             + f"hod{covariance_hod:03d}/"
             + glob_fn,
             # ignore_index = ['los'],
         )
-        covariance_y = compress_mocks(
+        covariance_y = compress_measurements(
             groups=groups,
             index_arrays=index_arrays,
             **kwargs,
