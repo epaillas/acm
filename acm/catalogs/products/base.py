@@ -50,7 +50,7 @@ class BaseGalaxyCatalog(ABC):
     def register_tracer(self, tracer: Tracer) -> None:
         """Register a tracer in the catalog."""
         if tracer.name in self.tracers:
-            logger.warning(f"Tracer '{tracer.name}' already exists.")
+            logger.warning(f"Tracer '{tracer.name}' already exists and will be replaced.")
         self.tracers[tracer.name] = tracer
 
     def set_tracer_data(self, tracer: Tracer, data: DataFrame) -> None:

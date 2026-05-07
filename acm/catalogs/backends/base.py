@@ -78,6 +78,12 @@ class SnapshotBackend(DarkMatterBackend):
             The loaded dark matter catalog, in a format specific to the backend.
         """
         ...
+        
+    @abstractmethod
+    @property
+    def boxsize(self) -> float | list[float]:
+        """Size of the simulation box in Mpc/h. Can be a single float (same for all dimensions) or a list of three floats for each dimension."""
+        ... 
 
 
 # Create a registry for dark matter backends

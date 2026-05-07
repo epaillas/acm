@@ -124,9 +124,8 @@ def _apply_downsample(
             raise ValueError(
                 "boxsize function must be provided when downsampling by nbar."
             )
-        volume = np.prod(
-            boxsize()
-        )  # Callable to get current boxsize, which may include AP scaling
+        # Callable to get current boxsize, which may include AP scaling
+        volume = np.prod(boxsize())  
         n_target = int(nbar * volume)
 
     if n_target >= n_current:
@@ -181,13 +180,14 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         )
 
     @property
-    def boxsize(self) -> np.ndarray[tuple[int, int, int], float]:
+    def boxsize(self) -> np.ndarray[tuple[int]]:
         """Size of the simulation box in each dimension, common to all tracers."""
         if "ap" in self._transforms:
             ap = self._transforms["ap"]
             los = ap.kwargs["los"]
             factors = np.array(
-                [self.q_par if ax == los else self.q_perp for ax in self.pos_columns]
+                [self.q_par if ax == los else self.q_perp for ax in self.pos_columns],
+                dtype=float,
             )
             return self._boxsize * factors
         return self._boxsize

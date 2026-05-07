@@ -43,7 +43,7 @@ class Transform:
     """
 
     name: str
-    func: Callable[[DataFrame], DataFrame]
+    func: Callable[..., DataFrame]
     kwargs: dict = field(default_factory=dict)
 
     def apply(self, data: DataFrame) -> DataFrame:

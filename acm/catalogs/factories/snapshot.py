@@ -117,6 +117,7 @@ class GalaxyCatalogFactory(SnapshotCatalogFactory):
                 redshift=z,
                 cosmo=self.cosmo,
                 cosmo_fid=self.cosmo_fid,
+                boxsize = self.backend.boxsize
             )
             for tracer, data in tracer_data.items():
                 galaxy_catalog.set_tracer_data(tracer, data)
