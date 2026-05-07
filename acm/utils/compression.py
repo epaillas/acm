@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 type LsstypeObject = lsstypes.ObservableLeaf | lsstypes.ObservableTree
 
+
 # %% Readers and processors for different file formats
 def lsstypes_reader(files: list[Path]) -> LsstypeObject:
     """
