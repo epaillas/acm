@@ -14,9 +14,10 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 
 logger = logging.getLogger(__name__)
 
+type LsstypeObject = lsstypes.ObservableLeaf | lsstypes.ObservableTree
 
 # %% Readers and processors for different file formats
-def lsstypes_reader(files: list[Path]) -> object:
+def lsstypes_reader(files: list[Path]) -> LsstypeObject:
     """
     Read and average a list of lsstypes files.
 
@@ -27,7 +28,7 @@ def lsstypes_reader(files: list[Path]) -> object:
 
     Returns
     -------
-    object
+    lsstypes.ObservableLeaf | lsstypes.ObservableTree
         Averaged lsstypes object across all input files.
     """
     loaded = [lsstypes.read(f) for f in files]
@@ -36,7 +37,7 @@ def lsstypes_reader(files: list[Path]) -> object:
 
 
 def lsstypes_postprocess(
-    data: list[object],
+    data: list["lsstypes.ObservableLeaf | lsstypes.ObservableTree"],
     last_dim: str,
     select: dict,
     get: dict,
@@ -51,7 +52,7 @@ def lsstypes_postprocess(
 
     Parameters
     ----------
-    data : list[object]
+    data : list[lsstypes.ObservableLeaf | lsstypes.ObservableTree]
         List of lsstypes objects to process.
     last_dim : str
         Name of the last (feature) dimension, used to extract coordinates
@@ -84,7 +85,7 @@ def lsstypes_postprocess(
     last_dim_dict = {last_dim: d0.flatten(level=None)[0].coords(last_dim)}
     coords = {**get, **last_dim_dict}
 
-    def lsstypes_match(d: object) -> object:
+    def lsstypes_match(d: LsstypeObject) -> LsstypeObject:
         return d.match(d0)
 
     data_out = np.asarray(
@@ -408,8 +409,9 @@ def split_test_set(
 
     data_vars = [ds[v] for v in to_split]
     for v_in, v_out in split_vars(*data_vars, **filters):
-        v_in.name = v_in.name + "_test"
-        v_out.name = v_out.name + "_train"
+        # NOTE: cast to str to avoid type issues
+        v_in.name = str(v_in.name) + "_test"
+        v_out.name = str(v_out.name) + "_train"
 
         # Mark filtered dimensions that will be filled with NaNs
         v_in.attrs["nan_dims"] = list(filters)
