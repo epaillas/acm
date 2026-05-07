@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
 import logging
+from abc import ABC, abstractmethod
 
 from cosmoprimo import Cosmology
 from pandas import DataFrame
@@ -57,7 +57,9 @@ class BaseGalaxyCatalog(ABC):
         """Set the galaxy data for a given tracer."""
         self.register_tracer(tracer)  # Ensure tracer is registered before setting data
         if not self._check_data_columns(data):
-            raise ValueError(f"Data for tracer '{tracer.name}' is missing required columns.")
+            raise ValueError(
+                f"Data for tracer '{tracer.name}' is missing required columns."
+            )
         self._data[tracer.name] = data
 
     def get_tracer_data(self, tracer: str) -> DataFrame:
@@ -68,16 +70,18 @@ class BaseGalaxyCatalog(ABC):
         for transform in self._transforms.values():
             data = transform.apply(data)
         return data
-    
+
     @abstractmethod
     def _check_data_columns(self, data: DataFrame) -> bool:
         """Check that the required columns for a tracer are present in the data before assignment."""
         ...
-        
+
     def _add_transform(self, transform: Transform) -> None:
         """Register or replace a transform in the pipeline."""
         if transform.name in self._transforms:
-            logger.warning(f"Transform '{transform.name}' already exists and will be replaced.")
+            logger.warning(
+                f"Transform '{transform.name}' already exists and will be replaced."
+            )
         self._transforms[transform.name] = transform
 
     def _remove_transform(self, name: str) -> None:
@@ -89,7 +93,7 @@ class BaseGalaxyCatalog(ABC):
     def __getitem__(self, tracer_name: str) -> DataFrame:
         """Allow direct indexing to get tracer data, e.g. catalog['ELG']."""
         return self.get_tracer_data(tracer_name)
-    
+
     def __len__(self) -> int:
         """Return the total number of galaxies across all tracers."""
         return sum(len(data) for data in self._data.values())

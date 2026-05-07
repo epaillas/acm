@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 from pandas import DataFrame
 
@@ -25,6 +26,7 @@ class Tracer:
         """Provide a string representation of the tracer, including its name and parameters."""
         return f"Tracer(name={self.name!r}, params={self.params})"
 
+
 @dataclass
 class Transform:
     """
@@ -39,6 +41,7 @@ class Transform:
     kwargs : dict
         Arguments forwarded to func at application time.
     """
+
     name: str
     func: Callable[[DataFrame], DataFrame]
     kwargs: dict = field(default_factory=dict)
