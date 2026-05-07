@@ -3,6 +3,7 @@
 import logging
 from abc import abstractmethod
 from typing import override
+from pathlib import Path
 
 from cosmoprimo import Cosmology
 
@@ -85,6 +86,44 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
         """
         ...
 
+    def save(self, path: str | Path) -> None:
+        """
+        Save all loaded catalogs to a directory, one HDF5 file per redshift.
+        
+        Catalogs are saved with filenames like "catalog_z0.500.h5" 
+        using the save method of the catalog class.
+
+        Parameters
+        ----------
+        path : str | Path
+            Output directory. Created if it does not exist.
+        """
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        for z, catalog in self._catalogs.items():
+            catalog.save(path / f"catalog_z{z:.3f}.h5")
+        logger.info(f"Saved {len(self._catalogs)} catalog(s) to {path}")
+        
+    def load_catalogs(self, path: str | Path) -> None:
+        """
+        Load all HDF5 catalogs from a directory into the factory.
+        
+        Searches for files with names like "catalog_z0.500.h5" 
+        and loads them using the load method of the catalog class.
+
+        Parameters
+        ----------
+        path : str | Path
+            Directory containing catalog HDF5 files.
+        """
+        path = Path(path)
+        files = sorted(path.glob("catalog_z*.h5"))
+        if not files:
+            raise FileNotFoundError(f"No catalog files found in {path}")
+        for file in files:
+            catalog = self.catalog_class.load(file, self.cosmo, self.cosmo_fid)
+            self._catalogs[catalog.redshift] = catalog
+        logger.info(f"Loaded {len(files)} catalog(s) from {path}")
 
 class GalaxyCatalogFactory(SnapshotCatalogFactory):
     """Snapshot-based factory: Load a dark matter backend and create galaxy catalogs across multiple redshift snapshots."""

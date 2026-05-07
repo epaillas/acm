@@ -1,6 +1,8 @@
 import logging
 from collections.abc import Callable
+from typing import Self
 
+import h5py
 import numpy as np
 from cosmoprimo import Cosmology
 from pandas import DataFrame
@@ -360,4 +362,22 @@ class SnapshotCatalog(BaseGalaxyCatalog):
 
     # TODO: Add box replocation with padding for cutsky creation ?
 
-    # TODO: Save and load methods (e.g. to hdf5)
+    def _save_attrs(self, f: h5py.File) -> None:
+        f.attrs["redshift"] = self.redshift
+        f.attrs["boxsize"] = self._boxsize  # raw, pre-AP boxsize
+        
+        # Cosmology parameters (just in case; not used to reconstruct the class)
+        f.attrs["cosmo_h"] = self.hubble
+        f.attrs["cosmo_fid_h"] = self.hubble_fid
+        f.attrs["az"] = self.az
+        f.attrs["q_par"] = self.q_par
+        f.attrs["q_perp"] = self.q_perp
+
+    @classmethod
+    def _from_attrs(cls, attrs: dict, cosmo: Cosmology, cosmo_fid: Cosmology) -> Self:
+        return cls(
+            redshift=float(attrs["redshift"]),
+            cosmo=cosmo,
+            cosmo_fid=cosmo_fid,
+            boxsize=np.array(attrs["boxsize"]),
+        )

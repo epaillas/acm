@@ -1,8 +1,12 @@
 import logging
+import json
+from typing import Self
+import h5py
 from abc import ABC, abstractmethod
+from pathlib import Path
 
+import pandas as pd
 from cosmoprimo import Cosmology
-from pandas import DataFrame
 
 from acm.catalogs.dataclasses import Tracer, Transform
 
@@ -40,7 +44,7 @@ class BaseGalaxyCatalog(ABC):
         self.cosmo = cosmo
         self.cosmo_fid = cosmo_fid
         self.tracers: dict[str, Tracer] = {}
-        self._data: dict[str, DataFrame] = {}
+        self._data: dict[str, pd.DataFrame] = {}
         self._transforms: dict[str, Transform] = {}
 
     def __repr__(self) -> str:
@@ -55,7 +59,7 @@ class BaseGalaxyCatalog(ABC):
             )
         self.tracers[tracer.name] = tracer
 
-    def set_tracer_data(self, tracer: Tracer, data: DataFrame) -> None:
+    def set_tracer_data(self, tracer: Tracer, data: pd.DataFrame) -> None:
         """Set the galaxy data for a given tracer."""
         self.register_tracer(tracer)  # Ensure tracer is registered before setting data
         if not self._check_data_columns(data):
@@ -64,7 +68,7 @@ class BaseGalaxyCatalog(ABC):
             )
         self._data[tracer.name] = data
 
-    def get_tracer_data(self, tracer: str) -> DataFrame:
+    def get_tracer_data(self, tracer: str) -> pd.DataFrame:
         """Return tracer data with all pipeline transforms applied."""
         if tracer not in self._data:
             raise KeyError(f"No data loaded for tracer '{tracer}'.")
@@ -72,9 +76,15 @@ class BaseGalaxyCatalog(ABC):
         for transform in self._transforms.values():
             data = transform.apply(data)
         return data
+    
+    def get_raw_tracer_data(self, tracer: str) -> pd.DataFrame:
+        """Return the raw tracer data without applying transforms."""
+        if tracer not in self._data:
+            raise KeyError(f"No data loaded for tracer '{tracer}'.")
+        return self._data[tracer]
 
     @abstractmethod
-    def _check_data_columns(self, data: DataFrame) -> bool:
+    def _check_data_columns(self, data: pd.DataFrame) -> bool:
         """Check that the required columns for a tracer are present in the data before assignment."""
         ...
 
@@ -92,10 +102,93 @@ class BaseGalaxyCatalog(ABC):
             raise KeyError(f"Transform '{name}' is not in the pipeline.")
         del self._transforms[name]
 
-    def __getitem__(self, tracer_name: str) -> DataFrame:
+    def __getitem__(self, tracer_name: str) -> pd.DataFrame:
         """Allow direct indexing to get tracer data, e.g. catalog['ELG']."""
         return self.get_tracer_data(tracer_name)
 
     def __len__(self) -> int:
         """Return the total number of galaxies across all tracers."""
         return sum(len(data) for data in self._data.values())
+
+    def save(self, path: str | Path) -> None:
+        """
+        Save the catalog to an HDF5 file.
+
+        Saves raw (pre-transform) tracer data and tracer metadata.
+        The transform pipeline is not serialized; transforms must be
+        re-registered after loading.
+
+        Parameters
+        ----------
+        path : str | Path
+            Path to the output HDF5 file.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        if self._transforms:
+            logger.warning(
+                f"Transform pipeline is not serialized. "
+                f"Re-register transforms after loading: {list(self._transforms.keys())}"
+            )
+
+        with h5py.File(path, "w") as f:
+            f.attrs["catalog_class"] = self.__class__.__name__
+            f.attrs["tracers"] = json.dumps({
+                name: tracer.params for name, tracer in self.tracers.items()
+            })
+            self._save_attrs(f)  # subclass-specific attributes
+
+            for tracer_name, data in self._data.items():
+                grp = f.create_group(tracer_name)
+                for col in data.columns:
+                    grp.create_dataset(col, data=data[col].values)
+
+        logger.info(f"Saved {self.__class__.__name__} to {path}")
+
+    @classmethod
+    def load(cls, path: str | Path, cosmo: Cosmology, cosmo_fid: Cosmology) -> Self:
+        """
+        Load a catalog from an HDF5 file.
+
+        Parameters
+        ----------
+        path : str | Path
+            Path to the HDF5 file.
+        cosmo : Cosmology
+            Simulation cosmology — not serialized, must be provided explicitly.
+        cosmo_fid : Cosmology
+            Fiducial cosmology — not serialized, must be provided explicitly.
+
+        Returns
+        -------
+        BaseGalaxyCatalog
+            An instance of the calling class with tracer data loaded.
+        """
+        path = Path(path)
+
+        with h5py.File(path, "r") as f:
+            tracer_meta = json.loads(f.attrs["tracers"])
+            extra_attrs = dict(f.attrs)  # Extra attributes saved by the subclass
+
+            catalog = cls._from_attrs(extra_attrs, cosmo, cosmo_fid)  # subclass reconstruction
+
+            for tracer_name, params in tracer_meta.items():
+                tracer = Tracer(name=tracer_name, params=params)
+                grp = f[tracer_name]
+                data = pd.DataFrame({col: grp[col][:] for col in grp})
+                catalog.set_tracer_data(tracer, data)
+
+        logger.info(f"Loaded {cls.__name__} from {path}")
+        return catalog
+
+    @abstractmethod
+    def _save_attrs(self, f: h5py.File) -> None:
+        """Save subclass-specific attributes to the HDF5 file root."""
+        ...
+
+    @classmethod
+    @abstractmethod
+    def _from_attrs(cls, attrs: dict, cosmo: Cosmology, cosmo_fid: Cosmology) -> Self:
+        """Reconstruct a catalog instance from HDF5 root attributes."""
+        ...
