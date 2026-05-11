@@ -5,8 +5,8 @@ from typing import Self
 import h5py
 import numpy as np
 import pandas as pd
-from pandas._typing import RandomState
 from cosmoprimo import Cosmology
+from pandas._typing import RandomState
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products import BaseGalaxyCatalog
