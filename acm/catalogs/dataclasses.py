@@ -9,7 +9,7 @@ from pandas import DataFrame
 class Tracer:
     """
     Defines a galaxy tracer (galaxy type) and its associated parameters.
-    
+
     Frozen to ensure immutability and hashability, allowing it to be used as a key in dictionaries.
     The params field is excluded from comparison and hashing to allow for mutable parameters if needed, but the tracer identity is determined solely by its name.
 
