@@ -16,6 +16,17 @@ from acm.catalogs.products.snapshot import (
 
 #%% Fixtures
 
+def make_tracer_data(n: int = 100) -> pd.DataFrame:
+    """Generate minimal valid tracer data."""
+    return pd.DataFrame({
+        "x": np.random.uniform(0, 500, n),
+        "y": np.random.uniform(0, 500, n),
+        "z": np.random.uniform(0, 500, n),
+        "vx": np.random.normal(0, 1, n),
+        "vy": np.random.normal(0, 1, n),
+        "vz": np.random.normal(0, 1, n),
+    })
+
 @pytest.fixture
 def cosmo():
     m = MagicMock()
@@ -45,15 +56,7 @@ def tracer():
 @pytest.fixture
 def valid_data():
     """Minimal valid DataFrame with required position and velocity columns."""
-    n = 100
-    return pd.DataFrame({
-        "x": np.random.uniform(0, 500, n),
-        "y": np.random.uniform(0, 500, n),
-        "z": np.random.uniform(0, 500, n),
-        "vx": np.random.uniform(-100, 100, n),
-        "vy": np.random.uniform(-100, 100, n),
-        "vz": np.random.uniform(-100, 100, n),
-    })
+    return make_tracer_data()
 
 @pytest.fixture
 def populated_catalog(catalog, tracer, valid_data):
@@ -442,15 +445,7 @@ def tracer_bar():
 @pytest.fixture
 def valid_data_bar():
     """Smaller dataset for BAR tracer to allow testing different counts."""
-    n = 50
-    return pd.DataFrame({
-        "x": np.random.uniform(0, 500, n),
-        "y": np.random.uniform(0, 500, n),
-        "z": np.random.uniform(0, 500, n),
-        "vx": np.random.uniform(-100, 100, n),
-        "vy": np.random.uniform(-100, 100, n),
-        "vz": np.random.uniform(-100, 100, n),
-    })
+    return make_tracer_data(n=50)
 
 @pytest.fixture
 def multi_tracer_catalog(catalog, tracer, tracer_bar, valid_data, valid_data_bar):
