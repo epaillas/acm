@@ -5,6 +5,7 @@ from typing import Self
 import h5py
 import numpy as np
 import pandas as pd
+from pandas._typing import RandomState
 from cosmoprimo import Cosmology
 
 from acm.catalogs.dataclasses import Transform
@@ -81,6 +82,7 @@ def _apply_downsample(
     f_gal: float | None,
     nbar: float | None,
     boxsize: Callable[[], np.ndarray] | None = None,
+    seed: RandomState | None = None,
 ) -> pd.DataFrame:
     """
     Randomly downsample a tracer DataFrame.
@@ -136,7 +138,7 @@ def _apply_downsample(
         )
         return data
 
-    return data.sample(n=n_target).reset_index(drop=True)
+    return data.sample(n=n_target, random_state=seed).reset_index(drop=True)
 
 
 # %% GalaxyCatalog classes
@@ -295,6 +297,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         n_gal: int | None = None,
         f_gal: float | None = None,
         nbar: float | None = None,
+        seed: RandomState | None = None,
     ) -> None:
         """
         Add a downsampling transform for a specific tracer.
@@ -331,6 +334,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "f_gal": f_gal,
                     "nbar": nbar,
                     "boxsize": lambda: self.boxsize,  # evaluated at application time
+                    "seed": seed,
                 },
             )
         )

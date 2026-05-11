@@ -373,6 +373,19 @@ class TestApplyDownsample:
         """Downsampling should be skipped (returning unchanged data) if the target number density is greater than or equal to the current number density."""
         result = _apply_downsample(data, tracer="FOO", n_gal=200, f_gal=None, nbar=None)
         assert len(result) == 100
+        
+    def test_random_seed_reproducibility(self, data):
+        """Downsampling with a fixed random seed should produce the same result across multiple calls."""
+        result1 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)
+        result2 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)
+        pd.testing.assert_frame_equal(result1.reset_index(drop=True), result2.reset_index(drop=True))
+        
+    def test_random_seed_different_seeds(self, data):
+        """Downsampling with different random seeds should produce different results."""
+        result1 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)
+        result2 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=43)
+        with pytest.raises(AssertionError):
+            pd.testing.assert_frame_equal(result1.reset_index(drop=True), result2.reset_index(drop=True))
 
 
 #%% RandomSnapshotCatalog
@@ -493,20 +506,20 @@ def test_downsample_affects_only_target_tracer(multi_tracer_catalog):
     assert len(multi_tracer_catalog.get_tracer_data("FOO")) == 50
     assert len(multi_tracer_catalog.get_tracer_data("BAR")) == 50
 
-def test_downsample_independent_per_tracer(multi_tracer_catalog): # FAILED
+def test_downsample_independent_per_tracer(multi_tracer_catalog):
     """Each tracer can be downsampled independently."""
     multi_tracer_catalog.downsample("FOO", n_gal=60)
     multi_tracer_catalog.downsample("BAR", n_gal=30)
     assert len(multi_tracer_catalog.get_tracer_data("FOO")) == 60
     assert len(multi_tracer_catalog.get_tracer_data("BAR")) == 30
 
-def test_downsample_ngal_multi_tracer_updates_total(multi_tracer_catalog): # FAILED
+def test_downsample_ngal_multi_tracer_updates_total(multi_tracer_catalog):
     """ngal should reflect downsampled counts across all tracers."""
     multi_tracer_catalog.downsample("FOO", n_gal=60)
     multi_tracer_catalog.downsample("BAR", n_gal=30)
     assert multi_tracer_catalog.ngal == 90
 
-def test_downsample_nbar_uses_full_volume(multi_tracer_catalog): # FAILED
+def test_downsample_nbar_uses_full_volume(multi_tracer_catalog):
     """nbar downsampling should use catalog boxsize, not per-tracer extent."""
     volume = 500.0 ** 3
     target_nbar = 60 / volume
