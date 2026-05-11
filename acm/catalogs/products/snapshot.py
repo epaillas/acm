@@ -118,7 +118,7 @@ def _apply_downsample(
 
     n_current = len(data)
     if f_gal is not None:
-        n_target = int(n_current * f_gal)
+        n_target = round(n_current * f_gal)
     elif n_gal is not None:
         n_target = n_gal
     else:  # nbar
@@ -128,7 +128,7 @@ def _apply_downsample(
             )
         # Callable to get current boxsize, which may include AP scaling
         volume = np.prod(boxsize())
-        n_target = int(nbar * volume)
+        n_target = round(nbar * volume)
 
     if n_target >= n_current:
         logger.warning(
@@ -324,8 +324,9 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             Transform(
                 name=f"downsample_{tracer}",
                 func=_apply_downsample,
+                tracer=tracer,
                 kwargs={
-                    "tracer": tracer,
+                    "tracer": tracer, # passed for logging purposes
                     "n_gal": n_gal,
                     "f_gal": f_gal,
                     "nbar": nbar,

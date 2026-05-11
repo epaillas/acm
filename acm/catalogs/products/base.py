@@ -74,7 +74,8 @@ class BaseGalaxyCatalog(ABC):
             raise KeyError(f"No data loaded for tracer '{tracer}'.")
         data = self._data[tracer].copy()
         for transform in self._transforms.values():
-            data = transform.apply(data)
+            if transform.tracer is None or transform.tracer == tracer:
+                data = transform.apply(data)
         return data
 
     def get_raw_tracer_data(self, tracer: str) -> pd.DataFrame:
@@ -150,6 +151,7 @@ class BaseGalaxyCatalog(ABC):
 
             for tracer_name, data in self._data.items():
                 grp = f.create_group(tracer_name)
+                grp.attrs["columns"] = list(data.columns) # preserve column order
                 for col in data.columns:
                     grp.create_dataset(col, data=data[col].values)
 
@@ -187,7 +189,8 @@ class BaseGalaxyCatalog(ABC):
             for tracer_name, params in tracer_meta.items():
                 tracer = Tracer(name=tracer_name, params=params)
                 grp = f[tracer_name]
-                data = pd.DataFrame({col: grp[col][:] for col in grp})
+                columns = list(grp.attrs["columns"]) # preserve column order
+                data = pd.DataFrame({col: grp[col][:] for col in columns})
                 catalog.set_tracer_data(tracer, data)
 
         logger.info(f"Loaded {cls.__name__} from {path}")

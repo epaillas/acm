@@ -40,11 +40,14 @@ class Transform:
         Pure function that takes a DataFrame and returns a transformed DataFrame.
     kwargs : dict
         Arguments forwarded to func at application time.
+    tracer: str or None
+        If specified, this transform only applies to the given tracer. If None, it applies to all tracers.
     """
 
     name: str
     func: Callable[..., DataFrame]
     kwargs: dict = field(default_factory=dict)
+    tracer: str | None = None  # None means catalog-level
 
     def apply(self, data: DataFrame) -> DataFrame:
         """Apply the transform function to the data with the stored kwargs."""
