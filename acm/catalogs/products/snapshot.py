@@ -326,7 +326,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                 func=_apply_downsample,
                 tracer=tracer,
                 kwargs={
-                    "tracer": tracer, # passed for logging purposes
+                    "tracer": tracer,  # passed for logging purposes
                     "n_gal": n_gal,
                     "f_gal": f_gal,
                     "nbar": nbar,

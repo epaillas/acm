@@ -151,7 +151,7 @@ class BaseGalaxyCatalog(ABC):
 
             for tracer_name, data in self._data.items():
                 grp = f.create_group(tracer_name)
-                grp.attrs["columns"] = list(data.columns) # preserve column order
+                grp.attrs["columns"] = list(data.columns)  # preserve column order
                 for col in data.columns:
                     grp.create_dataset(col, data=data[col].values)
 
@@ -189,7 +189,7 @@ class BaseGalaxyCatalog(ABC):
             for tracer_name, params in tracer_meta.items():
                 tracer = Tracer(name=tracer_name, params=params)
                 grp = f[tracer_name]
-                columns = list(grp.attrs["columns"]) # preserve column order
+                columns = list(grp.attrs["columns"])  # preserve column order
                 data = pd.DataFrame({col: grp[col][:] for col in columns})
                 catalog.set_tracer_data(tracer, data)
 
