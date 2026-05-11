@@ -71,16 +71,16 @@ class BaseGalaxyCatalog(ABC):
     def get_tracer_data(self, tracer: str, raw: bool = False) -> pd.DataFrame:
         """
         Return tracer data with all pipeline transforms applied.
-        
-        No transformations are applied if `raw=True`. 
-        
+
+        No transformations are applied if `raw=True`.
+
         Parameters
         ----------
         tracer : str
             Name of the tracer to retrieve.
         raw : bool, optional
             If True, return the raw data without applying transforms. Default is False.
-            
+
         Returns
         -------
         pd.DataFrame
