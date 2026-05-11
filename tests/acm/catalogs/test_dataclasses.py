@@ -65,9 +65,10 @@ class TestTransform:
         pd.testing.assert_frame_equal(dummy_dataframe, original)
 
     def test_transform_default_kwargs(self, ):
-        """Transform should default to empty kwargs."""
+        """Transform should default to empty kwargs and None tracer."""
         t = Transform(name="identity", func=lambda data: data)
         assert t.kwargs == {}
+        assert t.tracer is None
 
     def test_transform_kwargs_forwarded(self, ):
         """All stored kwargs should be forwarded to the function."""

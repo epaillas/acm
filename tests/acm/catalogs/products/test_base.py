@@ -163,7 +163,29 @@ class TestTransforms:
         populated_catalog._add_transform(t)
         populated_catalog.reset_transforms()
         assert len(populated_catalog._transforms) == 0
+        
+    def test_transform_default_tracer_none(self, populated_catalog, tracer_bar, valid_data):
+        """A transform with tracer=None should apply to all tracers."""
+        t = Transform(name="t1", func=lambda d, f: d * f, kwargs={"f": 2.0})
+        populated_catalog.set_tracer_data(tracer_bar, valid_data) # Add BAR tracer
+        populated_catalog._add_transform(t)
+        bar_data = populated_catalog.get_tracer_data("BAR")
+        foo_data = populated_catalog.get_tracer_data("FOO")
+        assert populated_catalog._transforms["t1"].tracer is None
+        pd.testing.assert_frame_equal(foo_data, valid_data * 2.0)
+        pd.testing.assert_frame_equal(bar_data, valid_data * 2.0)
 
+    def test_transform_with_tracer(self, populated_catalog, tracer_bar, valid_data):
+        """A transform with a specific tracer should only apply to that tracer."""
+        t = Transform(name="t1", func=lambda d, f: d * f, kwargs={"f": 2.0}, tracer="FOO")
+        populated_catalog.set_tracer_data(tracer_bar, valid_data) # Add BAR tracer
+        populated_catalog._add_transform(t)
+        bar_data = populated_catalog.get_tracer_data("BAR")
+        foo_data = populated_catalog.get_tracer_data("FOO")
+        assert populated_catalog._transforms["t1"].tracer == "FOO"
+        assert populated_catalog._transforms["t1"].tracer != "BAR"
+        pd.testing.assert_frame_equal(foo_data, valid_data * 2.0)
+        pd.testing.assert_frame_equal(bar_data, valid_data)
 
 class TestMagicMethods:
 
