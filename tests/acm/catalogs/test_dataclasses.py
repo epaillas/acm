@@ -47,7 +47,35 @@ class TestTracer:
     def test_tracer_repr(self, dummy_tracer):
         assert "FOO" in repr(dummy_tracer)
         assert "params" in repr(dummy_tracer)
+        
+    def test_tracer_equality(self):
+        """Two tracers with the same name should be equal, regardless of params."""
+        t1 = Tracer(name="FOO", params={"a": 1})
+        t2 = Tracer(name="FOO", params={"a": 2})
+        t3 = Tracer(name="BAR", params={"b": 3})
+        assert t1 == t2
+        assert t1 != t3
+        
+    def test_tracer_hashability(self, dummy_tracer):
+        """Tracer should be hashable and usable as a dict key."""
+        d = {dummy_tracer: "value"}
+        assert d[dummy_tracer] == "value"
+    
+    def test_tracer_hash_equality(self):
+        """Tracers that are equal should have the same hash."""
+        t1 = Tracer(name="FOO", params={"a": 1})
+        t2 = Tracer(name="FOO", params={"a": 2})
+        t3 = Tracer(name="BAR", params={"b": 3})
+        assert hash(t1) == hash(t2)
+        assert hash(t1) != hash(t3)
 
+    def test_tracer_immutable(self, dummy_tracer):
+        """Tracer should be immutable (frozen dataclass)."""
+        with pytest.raises(AttributeError):
+            dummy_tracer.name = "NEW_NAME"
+        dummy_tracer.params["a"] = 999  # This should be allowed since params is mutable, but it won't affect equality or hashing
+        assert dummy_tracer.params["a"] == 999
+        assert dummy_tracer == Tracer(name="FOO", params={"a": 1})  # Still equal to a tracer with the same name, regardless of params
 
 class TestTransform:
     def test_transform_name(self, dummy_transform):

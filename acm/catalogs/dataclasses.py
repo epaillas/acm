@@ -5,10 +5,13 @@ from typing import Any
 from pandas import DataFrame
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class Tracer:
     """
     Defines a galaxy tracer (galaxy type) and its associated parameters.
+    
+    Frozen to ensure immutability and hashability, allowing it to be used as a key in dictionaries.
+    The params field is excluded from comparison and hashing to allow for mutable parameters if needed, but the tracer identity is determined solely by its name.
 
     Parameters
     ----------
@@ -20,11 +23,7 @@ class Tracer:
     """
 
     name: str
-    params: dict[str, Any] = field(default_factory=dict)
-
-    def __repr__(self) -> str:
-        """Provide a string representation of the tracer, including its name and parameters."""
-        return f"Tracer(name={self.name!r}, params={self.params})"
+    params: dict[str, Any] = field(default_factory=dict, compare=False, hash=False)
 
 
 @dataclass
