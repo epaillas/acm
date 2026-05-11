@@ -68,21 +68,32 @@ class BaseGalaxyCatalog(ABC):
             )
         self._data[tracer.name] = data
 
-    def get_tracer_data(self, tracer: str) -> pd.DataFrame:
-        """Return tracer data with all pipeline transforms applied."""
+    def get_tracer_data(self, tracer: str, raw: bool = False) -> pd.DataFrame:
+        """
+        Return tracer data with all pipeline transforms applied.
+        
+        No transformations are applied if `raw=True`. 
+        
+        Parameters
+        ----------
+        tracer : str
+            Name of the tracer to retrieve.
+        raw : bool, optional
+            If True, return the raw data without applying transforms. Default is False.
+            
+        Returns
+        -------
+        pd.DataFrame
+            The tracer data with transforms applied (or raw if `raw=True`).
+        """
         if tracer not in self._data:
             raise KeyError(f"No data loaded for tracer '{tracer}'.")
         data = self._data[tracer].copy()
-        for transform in self._transforms.values():
-            if transform.tracer is None or transform.tracer == tracer:
-                data = transform.apply(data)
+        if not raw:
+            for transform in self._transforms.values():
+                if transform.tracer is None or transform.tracer == tracer:
+                    data = transform.apply(data)
         return data
-
-    def get_raw_tracer_data(self, tracer: str) -> pd.DataFrame:
-        """Return the raw tracer data without applying transforms."""
-        if tracer not in self._data:
-            raise KeyError(f"No data loaded for tracer '{tracer}'.")
-        return self._data[tracer]
 
     @abstractmethod
     def _check_data_columns(self, data: pd.DataFrame) -> bool:

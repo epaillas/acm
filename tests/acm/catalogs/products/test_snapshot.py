@@ -179,7 +179,7 @@ def test_rsd_invalid_los_raises(populated_catalog):
 
 def test_rsd_shifts_positions(populated_catalog):
     """RSD transform should shift positions along the los according to the formula z' = z + vz / (H * az)."""
-    raw = populated_catalog.get_raw_tracer_data("FOO").copy()
+    raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.rsd(los="z")
     result = populated_catalog.get_tracer_data("FOO")
     expected_z = raw["z"] + raw["vz"] / (populated_catalog.hubble * populated_catalog.az)
@@ -187,7 +187,7 @@ def test_rsd_shifts_positions(populated_catalog):
 
 def test_rsd_does_not_mutate_raw(populated_catalog):
     """RSD transform should not mutate the raw data stored in the catalog."""
-    raw_before = populated_catalog.get_raw_tracer_data("FOO").copy()
+    raw_before = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.rsd(los="z")
     populated_catalog.get_tracer_data("FOO")
     pd.testing.assert_frame_equal(populated_catalog._data["FOO"], raw_before)
@@ -209,7 +209,7 @@ def test_ap_scales_positions(populated_catalog, cosmo, cosmo_fid):
     """AP transform should scale positions by q_par along the los and q_perp transversely."""
     cosmo.efunc.return_value = 0.8
     cosmo_fid.efunc.return_value = 1.0
-    raw = populated_catalog.get_raw_tracer_data("FOO").copy()
+    raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.ap(los="z")
     result = populated_catalog.get_tracer_data("FOO")
     assert result["z"].values == pytest.approx(raw["z"].values * populated_catalog.q_par)
@@ -287,7 +287,7 @@ def test_save_load_tracer_data(populated_catalog, tmp_path, cosmo, cosmo_fid, va
     populated_catalog.save(path)
     loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
     pd.testing.assert_frame_equal(
-        loaded.get_raw_tracer_data("FOO").reset_index(drop=True),
+        loaded.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         valid_data.reset_index(drop=True),
     )
 
@@ -395,24 +395,24 @@ def test_from_snapshot_inherits_tracers(populated_catalog, random_catalog):
 
 def test_from_snapshot_same_ngal(populated_catalog, random_catalog):
     """Random catalog should have the same number of galaxies as the original snapshot catalog."""
-    assert len(random_catalog.get_raw_tracer_data("FOO")) == len(populated_catalog._data["FOO"])
+    assert len(random_catalog.get_tracer_data("FOO", raw=True)) == len(populated_catalog._data["FOO"])
 
 def test_from_snapshot_positions_differ(populated_catalog, random_catalog):
     """Random positions should differ from the original (with overwhelming probability)."""
     orig = populated_catalog._data["FOO"][["x", "y", "z"]].values
-    rand = random_catalog.get_raw_tracer_data("FOO")[["x", "y", "z"]].values
+    rand = random_catalog.get_tracer_data("FOO", raw=True)[["x", "y", "z"]].values
     assert not np.allclose(orig, rand)
 
 def test_random_positions_within_box(random_catalog):
     """Random positions should be within the box defined by the boxsize."""
-    data = random_catalog.get_raw_tracer_data("FOO")
+    data = random_catalog.get_tracer_data("FOO", raw=True)
     boxsize = random_catalog._boxsize
     for i, col in enumerate(("x", "y", "z")):
         assert data[col].between(0, boxsize[i]).all()
 
 def test_random_catalog_no_velocity_columns(random_catalog):
     """Random catalog should not have velocity columns since they are not meaningful for randoms."""
-    data = random_catalog.get_raw_tracer_data("FOO")
+    data = random_catalog.get_tracer_data("FOO", raw=True)
     assert "vx" not in data.columns
 
 def test_random_catalog_rsd_raises(random_catalog):
@@ -471,8 +471,8 @@ def test_nbar_per_tracer_differ(multi_tracer_catalog):
 
 def test_rsd_applies_to_all_tracers(multi_tracer_catalog):
     """RSD is a catalog-level transform and should affect all tracers."""
-    raw_foo = multi_tracer_catalog.get_raw_tracer_data("FOO")["z"].copy()
-    raw_bar = multi_tracer_catalog.get_raw_tracer_data("BAR")["z"].copy()
+    raw_foo = multi_tracer_catalog.get_tracer_data("FOO", raw=True)["z"].copy()
+    raw_bar = multi_tracer_catalog.get_tracer_data("BAR", raw=True)["z"].copy()
     multi_tracer_catalog.rsd(los="z")
     assert not np.allclose(multi_tracer_catalog.get_tracer_data("FOO")["z"].values, raw_foo.values)
     assert not np.allclose(multi_tracer_catalog.get_tracer_data("BAR")["z"].values, raw_bar.values)
@@ -481,8 +481,8 @@ def test_ap_applies_to_all_tracers(multi_tracer_catalog, cosmo, cosmo_fid):
     """AP is a catalog-level transform and should affect all tracers."""
     cosmo.efunc.return_value = 0.8
     cosmo_fid.efunc.return_value = 1.0
-    raw_foo = multi_tracer_catalog.get_raw_tracer_data("FOO")["z"].copy()
-    raw_bar = multi_tracer_catalog.get_raw_tracer_data("BAR")["z"].copy()
+    raw_foo = multi_tracer_catalog.get_tracer_data("FOO", raw=True)["z"].copy()
+    raw_bar = multi_tracer_catalog.get_tracer_data("BAR", raw=True)["z"].copy()
     multi_tracer_catalog.ap(los="z")
     assert not np.allclose(multi_tracer_catalog.get_tracer_data("FOO")["z"].values, raw_foo.values)
     assert not np.allclose(multi_tracer_catalog.get_tracer_data("BAR")["z"].values, raw_bar.values)

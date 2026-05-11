@@ -93,10 +93,6 @@ class TestTracers:
     def test_get_tracer_data_missing_raises(self, catalog):
         with pytest.raises(KeyError, match="FOO"):
             catalog.get_tracer_data("FOO")
-            
-    def test_get_raw_tracer_data_missing_raises(self, catalog):
-        with pytest.raises(KeyError, match="FOO"):
-            catalog.get_raw_tracer_data("FOO")
 
 class TestTransforms:
 
@@ -116,7 +112,7 @@ class TestTransforms:
     def test_get_raw_tracer_data_bypasses_transforms(self, populated_catalog, valid_data):
         t = Transform(name="scale", func=lambda data, f: data * f, kwargs={"f": 2.0})
         populated_catalog._add_transform(t)
-        result = populated_catalog.get_raw_tracer_data("FOO")
+        result = populated_catalog.get_tracer_data("FOO", raw=True)
         pd.testing.assert_frame_equal(result, valid_data)
 
     def test_add_transform(self, catalog):
@@ -219,7 +215,7 @@ class TestSaveLoad:
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
         loaded = DummyCatalog.load(path, cosmo, cosmo_fid)
-        pd.testing.assert_frame_equal(loaded.get_raw_tracer_data("FOO"), valid_data)
+        pd.testing.assert_frame_equal(loaded.get_tracer_data("FOO", raw=True), valid_data)
 
     def test_save_load_tracer_params(self, populated_catalog, tmp_path, cosmo, cosmo_fid):
         path = tmp_path / "catalog.h5"
