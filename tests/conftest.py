@@ -8,9 +8,14 @@ DATA_DIR = Path(__file__).parent / "data"
 DATA_URL = "https://github.com/epaillas/acm/releases/download/data_test_v1/"
 
 # Add here the data files you want to download for the tests from DATA_URL
-DATA_FILES = ["tpcf.npy", "tpcf.ckpt"]
+DATA_FILES = [
+    "tpcf.npy",
+    "tpcf.ckpt",
+    "hod000_minkowski.fits.gz",
+    "minkowski_reference.npy",
+]
 
-print("conftest.py: Configuration des tests")
+print("***** run conftest.py: Configuration des tests *****")
 
 os.environ["ACM_TEST_DATA"] = str(DATA_DIR)
 
