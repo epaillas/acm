@@ -430,7 +430,9 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         return random_catalog
 
     @staticmethod
-    def _random_positions(n_gal: int, boxsize: np.ndarray, seed: int | None) -> pd.DataFrame:
+    def _random_positions(
+        n_gal: int, boxsize: np.ndarray, seed: int | None
+    ) -> pd.DataFrame:
         """
         Generate a pandas DataFrame of uniform random positions within the box.
 

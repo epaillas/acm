@@ -167,7 +167,7 @@ class AbacusHODBackend(SnapshotBackend):
         final_tracers = {}
         for tracer in tracers:
             tracer_name = self._resolve_tracer_name(tracer.name)
-            
+
             if tracer_name not in catalog_tracers:
                 raise KeyError(
                     f"Tracer '{tracer.name}' (resolved to '{tracer_name}') is not available in the default tracer list. "
