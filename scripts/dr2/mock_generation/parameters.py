@@ -8,7 +8,7 @@ from acm.utils.default import cosmo_list
 
 
 DEFAULT_SAVE_DIR = Path('/pscratch/sd/a/acasella/acm/dr2/HOD/')
-DEFAULT_N_HOD = 40
+DEFAULT_N_HOD = 100000
 PARAM_ORDER = [
     'logM_cut',
     'logM_1',
@@ -189,7 +189,7 @@ if __name__ == '__main__':
     
     lhc.save_params(
         save_fn=[
-            save_dir / f'test7_hod_params_{cosmo_key}.csv'
+            save_dir / f'hod_params_{cosmo_key}.csv'
             for cosmo_key in params
         ],
         order=PARAM_ORDER,
