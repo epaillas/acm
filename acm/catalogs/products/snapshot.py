@@ -402,7 +402,7 @@ class RandomSnapshotCatalog(SnapshotCatalog):
     vel_columns = ()  # No velocities for random catalogs
 
     @classmethod
-    def from_snapshot(cls, catalog: SnapshotCatalog) -> Self:
+    def from_snapshot(cls, catalog: SnapshotCatalog, seed: int | None = None) -> Self:
         """
         Create a random catalog from an existing SnapshotCatalog.
 
@@ -413,6 +413,8 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         ----------
         catalog : SnapshotCatalog
             Source catalog to copy metadata and tracer counts from.
+        seed : int | None
+            Random seed for reproducibility.
         """
         random_catalog = cls(
             redshift=catalog.redshift,
@@ -423,12 +425,12 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         for tracer_name, tracer in catalog.tracers.items():
             n_gal = len(catalog._data[tracer_name])
             random_catalog.set_tracer_data(
-                tracer, cls._random_positions(n_gal, catalog._boxsize)
+                tracer, cls._random_positions(n_gal, catalog._boxsize, seed=seed)
             )
         return random_catalog
 
     @staticmethod
-    def _random_positions(n_gal: int, boxsize: np.ndarray) -> pd.DataFrame:
+    def _random_positions(n_gal: int, boxsize: np.ndarray, seed: int | None) -> pd.DataFrame:
         """
         Generate a pandas DataFrame of uniform random positions within the box.
 
@@ -438,8 +440,10 @@ class RandomSnapshotCatalog(SnapshotCatalog):
             Number of random galaxies to generate.
         boxsize : np.ndarray
             Box dimensions in each axis, used to scale the random positions.
+        seed : int | None
+            Random seed for reproducibility.
         """
-        rng = np.random.default_rng()
+        rng = np.random.default_rng(seed=seed)
         return pd.DataFrame(
             {
                 "x": rng.uniform(0, boxsize[0], n_gal),

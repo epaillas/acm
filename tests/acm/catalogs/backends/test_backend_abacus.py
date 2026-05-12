@@ -1,6 +1,6 @@
 import yaml
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 import sys
 import numpy as np
 import pandas as pd
