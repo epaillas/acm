@@ -147,8 +147,8 @@ class AbacusHODBackend(SnapshotBackend):
         -------
         dict[Tracer, DataFrame]
             Dictionary mapping each Tracer to a DataFrame of galaxy positions
-            and properties (columns are uppercased AbacusHOD output keys,
-            plus an 'IS_CENT' boolean column).
+            and properties (columns are lowercase AbacusHOD output keys,
+            plus an 'is_cent' boolean column).
 
         Raises
         ------
@@ -167,6 +167,12 @@ class AbacusHODBackend(SnapshotBackend):
         final_tracers = {}
         for tracer in tracers:
             tracer_name = self._resolve_tracer_name(tracer.name)
+            
+            if tracer_name not in catalog_tracers:
+                raise KeyError(
+                    f"Tracer '{tracer.name}' (resolved to '{tracer_name}') is not available in the default tracer list. "
+                    f"Available tracers: {list(catalog_tracers)}."
+                )
 
             default_params = catalog_tracers[tracer_name]
             hod_params = tracer.params.copy()
@@ -200,7 +206,6 @@ class AbacusHODBackend(SnapshotBackend):
         # Handle kwarg default values
         reseed = kwargs.pop("reseed", None) or None  # Default to None if 0
 
-        # TODO: handle density & incompleteness here ? NOTE: requires cosmology information !
         # TODO: handle NFW profile for ELG here ?
 
         galaxy_dict = dm_catalog.run_hod(
@@ -214,13 +219,9 @@ class AbacusHODBackend(SnapshotBackend):
         galaxy_catalogs = {}
         for tracer in tracers:
             tracer_name = self._resolve_tracer_name(tracer.name)
-
             self._add_centrals(galaxy_dict, tracer_name)
-
-            columns = [k.upper() for k in galaxy_dict[tracer_name]]
-            galaxy_catalogs[tracer] = pd.DataFrame.from_dict(
-                galaxy_dict[tracer_name], columns=columns
-            )
+            catalog = {k.lower(): v for k, v in galaxy_dict[tracer_name].items()}
+            galaxy_catalogs[tracer] = pd.DataFrame.from_dict(catalog)
 
         return galaxy_catalogs
 
