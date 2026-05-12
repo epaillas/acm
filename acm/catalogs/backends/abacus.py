@@ -119,7 +119,7 @@ class AbacusHODBackend(SnapshotBackend):
         dm_catalog: AbacusHOD,
         tracers: list[Tracer],
         use_logsigma: bool = False,
-        mapping: dict | None = None,
+        mapping: dict[str, list[str]] | None = None,
         **kwargs,
     ) -> dict[Tracer, pd.DataFrame]:
         """
@@ -135,8 +135,8 @@ class AbacusHODBackend(SnapshotBackend):
         use_logsigma : bool, optional
             If True, interprets the 'sigma' HOD parameter as log10(sigma) and
             converts it before passing to AbacusHOD. Default is False.
-        mapping : dict, optional
-            Optional parameter name remapping, e.g. {"my_sigma": "sigma"}.
+        mapping : dict[str, list[str]] | None, optional
+            Optional parameter name remapping, e.g. {"sigma": ["my_sigma"]}.
             Useful when parameter names differ from AbacusHOD's convention.
         **kwargs
             Extra arguments forwarded to AbacusHOD.run_hod. Supports aliases:
