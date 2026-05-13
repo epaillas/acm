@@ -469,7 +469,7 @@ class DensitySplitQuantileGalaxySpectrumMultipoles(DensitySplitSpectrumBaseClass
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_power"
         )
@@ -477,7 +477,7 @@ class DensitySplitQuantileGalaxySpectrumMultipoles(DensitySplitSpectrumBaseClass
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_power"
         )
@@ -492,13 +492,13 @@ class DensitySplitQuantileSpectrumMultipoles(DensitySplitSpectrumBaseClass):
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs["measurement_root"] = kwargs.pop("measurement_root", "quantile_power")
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_pkqq")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
+    def compress_data(cls, **kwargs) -> xarray.Dataset:  # noqa: D102
         kwargs["measurement_root"] = kwargs.pop("measurement_root", "quantile_power")
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_pkqq")
         return super().compress_data(**kwargs)
