@@ -22,12 +22,7 @@ K_MAX = (
 
 
 class DensitySplitSpectrumBaseClass(BaseObservableBGS):
-    """
-    Base class for densitysplit observables in the ACM pipeline for the BGS dataset.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    """Base class for densitysplit observables in the ACM pipeline for the BGS dataset."""
 
     # %% Compressed files creation
     @classmethod
@@ -340,8 +335,8 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
@@ -415,7 +410,7 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
             default_select_filters = self.select_filters.copy()
 
         k = self.k.values
-        for i, q in enumerate(quantiles):
+        for q in quantiles:
             self.select_filters.update({"ells": ell, "quantiles": q})
             data = self.y
             model = self.get_model_prediction(model_params)
@@ -468,15 +463,13 @@ class DensitySplitSpectrumBaseClass(BaseObservableBGS):
 
 
 class DensitySplitQuantileGalaxySpectrumMultipoles(DensitySplitSpectrumBaseClass):
-    """
-    Class for the application of the densitysplit cross-power spectrum statistic of the ACM pipeline to the BGS dataset.
-    """
+    """Class for the application of the densitysplit cross-power spectrum statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="ds_pkqg", **kwargs):
+    def __init__(self, stat_name: str = "ds_pkqg", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_power"
         )
@@ -484,7 +477,7 @@ class DensitySplitQuantileGalaxySpectrumMultipoles(DensitySplitSpectrumBaseClass
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs["measurement_root"] = kwargs.pop(
             "measurement_root", "quantile_data_power"
         )
@@ -493,21 +486,19 @@ class DensitySplitQuantileGalaxySpectrumMultipoles(DensitySplitSpectrumBaseClass
 
 
 class DensitySplitQuantileSpectrumMultipoles(DensitySplitSpectrumBaseClass):
-    """
-    Class for the application of the densitysplit auto-power spectrum statistic of the ACM pipeline to the BGS dataset.
-    """
+    """Class for the application of the densitysplit auto-power spectrum statistic of the ACM pipeline to the BGS dataset."""
 
-    def __init__(self, stat_name="ds_pkqq", **kwargs):
+    def __init__(self, stat_name: str = "ds_pkqq", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     @classmethod
-    def compress_covariance(cls, **kwargs) -> xarray.Dataset:
+    def compress_covariance(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs["measurement_root"] = kwargs.pop("measurement_root", "quantile_power")
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_pkqq")
         return super().compress_covariance(**kwargs)
 
     @classmethod
-    def compress_data(cls, **kwargs) -> xarray.Dataset:
+    def compress_data(cls, **kwargs) -> xarray.Dataset: # noqa: D102
         kwargs["measurement_root"] = kwargs.pop("measurement_root", "quantile_power")
         kwargs["stat_name"] = kwargs.get("stat_name", "ds_pkqq")
         return super().compress_data(**kwargs)
