@@ -366,7 +366,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         volume = np.prod(self.boxsize)
         return self.ngal / volume if volume > 0 else 0.0
 
-    def positions(self, raw=True) -> pd.DataFrame:
+    def positions(self, raw: bool = True) -> pd.DataFrame:
         """
         Get the positions of galaxies in the full catalog.
 
