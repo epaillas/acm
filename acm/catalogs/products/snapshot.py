@@ -382,7 +382,9 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             DataFrame containing the positions of galaxies.
         """
         if not self.tracers:
-            raise RuntimeError("No tracers loaded in the catalog, cannot get positions.")
+            raise RuntimeError(
+                "No tracers loaded in the catalog, cannot get positions."
+            )
         pos = []
         for tracer in self.tracers:
             d = self.get_tracer_data(tracer, raw=raw)
