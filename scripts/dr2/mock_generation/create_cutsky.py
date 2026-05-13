@@ -29,6 +29,8 @@ def get_cli_args():
     parser.add_argument("--n_phase", type=int, default=1)
     parser.add_argument('--start_cosmo', type=int, default=0)
     parser.add_argument('--n_cosmo', type=int, default=1) 
+    parser.add_argument('--start_hod', type=int, default=0)
+    parser.add_argument('--n_hod', type=int, default=1)
     parser.add_argument('--tracer', type=str, default='LRG')
     parser.add_argument('--region', type=str, default='NGC')
     parser.add_argument('--release', type=str, default='Y3')
@@ -48,15 +50,16 @@ def get_cli_args():
     )
     parser.add_argument('--make_randoms', action='store_true', default=False)
     parser.add_argument('--n_randoms', type=int, default=1)
-    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/e/epaillas/acm/dr2/hods/cutsky/v0.2/')
+    parser.add_argument('--save_dir', type=str, default='/pscratch/sd/a/acasella/acm/dr2/HOD/cutsky_mocks/')
+    parser.add_argument('--hod_dir', type=str, default='/pscratch/sd/a/acasella/acm/dr2/HOD/')
 
     args = parser.parse_args()
     return args
 
-def get_hod_params(nrows=None):
+def get_hod_params(cosmo_idx, hod_dir, nrows=None):
     """Some example HOD parameters."""
-    hod_dir = Path(f'/pscratch/sd/e/epaillas/emc/hod_params/yuan23/')
-    hod_fn = hod_dir / f'hod_params_yuan23_c000.csv'
+    hod_dir = Path(hod_dir)
+    hod_fn = hod_dir / f'hod_params_c{cosmo_idx:03}.csv'
     df = pandas.read_csv(hod_fn, delimiter=',')
     df.columns = df.columns.str.strip()
     df.columns = list(df.columns.str.strip('# ').values)
@@ -77,57 +80,70 @@ if __name__ == '__main__':
     release = args.release
     cosmos = list(range(args.start_cosmo, args.start_cosmo + args.n_cosmo))
     phases = list(range(args.start_phase, args.start_phase + args.n_phase))
-    hod_idx = 30  # TODO : allow varying hod_idx
+    hods = list(range(args.start_hod, args.start_hod + args.n_hod))
+    hod_dir = args.hod_dir
 
     for cosmo_idx in cosmos:
         fid_cosmo = AbacusSummit(cosmo_idx)
 
-        for phase_idx in phases:
-            if mpicomm.rank == 0:
-                logger.info(f'Generating cutsky mock for cosmo {cosmo_idx}, phase {phase_idx}.')
+        for hod_idx in hods:
 
-            save_dir = Path(args.save_dir) / f'c{cosmo_idx:03}_ph{phase_idx:03}'
-            save_dir.mkdir(parents=True, exist_ok=True)
+            for phase_idx in phases:
+                if mpicomm.rank == 0:
+                    logger.info(f'Generating cutsky mock for cosmo {cosmo_idx}, phase {phase_idx}.')
 
-            # read example HOD parameters
-            hod_params = get_hod_params()
+                save_dir = Path(args.save_dir) / f'c{cosmo_idx:03}_ph{phase_idx:03}'
+                save_dir.mkdir(parents=True, exist_ok=True)
 
-            # initialize class
-            cutsky = CutskyHOD(
-                tracer=tracer,
-                varied_params=hod_params.keys(),
-                zranges=zranges, snapshots=snapshots,
-                cosmo_idx=cosmo_idx, phase_idx=phase_idx,
-                load_existing_hod=False, mpicomm=mpicomm
-            )
-            # you can set load_existing_hod=True to load a pre-made catalog rather
-            # than actually sampling from AbacusSummit for a quick debugging
+                # read example HOD parameters
+                hod_params = get_hod_params(cosmo_idx=cosmo_idx, hod_dir=hod_dir)
 
-            # sample HOD parameters and build the cutsky mock
-            # this does not have the angular or radial mask carved in yet
-            hod = {key: hod_params[key][hod_idx] for key in hod_params.keys()}
-            cutsky.sample_hod(hod, nthreads=1, region=region, release=release)
+                # initialize class
+                cutsky = CutskyHOD(
+                    tracer=tracer,
+                    varied_params=hod_params.keys(),
+                    zranges=zranges, snapshots=snapshots,
+                    cosmo_idx=cosmo_idx, phase_idx=phase_idx,
+                    load_existing_hod=False, mpicomm=mpicomm
+                )
+                # you can set load_existing_hod=True to load a pre-made catalog rather
+                # than actually sampling from AbacusSummit for a quick debugging
 
-            # apply angular and radial masks
-            cutsky.apply_angular_mask(region=region, release=release, npasses=None, program='dark')
-            nz_filename= f'/global/cfs/cdirs/desi/survey/catalogs/DA2/LSS/loa-v1/LSScats/v2/{tracer}_full_HPmapcut_nz.txt'
-            cutsky.apply_radial_mask(nz_filename=nz_filename)
+                # sample HOD parameters and build the cutsky mock
+                # this does not have the angular or radial mask carved in yet
+                hod = {key: hod_params[key][hod_idx] for key in hod_params.keys()}
+                cutsky.sample_hod(hod, nthreads=1, region=region, release=release)
 
-            cutsky.save(save_dir / f'{tracer}_{region}_hod{hod_idx:03}.dat.fits')
+                # apply angular and radial masks
+                cutsky.apply_angular_mask(region=region, release=release, npasses=None, program='dark')
+                nz_filename= f'/global/cfs/cdirs/desi/survey/catalogs/DA2/LSS/loa-v1/LSScats/v2/{tracer}_full_HPmapcut_nz.txt'
+                # cutsky.apply_radial_mask(nz_filename=nz_filename)
+                # cutsky.save(save_dir / f'{tracer}_{region}_hod{hod_idx:03}_please_check.dat.fits')
 
-            if args.make_randoms:
-                for rnd_idx in range(args.n_randoms):
-                # generate a random catalog with the same angular and radial masks
-                    cutsky_randoms = CutskyRandoms(
-                        rarange=(cutsky.catalog['RA'].min(), cutsky.catalog['RA'].max()),
-                        decrange=(cutsky.catalog['DEC'].min(), cutsky.catalog['DEC'].max()),
-                        zrange=(np.min(zranges), np.max(zranges)),
-                        nbar=2000,  # this is *surface area* density, in (deg^2)^-1
-                        # csize=10_000_000,  # alternatively, pass the desired number of randoms
-                        seed=rnd_idx,
-                    )
-                    cutsky_randoms.apply_angular_mask(region=region, release=release, npasses=None, program='dark')
-                    # we use `shape_only=True` to only match the n(z) shape, keeping the randoms amplitude
-                    cutsky_randoms.apply_radial_mask(nz_filename=nz_filename, shape_only=True)
-                    save_dir = Path(args.save_dir)
-                    cutsky_randoms.save(save_dir / f'{tracer}_{region}_{rnd_idx}.ran.fits')
+                try:
+                    cutsky.apply_radial_mask(nz_filename=nz_filename)
+
+                except ValueError as e:
+                    if mpicomm.rank == 0:
+                        logger.warning(f"HOD {hod_idx} failed radial mask check: {e}")
+                    continue
+
+                out_file = save_dir / f'{tracer}_{region}_hod{hod_idx:03}.dat.fits'
+                cutsky.save(out_file)
+
+                if args.make_randoms:
+                    for rnd_idx in range(args.n_randoms):
+                    # generate a random catalog with the same angular and radial masks
+                        cutsky_randoms = CutskyRandoms(
+                            rarange=(cutsky.catalog['RA'].min(), cutsky.catalog['RA'].max()),
+                            decrange=(cutsky.catalog['DEC'].min(), cutsky.catalog['DEC'].max()),
+                            zrange=(np.min(zranges), np.max(zranges)),
+                            nbar=2000,  # this is *surface area* density, in (deg^2)^-1
+                            # csize=10_000_000,  # alternatively, pass the desired number of randoms
+                            seed=rnd_idx,
+                        )
+                        cutsky_randoms.apply_angular_mask(region=region, release=release, npasses=None, program='dark')
+                        # we use `shape_only=True` to only match the n(z) shape, keeping the randoms amplitude
+                        cutsky_randoms.apply_radial_mask(nz_filename=nz_filename, shape_only=True)
+                        save_dir = Path(args.save_dir)
+                        cutsky_randoms.save(save_dir / f'{tracer}_{region}_{rnd_idx}.ran.fits')
