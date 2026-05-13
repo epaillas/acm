@@ -8,8 +8,8 @@ from acm.catalogs.products.base import BaseGalaxyCatalog
 
 logger = logging.getLogger(__name__)
 
-def box_to_cutsky(*args, **kwargs):
-    """A function that converts a box geometry to a cutsky geometry."""
+def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:
+    """Convert a box geometry to a cutsky geometry."""
     # Input: SnapshotCatalog (positions, cosmology & boxsize), observer position, redshift range
     # Depends on cosmology for distance-redshift conversion.
     # Depends on boxsize & observer position for angle values and eventual periodic wrapping.
@@ -18,8 +18,8 @@ def box_to_cutsky(*args, **kwargs):
 
 class CutSkyCatalog(BaseGalaxyCatalog):
     """
-    A galaxy catalog with cutsky geometry and redshift evolution.
-    
+    Galaxy catalog with cutsky geometry and redshift evolution.
+
     Expects galaxy positions in spherical coordinates (ra, dec, z) with angular coordinates
     in degrees and redshift as a dimensionless quantity.
     """
@@ -30,7 +30,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         
     # Properties: what is needed ?
     def _range_from_data(self, coord: str, is_angle: bool) -> tuple[float, float]:
-        """Helper method to compute the range of a coordinate from the data."""
+        """Compute the range of a coordinate from the data. Ensure that the range is correctly computed for angular coordinates."""
         all_values = np.concatenate([self._data[tracer_name][coord].values for tracer_name in self.tracers])
         if is_angle:
             # TODO: Handle periodicity to prevent returning the opposite of the true range, e.g. (40, 300) instead of (300, 40)

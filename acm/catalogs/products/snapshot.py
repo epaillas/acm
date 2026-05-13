@@ -145,10 +145,10 @@ def _apply_downsample(
 class SnapshotCatalog(BaseGalaxyCatalog):
     """
     Snapshot-based galaxy catalog at a fixed redshift.
-    
+
     Expects galaxy positions in comoving Cartesian coordinates (x, y, z) in Mpc/h
     and velocities (vx, vy, vz) in km/s. Provides methods to apply RSD and AP transforms,
-    as well as downsampling. 
+    as well as downsampling.
     """
 
     pos_columns = ("x", "y", "z")
