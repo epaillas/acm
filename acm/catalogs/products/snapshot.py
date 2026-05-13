@@ -449,7 +449,7 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         """
         ntracers = len(catalog.tracers)
         seeds = np.random.SeedSequence(seed).spawn(ntracers)
-        
+
         random_catalog = cls(
             redshift=catalog.redshift,
             cosmo=catalog.cosmo,
@@ -459,18 +459,19 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         for i, (tracer_name, tracer) in enumerate(catalog.tracers.items()):
             n_gal = len(catalog._data[tracer_name])
             random_catalog.set_tracer_data(
-                tracer, cls._random_positions(
-                    n_gal, 
-                    catalog._boxsize, 
+                tracer,
+                cls._random_positions(
+                    n_gal,
+                    catalog._boxsize,
                     seed=seeds[i],
-                )
+                ),
             )
         return random_catalog
 
     @staticmethod
     def _random_positions(
-        n_gal: int, 
-        boxsize: np.ndarray, 
+        n_gal: int,
+        boxsize: np.ndarray,
         seed: int | np.random.SeedSequence | None,
     ) -> pd.DataFrame:
         """

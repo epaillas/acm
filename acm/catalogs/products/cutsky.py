@@ -30,7 +30,9 @@ class CutSkyCatalog(BaseGalaxyCatalog):
 
     # Properties: what is needed ?
     # TODO: also make this tracer-aware
-    def _range_from_data(self, coord: str, periodic_wrap: float | None = None) -> tuple[float, float]:
+    def _range_from_data(
+        self, coord: str, periodic_wrap: float | None = None
+    ) -> tuple[float, float]:
         """Compute the range of a coordinate from the data."""
         all_values = np.concatenate(
             [self._data[tracer_name][coord].values for tracer_name in self.tracers]
@@ -72,10 +74,7 @@ class RandomCutSkyCatalog(CutSkyCatalog):
 
     @classmethod
     def from_snapshot(
-        cls, 
-        catalog: CutSkyCatalog, 
-        full_sky: bool = True, 
-        seed: int | None = None
+        cls, catalog: CutSkyCatalog, full_sky: bool = True, seed: int | None = None
     ) -> Self:
         """
         Create a random catalog from an existing CutSkyCatalog.
@@ -96,11 +95,11 @@ class RandomCutSkyCatalog(CutSkyCatalog):
         """
         rarange = (0, 360) if full_sky else catalog.rarange
         decrange = (-90, 90) if full_sky else catalog.decrange
-        
+
         # Ensure independent random states for each tracer and between calls of this method (with spawn)
         ntracers = len(catalog.tracers)
         seeds = np.random.SeedSequence(seed).spawn(ntracers)
-        
+
         random_catalog = cls(
             cosmo=catalog.cosmo,
             cosmo_fid=catalog.cosmo_fid,
@@ -144,13 +143,21 @@ class RandomCutSkyCatalog(CutSkyCatalog):
             Random seed for reproducibility.
         """
         rng = np.random.default_rng(seed=seed)
-        _rarange = list(rarange) # Make a mutable copy of rarange to handle potential wrapping
-        if rarange[0] > rarange[1]:  # Handle cases where the range wraps around 360 degrees
+        _rarange = list(
+            rarange
+        )  # Make a mutable copy of rarange to handle potential wrapping
+        if (
+            rarange[0] > rarange[1]
+        ):  # Handle cases where the range wraps around 360 degrees
             _rarange[0] -= 360
-        
+
         ra = rng.uniform(*_rarange, size=n_gal) % 360  # Wrap RA to [0, 360)
         u = np.sin(np.radians(decrange))
-        dec = np.degrees(np.arcsin(rng.uniform(u[0], u[1], size=n_gal)))  # Uniform in sin(dec) for proper area weighting
-        z = rng.uniform(*zrange, size=n_gal)  # Uniform redshift distribution for simplicity; can be modified to match n(z) if needed
-        
+        dec = np.degrees(
+            np.arcsin(rng.uniform(u[0], u[1], size=n_gal))
+        )  # Uniform in sin(dec) for proper area weighting
+        z = rng.uniform(
+            *zrange, size=n_gal
+        )  # Uniform redshift distribution for simplicity; can be modified to match n(z) if needed
+
         return pd.DataFrame({"ra": ra, "dec": dec, "z": z})
