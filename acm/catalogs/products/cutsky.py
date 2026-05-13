@@ -8,12 +8,12 @@ from acm.catalogs.products.base import BaseGalaxyCatalog
 
 logger = logging.getLogger(__name__)
 
+
 def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:
     """Convert a box geometry to a cutsky geometry."""
     # Input: SnapshotCatalog (positions, cosmology & boxsize), observer position, redshift range
     # Depends on cosmology for distance-redshift conversion.
     # Depends on boxsize & observer position for angle values and eventual periodic wrapping.
-    pass
 
 
 class CutSkyCatalog(BaseGalaxyCatalog):
@@ -23,15 +23,17 @@ class CutSkyCatalog(BaseGalaxyCatalog):
     Expects galaxy positions in spherical coordinates (ra, dec, z) with angular coordinates
     in degrees and redshift as a dimensionless quantity.
     """
-    
-    pos_columns = ('ra', 'dec', 'z')
-    
+
+    pos_columns = ("ra", "dec", "z")
+
     # TODO: are extra properties needed to define that catalog at init ? Must repr reflect that ?
-        
+
     # Properties: what is needed ?
     def _range_from_data(self, coord: str, is_angle: bool) -> tuple[float, float]:
         """Compute the range of a coordinate from the data. Ensure that the range is correctly computed for angular coordinates."""
-        all_values = np.concatenate([self._data[tracer_name][coord].values for tracer_name in self.tracers])
+        all_values = np.concatenate(
+            [self._data[tracer_name][coord].values for tracer_name in self.tracers]
+        )
         if is_angle:
             # TODO: Handle periodicity to prevent returning the opposite of the true range, e.g. (40, 300) instead of (300, 40)
             # FIXME: Requires to tranform angles to negative values
@@ -42,34 +44,34 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         min_val = np.min(all_values)
         max_val = np.max(all_values)
         return (min_val, max_val)
-    
+
     @property
     def zrange(self) -> tuple[float, float]:
         """Return the redshift range of the catalog."""
-        return self._range_from_data('z', is_angle=False)
-    
+        return self._range_from_data("z", is_angle=False)
+
     @property
     def rarange(self) -> tuple[float, float]:
         """Return the right ascension range of the catalog."""
-        return self._range_from_data('ra', is_angle=True)
-    
+        return self._range_from_data("ra", is_angle=True)
+
     @property
     def decrange(self) -> tuple[float, float]:
         """Return the declination range of the catalog."""
-        return self._range_from_data('dec', is_angle=True)
+        return self._range_from_data("dec", is_angle=True)
 
     # Methods: n(z), nbar ?
-    
+
     # Transforms:
     # angle wrapping: what type of range do we want to support ? e.g. do we want rarange=(300, 40) or rarange=(-60, 40) ?
-    # Z to distance ? 
-    # Angular mask / footprint ? 
+    # Z to distance ?
+    # Angular mask / footprint ?
     # downsampling ?
 
 
 class RandomCutSkyCatalog(CutSkyCatalog):
     """A random catalog with cutsky geometry and redshift evolution."""
-    
+
     @classmethod
     def from_snapshot(cls, catalog: CutSkyCatalog, seed: int | None = None) -> Self:
         """
@@ -92,22 +94,23 @@ class RandomCutSkyCatalog(CutSkyCatalog):
         for tracer_name, tracer in catalog.tracers.items():
             n_gal = len(catalog._data[tracer_name])
             random_catalog.set_tracer_data(
-                tracer, cls._random_positions(
-                    n_gal, 
+                tracer,
+                cls._random_positions(
+                    n_gal,
                     rarange=catalog.rarange,
                     decrange=catalog.decrange,
-                    zrange=catalog.zrange, 
+                    zrange=catalog.zrange,
                     seed=seed,
-                )
+                ),
             )
         return random_catalog
-    
+
     @staticmethod
     def _random_positions(
-        n_gal: int, 
+        n_gal: int,
         rarange: tuple[float, float],
         decrange: tuple[float, float],
-        zrange: tuple[float, float], 
+        zrange: tuple[float, float],
         seed: int | None = None,
     ) -> pd.DataFrame:
         """
@@ -127,8 +130,10 @@ class RandomCutSkyCatalog(CutSkyCatalog):
             Random seed for reproducibility.
         """
         rng = np.random.default_rng(seed=seed)
-        return pd.DataFrame({
-            'ra': rng.uniform(*rarange, size=n_gal),
-            'dec': rng.uniform(*decrange, size=n_gal),
-            'z': rng.uniform(*zrange, size=n_gal),  # Example redshift range
-        })
+        return pd.DataFrame(
+            {
+                "ra": rng.uniform(*rarange, size=n_gal),
+                "dec": rng.uniform(*decrange, size=n_gal),
+                "z": rng.uniform(*zrange, size=n_gal),  # Example redshift range
+            }
+        )
