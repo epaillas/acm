@@ -22,7 +22,9 @@ K_MAX = (
 
 
 class PowerSpectrumMultipoles(BaseObservableBGS):
-    def __init__(self, stat_name="spectrum", **kwargs):
+    """Class for the application of the power spectrum multipoles statistic of the ACM pipeline to the BGS dataset."""
+
+    def __init__(self, stat_name: str = "spectrum", **kwargs) -> None:
         super().__init__(stat_name=stat_name, **kwargs)
 
     # %% Compressed files creation
@@ -42,6 +44,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         ells: list = [0, 2],
         overwrite_k: np.ndarray | None = None,
     ) -> xarray.Dataset:
+        """Compress the covariance matrix for the power spectrum multipoles statistic."""
         small_dir = Path(paths["measurements_dir"]) / "small"
 
         y = []
@@ -128,6 +131,7 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
         test_filters: dict | None = None,
         **kwargs,
     ) -> xarray.Dataset:
+        """Compress the power spectrum multipoles data."""
         x = cls.compress_x(
             paths=paths, cosmos=cosmos, phase=phase, seed=seed, n_hod=n_hod
         )
@@ -217,8 +221,8 @@ class PowerSpectrumMultipoles(BaseObservableBGS):
 
         if test_filters is not None:
             for v_in, v_out in split_vars(cout.x, cout.y, **test_filters):
-                v_in.name = v_in.name + "_test"
-                v_out.name = v_out.name + "_train"
+                v_in.name = str(v_in.name) + "_test"
+                v_out.name = str(v_out.name) + "_train"
                 v_in.attrs["nan_dims"] = list(
                     test_filters.keys()
                 )  # Mark filtered dimensions that will be filled with NaNs
