@@ -29,9 +29,16 @@ class CutSkyCatalog(BaseGalaxyCatalog):
     # TODO: are extra properties needed to define that catalog at init ? Must repr reflect that ?
         
     # Properties: what is needed ?
-    def _range_from_data(self, coord: str) -> tuple[float, float]:
+    def _range_from_data(self, coord: str, is_angle: bool) -> tuple[float, float]:
         """Helper method to compute the range of a coordinate from the data."""
         all_values = np.concatenate([self._data[tracer_name][coord].values for tracer_name in self.tracers])
+        if is_angle:
+            # TODO: Handle periodicity to prevent returning the opposite of the true range, e.g. (40, 300) instead of (300, 40)
+            # FIXME: Requires to tranform angles to negative values
+            all_values = np.mod(all_values, 360)
+            # Check if the range crosses the 0/360 boundary
+            # if np.ptp(all_values) > 180:
+            #     all_values = np.mod(all_values + 180, 360) - 180
         min_val = np.min(all_values)
         max_val = np.max(all_values)
         return (min_val, max_val)
@@ -39,17 +46,17 @@ class CutSkyCatalog(BaseGalaxyCatalog):
     @property
     def zrange(self) -> tuple[float, float]:
         """Return the redshift range of the catalog."""
-        return self._range_from_data('z')
+        return self._range_from_data('z', is_angle=False)
     
     @property
     def rarange(self) -> tuple[float, float]:
         """Return the right ascension range of the catalog."""
-        return self._range_from_data('ra')
+        return self._range_from_data('ra', is_angle=True)
     
     @property
     def decrange(self) -> tuple[float, float]:
         """Return the declination range of the catalog."""
-        return self._range_from_data('dec')
+        return self._range_from_data('dec', is_angle=True)
 
     # Methods: n(z), nbar ?
     
