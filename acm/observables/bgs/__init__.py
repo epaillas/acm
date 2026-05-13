@@ -6,10 +6,10 @@ from .power_spectrum import spectrum
 from .tpcf_module import tpcf
 
 __all__ = [
-    "tpcf",
-    "spectrum",
-    "ds_xiqg",
-    "ds_xiqq",
     "ds_pkqg",
     "ds_pkqq",
+    "ds_xiqg",
+    "ds_xiqq",
+    "spectrum",
+    "tpcf",
 ]
