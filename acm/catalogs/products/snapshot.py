@@ -366,6 +366,29 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         volume = np.prod(self.boxsize)
         return self.ngal / volume if volume > 0 else 0.0
 
+    def positions(self, raw=True) -> pd.DataFrame:
+        """
+        Get the positions of galaxies in the full catalog.
+
+        Parameters
+        ----------
+        raw : bool, optional
+            If True, return the raw positions before any transformations.
+            If False, return the positions after applying all transformations.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the positions of galaxies.
+        """
+        if not self.tracers:
+            raise RuntimeError("No tracers loaded in the catalog, cannot get positions.")
+        pos = []
+        for tracer in self.tracers:
+            d = self.get_tracer_data(tracer, raw=raw)
+            pos.append(d[list(self.pos_columns)])
+        return pd.concat(pos, ignore_index=True)
+
     # TODO: Add box replocation with padding for cutsky creation ?
 
     def _save_attrs(self, f: h5py.File) -> None:

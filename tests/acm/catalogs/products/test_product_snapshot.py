@@ -269,6 +269,31 @@ def test_downsample_skips_if_target_geq_current(populated_catalog, caplog):
         populated_catalog.get_tracer_data("FOO")
     assert "skipping" in caplog.text
 
+#%% Positions tests
+
+def test_positions_returns_dataframe(populated_catalog):
+    """get_tracer_data with raw=False should return a DataFrame."""
+    result = populated_catalog.positions()
+    assert isinstance(result, pd.DataFrame)
+    
+def test_positions_columns_match_pos_columns(populated_catalog):
+    """Position columns in the data should match the pos_columns specified in the catalog."""
+    result = populated_catalog.positions()
+    assert list(result.columns) == list(SnapshotCatalog.pos_columns)
+        
+def test_positions_no_velocity_columns(populated_catalog):
+    """Position data should not include velocity columns."""
+    result = populated_catalog.positions()
+    assert not any(col in result.columns for col in SnapshotCatalog.vel_columns)
+    
+def test_positions_length_equals_ngal(populated_catalog):
+    """Total rows should equal ngal."""
+    assert len(populated_catalog.positions()) == populated_catalog.ngal
+
+def test_empty_catalog_raises(catalog):
+    """Calling positions on a catalog with no tracers should raise."""
+    with pytest.raises(RuntimeError, match="No tracers"):
+        catalog.positions()
 
 #%% Serialization
 
@@ -528,3 +553,13 @@ def test_downsample_does_not_affect_raw_data(multi_tracer_catalog):
     multi_tracer_catalog.get_tracer_data("FOO")
     assert len(multi_tracer_catalog._data["FOO"]) == 100
     assert len(multi_tracer_catalog._data["BAR"]) == 50
+
+def test_multi_tracer_concatenates_positions(multi_tracer_catalog):
+    """Positions from all tracers should be concatenated."""
+    result = multi_tracer_catalog.positions()
+    assert len(result) == multi_tracer_catalog.ngal
+
+def test_multi_tracer_positions_reset_index(multi_tracer_catalog):
+    """Index should be reset after concatenation — no duplicate indices."""
+    result = multi_tracer_catalog.positions()
+    assert list(result.index) == list(range(len(result)))
