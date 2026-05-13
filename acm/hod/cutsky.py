@@ -223,9 +223,9 @@ class BaseCutskyCatalog(ABC):
             ratio = target_nz / data_nz
 
         problem_bins = np.where(target_nz > data_nz)[0]
-        if self.mpicomm.rank == self.mpiroot:
-            self.logger.info(f"Radial mask downsampling ratio: {ratio}")
-            self.logger.info(f"Radial mask problem bins: {problem_bins}")
+        if mpicomm_rank == self.mpiroot:
+            logger.info(f"Radial mask downsampling ratio: {ratio}")
+            logger.info(f"Radial mask problem bins: {problem_bins}")
 
         if not shape_only and problem_bins.size:
             raise ValueError(
