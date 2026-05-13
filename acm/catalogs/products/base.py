@@ -150,7 +150,7 @@ class BaseGalaxyCatalog(ABC):
         if self._transforms:
             logger.warning(
                 f"Transform pipeline is not serialized. "
-                f"Re-register transforms after loading: {list(self._transforms.keys())}"
+                f"Re-register transforms after loading: {self.transform_pipeline}"
             )
 
         with h5py.File(path, "w") as f:
