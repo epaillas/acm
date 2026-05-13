@@ -1,4 +1,4 @@
-logM_cut: 
+logM_cut:
   prior:
     distribution: uniform
     min: 11.5
@@ -58,7 +58,7 @@ A_cen:
   prior:
     distribution: uniform
     min: -1
-    max: 1  
+    max: 1
   latex: A_{\rm cen}
 
 A_sat:

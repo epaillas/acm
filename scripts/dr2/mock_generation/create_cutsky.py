@@ -126,7 +126,7 @@ if __name__ == '__main__':
                 except ValueError as e:
                     if mpicomm.rank == 0:
                         logger.warning(f"HOD {hod_idx} failed radial mask check: {e}")
-                    continue 
+                    continue
 
                 out_file = save_dir / f'{tracer}_{region}_hod{hod_idx:03}.dat.fits'
                 cutsky.save(out_file)

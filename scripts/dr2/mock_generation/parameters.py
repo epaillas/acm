@@ -109,7 +109,7 @@ class HODLatinHypercube:
             Dictionary with parameters for each cosmology. Must have the same keys as self.params.
         save_fn : list, optional
             List of filenames to save the updated parameters to. If None, the parameters will not be saved. Defaults to None.
-        
+
         Returns
         -------
         params : dict
@@ -123,7 +123,7 @@ class HODLatinHypercube:
         if save_fn:
             self.save_params(save_fn)
         return self.params
-    
+
 
     def save_params(self, save_fn: str|list[str], order: list[str] = None):
         """
@@ -134,21 +134,21 @@ class HODLatinHypercube:
         save_fn : str|list[str]
             File to save the parameters to or list of files if params are split by cosmology.
         order : list[str], optional
-            List of keys to enforce ordering on. 
+            List of keys to enforce ordering on.
             If None, tries to access self.order; otherwise the default order of self.params is used.
             Any keys not in self.params will be ignored. Keys not in order will be dropped.
             Defaults to None.
         """
         if order is None:
             order = getattr(self, 'order', None) # on-the-fly attribute access
-        
+
         if self.is_split:
             if len(self.params) != len(save_fn):
                 raise ValueError('Number of filenames must match number of cosmologies.')
             for key, save_fn in zip(self.params, save_fn):
                 df = pandas.DataFrame(self.params[key])
                 df = df[[k for k in order if k in df.columns]] if order else df
-                df.to_csv(save_fn, index=False, float_format='%.5f') 
+                df.to_csv(save_fn, index=False, float_format='%.5f')
         else:
             df = pandas.DataFrame(self.params)
             df = df[[k for k in order if k in df.columns]] if order else df
@@ -186,7 +186,7 @@ if __name__ == '__main__':
     lhc = HODLatinHypercube(ranges)
     params = lhc.sample(args.n_hod)
     params = lhc.split_by_cosmo()
-    
+
     lhc.save_params(
         save_fn=[
             save_dir / f'hod_params_{cosmo_key}.csv'
