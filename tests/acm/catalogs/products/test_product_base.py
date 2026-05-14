@@ -182,10 +182,10 @@ class TestTransforms:
         result = populated_catalog.get_tracer_data("FOO") # (original + 1) * 2
         assert result["x"].tolist() == pytest.approx([(1.0 + 1.0) * 2.0, (2.0 + 1.0) * 2.0])
         
-    def test_reset_transforms(self, populated_catalog):
+    def test_clear_transforms(self, populated_catalog):
         t = Transform(name="t1", func=lambda d: d, kwargs={})
         populated_catalog._add_transform(t)
-        populated_catalog.reset_transforms()
+        populated_catalog.clear_transforms()
         assert len(populated_catalog._transforms) == 0
         
     def test_transform_default_tracer_none(self, populated_catalog, tracer_bar, valid_data):

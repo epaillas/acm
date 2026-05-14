@@ -4,12 +4,16 @@ from collections.abc import Callable
 import numpy as np
 import pandas as pd
 from numpy.random import RandomState
+from cosmoprimo import Cosmology
 
 logger = logging.getLogger(__name__)
 
 def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float) -> pd.DataFrame:
     """
-    Apply RSD shift along the los axis.
+    Apply RSD shift along the los axis. 
+    
+    Expects velocity columns named 'vx', 'vy', 'vz' 
+    corresponding to the position columns 'x', 'y', 'z'.
 
     Parameters
     ----------
@@ -42,13 +46,15 @@ def _apply_ap(
 ) -> pd.DataFrame:
     """
     Apply AP scaling: q_par along los, q_perp along transverse axes.
+    
+    Expects position columns named 'x', 'y', 'z' (or as specified in pos_columns).
 
     Parameters
     ----------
     data : pd.DataFrame
         Galaxy data containing position columns.
     los : str
-        Line-of-sight axis, one of 'x', 'y', 'z'.
+        Line-of-sight axis, one of the columns specified in pos_columns.
     q_par : float
         AP scaling factor along the line-of-sight.
     q_perp : float
@@ -70,14 +76,16 @@ def _apply_ap(
 def _apply_downsample(
     data: pd.DataFrame,
     tracer: str,
-    n_gal: int | None,
-    f_gal: float | None,
-    nbar: float | None,
+    n_gal: int | None = None,
+    f_gal: float | None = None,
+    nbar: float | None = None,
     volume: Callable[[], np.ndarray] | None = None,
     seed: RandomState | None = None,
 ) -> pd.DataFrame:
     """
     Randomly downsample a tracer DataFrame.
+    
+    Volume is expected as a callable to allow for transforms that change the effective volume, e.g. AP scaling.
 
     Parameters
     ----------
@@ -108,7 +116,7 @@ def _apply_downsample(
     """
     provided = sum(p is not None for p in (n_gal, f_gal, nbar))
     if provided != 1:
-        raise ValueError("Exactly one of n_gal,f_gal or nbar must be provided.")
+        raise ValueError("Exactly one of n_gal, f_gal or nbar must be provided.")
 
     n_current = len(data)
     if f_gal is not None:
@@ -130,3 +138,11 @@ def _apply_downsample(
         return data
 
     return data.sample(n=n_target, random_state=seed).reset_index(drop=True)
+
+def _add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
+    """Add a comoving distance column to the DataFrame based on the redshift column."""
+    if "z" not in df.columns:
+        raise ValueError("DataFrame must contain a 'z' column to compute distances.")
+    df = df.copy()
+    df["distance"] = cosmo.comoving_radial_distance(df["z"])
+    return df
