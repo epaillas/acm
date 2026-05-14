@@ -306,7 +306,20 @@ def test_save_load_tracer_data(populated_catalog, tmp_path, cosmo, cosmo_fid, va
         valid_data.reset_index(drop=True),
     )
 
-
+def test_save_load_preserves_tracer_names(populated_catalog, tmp_path, cosmo, cosmo_fid):
+    """Tracer names should be preserved through a save/load roundtrip."""
+    path = tmp_path / "snapshot.h5"
+    populated_catalog.save(path)
+    loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
+    assert set(loaded.tracers.keys()) == set(populated_catalog.tracers.keys())
+    
+def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid):
+    """Transforms registered before saving should not be present after loading."""
+    populated_catalog.ap(los="z")
+    path = tmp_path / "snapshot.h5"
+    populated_catalog.save(path)
+    loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
+    assert "ap" not in loaded.transform_pipeline
 
 
 #%% RandomSnapshotCatalog
