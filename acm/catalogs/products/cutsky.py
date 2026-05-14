@@ -1,5 +1,5 @@
 import logging
-from typing import Self
+from typing import Callable, Self
 
 import numpy as np
 import pandas as pd
@@ -30,12 +30,16 @@ class CutSkyCatalog(BaseGalaxyCatalog):
 
     # Properties: what is needed ?
     # TODO: also make this tracer-aware
-    def _range_from_data(
-        self, coord: str, periodic_wrap: float | None = None
+    def _range(
+        self, 
+        coord: str, 
+        tracer: str | None = None,
+        periodic_wrap: float | None = None,
     ) -> tuple[float, float]:
         """Compute the range of a coordinate from the data."""
+        tracer_names = [tracer] or list(self.tracers) 
         all_values = np.concatenate(
-            [self._data[tracer_name][coord].values for tracer_name in self.tracers]
+            [self._data[tracer_name][coord].values for tracer_name in tracer_names]
         )
         min_val = np.min(all_values)
         max_val = np.max(all_values)
@@ -44,26 +48,29 @@ class CutSkyCatalog(BaseGalaxyCatalog):
             # Accounting for periodicity, with wrap-around if the range crosses the periodic boundary
             cout = np.mod(cout, periodic_wrap).tolist()
         return tuple(cout)
+    
+    def _zrange(self, tracer: str) -> tuple[float, float]:
+        """Return the redshift range of a specific tracer."""
+        return self._range("z", tracer=tracer)
 
     @property
     def zrange(self) -> tuple[float, float]:
         """Return the redshift range of the catalog."""
-        return self._range_from_data("z")
+        return self._range("z")
+    
+    def _interpolated_nz(self, tracer: str | None = None) -> Callable[[float], float]:
+        """Interpolate the number density on the full redshift range."""
+        # Placeholder implementation - replace with actual interpolation logic
+        return lambda z: 0.0
+    
+    def n(self, z: float, tracer: str | None = None) -> float:
+        """Return the number density at a given redshift."""
+        # Placeholder implementation - replace with actual number density calculation
+        return 0.0
 
-    @property
-    def rarange(self) -> tuple[float, float]:
-        """Return the right ascension range of the catalog."""
-        return self._range_from_data("ra", periodic_wrap=360.0)
-
-    @property
-    def decrange(self) -> tuple[float, float]:
-        """Return the declination range of the catalog."""
-        return self._range_from_data("dec")
-
-    # Methods: n(z), nbar ?
+    # Methods: n(z), nbar ?, footprint area
 
     # Transforms:
-    # angle wrapping: what type of range do we want to support ? e.g. do we want rarange=(300, 40) or rarange=(-60, 40) ?
     # Z to distance ?
     # Angular mask / footprint ?
     # downsampling ?
@@ -74,28 +81,22 @@ class RandomCutSkyCatalog(CutSkyCatalog):
 
     @classmethod
     def from_snapshot(
-        cls, catalog: CutSkyCatalog, full_sky: bool = True, seed: int | None = None
+        cls, catalog: CutSkyCatalog, seed: int | None = None
     ) -> Self:
         """
         Create a random catalog from an existing CutSkyCatalog.
 
         Inherits cosmology and tracers from the source catalog,
-        replacing all position data with uniform random draws.
+        replacing all position data with uniform random draws, assuming
+        fullsky coverage and a uniform redshift distribution within the source catalog's redshift range.
 
         Parameters
         ----------
         catalog : CutSkyCatalog
             Source catalog to copy metadata and tracer counts from.
-        full_sky : bool, optional
-            Whether to generate galaxies across the full sky.
-            If set to False, the random positions will be generated within the same angular ranges as the source catalog.
-            Default is True.
         seed : int | None
             Random seed for reproducibility.
         """
-        rarange = (0, 360) if full_sky else catalog.rarange
-        decrange = (-90, 90) if full_sky else catalog.decrange
-
         # Ensure independent random states for each tracer and between calls of this method (with spawn)
         ntracers = len(catalog.tracers)
         seeds = np.random.SeedSequence(seed).spawn(ntracers)
@@ -110,8 +111,8 @@ class RandomCutSkyCatalog(CutSkyCatalog):
                 tracer,
                 cls._random_positions(
                     n_gal,
-                    rarange=rarange,
-                    decrange=decrange,
+                    rarange=(0, 360),
+                    decrange=(-90, 90),
                     zrange=catalog.zrange,
                     seed=seeds[i],
                 ),
@@ -136,28 +137,23 @@ class RandomCutSkyCatalog(CutSkyCatalog):
         zrange : tuple[float, float]
             Redshift range (z_min, z_max) for the random galaxies.
         rarange : tuple[float, float]
-            Right ascension range (ra_min, ra_max) for the random galaxies.
+            Right ascension range (ra_min, ra_max) in degrees for the random galaxies.
         decrange : tuple[float, float]
-            Declination range (dec_min, dec_max) for the random galaxies.
+            Declination range (dec_min, dec_max) in degrees for the random galaxies.
         seed : int | np.random.SeedSequence | None
             Random seed for reproducibility.
         """
         rng = np.random.default_rng(seed=seed)
-        _rarange = list(
-            rarange
-        )  # Make a mutable copy of rarange to handle potential wrapping
-        if (
-            rarange[0] > rarange[1]
-        ):  # Handle cases where the range wraps around 360 degrees
+        
+        # Handle cases where the rarange wraps around 360 degrees
+        _rarange = list(rarange)  # Mutable copy to handle potential wrapping
+        if (rarange[0] > rarange[1]):  
             _rarange[0] -= 360
 
         ra = rng.uniform(*_rarange, size=n_gal) % 360  # Wrap RA to [0, 360)
+        # Uniform distribution in sin(dec) for proper area weighting
         u = np.sin(np.radians(decrange))
-        dec = np.degrees(
-            np.arcsin(rng.uniform(u[0], u[1], size=n_gal))
-        )  # Uniform in sin(dec) for proper area weighting
-        z = rng.uniform(
-            *zrange, size=n_gal
-        )  # Uniform redshift distribution for simplicity; can be modified to match n(z) if needed
+        dec = np.degrees(np.arcsin(rng.uniform(u[0], u[1], size=n_gal)))  
+        z = rng.uniform(*zrange, size=n_gal) # TODO: match n(z) ?
 
         return pd.DataFrame({"ra": ra, "dec": dec, "z": z})
