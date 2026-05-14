@@ -220,7 +220,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         )
 
     def _nbar(self, tracer: str | None = None) -> float:
-        """Return the number density of galaxies for a specific tracer."""
+        """Return the number density of galaxies for a specific tracer, or the full catalog if tracer is None."""
         n_gal = self._ngal(tracer)
         boxsize = self.boxsize
         volume = np.prod(boxsize)

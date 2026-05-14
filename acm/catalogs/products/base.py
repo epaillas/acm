@@ -97,7 +97,7 @@ class BaseGalaxyCatalog(ABC):
         return data
     
     def _ngal(self, tracer: str | None = None) -> int:
-        """Return the total number of galaxies for a specific tracer."""
+        """Return the total number of galaxies for a specific tracer, or the full catalog if tracer is None."""
         if not self.tracers:
             raise RuntimeError("No tracers loaded in the catalog, cannot compute ngal.")
         tracers = [tracer] if tracer is not None else list(self.tracers)
