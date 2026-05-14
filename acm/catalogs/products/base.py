@@ -46,6 +46,7 @@ class BaseGalaxyCatalog(ABC):
         self.tracers: dict[str, Tracer] = {}
         self._data: dict[str, pd.DataFrame] = {}
         self._transforms: dict[str, Transform] = {}
+        self._transform_state: int = 0  # Incremented on each transform change
 
     def __repr__(self) -> str:
         """Provide a string representation of the galaxy catalog, including tracer information."""
@@ -100,8 +101,7 @@ class BaseGalaxyCatalog(ABC):
         if not self.tracers:
             raise RuntimeError("No tracers loaded in the catalog, cannot compute ngal.")
         tracers = [tracer] if tracer is not None else list(self.tracers)
-        d = pd.concat([self.get_tracer_data(t) for t in tracers], ignore_index=True)
-        return len(d)
+        return sum(len(self.get_tracer_data(t)) for t in tracers)
 
     @property
     def ngal(self) -> int:
@@ -125,16 +125,19 @@ class BaseGalaxyCatalog(ABC):
                 f"Transform '{transform.name}' already exists and will be replaced."
             )
         self._transforms[transform.name] = transform
+        self._transform_state += 1
 
     def _remove_transform(self, name: str) -> None:
         """Remove a transform from the pipeline."""
         if name not in self._transforms:
             raise KeyError(f"Transform '{name}' is not in the pipeline.")
         del self._transforms[name]
+        self._transform_state += 1
 
-    def reset_transforms(self) -> None:
+    def clear_transforms(self) -> None:
         """Clear all transforms from the pipeline."""
         self._transforms.clear()
+        self._transform_state += 1
 
     def __getitem__(self, tracer_name: str) -> pd.DataFrame:
         """Allow direct indexing to get tracer data, e.g. catalog['ELG']."""
