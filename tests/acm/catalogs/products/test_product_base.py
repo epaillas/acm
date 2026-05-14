@@ -57,6 +57,34 @@ def populated_catalog(catalog, tracer_foo, valid_data):
     catalog.set_tracer_data(tracer_foo, valid_data)
     return catalog
 
+@pytest.fixture
+def valid_data_bar():
+    """Smaller dataset for BAR tracer to allow testing different counts."""
+    return pd.DataFrame({"x": [5.0], "y": [6.0]})
+
+@pytest.fixture
+def multi_tracer_catalog(catalog, tracer_foo, tracer_bar, valid_data, valid_data_bar):
+    catalog.set_tracer_data(tracer_foo, valid_data)       # 2 galaxies
+    catalog.set_tracer_data(tracer_bar, valid_data_bar)  # 1 galaxy
+    return catalog
+
+#%% ngal
+def test_ngal(populated_catalog):
+    assert populated_catalog.ngal == 2
+
+def test_ngal_empty_raises(catalog):
+    """ngal property should raise if no tracers are registered."""
+    with pytest.raises(RuntimeError, match="No tracers"):
+        _ = catalog.ngal
+        
+def test_ngal_multi_tracer(multi_tracer_catalog):
+    """ngal should sum galaxies across all tracers."""
+    assert multi_tracer_catalog.ngal == 3
+
+def test_ngal_per_tracer(multi_tracer_catalog):
+    """_ngal should return the correct count per tracer independently."""
+    assert multi_tracer_catalog._ngal("FOO") == 2
+    assert multi_tracer_catalog._ngal("BAR") == 1
 
 #%% Testing BaseGalaxyCatalog 
 

@@ -94,6 +94,19 @@ class BaseGalaxyCatalog(ABC):
                 if transform.tracer is None or transform.tracer == tracer:
                     data = transform.apply(data)
         return data
+    
+    def _ngal(self, tracer: str | None = None) -> int:
+        """Return the total number of galaxies for a specific tracer."""
+        if not self.tracers:
+            raise RuntimeError("No tracers loaded in the catalog, cannot compute ngal.")
+        tracers = [tracer] if tracer is not None else list(self.tracers)
+        d = pd.concat([self.get_tracer_data(t) for t in tracers], ignore_index=True)
+        return len(d)
+
+    @property
+    def ngal(self) -> int:
+        """Total number of galaxies in the catalog across all tracers."""
+        return self._ngal()
 
     @abstractmethod
     def _check_data_columns(self, data: pd.DataFrame) -> bool:
