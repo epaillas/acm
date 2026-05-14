@@ -2,10 +2,13 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from acm.catalogs.products.snapshot import (
+from unittest.mock import MagicMock
+
+from acm.catalogs.products.transforms import (
     _apply_rsd,
     _apply_ap,
     _apply_downsample,
+    _add_distance_column,
 )
 
 
@@ -101,3 +104,52 @@ class TestApplyDownsample:
         result2 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=43)
         with pytest.raises(AssertionError):
             pd.testing.assert_frame_equal(result1.reset_index(drop=True), result2.reset_index(drop=True))
+
+class TestAddDistanceColumn:
+    @pytest.fixture
+    def mock_cosmo(self):
+        """Mock cosmology that returns comoving distance as 1000 * z for simplicity."""
+        cosmo = MagicMock()
+        cosmo.comoving_radial_distance.side_effect = lambda z: 1000.0 * np.asarray(z)
+        return cosmo
+
+    def test_distance_column_added(self, mock_cosmo):
+        """A 'distance' column should be present in the output DataFrame."""
+        data = pd.DataFrame({"z": [0.1, 0.5, 1.0]})
+        result = _add_distance_column(data, mock_cosmo)
+        assert "distance" in result.columns
+
+    def test_distance_values_match_cosmo(self, mock_cosmo):
+        """Distance values should match the cosmology's comoving_radial_distance output."""
+        data = pd.DataFrame({"z": [0.1, 0.5, 1.0]})
+        result = _add_distance_column(data, mock_cosmo)
+        expected = 1000.0 * np.array([0.1, 0.5, 1.0])
+        np.testing.assert_allclose(result["distance"].values, expected)
+
+    def test_does_not_mutate_input(self, mock_cosmo):
+        """The transform should not mutate the input DataFrame."""
+        data = pd.DataFrame({"z": [0.1, 0.5, 1.0]})
+        original = data.copy()
+        _add_distance_column(data, mock_cosmo)
+        pd.testing.assert_frame_equal(data, original)
+
+    def test_other_columns_preserved(self, mock_cosmo):
+        """All columns present in the input should be preserved in the output."""
+        data = pd.DataFrame({"x": [1.0, 2.0], "y": [3.0, 4.0], "z": [0.1, 0.5]})
+        result = _add_distance_column(data, mock_cosmo)
+        assert "x" in result.columns
+        assert "y" in result.columns
+        assert "z" in result.columns
+
+    def test_missing_z_column_raises(self, mock_cosmo):
+        """A DataFrame without a 'z' column should raise a ValueError."""
+        data = pd.DataFrame({"x": [1.0, 2.0], "y": [3.0, 4.0]})
+        with pytest.raises(ValueError, match="'z'"):
+            _add_distance_column(data, mock_cosmo)
+
+    def test_single_row(self, mock_cosmo):
+        """The transform should handle a single-row DataFrame without error."""
+        data = pd.DataFrame({"z": [0.3]})
+        result = _add_distance_column(data, mock_cosmo)
+        assert len(result) == 1
+        assert pytest.approx(result["distance"].iloc[0]) == 300.0
