@@ -15,7 +15,7 @@ from acm.catalogs.products import SnapshotCatalog
 logger = logging.getLogger(__name__)
 
 
-class SnapshotCatalogFactory(BaseCatalogFactory):
+class BaseSnapshotFactory(BaseCatalogFactory):
     """
     Abstract base class for snapshot-based catalog factories.
 
@@ -126,7 +126,7 @@ class SnapshotCatalogFactory(BaseCatalogFactory):
         logger.info(f"Loaded {len(files)} catalog(s) from {path}")
 
 
-class GalaxyCatalogFactory(SnapshotCatalogFactory):
+class SnapshotCatalogFactory(BaseSnapshotFactory):
     """Snapshot-based factory: Load a dark matter backend and create galaxy catalogs across multiple redshift snapshots."""
 
     @override

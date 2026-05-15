@@ -56,20 +56,20 @@ classDiagram
             + save(path)*
             + load_catalogs(path)*
         }
-        class SnapshotCatalogFactory {
+        class BaseSnapshotFactory {
             <<abstract>>
             + backend: SnapshotBackend
             + redshifts: list
             + make_catalogs(redshifts, tracers)*
             + get_catalog(redshift)*
         }
-        class GalaxyCatalogFactory {
+        class SnapshotCatalogFactory {
             + make_catalogs(redshifts, tracers)
             + get_catalog(redshift)
         }
     }
-    SnapshotCatalogFactory --|> BaseCatalogFactory
-    GalaxyCatalogFactory ..|> SnapshotCatalogFactory
+    BaseSnapshotFactory --|> BaseCatalogFactory
+    SnapshotCatalogFactory ..|> BaseSnapshotFactory
 
     namespace Galaxy Catalogs {
         class BaseGalaxyCatalog {
@@ -121,8 +121,8 @@ classDiagram
     %% Cross-namespace dependencies
     BaseCatalogFactory ..> DarkMatterBackend : uses
     BaseCatalogFactory ..> BaseGalaxyCatalog : creates
-    SnapshotCatalogFactory ..> SnapshotBackend : narrows to
-    SnapshotCatalogFactory ..> SnapshotCatalog : creates
+    BaseSnapshotFactory ..> SnapshotBackend : narrows to
+    BaseSnapshotFactory ..> SnapshotCatalog : creates
     BaseGalaxyCatalog ..> Tracer : stores
     BaseGalaxyCatalog ..> Transform : applies
 ```

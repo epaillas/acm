@@ -7,4 +7,4 @@ GalaxyCatalog instances for downstream use.
 """
 
 from .base import BaseCatalogFactory
-from .snapshot import GalaxyCatalogFactory
+from .snapshot import SnapshotCatalogFactory

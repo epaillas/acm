@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from acm.catalogs.backends.base import DarkMatterBackend
 from acm.catalogs.dataclasses import Tracer
-from acm.catalogs.factories.snapshot import GalaxyCatalogFactory
+from acm.catalogs.factories.snapshot import SnapshotCatalogFactory
 from acm.catalogs.products.snapshot import SnapshotCatalog
 
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def magic_mock_factory():
     backend.make_galaxy_catalog.side_effect = lambda dm_catalog, tracers, **kwargs: {t: make_tracer_data() for t in tracers}
     backend.boxsize = 500.0
     
-    factory = GalaxyCatalogFactory(
+    factory = SnapshotCatalogFactory(
         backend=backend,
         catalog_class=SnapshotCatalog,
         cosmo=MagicMock(),
@@ -82,7 +82,7 @@ def magic_mock_factory():
 
 @pytest.fixture
 def factory(mock_backend, cosmo, cosmo_fid):
-    return GalaxyCatalogFactory(
+    return SnapshotCatalogFactory(
         backend=mock_backend,
         catalog_class=SnapshotCatalog,
         cosmo=cosmo,
@@ -98,8 +98,8 @@ def factory_with_catalogs(factory, mock_backend, tracer_foo):
 
 #%% Test classes 
 
-class TestGalaxyCatalogFactoryConstruction:
-    """Tests for the constructor and basic properties of GalaxyCatalogFactory."""
+class TestSnapshotCatalogFactoryConstruction:
+    """Tests for the constructor and basic properties of SnapshotCatalogFactory."""
     
     def test_factory_stores_backend(self, factory, mock_backend):
         assert factory.backend is mock_backend
@@ -119,11 +119,11 @@ class TestGalaxyCatalogFactoryConstruction:
 
     def test_repr(self, factory_with_catalogs):
         r = repr(factory_with_catalogs)
-        assert "GalaxyCatalogFactory" in r
+        assert "SnapshotCatalogFactory" in r
         assert "SnapshotCatalog" in r
 
 class TestMakeCatalogs:
-    """Tests for the make_catalogs method of GalaxyCatalogFactory."""
+    """Tests for the make_catalogs method of SnapshotCatalogFactory."""
     
     def test_make_catalogs_loads_all_redshifts(self, factory_with_catalogs):
         assert set(factory_with_catalogs.redshifts) == {0.5, 1.0}
@@ -210,7 +210,7 @@ class TestMakeCatalogs:
 
 
 class TestGetCatalog:
-    """Tests for the get_catalog method of GalaxyCatalogFactory."""
+    """Tests for the get_catalog method of SnapshotCatalogFactory."""
     
     def test_get_catalog_returns_correct_redshift(self, factory_with_catalogs):
         """Requesting a catalog by redshift should return a catalog with that redshift."""
@@ -229,7 +229,7 @@ class TestGetCatalog:
 
 
 class TestSerialization:
-    """Tests for the save and load_catalogs methods of GalaxyCatalogFactory."""
+    """Tests for the save and load_catalogs methods of SnapshotCatalogFactory."""
 
     def test_save_creates_files(self, factory_with_catalogs, tmp_path):
         """Saving should create one file per catalog."""
@@ -252,7 +252,7 @@ class TestSerialization:
     def test_load_catalogs_restores_redshifts(self, factory_with_catalogs, tmp_path, cosmo, cosmo_fid):
         """Loading should restore the same redshifts that were saved."""
         factory_with_catalogs.save(tmp_path)
-        new_factory = GalaxyCatalogFactory(
+        new_factory = SnapshotCatalogFactory(
             backend=factory_with_catalogs.backend,
             catalog_class=SnapshotCatalog,
             cosmo=cosmo,
@@ -264,7 +264,7 @@ class TestSerialization:
     def test_load_catalogs_restores_tracer_data(self, factory_with_catalogs, tmp_path, cosmo, cosmo_fid):
         """Loading should restore the same tracer data that was saved."""
         factory_with_catalogs.save(tmp_path)
-        new_factory = GalaxyCatalogFactory(
+        new_factory = SnapshotCatalogFactory(
             backend=factory_with_catalogs.backend,
             catalog_class=SnapshotCatalog,
             cosmo=cosmo,
@@ -282,7 +282,7 @@ class TestSerialization:
         """Saving and loading should preserve the number of galaxies in the catalog."""
         original_ngal = factory_with_catalogs.get_catalog(0.5).ngal
         factory_with_catalogs.save(tmp_path)
-        new_factory = GalaxyCatalogFactory(
+        new_factory = SnapshotCatalogFactory(
             backend=factory_with_catalogs.backend,
             catalog_class=SnapshotCatalog,
             cosmo=cosmo,

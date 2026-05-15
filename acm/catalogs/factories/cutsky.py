@@ -16,7 +16,7 @@ from acm.catalogs.products import CutskyCatalog
 logger = logging.getLogger(__name__)
 
 
-class CutskyCatalogFactory(BaseCatalogFactory):
+class BaseCutskyFactory(BaseCatalogFactory):
     """Factory for creating cutsky-based catalogs."""
 
     def __init__(
@@ -73,7 +73,7 @@ class CutskyCatalogFactory(BaseCatalogFactory):
         ...
 
 
-class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
+class CutskyCatalogFactory(BaseCutskyFactory):
     """Factory for creating a single cutsky-based galaxy catalog spanning a redshift range."""
 
     @property

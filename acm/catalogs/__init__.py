@@ -8,5 +8,5 @@ The pipeline is organized in three layers:
 """
 
 from .dataclasses import Tracer, Transform
-from .factories.snapshot import GalaxyCatalogFactory
+from .factories.snapshot import SnapshotCatalogFactory
 from .products.snapshot import RandomSnapshotCatalog, SnapshotCatalog
