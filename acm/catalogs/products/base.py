@@ -95,7 +95,7 @@ class BaseGalaxyCatalog(ABC):
                 if transform.tracer is None or transform.tracer == tracer:
                     data = transform.apply(data)
         return data
-    
+
     def _ngal(self, tracer: str | None = None) -> int:
         """Return the total number of galaxies for a specific tracer, or the full catalog if tracer is None."""
         if not self.tracers:

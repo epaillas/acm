@@ -1,10 +1,11 @@
 import logging
-from typing import Callable, Self, override
+from collections.abc import Callable
+from typing import Self, override
 
 import h5py
+import healpy as hp
 import numpy as np
 import pandas as pd
-import healpy as hp
 from cosmoprimo import Cosmology
 from numpy.random import RandomState
 from scipy.interpolate import interp1d
@@ -14,6 +15,7 @@ from acm.catalogs.products.base import BaseGalaxyCatalog
 from acm.catalogs.products.transforms import _add_distance_column, _apply_downsample
 
 logger = logging.getLogger(__name__)
+
 
 def _fsky(ra: np.ndarray, dec: np.ndarray, nside: int = 256) -> float:
     """
@@ -39,11 +41,12 @@ def _fsky(ra: np.ndarray, dec: np.ndarray, nside: int = 256) -> float:
     npix = hp.nside2npix(nside)
     phi = np.radians(ra)
     theta = np.radians(90 - dec)  # Convert dec to theta for HEALPix
-    
+
     pix = hp.ang2pix(nside, theta, phi)
     unique_pix = np.unique(pix)
     fsky = len(unique_pix) / npix
     return fsky
+
 
 def _shell_volume(cosmo: Cosmology, z: np.ndarray) -> np.ndarray:
     """
@@ -62,8 +65,9 @@ def _shell_volume(cosmo: Cosmology, z: np.ndarray) -> np.ndarray:
         Shell volumes of shape (n_bins,) in (Mpc/h)³. Full-sky; multiply by fsky to get the actual volume fraction.
     """
     d = cosmo.comoving_radial_distance(z)
-    dv = 4/3 * np.pi * np.diff(d**3)
+    dv = 4 / 3 * np.pi * np.diff(d**3)
     return dv
+
 
 class CutSkyCatalog(BaseGalaxyCatalog):
     """
@@ -81,7 +85,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
     """
 
     pos_columns = ("ra", "dec", "z")
-    
+
     def __init__(
         self,
         cosmo: Cosmology,
@@ -107,7 +111,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         # Caches for expensive computations keyed by transform state
         self._fsky_cache: dict[tuple, float] = {}
         self._interpolate_nz_cache: dict[tuple, Callable[[float], float]] = {}
-        
+
     def _check_data_columns(self, data: pd.DataFrame) -> bool:
         """
         Check that all required position columns are present in the data.
@@ -122,11 +126,10 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         bool
             True if all required columns are present, False otherwise.
         """
-
         required_columns = set(self.pos_columns)
         missing_columns = required_columns - set(data.columns)
         return missing_columns == set()
-    
+
     def clear_caches(self) -> None:
         """
         Clear all cached computations (fsky and n(z) interpolators).
@@ -139,8 +142,8 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         self._interpolate_nz_cache.clear()
 
     def _range(
-        self, 
-        coord: str, 
+        self,
+        coord: str,
         tracer: str | None = None,
         periodic_wrap: float | None = None,
     ) -> tuple[float, float]:
@@ -165,7 +168,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
             # Accounting for periodicity, with wrap-around if the range crosses the periodic boundary
             cout = np.mod(cout, periodic_wrap).tolist()
         return tuple(cout)
-    
+
     def _zrange(self, tracer: str | None = None) -> tuple[float, float]:
         """Return the redshift range of a specific tracer."""
         return self._range("z", tracer=tracer)
@@ -181,29 +184,31 @@ class CutSkyCatalog(BaseGalaxyCatalog):
             Tracer name. If None, returns the range across all tracers.
         """
         return self._zrange()
-    
+
     @property
     def fsky(self) -> float:
         """Return the fraction of the sky covered by the catalog footprint."""
         if not self.tracers:
             raise RuntimeError("No tracers loaded in the catalog, cannot get fsky.")
-        
+
         cache_key = (self.ngal, self._transform_state)
         if cache_key in self._fsky_cache:
             return self._fsky_cache[cache_key]
-        
-        angles = pd.concat([self.get_tracer_data(t) for t in self.tracers])[["ra", "dec"]]
+
+        angles = pd.concat([self.get_tracer_data(t) for t in self.tracers])[
+            ["ra", "dec"]
+        ]
         ra = angles["ra"]
         dec = angles["dec"]
         result = _fsky(ra, dec, nside=self.hp_res)
         self._fsky_cache[cache_key] = result
         return result
-    
+
     @property
     def area(self) -> float:
         """Return the area of the catalog's footprint in square degrees."""
         fsky = self.fsky
-        return fsky * 4 * np.pi * (180 / np.pi) ** 2  # Steradians to square degrees 
+        return fsky * 4 * np.pi * (180 / np.pi) ** 2  # Steradians to square degrees
 
     def _nbar(self, tracer: str | None = None) -> float:
         """
@@ -226,14 +231,14 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         zrange = self._zrange(tracer) if tracer is not None else self.zrange
         dv = self.fsky * _shell_volume(self.cosmo, np.array(zrange))
         return float(n_gal / dv[0])
-    
+
     @property
     def nbar(self) -> float:
         """Return the mean number density across all tracers in (Mpc/h)⁻³."""
         return self._nbar()
 
     def _interpolate_nz(
-        self, 
+        self,
         tracer: str | None = None,
         bins: int = 50,
     ) -> Callable[[float], float]:
@@ -245,21 +250,27 @@ class CutSkyCatalog(BaseGalaxyCatalog):
 
         tracer_names = [tracer] if tracer is not None else list(self.tracers)
         z_values = pd.concat([self.get_tracer_data(t) for t in tracer_names])["z"]
-        
+
         # Compute histogram of redshift distribution
         counts, bin_edges = np.histogram(z_values, bins=bins)
-        
+
         # Compute shell volumes for each redshift bin
         dv = self.fsky * _shell_volume(self.cosmo, bin_edges)
-        
+
         nz = counts / dv  # Number density in each redshift bin
-        z_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:]) # Centers of the redshift bins
-        
-        nofz = interp1d(z_centers, nz, kind="linear", fill_value=0.0, bounds_error=False)
+        z_centers = 0.5 * (
+            bin_edges[:-1] + bin_edges[1:]
+        )  # Centers of the redshift bins
+
+        nofz = interp1d(
+            z_centers, nz, kind="linear", fill_value=0.0, bounds_error=False
+        )
         self._interpolate_nz_cache[cache_key] = nofz
         return nofz
 
-    def n(self, z: float, tracer: str | None = None, bins: int = 50) -> float | np.ndarray:
+    def n(
+        self, z: float, tracer: str | None = None, bins: int = 50
+    ) -> float | np.ndarray:
         """
         Evaluate the interpolated number density at redshift z.
 
@@ -278,7 +289,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         return self._interpolate_nz(tracer=tracer, bins=bins)(z)
 
     # TODO: are extra properties needed to define that catalog at init ? Must repr reflect that ?
-    
+
     # Transforms:
     # Angular mask / footprint ?
     # downsampling ?
@@ -296,7 +307,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
                 kwargs={"cosmo": self.cosmo},
             )
         )
-    
+
     def downsample(
         self,
         tracer: str,
@@ -328,7 +339,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         provided = sum(p is not None for p in (n_gal, f_gal))
         if provided != 1:
             raise ValueError("Exactly one of n_gal or f_gal must be provided.")
-                
+
         self._add_transform(
             Transform(
                 name=f"downsample_{tracer}",
@@ -342,10 +353,10 @@ class CutSkyCatalog(BaseGalaxyCatalog):
                 },
             )
         )
-        
+
     def _save_attrs(self, f: h5py.File) -> None:
         pass
-    
+
     @override
     @classmethod
     def _from_attrs(cls, attrs: dict, cosmo: Cosmology, cosmo_fid: Cosmology) -> Self:
@@ -356,9 +367,7 @@ class RandomCutSkyCatalog(CutSkyCatalog):
     """A random catalog with cutsky geometry and redshift evolution."""
 
     @classmethod
-    def from_snapshot(
-        cls, catalog: CutSkyCatalog, seed: int | None = None
-    ) -> Self:
+    def from_snapshot(cls, catalog: CutSkyCatalog, seed: int | None = None) -> Self:
         """
         Create a random catalog from an existing CutSkyCatalog.
 
@@ -421,28 +430,31 @@ class RandomCutSkyCatalog(CutSkyCatalog):
             Random seed for reproducibility.
         """
         rng = np.random.default_rng(seed=seed)
-        
+
         # Handle cases where the rarange wraps around 360 degrees
         _rarange = list(rarange)  # Mutable copy to handle potential wrapping
-        if (rarange[0] > rarange[1]):  
+        if rarange[0] > rarange[1]:
             _rarange[0] -= 360
 
         ra = rng.uniform(*_rarange, size=n_gal) % 360  # Wrap RA to [0, 360)
         # Uniform distribution in sin(dec) for proper area weighting
         u = np.sin(np.radians(decrange))
-        dec = np.degrees(np.arcsin(rng.uniform(u[0], u[1], size=n_gal)))  
-        z = rng.uniform(*zrange, size=n_gal) # TODO: match n(z) ?
+        dec = np.degrees(np.arcsin(rng.uniform(u[0], u[1], size=n_gal)))
+        z = rng.uniform(*zrange, size=n_gal)  # TODO: match n(z) ?
 
         return pd.DataFrame({"ra": ra, "dec": dec, "z": z})
 
-#%% Transforms between box and cutsky geometries
+
+# %% Transforms between box and cutsky geometries
+
 
 def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:
     """Convert a box geometry to a cutsky geometry."""
     # Input: SnapshotCatalog (positions, cosmology & boxsize), observer position, redshift range
     # Depends on cosmology for distance-redshift conversion.
     # Depends on boxsize & observer position for angle values and eventual periodic wrapping.
-    
+
+
 def cutsky_to_box(*args, **kwargs) -> pd.DataFrame:
     """Convert a cutsky geometry to a box geometry."""
     # Input: CutSkyCatalog (positions, cosmology & redshift range), observer position, boxsize

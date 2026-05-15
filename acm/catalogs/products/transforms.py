@@ -3,10 +3,11 @@ from collections.abc import Callable
 
 import numpy as np
 import pandas as pd
-from numpy.random import RandomState
 from cosmoprimo import Cosmology
+from numpy.random import RandomState
 
 logger = logging.getLogger(__name__)
+
 
 def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float) -> pd.DataFrame:
     """
@@ -138,6 +139,7 @@ def _apply_downsample(
         return data
 
     return data.sample(n=n_target, random_state=seed).reset_index(drop=True)
+
 
 def _add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
     """Add a comoving distance column to the DataFrame based on the redshift column."""

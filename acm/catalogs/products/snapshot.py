@@ -1,6 +1,5 @@
 import logging
-from collections.abc import Callable
-from typing import Self, override
+from typing import Self
 
 import h5py
 import numpy as np
@@ -10,7 +9,7 @@ from pandas._typing import RandomState
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products import BaseGalaxyCatalog
-from acm.catalogs.products.transforms import _apply_ap, _apply_rsd, _apply_downsample
+from acm.catalogs.products.transforms import _apply_ap, _apply_downsample, _apply_rsd
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +212,9 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "n_gal": n_gal,
                     "f_gal": f_gal,
                     "nbar": nbar,
-                    "volume": lambda: np.prod(self.boxsize),  # evaluated at application time
+                    "volume": lambda: np.prod(
+                        self.boxsize
+                    ),  # evaluated at application time
                     "seed": seed,
                 },
             )
@@ -251,7 +252,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                 "No tracers loaded in the catalog, cannot get positions."
             )
         data = pd.concat(
-            [self.get_tracer_data(t, raw=raw) for t in self.tracers], 
+            [self.get_tracer_data(t, raw=raw) for t in self.tracers],
             ignore_index=True,
         )
         pos = data[list(self.pos_columns)]
