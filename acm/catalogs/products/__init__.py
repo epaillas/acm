@@ -7,3 +7,4 @@ They are the main output of the catalog factories and the primary input for down
 
 from .base import BaseGalaxyCatalog
 from .snapshot import RandomSnapshotCatalog, SnapshotCatalog
+from .cutsky import CutskyCatalog, RandomCutskyCatalog

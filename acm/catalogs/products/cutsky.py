@@ -69,7 +69,7 @@ def _shell_volume(cosmo: Cosmology, z: np.ndarray) -> np.ndarray:
     return dv
 
 
-class CutSkyCatalog(BaseGalaxyCatalog):
+class CutskyCatalog(BaseGalaxyCatalog):
     """
     Galaxy catalog with cutsky geometry and redshift evolution.
 
@@ -93,7 +93,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         hp_res: int = 256,
     ) -> None:
         """
-        Initialise the CutSkyCatalog.
+        Initialise the CutskyCatalog.
 
         Parameters
         ----------
@@ -363,13 +363,13 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         return cls(cosmo=cosmo, cosmo_fid=cosmo_fid)
 
 
-class RandomCutSkyCatalog(CutSkyCatalog):
+class RandomCutskyCatalog(CutskyCatalog):
     """A random catalog with cutsky geometry and redshift evolution."""
 
     @classmethod
-    def from_snapshot(cls, catalog: CutSkyCatalog, seed: int | None = None) -> Self:
+    def from_snapshot(cls, catalog: CutskyCatalog, seed: int | None = None) -> Self:
         """
-        Create a random catalog from an existing CutSkyCatalog.
+        Create a random catalog from an existing CutskyCatalog.
 
         Inherits cosmology and tracers from the source catalog,
         replacing all position data with uniform random draws, assuming
@@ -377,7 +377,7 @@ class RandomCutSkyCatalog(CutSkyCatalog):
 
         Parameters
         ----------
-        catalog : CutSkyCatalog
+        catalog : CutskyCatalog
             Source catalog to copy metadata and tracer counts from.
         seed : int | None
             Random seed for reproducibility.
@@ -457,6 +457,6 @@ def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:
 
 def cutsky_to_box(*args, **kwargs) -> pd.DataFrame:
     """Convert a cutsky geometry to a box geometry."""
-    # Input: CutSkyCatalog (positions, cosmology & redshift range), observer position, boxsize
+    # Input: CutskyCatalog (positions, cosmology & redshift range), observer position, boxsize
     # Depends on cosmology for distance-redshift conversion.
     # Depends on redshift range & observer position for angle values and eventual periodic wrapping.

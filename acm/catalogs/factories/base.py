@@ -65,7 +65,7 @@ class BaseCatalogFactory(ABC):
 
     @property
     def catalogs(self) -> dict:
-        """Dictionary of all loaded galaxy catalogs, keyed by redshift."""
+        """Dictionary of all loaded galaxy catalogs."""
         return dict(self._catalogs)
 
     @abstractmethod

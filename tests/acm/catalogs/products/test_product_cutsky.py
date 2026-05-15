@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.products.cutsky import (
-    CutSkyCatalog,
-    RandomCutSkyCatalog,
+    CutskyCatalog,
+    RandomCutskyCatalog,
     _fsky,
     _shell_volume,
 )
@@ -36,7 +36,7 @@ def cosmo_fid():
 
 @pytest.fixture
 def catalog(cosmo, cosmo_fid):
-    return CutSkyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
+    return CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
 
 @pytest.fixture
 def tracer():
@@ -110,13 +110,13 @@ class TestShellVolume:
         assert result[2] > result[1]
 
 
-#%% CutSkyCatalog construction 
+#%% CutskyCatalog construction 
 
 def test_default_hp_res(catalog):
     assert catalog.hp_res == 256
 
 def test_custom_hp_res(cosmo, cosmo_fid):
-    cat = CutSkyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=128)
+    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=128)
     assert cat.hp_res == 128
 
 def test_caches_initialised_empty(catalog):
@@ -161,7 +161,7 @@ def test_rarange_wrapping(cosmo, cosmo_fid):
     """RA values stored beyond 360 (e.g. from box periodicity) should produce
     a wrap-around range where ra_min > ra_max after mod."""
     tracer = Tracer(name="FOO", params={})
-    cat = CutSkyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
+    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
     rng = np.random.default_rng(0)
     # Simulate raw RA values that cross 360 without being wrapped first
     data = pd.DataFrame({
@@ -186,7 +186,7 @@ def test_fsky_in_unit_interval(populated_catalog):
 def test_fsky_fullsky_catalog(cosmo, cosmo_fid):
     """A full-sky catalog should return fsky close to 1."""
     tracer = Tracer(name="FOO", params={})
-    cat = CutSkyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=64)
+    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=64)
     rng = np.random.default_rng(0)
     n = 500_000
     data = pd.DataFrame({
@@ -325,14 +325,14 @@ def test_save_creates_file(populated_catalog, tmp_path, cosmo, cosmo_fid):
 def test_save_load_roundtrip(populated_catalog, tmp_path, cosmo, cosmo_fid):
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutSkyCatalog.load(path, cosmo, cosmo_fid)
-    assert isinstance(loaded, CutSkyCatalog)
+    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
+    assert isinstance(loaded, CutskyCatalog)
 
 def test_save_load_tracer_data(populated_catalog, tmp_path, cosmo, cosmo_fid, valid_data):
     """Tracer data should be preserved exactly through a save/load roundtrip."""
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutSkyCatalog.load(path, cosmo, cosmo_fid)
+    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
     pd.testing.assert_frame_equal(
         loaded.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         valid_data.reset_index(drop=True),
@@ -342,7 +342,7 @@ def test_save_load_preserves_tracer_names(populated_catalog, tmp_path, cosmo, co
     """Tracer names should be preserved through a save/load roundtrip."""
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutSkyCatalog.load(path, cosmo, cosmo_fid)
+    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
     assert set(loaded.tracers.keys()) == set(populated_catalog.tracers.keys())
     
 def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid):
@@ -350,7 +350,7 @@ def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid)
     populated_catalog.add_distance_column()
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutSkyCatalog.load(path, cosmo, cosmo_fid)
+    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
     assert "add_distance" not in loaded.transform_pipeline
 
 
@@ -400,11 +400,11 @@ def test_add_distance_column_applies_to_all_tracers(multi_tracer_catalog):
     assert "distance" in multi_tracer_catalog.get_tracer_data("BAR").columns
 
 
-#%% RandomCutSkyCatalog 
+#%% RandomCutskyCatalog 
 
 @pytest.fixture
 def random_catalog(populated_catalog):
-    return RandomCutSkyCatalog.from_snapshot(populated_catalog, seed=42)
+    return RandomCutskyCatalog.from_snapshot(populated_catalog, seed=42)
 
 def test_from_snapshot_inherits_tracers(populated_catalog, random_catalog):
     assert set(random_catalog.tracers.keys()) == set(populated_catalog.tracers.keys())
@@ -431,16 +431,16 @@ def test_random_positions_z_in_source_range(populated_catalog, random_catalog):
     assert z.between(zmin, zmax).all()
 
 def test_from_snapshot_reproducible(populated_catalog):
-    r1 = RandomCutSkyCatalog.from_snapshot(populated_catalog, seed=7)
-    r2 = RandomCutSkyCatalog.from_snapshot(populated_catalog, seed=7)
+    r1 = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=7)
+    r2 = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=7)
     pd.testing.assert_frame_equal(
         r1.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         r2.get_tracer_data("FOO", raw=True).reset_index(drop=True),
     )
 
 def test_from_snapshot_different_seeds_differ(populated_catalog):
-    r1 = RandomCutSkyCatalog.from_snapshot(populated_catalog, seed=7)
-    r2 = RandomCutSkyCatalog.from_snapshot(populated_catalog, seed=8)
+    r1 = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=7)
+    r2 = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=8)
     with pytest.raises(AssertionError):
         pd.testing.assert_frame_equal(
             r1.get_tracer_data("FOO", raw=True).reset_index(drop=True),
@@ -450,37 +450,37 @@ def test_from_snapshot_different_seeds_differ(populated_catalog):
 def test_from_snapshot_tracers_independent_seeds(populated_catalog, tracer_bar, valid_data_bar):
     """Two tracers generated from the same root seed should have different positions."""
     populated_catalog.set_tracer_data(tracer_bar, valid_data_bar)
-    random_cat = RandomCutSkyCatalog.from_snapshot(populated_catalog, seed=42)
+    random_cat = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=42)
     foo_z = random_cat.get_tracer_data("FOO", raw=True)["z"].values[:100]
     bar_z = random_cat.get_tracer_data("BAR", raw=True)["z"].values
     assert not np.allclose(foo_z, bar_z)
 
 
-#%% RandomCutSkyCatalog._random_positions 
+#%% RandomCutskyCatalog._random_positions 
 
 class TestRandomPositions:
     def test_output_shape(self):
-        result = RandomCutSkyCatalog._random_positions(
+        result = RandomCutskyCatalog._random_positions(
             500, rarange=(0, 360), decrange=(-90, 90), zrange=(0.5, 1.0), seed=0
         )
         assert result.shape == (500, 3)
 
     def test_required_columns(self):
-        result = RandomCutSkyCatalog._random_positions(
+        result = RandomCutskyCatalog._random_positions(
             10, rarange=(0, 360), decrange=(-90, 90), zrange=(0.5, 1.0)
         )
         assert set(result.columns) == {"ra", "dec", "z"}
 
     def test_ra_wrapping(self):
         """RA values should always be in [0, 360) even for wrap-around ranges."""
-        result = RandomCutSkyCatalog._random_positions(
+        result = RandomCutskyCatalog._random_positions(
             1000, rarange=(300, 40), decrange=(-10, 10), zrange=(0.5, 1.0), seed=0
         )
         assert result["ra"].between(0, 360).all()
 
     def test_ra_wrapping_covers_both_sides(self):
         """Wrap-around RA generation should produce values both above 300 and below 40."""
-        result = RandomCutSkyCatalog._random_positions(
+        result = RandomCutskyCatalog._random_positions(
             5000, rarange=(300, 40), decrange=(-10, 10), zrange=(0.5, 1.0), seed=0
         )
         assert (result["ra"] > 300).any()
@@ -488,7 +488,7 @@ class TestRandomPositions:
 
     # def test_dec_uniform_on_sphere(self):
     #     """sin(dec) should be approximately uniformly distributed for large samples."""
-    #     result = RandomCutSkyCatalog._random_positions(
+    #     result = RandomCutskyCatalog._random_positions(
     #         50_000, rarange=(0, 360), decrange=(-90, 90), zrange=(0.5, 1.0), seed=0
     #     )
     #     sin_dec = np.sin(np.radians(result["dec"]))
@@ -496,12 +496,12 @@ class TestRandomPositions:
     #     assert p > 0.01
 
     def test_z_within_range(self):
-        result = RandomCutSkyCatalog._random_positions(
+        result = RandomCutskyCatalog._random_positions(
             500, rarange=(0, 360), decrange=(-90, 90), zrange=(0.3, 0.8), seed=0
         )
         assert result["z"].between(0.3, 0.8).all()
 
     def test_reproducible_with_seed(self):
-        r1 = RandomCutSkyCatalog._random_positions(100, (0, 360), (-90, 90), (0.5, 1.0), seed=1)
-        r2 = RandomCutSkyCatalog._random_positions(100, (0, 360), (-90, 90), (0.5, 1.0), seed=1)
+        r1 = RandomCutskyCatalog._random_positions(100, (0, 360), (-90, 90), (0.5, 1.0), seed=1)
+        r2 = RandomCutskyCatalog._random_positions(100, (0, 360), (-90, 90), (0.5, 1.0), seed=1)
         pd.testing.assert_frame_equal(r1, r2)
