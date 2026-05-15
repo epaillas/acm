@@ -15,6 +15,7 @@ from acm.catalogs.products import CutskyCatalog
 
 logger = logging.getLogger(__name__)
 
+
 class CutskyCatalogFactory(BaseCatalogFactory):
     """Factory for creating cutsky-based catalogs."""
 
@@ -58,7 +59,7 @@ class CutskyCatalogFactory(BaseCatalogFactory):
             Extra arguments forwarded to the backend.
         """
         ...
-        
+
     @abstractmethod
     def get_catalog(self, redshift_range: tuple[float, float]) -> CutskyCatalog:
         """
@@ -70,7 +71,8 @@ class CutskyCatalogFactory(BaseCatalogFactory):
             The redshift range of the desired catalog.
         """
         ...
-        
+
+
 class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
     """Factory for creating a single cutsky-based galaxy catalog spanning a redshift range."""
 
@@ -78,7 +80,7 @@ class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
     def redshift_range(self) -> tuple[float, float]:
         """Redshift range covered by the catalog."""
         return self._catalogs.keys()
-    
+
     @override
     def make_catalogs(
         self,
@@ -87,18 +89,20 @@ class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
         tracers: list[Tracer] | dict[float, list[Tracer]],
         **kwargs,
     ) -> None:
-        for i, (zsnap, zranges) in enumerate(zip(redshifts, redshift_ranges, strict=True)):
+        for i, (zsnap, zranges) in enumerate(
+            zip(redshifts, redshift_ranges, strict=True)
+        ):
             # TODO: Get boxes trough backend
             # TODO: Populate snapshot catalogs with tracers through backend - return SnapshotCatalogs
             # TODO: Convert snapshot catalogs to cutsky catalogs through cutsky_to_box utility function
-                # NOTE: this utility function should handle box replication and periodic wrapping, 
-                # and will depend on the cosmology for distance-redshift conversion and on the redshift range for angle values.
+            # NOTE: this utility function should handle box replication and periodic wrapping,
+            # and will depend on the cosmology for distance-redshift conversion and on the redshift range for angle values.
             pass
-        
+
         # TODO: assemble cutsky catalogs into a single catalog spanning the full redshift range, store in self._catalogs with key zranges
-        
-        # NOTE: do not match nbar, or apply masks at this step, those should be available in the galaxy catalog class instead :) 
-        
+
+        # NOTE: do not match nbar, or apply masks at this step, those should be available in the galaxy catalog class instead :)
+
     def get_catalog(self, redshift_range: tuple[float, float]) -> CutskyCatalog:
         """
         Retrieve the galaxy catalog at a given redshift range.
@@ -109,5 +113,6 @@ class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
             The redshift range of the desired catalog.
         """
         return self._catalogs[redshift_range]
-    
+
+
 # NOTE: maybe move box_to_cutsky and cutsky_to_box utilities here, or to a separate geometry_utils module?
