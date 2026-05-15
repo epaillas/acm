@@ -80,9 +80,11 @@ class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
     def redshift_range(self) -> tuple[float, float]:
         """Redshift range covered by the catalog."""
         if len(self._catalogs) != 1:
-            raise ValueError("Multiple catalogs found, cannot determine redshift range. Use get_catalog with specific redshift range instead.")
+            raise ValueError(
+                "Multiple catalogs found, cannot determine redshift range. Use get_catalog with specific redshift range instead."
+            )
         return list(self._catalogs)[0]
-    
+
     @override
     def make_catalogs(
         self,
