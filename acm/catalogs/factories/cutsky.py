@@ -1,7 +1,10 @@
 """Concrete catalog factories for cutsky-based pipelines."""
+# ruff: noqa
+# TODO: remove noqa once implementation starts.
 
-from abc import abstractmethod
 import logging
+from typing import override
+from abc import abstractmethod
 
 from cosmoprimo import Cosmology
 
@@ -76,6 +79,7 @@ class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
         """Redshift range covered by the catalog."""
         return self._catalogs.keys()
     
+    @override
     def make_catalogs(
         self,
         redshifts: list[float],
@@ -83,7 +87,7 @@ class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
         tracers: list[Tracer] | dict[float, list[Tracer]],
         **kwargs,
     ) -> None:
-        for i, (zsnap, zranges) in enumerate(zip(redshifts, redshift_ranges)):
+        for i, (zsnap, zranges) in enumerate(zip(redshifts, redshift_ranges, strict=True)):
             # TODO: Get boxes trough backend
             # TODO: Populate snapshot catalogs with tracers through backend - return SnapshotCatalogs
             # TODO: Convert snapshot catalogs to cutsky catalogs through cutsky_to_box utility function
@@ -96,7 +100,14 @@ class CutskyGalaxyCatalogFactory(CutskyCatalogFactory):
         # NOTE: do not match nbar, or apply masks at this step, those should be available in the galaxy catalog class instead :) 
         
     def get_catalog(self, redshift_range: tuple[float, float]) -> CutskyCatalog:
-        """Retrieve the galaxy catalog at a given redshift range."""
+        """
+        Retrieve the galaxy catalog at a given redshift range.
+
+        Parameters
+        ----------
+        redshift_range : tuple[float, float]
+            The redshift range of the desired catalog.
+        """
         return self._catalogs[redshift_range]
     
 # NOTE: maybe move box_to_cutsky and cutsky_to_box utilities here, or to a separate geometry_utils module?
