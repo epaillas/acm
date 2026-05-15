@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Callable
-from typing import Self
+from typing import Self, override
 
 import h5py
 import numpy as np

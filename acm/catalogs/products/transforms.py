@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float) -> pd.DataFrame:
     """
-    Apply RSD shift along the los axis. 
-    
-    Expects velocity columns named 'vx', 'vy', 'vz' 
+    Apply RSD shift along the los axis.
+
+    Expects velocity columns named 'vx', 'vy', 'vz'
     corresponding to the position columns 'x', 'y', 'z'.
 
     Parameters
@@ -46,7 +46,7 @@ def _apply_ap(
 ) -> pd.DataFrame:
     """
     Apply AP scaling: q_par along los, q_perp along transverse axes.
-    
+
     Expects position columns named 'x', 'y', 'z' (or as specified in pos_columns).
 
     Parameters
@@ -84,7 +84,7 @@ def _apply_downsample(
 ) -> pd.DataFrame:
     """
     Randomly downsample a tracer DataFrame.
-    
+
     Volume is expected as a callable to allow for transforms that change the effective volume, e.g. AP scaling.
 
     Parameters

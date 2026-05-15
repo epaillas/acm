@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Self
+from typing import Callable, Self, override
 
 import h5py
 import numpy as np
@@ -45,7 +45,7 @@ def _fsky(ra: np.ndarray, dec: np.ndarray, nside: int = 256) -> float:
     fsky = len(unique_pix) / npix
     return fsky
 
-def _shell_volume(cosmo, z: np.ndarray) -> np.ndarray:
+def _shell_volume(cosmo: Cosmology, z: np.ndarray) -> np.ndarray:
     """
     Compute the full-sky comoving volume of redshift shells between consecutive redshift values.
 
@@ -74,9 +74,9 @@ class CutSkyCatalog(BaseGalaxyCatalog):
 
     A hp_res parameter can be provided at initialization to control the resolution
     of the HEALPix grid used for estimating sky coverage and n(z) interpolation.
-    
-    Heavy computations like fsky and n(z) interpolation are cached based on the current 
-    set of transforms to avoid redundant calculations when applying multiple transforms sequentially. 
+
+    Heavy computations like fsky and n(z) interpolation are cached based on the current
+    set of transforms to avoid redundant calculations when applying multiple transforms sequentially.
     Caches are automatically invalidated when transforms are added, removed, or reset.
     """
 
@@ -146,7 +146,7 @@ class CutSkyCatalog(BaseGalaxyCatalog):
     ) -> tuple[float, float]:
         """
         Compute the range of a coordinate from the data.
-        
+
         Parameters
         ----------
         coord : str
@@ -345,7 +345,8 @@ class CutSkyCatalog(BaseGalaxyCatalog):
         
     def _save_attrs(self, f: h5py.File) -> None:
         pass
-
+    
+    @override
     @classmethod
     def _from_attrs(cls, attrs: dict, cosmo: Cosmology, cosmo_fid: Cosmology) -> Self:
         return cls(cosmo=cosmo, cosmo_fid=cosmo_fid)
