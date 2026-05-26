@@ -100,14 +100,11 @@ jobs:
 
   unit_tests: # Unit tests work without install
     name: Unit tests with pytest
-    runs-on: ubuntu-latest
     needs: [formatter, type-check]
     if: needs.formatter.outputs.has_changes == 'false'
-    steps:
-      - name: Coverage check
-        uses: ./.github/workflows/check-coverage.yml
-        with:
-          update_coverage: false # Don't update coverage file to avoid action loop
+    uses: ./.github/workflows/check-coverage.yml
+    with:
+      update_coverage: false # Don't update coverage file to avoid action loop
 
   job_pytest:
     name : Pytest runner
