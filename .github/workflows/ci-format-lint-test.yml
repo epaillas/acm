@@ -7,12 +7,16 @@ on:
     branches: ["dev","main"]
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  job_format:
+  formatter:
     name : Ruff formatter
     runs-on: ubuntu-latest
     outputs:
@@ -62,12 +66,12 @@ jobs:
           git commit -m "Ruff format"
           git push
 
-  job-ty:
+  type-check:
     name: Type checking with ty
     runs-on: ubuntu-latest
-    needs: job_format
+    needs: formatter
     # Formatting changes will trigger a new workflow run, so there is no need to run tests 
-    if: needs.job_format.outputs.has_changes == 'false'
+    if: needs.formatter.outputs.has_changes == 'false'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -94,11 +98,22 @@ jobs:
           ty check acm --output-format github  --python-version 3.13 
           echo "Exit code: $?"
 
+  unit_tests: # Unit tests work without install
+    name: Unit tests with pytest
+    runs-on: ubuntu-latest
+    needs: [formatter, type-check]
+    if: needs.formatter.outputs.has_changes == 'false'
+    steps:
+      - name: Coverage check
+        uses: ./.github/workflows/check-coverage.yml
+        with:
+          update_coverage: false # Don't update coverage file to avoid action loop
+
   job_pytest:
     name : Pytest runner
     runs-on: ubuntu-latest
-    needs: [job_format, job-ty]
-    if: needs.job_format.outputs.has_changes == 'false'
+    needs: [formatter, type-check]
+    if: needs.formatter.outputs.has_changes == 'false'
     steps:
       - name: Checkout 
         uses: actions/checkout@v4

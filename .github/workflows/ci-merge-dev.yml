@@ -1,9 +1,6 @@
-name: Update dev version
+name: Pipeline update on dev branch merge
 description: |
-  This workflow automatically bumps the dev version in the VERSION file when a pull request is 
-  merged into the dev branch. This allows us to have a separate versioning scheme for the
-  development branch, which can be useful for testing and pre-release versions 
-  before they are merged into main.
+  Updates coverage value and version on dev branch merge.
 
 on:
   pull_request:
@@ -13,6 +10,16 @@ on:
       - "acm/**"
 
 jobs:
+  bump-coverage:
+    if: ${{ github.event.pull_request.merged == true }}
+    secrets: inherit
+    uses: ./.github/workflows/check-coverage.yml
+    permissions:
+      pull-requests: read
+      contents: write
+    with:
+      update_coverage: true
+
   bump-dev:
     if: ${{ github.event.pull_request.merged == true }}
     secrets: inherit
