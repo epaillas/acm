@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import time
 from collections.abc import Iterator
@@ -535,11 +537,6 @@ class JaxelVoids(BaseEstimator):
         xpos = xi * boxsize[0] / nmesh[0]
         ypos = yi * boxsize[1] / nmesh[1]
         zpos = zi * boxsize[2] / nmesh[2]
-
-        if self.has_randoms:
-            xpos += boxcenter[0] - boxsize[0] / 2.0
-            ypos += boxcenter[1] - boxsize[1] / 2.0
-            zpos += boxcenter[2] - boxsize[2] / 2.0
 
         offset = boxcenter - boxsize / 2.0
         xpos += offset[0]
