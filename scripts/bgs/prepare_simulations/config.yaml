@@ -2,7 +2,7 @@
 sim_params:
   sim_name: AbacusSummit_base_c000_ph000                                    # which simulation                                  
   sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus                           # where is the simulation
-  subsample_dir: /pscratch/sd/s/sbouchar/summit_subsamples/boxes/base/      # where to output subsample data
+  subsample_dir: /pscratch/sd/s/sbouchar/summit_subsamples/lowmass/boxes/base/      # where to output subsample data
   z_mock: 0.2                                                               # which redshift slice
   cleaned_halos: True                                                       # load cleaned halos?
 
