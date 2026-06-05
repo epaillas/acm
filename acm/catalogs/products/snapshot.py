@@ -135,6 +135,10 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         """
         if los not in self.pos_columns:
             raise ValueError(f"los must be one of {self.pos_columns}, got '{los}'.")
+        if "ap" in self._transforms:
+            logger.warning(
+                "AP transform exists: RSD transform will be registered with a distorded boxsize and may yield unexpected results. "
+            )
         L = self.boxsize[self.pos_columns.index(los)] # For periodic wrapping
         self._add_transform(
             Transform(
