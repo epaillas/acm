@@ -246,7 +246,7 @@ class JaxelVoids(BaseEstimator):
 
     def save_correlations(
         self,
-        correlation: type[BaseTwoPointEstimator],
+        correlation: BaseTwoPointEstimator,
         filename: str | Path,
         attrs: dict | None = None,
     ) -> None:
