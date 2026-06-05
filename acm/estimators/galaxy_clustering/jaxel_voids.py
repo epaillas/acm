@@ -553,7 +553,7 @@ class JaxelVoids(BaseEstimator):
         data_positions: npt.NDArray,
         save_fn: str | Path | None = None,
         **kwargs,
-    ) -> type[BaseTwoPointEstimator]:
+    ) -> BaseTwoPointEstimator:
         """Compute the void-data two-point correlation function.
 
         Parameters
