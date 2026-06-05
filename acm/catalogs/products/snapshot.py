@@ -139,14 +139,14 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             logger.warning(
                 "AP transform exists: RSD transform will be registered with a distorded boxsize and may yield unexpected results. "
             )
-        L = self.boxsize[self.pos_columns.index(los)] # For periodic wrapping
+        L = self.boxsize[self.pos_columns.index(los)]  # For periodic wrapping
         self._add_transform(
             Transform(
                 name="rsd",
                 func=_apply_rsd,
                 kwargs={
-                    "los": los, 
-                    "hubble": self.hubble, 
+                    "los": los,
+                    "hubble": self.hubble,
                     "az": self.az,
                     "offset": L / 2,
                     "wrap": L,

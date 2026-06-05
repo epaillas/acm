@@ -9,7 +9,14 @@ from numpy.random import RandomState
 logger = logging.getLogger(__name__)
 
 
-def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float, offset: float = 0, wrap: float = 0) -> pd.DataFrame:
+def _apply_rsd(
+    data: pd.DataFrame,
+    los: str,
+    hubble: float,
+    az: float,
+    offset: float = 0,
+    wrap: float = 0,
+) -> pd.DataFrame:
     """
     Apply RSD shift along the los axis.
 

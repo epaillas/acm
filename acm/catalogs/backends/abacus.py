@@ -176,7 +176,7 @@ class AbacusHODBackend(SnapshotBackend):
 
             default_params = catalog_tracers[tracer_name]
             hod_params = tracer.params.copy()
-            hod_params = map_params(hod_params, mapping=mapping) # AbacusHOD mapping
+            hod_params = map_params(hod_params, mapping=mapping)  # AbacusHOD mapping
 
             # Convert log(sigma) to sigma and/or remove logsigma
             if use_logsigma and "sigma" in hod_params:
@@ -259,7 +259,7 @@ class AbacusHODBackend(SnapshotBackend):
 
             # Get the tracer parameters from the tracer instance with mapping
             ntp = map_params(tracer.params, mapping=mapping)
-            
+
             # Override tracer-specific HOD parameters with any provided in the tracer instance
             tracer_params = hod_params.get(tracer_key, {})
             tracer_params.update(ntp)
