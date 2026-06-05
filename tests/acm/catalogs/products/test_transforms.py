@@ -31,21 +31,48 @@ class TestApplyRsd:
         data = pd.DataFrame({"x": [1.0], "z": [0.0], "vz": [100.0]})
         result = _apply_rsd(data, los="z", hubble=100.0, az=0.5)
         assert result["x"].iloc[0] == pytest.approx(1.0)
+    
+    def test_wrap(self):
+        """RSD transform should wrap positions correctly when wrap parameter is set."""
+        data = pd.DataFrame({"z": [9.0], "vz": [200.0]})
+        result = _apply_rsd(data, los="z", hubble=100.0, az=0.5, wrap=10.0)
+        expected_z = (9.0 + 200.0 / (100.0 * 0.5)) % 10.0
+        assert result["z"].iloc[0] == pytest.approx(expected_z)
+        
+    def test_wrap_with_offset(self):
+        """RSD transform should wrap positions correctly with an offset."""
+        data = pd.DataFrame({"z": [9.0], "vz": [200.0]})
+        result = _apply_rsd(data, los="z", hubble=100.0, az=0.5, offset=5.0, wrap=10.0)
+        expected_z = (9.0 + 200.0 / (100.0 * 0.5) + 5.0) % 10.0 - 5.0
+        assert result["z"].iloc[0] == pytest.approx(expected_z)
 
 
 class TestApplyAp:
     def test_scales_los_by_qpar(self):
         """AP transform should scale the los column by q_par."""
-        data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [1.0]})
+        data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [1.2]})
         result = _apply_ap(data, los="z", q_par=1.2, q_perp=0.9, pos_columns=("x", "y", "z"))
-        assert result["z"].iloc[0] == pytest.approx(1.2)
+        assert result["z"].iloc[0] == pytest.approx(1.0)
 
     def test_scales_transverse_by_qperp(self):
         """AP transform should scale the transverse columns by q_perp."""
-        data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [1.0]})
+        data = pd.DataFrame({"x": [0.9], "y": [0.9], "z": [1.0]})
         result = _apply_ap(data, los="z", q_par=1.2, q_perp=0.9, pos_columns=("x", "y", "z"))
-        assert result["x"].iloc[0] == pytest.approx(0.9)
-        assert result["y"].iloc[0] == pytest.approx(0.9)
+        assert result["x"].iloc[0] == pytest.approx(1.0)
+        assert result["y"].iloc[0] == pytest.approx(1.0)
+        
+    def test_qpar_equal_one_leaves_los_unchanged(self):
+        """q_par=1 should leave the los column unchanged."""
+        data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [3.0]})
+        result = _apply_ap(data, los="z", q_par=1.0, q_perp=0.9, pos_columns=("x", "y", "z"))
+        assert result["z"].iloc[0] == pytest.approx(3.0)
+        
+    def test_qperp_equal_one_leaves_transverse_unchanged(self):
+        """q_perp=1 should leave transverse columns unchanged."""
+        data = pd.DataFrame({"x": [2.0], "y": [3.0], "z": [1.0]})
+        result = _apply_ap(data, los="z", q_par=1.2, q_perp=1.0, pos_columns=("x", "y", "z"))
+        assert result["x"].iloc[0] == pytest.approx(2.0)
+        assert result["y"].iloc[0] == pytest.approx(3.0)
 
     def test_does_not_mutate_input(self):
         """AP transform should not mutate the input DataFrame."""

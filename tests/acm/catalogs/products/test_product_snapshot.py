@@ -122,8 +122,8 @@ def test_boxsize_with_ap(populated_catalog, cosmo, cosmo_fid):
     cosmo_fid.angular_diameter_distance.return_value = 1000.0
     populated_catalog.ap(los="z")
     boxsize = populated_catalog.boxsize
-    assert boxsize[2] == pytest.approx(500.0 * populated_catalog.q_par)
-    assert boxsize[0] == pytest.approx(500.0 * populated_catalog.q_perp)
+    assert boxsize[2] == pytest.approx(500.0 / populated_catalog.q_par)
+    assert boxsize[0] == pytest.approx(500.0 / populated_catalog.q_perp)
 
 
 #%% _check_data_columns
@@ -167,12 +167,13 @@ def test_rsd_invalid_los_raises(populated_catalog):
     with pytest.raises(ValueError, match="los"):
         populated_catalog.rsd(los="w")
 
-def test_rsd_shifts_positions(populated_catalog):
+def test_rsd_shifts_positions(populated_catalog, boxsize):
     """RSD transform should shift positions along the los according to the formula z' = z + vz / (H * az)."""
     raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.rsd(los="z")
     result = populated_catalog.get_tracer_data("FOO")
-    expected_z = raw["z"] + raw["vz"] / (populated_catalog.hubble * populated_catalog.az)
+    shifted_z = raw["z"] + boxsize / 2
+    expected_z = (shifted_z + raw["vz"] / (populated_catalog.hubble * populated_catalog.az)) % boxsize - boxsize / 2
     pd.testing.assert_series_equal(result["z"], expected_z, check_names=False)
 
 def test_rsd_does_not_mutate_raw(populated_catalog):
@@ -202,8 +203,8 @@ def test_ap_scales_positions(populated_catalog, cosmo, cosmo_fid):
     raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.ap(los="z")
     result = populated_catalog.get_tracer_data("FOO")
-    assert result["z"].values == pytest.approx(raw["z"].values * populated_catalog.q_par)
-    assert result["x"].values == pytest.approx(raw["x"].values * populated_catalog.q_perp)
+    assert result["z"].values == pytest.approx(raw["z"].values / populated_catalog.q_par)
+    assert result["x"].values == pytest.approx(raw["x"].values / populated_catalog.q_perp)
 
 
 #%% Downsample transform

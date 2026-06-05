@@ -9,7 +9,7 @@ from numpy.random import RandomState
 logger = logging.getLogger(__name__)
 
 
-def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float) -> pd.DataFrame:
+def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float, offset: float = 0, wrap: float = 0) -> pd.DataFrame:
     """
     Apply RSD shift along the los axis.
 
@@ -26,6 +26,10 @@ def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float) -> pd.Dat
         Hubble parameter H(z) in km/s/(Mpc/h) for the simulation cosmology.
     az : float
         Scale factor a(z) at the snapshot's redshift.
+    offset : float, optional
+        Offset for periodic wrapping, default is 0.
+    wrap : float, optional
+        Wrap size for periodic boundary conditions, default is 0.
 
     Returns
     -------
@@ -35,6 +39,8 @@ def _apply_rsd(data: pd.DataFrame, los: str, hubble: float, az: float) -> pd.Dat
     data = data.copy()
     v_col = f"v{los}"
     data[los] = data[los] + data[v_col] / (hubble * az)
+    if wrap > 0:
+        data[los] = (data[los] + offset) % wrap - offset
     return data
 
 
@@ -70,7 +76,7 @@ def _apply_ap(
     """
     data = data.copy()
     for ax in pos_columns:
-        data[ax] = data[ax] * (q_par if ax == los else q_perp)
+        data[ax] = data[ax] / (q_par if ax == los else q_perp)
     return data
 
 

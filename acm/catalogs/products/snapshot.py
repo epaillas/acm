@@ -73,7 +73,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                 [self.q_par if ax == los else self.q_perp for ax in self.pos_columns],
                 dtype=float,
             )
-            return self._boxsize * factors
+            return self._boxsize / factors
         return self._boxsize
 
     @boxsize.setter
@@ -135,11 +135,18 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         """
         if los not in self.pos_columns:
             raise ValueError(f"los must be one of {self.pos_columns}, got '{los}'.")
+        L = self.boxsize[self.pos_columns.index(los)] # For periodic wrapping
         self._add_transform(
             Transform(
                 name="rsd",
                 func=_apply_rsd,
-                kwargs={"los": los, "hubble": self.hubble, "az": self.az},
+                kwargs={
+                    "los": los, 
+                    "hubble": self.hubble, 
+                    "az": self.az,
+                    "offset": L / 2,
+                    "wrap": L,
+                },
             )
         )
 
