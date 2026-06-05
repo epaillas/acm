@@ -70,7 +70,7 @@ testing = [ # Testing dependencies, with minimal install for type hints
     "requests",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
     # not tested, but dependency of some imports - minimal install
-    "lsstypes @ git+https://github.com/adematti/lsstypes.git ",
+    "lsstypes @ git+https://github.com/adematti/lsstypes.git",
     "pycorr @ git+https://github.com/cosmodesi/pycorr", 
 ]
 
