@@ -36,7 +36,7 @@ cosmodesi = [ # Dependencies existing in the cosmodesi ecosystem
     'cosmoprimo[class,camb,astropy,extras] @ git+https://github.com/cosmodesi/cosmoprimo',
     'fitsio',
     'h5py',
-    "lsstypes @ git+https://github.com/adematti/lsstypes.git ",
+    "lsstypes @ git+https://github.com/adematti/lsstypes.git",
     'healpy',
     'mockfactory @ git+https://github.com/cosmodesi/mockfactory',
     'desitarget',
