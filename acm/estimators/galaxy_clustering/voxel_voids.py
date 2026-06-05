@@ -12,6 +12,7 @@ import numpy.typing as npt
 from matplotlib import cm
 from matplotlib.figure import Figure
 from pycorr import TwoPointCorrelationFunction
+from pycorr.twopoint_estimator import BaseTwoPointEstimator
 
 from acm.utils.plotting import set_plot_style
 
@@ -312,7 +313,7 @@ class VoxelVoids(BaseEstimator):
         self,
         data_positions: npt.NDArray,
         **kwargs,
-    ) -> TwoPointCorrelationFunction:
+    ) -> BaseTwoPointEstimator:
         """
         Compute the cross-correlation function between the voids and the data.
 

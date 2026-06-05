@@ -386,7 +386,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
 
         y = []
         for data_fn in data_fns:
-            data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
+            data = TwoPointCorrelationFunction.load(data_fn)[::rebin] # ty:ignore[unresolved-attribute]
             s, multipoles = data(ells=ells, return_sep=True)
             y.append(np.concatenate(multipoles))
         y = np.array(y)
@@ -484,7 +484,7 @@ class BaseVERSUSCorrelationFunctionMultipoles(BaseObservableEMC):
             handle = f"c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/{stat_name}_c{cosmo_idx:03d}_hod*.npy"
             filenames = sorted(base_dir.glob(handle))[:n_hod]
             for filename in filenames:
-                data = TwoPointCorrelationFunction.load(filename)[::rebin]
+                data = TwoPointCorrelationFunction.load(filename)[::rebin] # ty:ignore[unresolved-attribute]
                 s, multipoles = data(ells=ells, return_sep=True)
                 y.append(np.concatenate(multipoles))
         y = np.array(y)

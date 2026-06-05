@@ -16,6 +16,7 @@ from lsstypes.external import from_pycorr
 from matplotlib import animation, cm
 from matplotlib.figure import Figure
 from pycorr import TwoPointCorrelationFunction
+from pycorr.twopoint_estimator import BaseTwoPointEstimator
 
 from acm.utils.plotting import set_plot_style
 
@@ -245,7 +246,7 @@ class JaxelVoids(BaseEstimator):
 
     def save_correlations(
         self,
-        correlation: TwoPointCorrelationFunction,
+        correlation: type[BaseTwoPointEstimator],
         filename: str | Path,
         attrs: dict | None = None,
     ) -> None:
@@ -253,7 +254,7 @@ class JaxelVoids(BaseEstimator):
 
         Parameters
         ----------
-        correlation : TwoPointCorrelationFunction
+        correlation : BaseTwoPointEstimator
             Correlation object to save.
         filename : str or Path
             Output filename.
@@ -279,7 +280,7 @@ class JaxelVoids(BaseEstimator):
                 corr_leaf.attrs.update(base_attrs)
             corr_leaf.write(path)
         elif path.suffix == ".npy":
-            np.save(path, correlation)
+            np.save(path, correlation)  # ty:ignore[invalid-argument-type]
         else:
             raise ValueError(
                 f"Unrecognized file extension '{path.suffix}' for file: {path}. "
@@ -289,7 +290,7 @@ class JaxelVoids(BaseEstimator):
     def save(
         self,
         filename: str | Path,
-        data: TwoPointCorrelationFunction | None = None,
+        data: type[BaseTwoPointEstimator] | None = None,
         data_type: str = "catalog",
         attrs: dict | None = None,
     ) -> None:
@@ -299,7 +300,7 @@ class JaxelVoids(BaseEstimator):
         ----------
         filename : str or Path
             Output filename.
-        data : TwoPointCorrelationFunction, optional
+        data : BaseTwoPointEstimator, optional
             Data payload to save when ``data_type='correlation'``. If omitted,
             ``self._void_data_correlation`` is used.
         data_type : {'catalog', 'correlation'}, default='catalog'
@@ -552,7 +553,7 @@ class JaxelVoids(BaseEstimator):
         data_positions: npt.NDArray,
         save_fn: str | Path | None = None,
         **kwargs,
-    ) -> TwoPointCorrelationFunction:
+    ) -> type[BaseTwoPointEstimator]:
         """Compute the void-data two-point correlation function.
 
         Parameters
@@ -567,7 +568,7 @@ class JaxelVoids(BaseEstimator):
 
         Returns
         -------
-        TwoPointCorrelationFunction
+        type[BaseTwoPointEstimator]
             Configured pycorr object containing measured correlation statistics.
         """
         if self.has_randoms:

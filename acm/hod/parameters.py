@@ -80,7 +80,7 @@ class HODLatinHypercube:
         split_params = {}
         for i, cosmo in enumerate(cosmos):
             split = [
-                np.array_split(self.params[key], len(cosmos))[i] for key in self.params
+                np.array_split(np.asarray(self.params[key]), len(cosmos))[i] for key in self.params
             ]
             split_params[f"c{cosmo:03}"] = {
                 key: list(split[i]) for i, key in enumerate(self.params)
@@ -109,7 +109,7 @@ class HODLatinHypercube:
         """
         for key, hod in self.params.items():
             n_hod = len(
-                hod[next(iter(hod))]
+                hod[next(iter(hod))]  # ty:ignore[invalid-argument-type]
             )  # number of HOD samples for this cosmology
             cosmo = {
                 k: [v] * n_hod for k, v in cosmo_params[key].items()
