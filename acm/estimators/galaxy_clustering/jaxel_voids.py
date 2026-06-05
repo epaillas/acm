@@ -290,7 +290,7 @@ class JaxelVoids(BaseEstimator):
     def save(
         self,
         filename: str | Path,
-        data: type[BaseTwoPointEstimator] | None = None,
+        data: BaseTwoPointEstimator | None = None,
         data_type: str = "catalog",
         attrs: dict | None = None,
     ) -> None:
