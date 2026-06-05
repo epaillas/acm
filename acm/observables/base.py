@@ -775,7 +775,7 @@ class Observable:
             )
 
         cov_y = self.flatten_output(
-            cov_y, # ty:ignore[invalid-argument-type]
+            cov_y,  # ty:ignore[invalid-argument-type]
             flat_output_dims=2,
             unstack=False,
         )  # No unstacking to avoid NaN

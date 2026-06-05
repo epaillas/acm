@@ -436,7 +436,7 @@ class DTVoid(BaseEstimator):
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
-            s, multipoles = self._sample_data_correlation[i]( # ty: ignore[call-non-callable]
+            s, multipoles = self._sample_data_correlation[i](  # ty: ignore[call-non-callable]
                 ells=(0, 2, 4), return_sep=True
             )
             ax.plot(
@@ -462,7 +462,7 @@ class DTVoid(BaseEstimator):
         """Plot the correlation function of the sampled voids."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
-            s, multipoles = self._sample_correlation[i](ells=(0, 2, 4), return_sep=True) # ty: ignore[call-non-callable]
+            s, multipoles = self._sample_correlation[i](ells=(0, 2, 4), return_sep=True)  # ty: ignore[call-non-callable]
             ax.plot(s, s**2 * multipoles[ell // 2], lw=2.0, label=rf"${{\rm DTS}}_{i}$")
         ax.set_xlabel(r"$s\, [h^{-1}{\rm Mpc}]$", fontsize=15)
         ax.set_ylabel(r"$s^2 \xi_\ell\, [h^{-2}{\rm Mpc^2}](s)$", fontsize=15)
