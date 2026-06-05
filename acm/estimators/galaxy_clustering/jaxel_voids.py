@@ -568,7 +568,7 @@ class JaxelVoids(BaseEstimator):
 
         Returns
         -------
-        type[BaseTwoPointEstimator]
+        BaseTwoPointEstimator
             Configured pycorr object containing measured correlation statistics.
         """
         if self.has_randoms:
