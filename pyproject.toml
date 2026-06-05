@@ -25,77 +25,53 @@ dependencies = [ # Base requirements
     "xarray", 
     "pyyaml",
     "matplotlib",
-    "getdist",
+    "sunbird[inference] @ git+https://github.com/florpi/sunbird'"
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-# Environements
-cosmodesi = [
-    # Estimators
+cosmodesi = [ # Dependencies existing in the cosmodesi ecosystem
     'jax',
-    'pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr',
-
-    # HOD and cutsky
     'astropy',
-    'abacusutils',  # abacusnbody
     'cosmoprimo[class,camb,astropy,extras] @ git+https://github.com/cosmodesi/cosmoprimo',
-    'mockfactory @ git+https://github.com/cosmodesi/mockfactory',
     'fitsio',
+    'h5py',
+    "lsstypes @ git+https://github.com/adematti/lsstypes.git ",
     'healpy',
+    'mockfactory @ git+https://github.com/cosmodesi/mockfactory',
     'desitarget',
     'regressis @ git+https://github.com/echaussidon/regressis',
 ]
-# Estimators (backends)
-jaxpower = [
-    'jax-power @ git+https://github.com/adematti/jax-power.git',
+estimators = [ # Dependencies for clustering estimators
+    "pycorr[mpi,jackknife,corrfunc] @ git+https://github.com/cosmodesi/pycorr",
+    "jax-power @ git+https://github.com/adematti/jax-power.git",
+    "numba", # knn
+    "mistreeplus @ git+https://github.com/knaidoo29/mistreeplus.git", # mst
+    "kymatio", # wst
 ]
-pypower = [
-    'pypower @ git+https://github.com/cosmodesi/pypower', 
+dark-matter = [ # Dependencies for dark matter backends
+    'abacusutils',  # abacusnbody
 ]
-pyrecon = [
-    'pyrecon @ git+https://github.com/cosmodesi/pyrecon@main',
+lensing = [
+    'asdf',
+    'treecorr',
 ]
-polybin3d = [
-    'polybin3d[mkl_fft] @ git+https://github.com/oliverphilcox/PolyBin3D',
-]
-# Documentation and testing
 docs = [
     "sphinx >= 4.2",
     "sphinx-book-theme >= 0.3",
     "myst_nb >= 0.17.1",
 ]
-testing = [
-    "pytest",
-    "coverage",
-    "pytest-docstyle",
-    "pytest-emoji",
-    "pylint",
-    "ruff",
-    "black",
-    "isort",
-    "mypy",
-    "ciqar",
+testing = [ # Testing dependencies, with minimal install for type hints
+    "ruff", 
     "ty",
-    "pytest-cov"
-]
-# Estimators
-knn = [
-    "numba",
-]
-mst = [
-    "mistreeplus @ git+https://github.com/knaidoo29/mistreeplus.git",
-]
-wst = [
-    "kymatio",
-]
-# Model & inference
-sunbird = [ 
-    'sunbird[inference] @ git+https://github.com/florpi/sunbird',
-]
-lensing = [
-    'asdf',
-    'treecorr',
+    "pytest",
+    "pytest-cov",
+    "pytest-emoji",
+    "requests",
+    "sunbird[inference] @ git+https://github.com/florpi/sunbird",
+    # not tested, but dependency of some imports - minimal install
+    "lsstypes @ git+https://github.com/adematti/lsstypes.git ",
+    "pycorr @ git+https://github.com/cosmodesi/pycorr", 
 ]
 
 [project.urls]
