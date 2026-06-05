@@ -2,7 +2,7 @@
 
 #SBATCH --nodes 1
 #SBATCH --constraint cpu
-#SBATCH --qos debug
+#SBATCH --qos regular
 #SBATCH --account desi
 
 #SBATCH --time 00:30:00
