@@ -19,7 +19,7 @@ BOXSIZES = {
 }
 
 ABACUS_MAP = {
-    "logM1": ["log_1"],
+    "logM1": ["logM_1"],
     "Acent": ["A_cen"],
     "Asat": ["A_sat"],
     "Bcent": ["B_cen"],

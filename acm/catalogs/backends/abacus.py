@@ -176,9 +176,7 @@ class AbacusHODBackend(SnapshotBackend):
 
             default_params = catalog_tracers[tracer_name]
             hod_params = tracer.params.copy()
-            hod_params = map_params(
-                hod_params, mapping=mapping
-            )  # Map custom parameter names to AbacusHOD parameter names if needed
+            hod_params = map_params(hod_params, mapping=mapping) # AbacusHOD mapping
 
             # Convert log(sigma) to sigma and/or remove logsigma
             if use_logsigma and "sigma" in hod_params:
@@ -195,12 +193,12 @@ class AbacusHODBackend(SnapshotBackend):
                 )
 
             # NOTE: Do we want to provide this option to the user ?
-            hod_params["ic"] = 1  # set incompleteness to 1 (i.e. no incompleteness)
+            hod_params["ic"] = 1.0  # set incompleteness to 1 (i.e. no incompleteness)
 
             default_params.update(hod_params)
             final_tracers[tracer_name] = default_params
             logger.debug(
-                f"Updating tracer '{tracer.name}' with HOD parameters: {hod_params}"
+                f"Updating tracer '{tracer.name}' with HOD parameters: {default_params}"
             )
 
         # Handle kwarg default values
@@ -229,12 +227,13 @@ class AbacusHODBackend(SnapshotBackend):
         self,
         hod_params: dict,
         tracers: list[Tracer] | None = None,
+        mapping: dict[str, list[str]] | None = None,
     ) -> None:
         """
         Update the default HOD parameters dictionary for each tracer in hod_params based on the provided tracer instances.
 
         Required for the correct loading of the AbacusHOD class, which expects default HOD parameters for each tracer at initialization.
-        If
+        Tracers can be provided to override the default HOD parameters loaded from the config file if needed.
 
         Parameters
         ----------
@@ -243,6 +242,9 @@ class AbacusHODBackend(SnapshotBackend):
         tracers : list[Tracer], optional
             List of tracer instances to override the default HOD parameters.
             HOD parameters in each tracer instance will override the defaults in hod_params.
+        mapping : dict[str, list[str]], optional
+            Optional parameter name remapping, e.g. {"sigma": ["my_sigma"]}.
+            Useful when parameter names differ from AbacusHOD's convention.
 
         Raises
         ------
@@ -255,9 +257,12 @@ class AbacusHODBackend(SnapshotBackend):
         for tracer in tracers:
             tracer_key = f"{tracer.name}_params"
 
+            # Get the tracer parameters from the tracer instance with mapping
+            ntp = map_params(tracer.params, mapping=mapping)
+            
             # Override tracer-specific HOD parameters with any provided in the tracer instance
             tracer_params = hod_params.get(tracer_key, {})
-            tracer_params.update(tracer.params)
+            tracer_params.update(ntp)
             hod_params[tracer_key] = tracer_params
 
             if len(tracer_params) == 0:
