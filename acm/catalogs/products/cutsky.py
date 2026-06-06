@@ -355,12 +355,16 @@ class CutskyCatalog(BaseGalaxyCatalog):
         )
 
     def _save_attrs(self, f: h5py.File) -> None:
-        pass
+        f.attrs["hp_res"] = int(self.hp_res)
 
     @override
     @classmethod
     def _from_attrs(cls, attrs: dict, cosmo: Cosmology, cosmo_fid: Cosmology) -> Self:
-        return cls(cosmo=cosmo, cosmo_fid=cosmo_fid)
+        return cls(
+            cosmo=cosmo,
+            cosmo_fid=cosmo_fid,
+            hp_res=int(attrs.get("hp_res", 256)),
+        )
 
 
 class RandomCutskyCatalog(CutskyCatalog):
