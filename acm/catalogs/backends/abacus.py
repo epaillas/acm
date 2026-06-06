@@ -258,7 +258,7 @@ class AbacusHODBackend(SnapshotBackend):
             tracer_key = f"{tracer.name}_params"
 
             # Get the tracer parameters from the tracer instance with mapping
-            ntp = map_params(tracer.params, mapping=mapping)
+            ntp = map_params(tracer.params.copy(), mapping=mapping)
 
             # Override tracer-specific HOD parameters with any provided in the tracer instance
             tracer_params = hod_params.get(tracer_key, {})
