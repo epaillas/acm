@@ -536,11 +536,6 @@ class JaxelVoids(BaseEstimator):
         ypos = yi * boxsize[1] / nmesh[1]
         zpos = zi * boxsize[2] / nmesh[2]
 
-        if self.has_randoms:
-            xpos += boxcenter[0] - boxsize[0] / 2.0
-            ypos += boxcenter[1] - boxsize[1] / 2.0
-            zpos += boxcenter[2] - boxsize[2] / 2.0
-
         offset = boxcenter - boxsize / 2.0
         xpos += offset[0]
         ypos += offset[1]
