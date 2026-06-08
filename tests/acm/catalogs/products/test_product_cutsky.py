@@ -58,10 +58,10 @@ class TestFsky:
     def test_fullsky_returns_one(self):
         """Densely sampled full-sky positions should approach fsky=1."""
         rng = np.random.default_rng(0)
-        n = 50_000
+        n = 100_000
         ra = rng.uniform(0, 360, n)
         dec = np.degrees(np.arcsin(rng.uniform(-1, 1, n)))
-        result = _fsky(ra, dec, nside=64)
+        result = _fsky(ra, dec, nside=32)
         assert result == pytest.approx(1.0, abs=0.01)
 
     def test_small_patch_less_than_one(self):
@@ -69,7 +69,7 @@ class TestFsky:
         rng = np.random.default_rng(0)
         ra = rng.uniform(10, 20, 5000)
         dec = rng.uniform(-5, 5, 5000)
-        result = _fsky(ra, dec, nside=64)
+        result = _fsky(ra, dec, nside=32)
         assert result < 0.1
 
     def test_returns_float_in_unit_interval(self):
@@ -186,9 +186,9 @@ def test_fsky_in_unit_interval(populated_catalog):
 def test_fsky_fullsky_catalog(cosmo, cosmo_fid):
     """A full-sky catalog should return fsky close to 1."""
     tracer = Tracer(name="FOO", params={})
-    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=64)
+    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=32)
     rng = np.random.default_rng(0)
-    n = 50_000
+    n = 100_000
     data = pd.DataFrame({
         "ra":  rng.uniform(0, 360, n),
         "dec": np.degrees(np.arcsin(rng.uniform(-1, 1, n))),
@@ -489,7 +489,7 @@ class TestRandomPositions:
     # def test_dec_uniform_on_sphere(self):
     #     """sin(dec) should be approximately uniformly distributed for large samples."""
     #     result = RandomCutskyCatalog._random_positions(
-    #         50_000, rarange=(0, 360), decrange=(-90, 90), zrange=(0.5, 1.0), seed=0
+    #         100_000, rarange=(0, 360), decrange=(-90, 90), zrange=(0.5, 1.0), seed=0
     #     )
     #     sin_dec = np.sin(np.radians(result["dec"]))
     #     _, p = scipy.stats.kstest(sin_dec, "uniform", args=(-1, 2))
