@@ -135,7 +135,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         wrap : bool, optional
             If True, apply a boxsize periodic wrapping after RSD shifts. Default is True.
         offset : float, optional
-            Offset to correct for periodic wrapping. Should be set to boxsize/2 
+            Offset to correct for periodic wrapping. Should be set to boxsize/2
             if positions are centered around zero, or 0 if positions are in [0, boxsize].
             Default is 0.0.
         """
@@ -219,7 +219,6 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         provided = sum(p is not None for p in (n_gal, f_gal, nbar))
         if provided != 1:
             raise ValueError("Exactly one of n_gal, f_gal or nbar must be provided.")
-        volume = lambda: np.prod(self.boxsize)  # evaluated at application time
         self._add_transform(
             Transform(
                 name=f"downsample_{tracer}",
@@ -230,7 +229,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "n_gal": n_gal,
                     "f_gal": f_gal,
                     "nbar": nbar,
-                    "volume": volume,
+                    "volume": lambda: np.prod(self.boxsize), # evaluated at runtime
                     "seed": seed,
                 },
             )
