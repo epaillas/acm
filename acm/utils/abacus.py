@@ -1,11 +1,11 @@
-import re
-import glob
 import logging
+import re
 from pathlib import Path
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
 
 def load_abacus_cosmologies(
     filename: str,
@@ -47,9 +47,10 @@ def load_abacus_cosmologies(
         cosmo_params = cosmo_params.rename(columns=mapping)
     return cosmo_params.to_dict(orient="index")
 
+
 def get_abacus_phases(
-    phase_dir: str | Path, 
-    z: float, 
+    phase_dir: str | Path,
+    z: float,
     cosmo: int = 0,
 ) -> tuple[list[Path], list[int]]:
     """
@@ -72,20 +73,24 @@ def get_abacus_phases(
         A tuple containing a list of file paths and a list of phase indices.
     """
     phase_dir = Path(phase_dir)  # Ensure phase_dir is a Path object
-    
+
     glob_pattern = f"AbacusSummit_small_c{cosmo:03d}_ph*/*/z{z:.3f}/"
     abacus_fns = sorted(phase_dir.glob(glob_pattern))
-    
-    z_str = f"{z:.3f}".replace('.', '\.')  # Convert z to a string suitable for regex
-    re_pattern = re.compile(f"AbacusSummit_small_c{cosmo:03d}_ph(?P<phase>\d+)\/.+\/z{z_str}")
-    
+
+    z_str = f"{z:.3f}".replace(".", r"\.")  # Convert z to a string suitable for regex
+    re_pattern = re.compile(
+        rf"AbacusSummit_small_c{cosmo:03d}_ph(?P<phase>\d+)\/.+\/z{z_str}"
+    )
+
     phases = []
     for f in abacus_fns:
         match = re_pattern.search(str(f))
         if match:
             phases.append(int(match.group("phase")))
         else:
-            logger.warning(f"File {f} does not match the expected pattern and will be skipped.")
-    
+            logger.warning(
+                f"File {f} does not match the expected pattern and will be skipped."
+            )
+
     fns = [Path(phase_dir) / fn for fn in abacus_fns]
     return fns, phases
