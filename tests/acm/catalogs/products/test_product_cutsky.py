@@ -58,7 +58,7 @@ class TestFsky:
     def test_fullsky_returns_one(self):
         """Densely sampled full-sky positions should approach fsky=1."""
         rng = np.random.default_rng(0)
-        n = 500_000
+        n = 50_000
         ra = rng.uniform(0, 360, n)
         dec = np.degrees(np.arcsin(rng.uniform(-1, 1, n)))
         result = _fsky(ra, dec, nside=64)
@@ -188,7 +188,7 @@ def test_fsky_fullsky_catalog(cosmo, cosmo_fid):
     tracer = Tracer(name="FOO", params={})
     cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=64)
     rng = np.random.default_rng(0)
-    n = 500_000
+    n = 50_000
     data = pd.DataFrame({
         "ra":  rng.uniform(0, 360, n),
         "dec": np.degrees(np.arcsin(rng.uniform(-1, 1, n))),

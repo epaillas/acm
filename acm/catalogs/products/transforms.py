@@ -93,7 +93,7 @@ def _apply_downsample(
     n_gal: int | None = None,
     f_gal: float | None = None,
     nbar: float | None = None,
-    volume: Callable[[], np.ndarray] | None = None,
+    volume: Callable[[], float] | None = None,
     seed: RandomState | None = None,
 ) -> pd.DataFrame:
     """
@@ -115,6 +115,8 @@ def _apply_downsample(
         Target number density in (Mpc/h)^-3.
     volume : callable, optional
         Function that returns the current volume, needed to compute target n_gal when downsampling by nbar.
+    seed : RandomState or int, optional
+        Random seed or RandomState for reproducibility.
 
     Returns
     -------
@@ -137,7 +139,7 @@ def _apply_downsample(
         n_target = round(n_current * f_gal)
     elif n_gal is not None:
         n_target = n_gal
-    else:  # nbar
+    elif nbar is not None:
         if volume is None:
             raise ValueError(
                 "volume function must be provided when downsampling by nbar."

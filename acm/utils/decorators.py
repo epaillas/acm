@@ -66,7 +66,7 @@ def kwargs_alias(**aliases: str) -> Callable:
 
     Examples
     --------
-    >>> @kwargs_aliases(canonical="old_alias")
+    >>> @kwargs_alias(canonical="old_alias")
     ... def make_galaxy_catalog(self, ..., old_alias=2, **kwargs):
     ...    var = canonical  # 'canonical' will be set to the value of 'old_alias' if provided
     """

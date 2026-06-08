@@ -32,12 +32,12 @@ class TestTracer:
     def test_tracer_params(self, dummy_tracer):
         assert dummy_tracer.params == {"a": 1, "b": 2}
 
-    def test_tracer_default_params(self, ):
+    def test_tracer_default_params(self):
         """Tracer should default to an empty params dict."""
         tracer = Tracer(name="BAR")
         assert tracer.params == {}
 
-    def test_tracer_default_params_are_independent(self, ):
+    def test_tracer_default_params_are_independent(self):
         """Each Tracer instance should have its own params dict."""
         t1 = Tracer(name="A")
         t2 = Tracer(name="B")

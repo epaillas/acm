@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from cosmoprimo import Cosmology
-from pandas._typing import RandomState
+from numpy.random import RandomState
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products import BaseGalaxyCatalog
@@ -64,7 +64,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         )
 
     @property
-    def boxsize(self) -> np.ndarray[tuple[int]]:
+    def boxsize(self) -> np.ndarray:
         """Size of the simulation box in each dimension, common to all tracers."""
         if "ap" in self._transforms:
             ap = self._transforms["ap"]
@@ -193,7 +193,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         n_gal: int | None = None,
         f_gal: float | None = None,
         nbar: float | None = None,
-        seed: RandomState | None = None,
+        seed: RandomState | int | None = None,
     ) -> None:
         """
         Add a downsampling transform for a specific tracer.
@@ -219,6 +219,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         provided = sum(p is not None for p in (n_gal, f_gal, nbar))
         if provided != 1:
             raise ValueError("Exactly one of n_gal, f_gal or nbar must be provided.")
+        volume = lambda: np.prod(self.boxsize)  # evaluated at application time
         self._add_transform(
             Transform(
                 name=f"downsample_{tracer}",
@@ -229,9 +230,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "n_gal": n_gal,
                     "f_gal": f_gal,
                     "nbar": nbar,
-                    "volume": lambda: np.prod(
-                        self.boxsize
-                    ),  # evaluated at application time
+                    "volume": volume,
                     "seed": seed,
                 },
             )
@@ -371,6 +370,6 @@ class RandomSnapshotCatalog(SnapshotCatalog):
             }
         )
 
-    def rsd(self, los: str = "z") -> None:
+    def rsd(self, los: str = "z", wrap: bool = False, offset: float = 0.0) -> None:
         """Raise an error if RSD is attempted on a random catalog, since velocities are not defined."""
         raise NotImplementedError("RSD is not available for random catalogs.")
