@@ -14,8 +14,8 @@ def _apply_rsd(
     los: str,
     hubble: float,
     az: float,
-    offset: float = 0,
     wrap: float = 0,
+    offset: float = 0,
 ) -> pd.DataFrame:
     """
     Apply RSD shift along the los axis.
@@ -33,10 +33,10 @@ def _apply_rsd(
         Hubble parameter H(z) in km/s/(Mpc/h) for the simulation cosmology.
     az : float
         Scale factor a(z) at the snapshot's redshift.
+    wrap : float, optional
+            Wrap size for periodic boundary conditions, default is 0.
     offset : float, optional
         Offset for periodic wrapping, default is 0.
-    wrap : float, optional
-        Wrap size for periodic boundary conditions, default is 0.
 
     Returns
     -------

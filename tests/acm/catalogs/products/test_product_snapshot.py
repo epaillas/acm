@@ -166,11 +166,26 @@ def test_rsd_invalid_los_raises(populated_catalog):
     """Invalid los should raise an error."""
     with pytest.raises(ValueError, match="los"):
         populated_catalog.rsd(los="w")
-
-def test_rsd_shifts_positions(populated_catalog, boxsize):
+        
+def rsd_formula(populated_catalog, raw):
     """RSD transform should shift positions along the los according to the formula z' = z + vz / (H * az)."""
-    raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.rsd(los="z")
+    result = populated_catalog.get_tracer_data("FOO")
+    expected_z = raw["z"] + raw["vz"] / (populated_catalog.hubble * populated_catalog.az)
+    pd.testing.assert_series_equal(result["z"], expected_z, check_names=False)
+        
+def test_rsd_with_wrap(populated_catalog, boxsize):
+    """RSD with wrap should apply periodic wrapping after shifting."""
+    raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
+    populated_catalog.rsd(los="z", wrap=True)
+    result = populated_catalog.get_tracer_data("FOO")
+    expected_z = (raw["z"] + raw["vz"] / (populated_catalog.hubble * populated_catalog.az)) % boxsize
+    pd.testing.assert_series_equal(result["z"], expected_z, check_names=False)
+
+def test_rsd_with_offset(populated_catalog, boxsize):
+    """RSD with wrap and offset should apply periodic wrapping with the offset correction."""
+    raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
+    populated_catalog.rsd(los="z", wrap=True, offset=boxsize/2)
     result = populated_catalog.get_tracer_data("FOO")
     shifted_z = raw["z"] + boxsize / 2
     expected_z = (shifted_z + raw["vz"] / (populated_catalog.hubble * populated_catalog.az)) % boxsize - boxsize / 2

@@ -122,7 +122,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         missing_columns = required_columns - set(data.columns)
         return missing_columns == set()
 
-    def rsd(self, los: str = "z") -> None:
+    def rsd(self, los: str = "z", wrap: bool = True, offset: float = 0.0) -> None:
         """
         Add redshift-space distortion transform to the pipeline.
 
@@ -132,6 +132,12 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         ----------
         los : str
             Line-of-sight axis, one of 'x', 'y', 'z'.
+        wrap : bool, optional
+            If True, apply a boxsize periodic wrapping after RSD shifts. Default is True.
+        offset : float, optional
+            Offset to correct for periodic wrapping. Should be set to boxsize/2 
+            if positions are centered around zero, or 0 if positions are in [0, boxsize].
+            Default is 0.0.
         """
         if los not in self.pos_columns:
             raise ValueError(f"los must be one of {self.pos_columns}, got '{los}'.")
@@ -148,8 +154,8 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "los": los,
                     "hubble": self.hubble,
                     "az": self.az,
-                    "offset": L / 2,
-                    "wrap": L,
+                    "wrap": L if wrap else 0,
+                    "offset": offset,
                 },
             )
         )
