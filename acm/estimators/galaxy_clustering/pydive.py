@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pycorr import TwoPointCorrelationFunction
+from pycorr.twopoint_estimator import BaseTwoPointEstimator
 from pypower import CatalogFFTPower
 
 from acm.utils.plotting import set_plot_style
@@ -183,7 +184,7 @@ class DTVoid(BaseEstimator):
 
     def sample_data_correlation(
         self, data_positions: np.ndarray, **kwargs
-    ) -> list[TwoPointCorrelationFunction]:
+    ) -> list[BaseTwoPointEstimator]:
         """
         Compute the cross-correlation function between the density field samples and the data.
 
@@ -196,7 +197,7 @@ class DTVoid(BaseEstimator):
 
         Returns
         -------
-        _sample_data_correlation: list[TwoPointCorrelationFunction]
+        _sample_data_correlation: list[BaseTwoPointEstimator]
             List of cross-correlation functions between samples and data.
         """
         nsplits = kwargs.pop("nsplits", 1)
@@ -245,7 +246,7 @@ class DTVoid(BaseEstimator):
 
         return self._sample_data_correlation
 
-    def sample_correlation(self, **kwargs) -> list[TwoPointCorrelationFunction]:
+    def sample_correlation(self, **kwargs) -> list[BaseTwoPointEstimator]:
         """
         Compute the auto-correlation function of the density field samples.
 
@@ -256,7 +257,7 @@ class DTVoid(BaseEstimator):
 
         Returns
         -------
-        _sample_correlation: list[TwoPointCorrelationFunction]
+        _sample_correlation: list[BaseTwoPointEstimator]
             List of auto-correlation functions of samples.
         """
         if self.has_randoms:
@@ -435,7 +436,7 @@ class DTVoid(BaseEstimator):
         colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
-            s, multipoles = self._sample_data_correlation[i](
+            s, multipoles = self._sample_data_correlation[i](  # ty: ignore[call-non-callable]
                 ells=(0, 2, 4), return_sep=True
             )
             ax.plot(
@@ -461,7 +462,7 @@ class DTVoid(BaseEstimator):
         """Plot the correlation function of the sampled voids."""
         fig, ax = plt.subplots(figsize=(4, 4))
         for i in range(len(self.samples)):
-            s, multipoles = self._sample_correlation[i](ells=(0, 2, 4), return_sep=True)
+            s, multipoles = self._sample_correlation[i](ells=(0, 2, 4), return_sep=True)  # ty: ignore[call-non-callable]
             ax.plot(s, s**2 * multipoles[ell // 2], lw=2.0, label=rf"${{\rm DTS}}_{i}$")
         ax.set_xlabel(r"$s\, [h^{-1}{\rm Mpc}]$", fontsize=15)
         ax.set_ylabel(r"$s^2 \xi_\ell\, [h^{-2}{\rm Mpc^2}](s)$", fontsize=15)

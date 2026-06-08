@@ -58,7 +58,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
 
         y = []
         for data_fn in data_fns:
-            data = TwoPointCorrelationFunction.load(data_fn)
+            data = TwoPointCorrelationFunction.load(data_fn)  # ty:ignore[unresolved-attribute]
             r_p, w_p = data(pimax=None, return_sep=True)
             y.append(w_p)
         y = np.array(y)
@@ -149,7 +149,7 @@ class ProjectedGalaxyCorrelationFunction(BaseObservableEMC):
             hods[cosmo_idx] = [int(f.stem.split("hod")[-1]) for f in filenames]
             logger.info(f"Number of HODs: {len(hods[cosmo_idx])}")
             for filename in filenames:
-                data = TwoPointCorrelationFunction.load(filename)
+                data = TwoPointCorrelationFunction.load(filename)  # ty:ignore[unresolved-attribute]
                 r_p, w_p = data(pimax=None, return_sep=True)
                 y.append(w_p)
 

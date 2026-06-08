@@ -66,7 +66,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
 
         y = []
         for data_fn in data_fns:
-            data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
+            data = TwoPointCorrelationFunction.load(data_fn)[::rebin]  # ty:ignore[unresolved-attribute]
             s, multipoles = data(ells=ells, return_sep=True)
             y.append(np.concatenate(multipoles))
         y = np.array(y)
@@ -161,7 +161,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             data_dir = base_dir + f"c{cosmo_idx:03d}_ph{phase:03d}/seed{seed}/"
             for hod_idx in range(n_hod):
                 data_fn = f"{data_dir}/tpcf_hod{hod_idx:03}.npy"  # NOTE: File name format hardcoded !
-                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
+                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]  # ty:ignore[unresolved-attribute]
                 s, multipoles = data(ells=ells, return_sep=True)
                 y.append(np.concatenate(multipoles))
         y = np.array(y)
@@ -243,7 +243,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
                 data_fn = (
                     Path(data_dir) / f"tpcf_hod{hod:03}.npy"
                 )  # NOTE: File name format hardcoded !
-                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]
+                data = TwoPointCorrelationFunction.load(data_fn)[::rebin]  # ty:ignore[unresolved-attribute]
                 multipoles = data(ells=ells)
                 multipoles_hods.append(multipoles)
             multipoles_hods = np.array(multipoles_hods).mean(axis=0)
@@ -256,7 +256,7 @@ class GalaxyCorrelationFunctionMultipoles(BaseObservableEMC):
             data_fn = (
                 Path(data_dir) / f"tpcf_hod{hod:03}.npy"
             )  # NOTE: File name format hardcoded !
-            data = TwoPointCorrelationFunction.load(data_fn)[::4]
+            data = TwoPointCorrelationFunction.load(data_fn)[::4]  # ty:ignore[unresolved-attribute]
             multipoles = data(ells=ells)
             multipoles_ph0.append(multipoles)
         multipoles_ph0 = np.array(multipoles_ph0).mean(axis=0)
