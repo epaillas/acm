@@ -13,6 +13,7 @@ classDiagram
             + name: str
             + func
             + kwargs: dict
+            + tracer: str
             + apply(data)
         }
     }
@@ -82,8 +83,7 @@ classDiagram
             - _transforms: dict
             + register_tracer(tracer)
             + set_tracer_data(tracer, data)
-            + get_tracer_data(tracer)
-            + get_raw_tracer_data(tracer)
+            + get_tracer_data(tracer, raw)
             + save(path)
             + load(path, cosmo, cosmo_fid)$
             + reset_transforms()
@@ -104,9 +104,10 @@ classDiagram
             + q_perp: float
             + ngal: int
             + nbar: float
-            + rsd(los)
+            + rsd(los, wrap, offset)
             + ap(los)
             + downsample(tracer)
+            + positions(raw)
             - _ngal(tracer)
             - _nbar(tracer)
         }
