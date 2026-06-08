@@ -73,15 +73,15 @@ def get_abacus_phases(
     """
     phase_dir = Path(phase_dir)  # Ensure phase_dir is a Path object
     
-    glob_pattern = f"AbacusSummit_small_c{cosmo:03d}_ph*/**/z{z:.3f}/"
-    abacus_fns = sorted(glob.glob(glob_pattern, root_dir=phase_dir))
+    glob_pattern = f"AbacusSummit_small_c{cosmo:03d}_ph*/*/z{z:.3f}/"
+    abacus_fns = sorted(phase_dir.glob(glob_pattern))
     
     z_str = f"{z:.3f}".replace('.', '\.')  # Convert z to a string suitable for regex
     re_pattern = re.compile(f"AbacusSummit_small_c{cosmo:03d}_ph(?P<phase>\d+)\/.+\/z{z_str}")
     
     phases = []
     for f in abacus_fns:
-        match = re_pattern.search(f)
+        match = re_pattern.search(str(f))
         if match:
             phases.append(int(match.group("phase")))
         else:
