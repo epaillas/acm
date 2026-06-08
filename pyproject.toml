@@ -24,6 +24,7 @@ dependencies = [ # Base requirements
     "pandas", 
     "xarray", 
     "pyyaml",
+    "healpy",
     "matplotlib",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
 ]
@@ -36,7 +37,6 @@ cosmodesi = [ # Dependencies existing in the cosmodesi ecosystem
     "cosmoprimo[class,camb,astropy,extras] @ git+https://github.com/cosmodesi/cosmoprimo",
     "fitsio",
     "h5py",
-    "healpy",
     "desitarget",
     "lsstypes @ git+https://github.com/adematti/lsstypes",
     "mockfactory @ git+https://github.com/cosmodesi/mockfactory",
