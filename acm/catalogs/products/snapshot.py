@@ -229,7 +229,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "n_gal": n_gal,
                     "f_gal": f_gal,
                     "nbar": nbar,
-                    "volume": lambda: np.prod(self.boxsize), # evaluated at runtime
+                    "volume": lambda: np.prod(self.boxsize),  # evaluated at runtime
                     "seed": seed,
                 },
             )

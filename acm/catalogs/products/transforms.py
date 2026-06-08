@@ -1,7 +1,6 @@
 import logging
 from collections.abc import Callable
 
-import numpy as np
 import pandas as pd
 from cosmoprimo import Cosmology
 from numpy.random import RandomState
