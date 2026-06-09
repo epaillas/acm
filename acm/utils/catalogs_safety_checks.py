@@ -15,46 +15,48 @@ def check_catalog(
 
     Parameters
     ----------
-    - positions: np.array of shape (N_galaxies,3,)
-    - boxsize: np.array of shape (3,) or (1,) or list of floats of same lenghts or float
-    - check_in_float32: bool. If True, all checks are performed in single precision
-    - center_at_zero: bool. If True, positions are required to be in [-L_i/2,L_i/2) for each axis.
-                      If False, [0, L_i) is used.
+    positions : np.ndarray
+        Positions of the galaxies in the catalog. Should be of shape (N_galaxies, 3).
+    boxsize : np.ndarray | list[float] | float
+        Size of the periodic box. Can be a single float (same size for all dimensions) or an array of shape (3,).
+    check_in_float32 : bool, optional
+        If True, all checks are performed in single precision (float32). Default is True.
+    center_at_zero : bool, optional
+        If True, positions are required to be in the range [-L_i/2, L_i/2) for each axis. If False, positions should be in [0, L_i). Default is False.
+        
+    Raises
+    ------
+    ValueError
+        If any of the positions fall outside the specified box boundaries.
     """
-    boxsize = np.atleast_1d(np.array(boxsize))
-    # Convert boxsize to (3,) array, if required
-    if isinstance(boxsize, float):
-        boxsize = np.array([boxsize, boxsize, boxsize])
-    elif len(boxsize) == 1:
-        boxsize = np.array([boxsize[0], boxsize[0], boxsize[0]])
-    else:
-        pass
-
     # Pick precision
-    if check_in_float32:
-        positions = positions.astype(np.float32)
-        boxsize = boxsize.astype(np.float32)
-        dtype = np.float32
-    else:
-        positions = positions.astype(np.float64)
-        boxsize = boxsize.astype(np.float64)
-        dtype = np.float64
+    _dtype = np.float32 if check_in_float32 else np.float64
+    positions = positions.astype(_dtype)
+    
+    boxsize = np.atleast_1d(np.array(boxsize, dtype=_dtype))
+    if len(boxsize) == 1:
+        boxsize = np.repeat(boxsize, 3)
+    elif len(boxsize) != 3:
+        raise ValueError(f"boxsize should be a float or an array of shape (3,), but got {boxsize.shape}")
 
-    # Pick right and left edges for each dim
-    if center_at_zero:
-        L = -boxsize.astype(dtype) / 2
-        R = boxsize.astype(dtype) / 2
-    else:
-        L = np.array([0.0, 0.0, 0.0], dtype=dtype)
-        R = boxsize.astype(dtype)
+    # Pick right and left edges for each dimension
+    offset = boxsize / 2 if center_at_zero else 0.0
+    L = np.array([0.0, 0.0, 0.0], dtype=_dtype) - offset
+    R = boxsize - offset
 
     # Do checks
     for i in range(positions.shape[1]):
-        if not np.all(positions[:, i] >= L[i]):
-            raise ValueError(
-                f"{np.min(positions[:, i])!r} falls out of the box on the left edge {L[i]!r} along the 0-th axis"
-            )
-        if not np.all(positions[:, i] < R[i]):
-            raise ValueError(
-                f"{np.max(positions[:, i])!r} falls out of the box on the right edge {R[i]!r} along the 0-th axis"
-            )
+        left_bound_check = np.all(positions[:, i] >= L[i])
+        right_bound_check = np.all(positions[:, i] < R[i])
+        
+        min_left = np.min(positions[:, i])
+        max_right = np.max(positions[:, i])
+        
+        # Build error message:
+        em = ""
+        if not left_bound_check:
+            em += f"{min_left!r} falls out of the box on the left edge {L[i]!r} along the {i}-th axis. "
+        if not right_bound_check:
+            em += f"{max_right!r} falls out of the box on the right edge {R[i]!r} along the {i}-th axis."
+        if em:
+            raise ValueError(em)
