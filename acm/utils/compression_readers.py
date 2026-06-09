@@ -1,5 +1,6 @@
 """
-Contains legacy readers and postprocessing functions for compressed TwoPointEstimator objects, such as those produced by pycorr or the densitysplit estimator. 
+Contains legacy readers and postprocessing functions for compressed TwoPointEstimator objects, such as those produced by pycorr or the densitysplit estimator.
+
 They are provided primarily for backward compatibility with existing data formats, and may be deprecated in the future in favor of more efficient and flexible data handling approaches.
 """
 

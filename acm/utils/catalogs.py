@@ -23,7 +23,7 @@ def check_catalog(
         If True, all checks are performed in single precision (float32). Default is True.
     center_at_zero : bool, optional
         If True, positions are required to be in the range [-L_i/2, L_i/2) for each axis. If False, positions should be in [0, L_i). Default is False.
-        
+
     Raises
     ------
     ValueError
