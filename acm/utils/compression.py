@@ -348,10 +348,11 @@ def collect_measurements(
 
     # Group files sharing the same index combination
     def get_index_key(path: Path | str) -> tuple | None:
+        # In practice all files should match the pattern if they were found by the glob.
         m = regex_pattern.match(str(path))
         if m:
             return tuple((idx, m.group(idx)) for idx in track_indexes)
-        return None
+        return None # pragma: no cover --> Type consistency
 
     groups = {}
     for f in files:
