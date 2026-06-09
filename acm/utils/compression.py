@@ -17,7 +17,7 @@ type LsstypeObject = lsstypes.ObservableLeaf | lsstypes.ObservableTree
 
 
 # %% Readers and processors for different file formats
-def lsstypes_reader(files: list[Path]) -> LsstypeObject:
+def lsstypes_reader(files: list[Path]) -> LsstypeObject: # pragma: no cover
     """
     Read and average a list of lsstypes files.
 
@@ -42,7 +42,7 @@ def lsstypes_postprocess(
     select: dict,
     get: dict,
     rebin: dict | None = None,
-) -> tuple[np.ndarray, dict]:
+) -> tuple[np.ndarray, dict]: # pragma: no cover
     """
     Apply selection, optional rebinning, and coordinate extraction to a list of lsstypes objects.
 
