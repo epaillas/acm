@@ -32,12 +32,14 @@ def check_catalog(
     # Pick precision
     _dtype = np.float32 if check_in_float32 else np.float64
     positions = positions.astype(_dtype)
-    
+
     boxsize = np.atleast_1d(np.array(boxsize, dtype=_dtype))
     if len(boxsize) == 1:
         boxsize = np.repeat(boxsize, 3)
     elif len(boxsize) != 3:
-        raise ValueError(f"boxsize should be a float or an array of shape (3,), but got {boxsize.shape}")
+        raise ValueError(
+            f"boxsize should be a float or an array of shape (3,), but got {boxsize.shape}"
+        )
 
     # Pick right and left edges for each dimension
     offset = boxsize / 2 if center_at_zero else 0.0
@@ -48,10 +50,10 @@ def check_catalog(
     for i in range(positions.shape[1]):
         left_bound_check = np.all(positions[:, i] >= L[i])
         right_bound_check = np.all(positions[:, i] < R[i])
-        
+
         min_left = np.min(positions[:, i])
         max_right = np.max(positions[:, i])
-        
+
         # Build error message:
         em = ""
         if not left_bound_check:

@@ -11,6 +11,7 @@ from pycorr import TwoPointEstimator
 
 from acm.utils.compression import reshape_to_coords
 
+
 def pycorr_reader(files: list[Path]) -> TwoPointEstimator:
     """
     Read and sum a list of pycorr TwoPointEstimator files.
