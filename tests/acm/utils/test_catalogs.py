@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from acm.utils.catalogs_safety_checks import check_catalog
+from acm.utils.catalogs import check_catalog
 
 #%% Helpers
 def make_positions(n=10, low=0.0, high=100.0, seed=0):
