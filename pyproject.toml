@@ -105,6 +105,7 @@ pythonpath = [
 # Coverage settings
 [tool.coverage.run]
 omit = [
+    "acm/hod/*.py", # Future legacy code, to be deprecated eventually
     "acm/utils/compression_readers.py", # Legacy readers, to be deprecated in the future
     "acm/utils/plotting.py", # Plot methods - hard to test and not critical for core functionality
 ]
