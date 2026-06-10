@@ -34,6 +34,11 @@ class BaseCutskyFactory(BaseCatalogFactory):
         self.backend: SnapshotBackend
         self.catalog_class: type[CutskyCatalog]
         self._catalogs: dict[tuple[float, float], CutskyCatalog]
+        # Type checks
+        if not isinstance(self.backend, SnapshotBackend):
+            backend_type = type(self.backend)
+            error_message = f'The provided backend must be an instance of SnapshotBackend. The received type was {backend_type}'
+            raise TypeError(error_message)
 
     @abstractmethod
     def make_catalogs(
@@ -95,15 +100,27 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         tracers: list[Tracer] | dict[float, list[Tracer]],
         **kwargs,
     ) -> None:
+
+        # Populate snapshot catalogs with tracers through backend - return SnapshotCatalogs
+        # self.backend is already initialized so load_backend will just return self.backend
+        snapshot_catalog_factory = SnapshotCatalogFactory(self.backend, self.catalog_class, sel.cosmo, self.cosmo_fid) 
+        snapshot_catalog_factory.make_catalogs(redshifts, tracers, **kwargs) 
+
+        
         for i, (zsnap, zranges) in enumerate(
             zip(redshifts, redshift_ranges, strict=True)
         ):
-            # TODO: Get boxes trough backend
-            # TODO: Populate snapshot catalogs with tracers through backend - return SnapshotCatalogs
-            # TODO: Convert snapshot catalogs to cutsky catalogs through cutsky_to_box utility function
+
+            snapshot_catalog = snapshot_catalog_factory.get_catalog(zsnap) #these are all tracers in a class
+            
+            # Convert snapshot catalogs to cutsky catalogs through box_to_cutsky utility function
             # NOTE: this utility function should handle box replication and periodic wrapping,
             # and will depend on the cosmology for distance-redshift conversion and on the redshift range for angle values.
-            pass
+            # doesn't make sense to have snapshotcatalog as input (multitracer) while having dataframe as output (all tracers forced into single dataframe)
+            cutsky_shell = None
+
+            # assemble cutsky catalogs into a single catalog spanning the full redshift range, store in self._catalogs with key zranges
+            self._catalogs[zranges] = cutsky_shell
 
         # TODO: assemble cutsky catalogs into a single catalog spanning the full redshift range, store in self._catalogs with key zranges
 
