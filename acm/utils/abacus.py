@@ -36,12 +36,12 @@ def load_abacus_cosmologies(
     """
     filename = Path(filename)  # Ensure filename is a Path object
     csv = pd.read_csv(filename, usecols=["root", *parameters])
-    
+
     root = csv["root"]
     params = csv[parameters]
-    
-    cnames = [f"abacus_cosm{c:03d}" for c in cosmologies] # cosmology names to select
-    index = pd.Index([f"c{c:03d}" for c in cosmologies]) # New cosmology indexes
+
+    cnames = [f"abacus_cosm{c:03d}" for c in cosmologies]  # cosmology names to select
+    index = pd.Index([f"c{c:03d}" for c in cosmologies])  # New cosmology indexes
 
     cosmo_params = params[root.isin(cnames)]
     if not cosmo_params.empty:
@@ -76,7 +76,7 @@ def get_abacus_phases(
         A tuple containing a list of file paths and a list of phase indices.
     """
     phase_dir = Path(phase_dir)  # Ensure phase_dir is a Path object
-    
+
     if not phase_dir.is_dir() or not phase_dir.exists():
         raise ValueError(f"Provided phase_dir {phase_dir} is not a valid directory.")
 
@@ -84,10 +84,10 @@ def get_abacus_phases(
     z_str = f"{z:.3f}".replace(".", r"\.")  # Convert z to a string suitable for regex
     re_expr = rf"AbacusSummit_small_c{cosmo:03d}_ph(?P<phase>\d+)\/.+\/z{z_str}"
     glob_pattern = f"AbacusSummit_small_c{cosmo:03d}_ph*/*/z{z:.3f}/"
-    
+
     re_pattern = re.compile(re_expr)
     fns = sorted(phase_dir.glob(glob_pattern))
-    
+
     phases = []
     for f in fns:
         match = re_pattern.search(str(f.as_posix()))
