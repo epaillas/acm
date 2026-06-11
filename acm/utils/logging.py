@@ -59,7 +59,7 @@ def setup_logging(
     filename: str | None = None,
     filemode: str = "w",
     **kwargs,
-) -> None:
+) -> None: # pragma: no cover
     """
     Set up logging.
 
@@ -120,7 +120,7 @@ def exception_handler(
     exc_type: type[BaseException],
     exc_value: BaseException,
     exc_traceback: TracebackType | None,
-) -> None:
+) -> None: # pragma: no cover
     """Print exception with a logger."""
     # Do not print traceback if the exception has been handled and logged
     _logger_name = "Exception"
