@@ -6,5 +6,5 @@ from .utils.logging import get_logger_for_script, setup_logging
 
 try:
     __version__ = version("acm")
-except PackageNotFoundError:
+except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"

@@ -6,7 +6,7 @@ import numpy as np
 import time
 import glob
 import jax
-from acm.utils.catalogs_safety_checks import check_catalog
+from acm.utils.catalogs import check_catalog
 from acm.utils.default import cosmo_list
 import gc
 

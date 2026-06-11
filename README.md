@@ -1,3 +1,6 @@
+<!-- Pytest Coverage Comment:Begin -->
+<!-- Pytest Coverage Comment:End -->
+
 # Alternative Clustering Methods (ACM)
 `acm` is a cosmological analysis pipeline built for the DESI collaboration. It provides alternative methods to the standard two-point correlation function analysis, including higher-order statistics and machine learning techniques. The package is designed to be modular and extensible, allowing users to easily add new estimators and analysis methods.
 

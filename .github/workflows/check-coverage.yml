@@ -1,0 +1,88 @@
+name: Check coverage
+description: |
+    Checks coverage of the ref branch against the target branch. If coverage decreased, the workflow fails. This ensures that all pull requests maintain or improve test coverage.
+
+on:
+  workflow_call:
+    inputs:
+      update_coverage:
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.PUSH_KEY }}
+
+      - name: Configuration
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Cache installation
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip- 
+
+      - name: Install testing dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[testing]
+
+      - name: Process unit tests
+        run: |
+          pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=acm  tests/acm/ | tee pytest-coverage.txt
+
+      # Updated comment at each push, with summary and badge. See https://github.com/marketplace/actions/pytest-coverage-comment
+      - name: Coverage comment 
+        id: coverage
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
+          xml-skip-covered: true # Skip files with 100% coverage
+          # report-only-changed-files: true # Only show changed files
+          remove-links-to-lines: true # Remove clickable line number links
+          # remove-links-to-files: true # Remove clickable file links
+          # hide-report: true # Show only summary and badge
+          # hide-emoji: true
+
+      - name: Get target coverage # stored in covariance.txt, which is only updated on the merge action
+        id: get_coverage
+        run: | 
+          if [ -f "covariance.txt" ]; then
+            covariance = $(cat covariance.txt)
+            echo "coverage=$covariance" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fail if coverage too low
+        if: ${{ steps.coverage.outputs.coverage < steps.get_coverage.outputs.coverage }}
+        run: |
+          echo "Coverage decreased from ${{ steps.get_coverage.outputs.coverage }}% to ${{ steps.coverage.outputs.coverage }}%"
+          exit 1
+
+      - name: Update target coverage
+        if: inputs.update_coverage == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo ${{ steps.coverage.outputs.coverage }} > covariance.txt
+          sed -i '/<!-- Pytest Coverage Comment:Begin -->/,/<!-- Pytest Coverage Comment:End -->/c\<!-- Pytest Coverage Comment:Begin -->\n${{ steps.coverage.outputs.coverageHtml }}\n<!-- Pytest Coverage Comment:End -->' ./README.md
+          
+          git add covariance.txt README.md
+          git commit -m "Update target coverage to ${{ steps.coverage.outputs.coverage }}%"
+          git push
