@@ -93,7 +93,13 @@ jobs:
           git commit -m "Update target coverage to ${{ steps.coverage.outputs.coverage }}"
           git push
       
-      - name: Fail if coverage too low
+      - name: Fail on test errors or failures # First, fail if tests don't pass
+        if: steps.coverage.outputs.failures > 0 || steps.coverage.outputs.errors > 0
+        run: |
+          echo "Tests failed (${{ steps.coverage.outputs.failures }} failures and ${{ steps.coverage.outputs.errors }} errors)"
+          exit 1
+      
+      - name: Fail if coverage too low # Then, fail if coverage lowers
         if: ${{ steps.coverage.outputs.coverage < steps.get_coverage.outputs.coverage }}
         run: |
           echo "Coverage decreased from ${{ steps.get_coverage.outputs.coverage }}% to ${{ steps.coverage.outputs.coverage }}%"
