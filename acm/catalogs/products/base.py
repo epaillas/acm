@@ -71,7 +71,7 @@ class BaseGalaxyCatalog(ABC):
 
     def get_tracer_data(self, *tracers: str, raw: bool = False) -> pd.DataFrame:
         """
-        Return tracer data with all pipeline transforms applied.
+        Return tracer data with all pipeline transforms applied for the specified tracers.
 
         No transformations are applied if `raw=True`.
 
@@ -86,6 +86,15 @@ class BaseGalaxyCatalog(ABC):
         -------
         pd.DataFrame
             The tracer data with transforms applied (or raw if `raw=True`).
+            
+        Raises
+        ------
+        RuntimeError
+            If no tracers are loaded in the catalog.
+        ValueError
+            If no tracer names are specified.
+        KeyError
+            If any specified tracer names are not found in the catalog.
         """
         if not self.tracers:
             raise RuntimeError("No tracers loaded in the catalog, cannot retrieve data.")
@@ -108,8 +117,8 @@ class BaseGalaxyCatalog(ABC):
         return pd.concat(tracers_data, ignore_index=True)
 
     def _ngal(self, *tracers: str) -> int:
-        """Return the total number of galaxies for a specified tracers, or the full catalog if tracer is None."""
-        tracers = tracers or tuple(self.tracers.keys())
+        """Return the total number of galaxies for specified tracers, or the full catalog otherwise."""
+        tracers = tracers or tuple(self.tracers)
         return len(self.get_tracer_data(*tracers))
 
     @property
@@ -156,7 +165,7 @@ class BaseGalaxyCatalog(ABC):
         """Return the total number of galaxies across all tracers."""
         return sum(len(data) for data in self._data.values())
 
-    def save(self, path: str | Path) -> None:
+    def save(self, path: str | Path, *columns: str) -> None:
         """
         Save the catalog to an HDF5 file.
 
@@ -168,6 +177,8 @@ class BaseGalaxyCatalog(ABC):
         ----------
         path : str | Path
             Path to the output HDF5 file.
+        *columns : str
+            Columns to save. If no columns are specified, all columns are saved.
         """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -187,8 +198,9 @@ class BaseGalaxyCatalog(ABC):
 
             for tracer_name, data in self._data.items():
                 grp = f.create_group(tracer_name)
-                grp.attrs["columns"] = list(data.columns)  # preserve column order
-                for col in data.columns:
+                cols = list(columns or data.columns)
+                grp.attrs["columns"] = cols  # preserve column order
+                for col in cols:
                     grp.create_dataset(col, data=data[col].values)
 
         logger.info(f"Saved {self.__class__.__name__} to {path}")

@@ -60,7 +60,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             f"{self.__class__.__name__}("
             f"redshift={self.redshift}, "
             f"boxsize={self.boxsize}, "
-            f"tracers={list(self.tracers.keys())})"
+            f"tracers={list(self.tracers)})"
         )
 
     @property
@@ -236,7 +236,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         )
 
     def _nbar(self, *tracers: str) -> float:
-        """Return the number density of galaxies for a specific tracer, or the full catalog if tracer is None."""
+        """Return the number density of galaxies for specific tracers, or the full catalog if tracer is None."""
         n_gal = self._ngal(*tracers)
         boxsize = self.boxsize
         volume = np.prod(boxsize)

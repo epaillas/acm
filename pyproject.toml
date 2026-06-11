@@ -64,7 +64,7 @@ docs = [
 testing = [ # Testing dependencies, with minimal install for type hints
     "ruff", 
     "ty",
-    "pytest",
+    "pytest >= 7",
     "pytest-cov",
     "pytest-emoji",
     "requests",

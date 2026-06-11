@@ -155,11 +155,11 @@ class CutskyCatalog(BaseGalaxyCatalog):
         coord : str
             Coordinate to compute the range for (e.g., "ra", "dec", "z").
         *tracers : str
-            Specific tracers to compute the range for. If no tracers are specified, computes the range across all tracers.
+            Specific tracer names to compute the range for. If no tracers are specified, computes the range across all tracers.
         periodic_wrap : float | None
             If the coordinate is periodic (e.g., "ra"), specify the period to account for wrap-around in the range calculation.
         """
-        tracer_names = tracers or list(self.tracers)
+        tracer_names = tracers or tuple(self.tracers)
         all_values = self.get_tracer_data(*tracer_names, raw=True)[coord]
         min_val = np.min(all_values)
         max_val = np.max(all_values)
@@ -170,27 +170,18 @@ class CutskyCatalog(BaseGalaxyCatalog):
         return tuple(cout)
 
     def _zrange(self, *tracers: str) -> tuple[float, float]:
-        """Return the redshift range of a specific tracer."""
+        """Return the redshift range of specified tracers, or the full catalog if tracer is None."""
         return self._range("z", *tracers)
 
     @property
     def zrange(self) -> tuple[float, float]:
-        """
-        Return the redshift range of a specific tracer, or the full catalog if tracer is None.
-
-        Parameters
-        ----------
-        tracer : str | None
-            Tracer name. If None, returns the range across all tracers.
-        """
+        """Return the redshift range of the full catalog."""
         return self._zrange()
 
     @property
     def fsky(self) -> float:
         """Return the fraction of the sky covered by the catalog footprint."""
-        if not self.tracers:
-            raise RuntimeError("No tracers loaded in the catalog, cannot get fsky.")
-
+        # Use cache if available
         cache_key = (self.ngal, self._transform_state)
         if cache_key in self._fsky_cache:
             return self._fsky_cache[cache_key]
@@ -226,7 +217,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
             Mean number density in (Mpc/h)⁻³.
         """
         n_gal = self._ngal(*tracers)
-        zrange = self._zrange(*tracers) if tracers else self.zrange
+        zrange = self._zrange(*tracers)
         dv = self.fsky * _shell_volume(self.cosmo, np.array(zrange))
         return float(n_gal / dv[0])
 
@@ -242,12 +233,13 @@ class CutskyCatalog(BaseGalaxyCatalog):
     ) -> Callable[[float], float]:
         # FIXME
         """Interpolate the number density on the full redshift range."""
-        tn = "all" or "_".join(tracers)
-        cache_key = (tracers, bins, self._transform_state)
+        # Use cache if available.
+        tracer_cache = "all" or "_".join(tracers)
+        cache_key = (tracer_cache, bins, self._transform_state)
         if cache_key in self._interpolate_nz_cache:
             return self._interpolate_nz_cache[cache_key]
 
-        tracer_names = tracers or list(self.tracers)
+        tracer_names = tracers or tuple(self.tracers)
         z_values = self.get_tracer_data(*tracer_names)["z"]
 
         # Compute histogram of redshift distribution
@@ -262,7 +254,11 @@ class CutskyCatalog(BaseGalaxyCatalog):
         )  # Centers of the redshift bins
 
         nofz = interp1d(
-            z_centers, nz, kind="linear", fill_value=0.0, bounds_error=False
+            z_centers, 
+            nz, 
+            kind="linear", 
+            fill_value=0.0, 
+            bounds_error=False,
         )
         self._interpolate_nz_cache[cache_key] = nofz
         return nofz
