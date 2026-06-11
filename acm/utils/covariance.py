@@ -1,10 +1,11 @@
 """Utility functions for covariance matrix & sanity checks."""
-
-import warnings
+import logging
+from enum import IntEnum
 
 import numpy as np
 from scipy.stats import norm
 
+logger = logging.getLogger(__name__)
 
 # %% Covariance utils methods
 def get_covariance_correction(
@@ -33,6 +34,9 @@ def get_covariance_correction(
     float
         Correction factor
     """
+    if method in ("percival", "percival-fisher") and n_theta is None:
+        raise ValueError(f"Method '{method}' requires n_theta to be provided.")
+    
     if method == "percival" and n_theta is not None:
         B = (n_s - n_d - 2) / ((n_s - n_d - 1) * (n_s - n_d - 4))
         return (n_s - 1) * (1 + B * (n_d - n_theta)) / (n_s - n_d + n_theta - 1)
@@ -67,7 +71,9 @@ def correlation_from_covariance(covariance: np.ndarray) -> np.ndarray:
 
 
 def mad_1d(
-    x: np.ndarray, axis: int | None = None, keepdims: bool = False
+    x: np.ndarray, 
+    axis: int | None = None, 
+    keepdims: bool = False,
 ) -> np.ndarray:
     """Median absolute deviation with Gaussian-consistent scaling."""
     med = np.median(x, axis=axis, keepdims=True)
@@ -109,14 +115,14 @@ def gk_mad_covariance(residuals: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 
     # Pairwise robust covariance via GK:
     # cov(X,Y) ≈ (1/4)[ Var(X+Y) - Var(X-Y) ], with Var estimated by MAD^2.
-    C = np.empty((n_bins, n_bins), dtype=X.dtype)
-    for j in range(n_bins):
-        C[j, j] = s2[j]
-        for k in range(j + 1, n_bins):
-            sp = mad_1d(X[:, j] + X[:, k]) ** 2
-            sm = mad_1d(X[:, j] - X[:, k]) ** 2
-            cov_jk = 0.25 * (sp - sm)
-            C[j, k] = C[k, j] = cov_jk
+    i, j = np.triu_indices(n_bins, k=1)
+    sp = mad_1d(X[:, i] + X[:, j], axis=0) ** 2
+    sm = mad_1d(X[:, i] - X[:, j], axis=0) ** 2
+    cov_ij = 0.25 * (sp - sm)
+    
+    C = np.zeros((n_bins, n_bins), dtype=X.dtype)
+    C[i, j] = C[j, i] = cov_ij
+    np.fill_diagonal(C, s2)
     return C
 
 
@@ -142,8 +148,7 @@ def orthogonal_gk_mad_covariance(
         Covariance matrix of the residuals.
     """
     X = np.asarray(residuals)
-    # n_bins = X.shape[1]
-
+    
     # Debias the residuals
     X -= np.median(X, axis=0, keepdims=True)
 
@@ -228,8 +233,12 @@ def check_positive_definite(matrix: np.ndarray) -> bool:
     else:
         return True
 
+class ConditionStatus(IntEnum):
+    WELL_CONDITIONED = 0
+    ILL_CONDITIONED = 1
+    SINGULAR = 2
 
-def check_condition_number(matrix: np.ndarray, precision_threshold: float = 10) -> int:
+def check_condition_number(matrix: np.ndarray, precision_threshold: float = 10) -> ConditionStatus:
     """
     Compute the condition number of the matrix to check its inversibility.
 
@@ -242,10 +251,11 @@ def check_condition_number(matrix: np.ndarray, precision_threshold: float = 10) 
 
     Returns
     -------
-    int
-        0 if the matrix is singular,
-        1 if the matrix is well-conditioned,
-        2 if the matrix is ill-conditioned (number of significant digits < precision_threshold).
+    ConditionStatus
+        The condition status of the matrix:
+        - ConditionStatus.SINGULAR if the matrix is singular,
+        - ConditionStatus.WELL_CONDITIONED if the matrix is well-conditioned,
+        - ConditionStatus.ILL_CONDITIONED if the matrix is ill-conditioned (number of significant digits < precision_threshold).
 
     Notes
     -----
@@ -260,11 +270,11 @@ def check_condition_number(matrix: np.ndarray, precision_threshold: float = 10) 
     digits = -np.log10(cond)  # Number of significant digits that can be trusted
     # print(f"Condition number: {cond}, Significant digits: {digits}")
     if cond >= 1:  # Can't be trusted at all
-        return 0
+        return ConditionStatus.SINGULAR
     if digits < precision_threshold:  # Ill-conditioned
-        return 2
+        return ConditionStatus.ILL_CONDITIONED
     # Well-conditioned
-    return 1
+    return ConditionStatus.WELL_CONDITIONED
 
 
 def check_covariance_matrix(
@@ -273,7 +283,7 @@ def check_covariance_matrix(
     rtol: float = 1e-5,
     atol: float = 1e-8,
     precision_threshold: float = 10,
-    raise_warnings: bool = True,
+    log_level: int = logging.WARNING,
 ) -> bool:
     """
     Perform sanity checks on a covariance matrix and raise warnings if checks fail.
@@ -302,89 +312,61 @@ def check_covariance_matrix(
     -------
     bool
         True if all checks pass, False otherwise.
-
-    Warnings
-    --------
-    UserWarning
-        If any of the checks fail, a warning is raised with details.
     """
-    all_passed = True
+    all_passed = True # flag to track if all checks passed
 
     # Check if matrix is 2D
     if matrix.ndim != 2:
-        if raise_warnings:
-            warnings.warn(
-                f"{name} matrix is not 2-dimensional (shape: {matrix.shape}). "
-                "This may cause issues in likelihood analysis.",
-                UserWarning,
-                stacklevel=2,
-            )
+        logger.log(log_level, f"{name} matrix is not 2-dimensional (shape: {matrix.shape}).")
         return False  # Can't proceed with other checks
 
     # Check if matrix is square
     if matrix.shape[0] != matrix.shape[1]:
-        if raise_warnings:
-            warnings.warn(
-                f"{name} matrix is not square (shape: {matrix.shape}). "
-                "Covariance matrices must be square.",
-                UserWarning,
-                stacklevel=2,
-            )
+        logger.log(log_level, f"{name} matrix is not square (shape: {matrix.shape}).")
         return False  # Can't proceed with other checks
 
     # Check if matrix is symmetric
     if not check_symmetric(matrix, rtol=rtol, atol=atol):
-        if raise_warnings:
-            warnings.warn(
-                f"{name} matrix is not symmetric. "
-                "Covariance matrices should be symmetric. "
-                "This may indicate numerical issues or incorrect computation.",
-                UserWarning,
-                stacklevel=2,
-            )
+        logger.log(
+            log_level, 
+            f"{name} matrix is not symmetric. "
+            f"Covariance matrices should be symmetric. "
+            f"This may indicate numerical issues or incorrect computation.",
+        )
         all_passed = False
-
+        
+    # Check condition number
+    cond_status = check_condition_number(matrix, precision_threshold)
+    if cond_status == ConditionStatus.SINGULAR:
+        logger.log(
+            log_level,
+            f"{name} matrix is singular (ill-conditioned). "
+            "This will cause issues when inverting the matrix in likelihood analysis. "
+            "Using the diagonal covariance only may be a temporary workaround.",
+        )
+        return False  # Can't proceed with other checks
+    elif cond_status == ConditionStatus.ILL_CONDITIONED:
+        logger.log(
+            log_level,
+            f"{name} matrix is ill-conditioned. "
+            "This may lead to unreliable results when inverting the matrix in likelihood analysis. "
+            "Using the diagonal covariance only may be a temporary workaround.",
+        )
+        all_passed = False
+    
     # Check if matrix is positive-definite
     if not check_positive_definite(matrix):
         # Get eigenvalues for more detailed diagnostics
         eigenvalues = np.linalg.eigvalsh(matrix)
         n_negative = np.sum(eigenvalues < 0)
         min_eigenvalue = np.min(eigenvalues)
-
-        if raise_warnings:
-            warnings.warn(
-                f"{name} matrix is not positive-definite. "
-                f"Found {n_negative} negative eigenvalue(s), minimum eigenvalue: {min_eigenvalue:.6e}. "
-                "This will cause issues when inverting the matrix in likelihood analysis. "
-                "Consider checking the mock realizations or increasing the number of samples.",
-                UserWarning,
-                stacklevel=2,
-            )
+        logger.log(
+            log_level,
+            f"{name} matrix is not positive-definite. "
+            f"Found {n_negative} negative eigenvalue(s), minimum eigenvalue: {min_eigenvalue:.6e}. "
+            "This will cause issues when inverting the matrix in likelihood analysis. "
+            "Consider checking the mock realizations or increasing the number of samples.",
+        )
         all_passed = False
-
-    # Check condition number
-    cond_status = check_condition_number(
-        matrix, precision_threshold=precision_threshold
-    )
-    if cond_status == 0:
-        if raise_warnings:
-            warnings.warn(
-                f"{name} matrix is singular (ill-conditioned). "
-                "This will cause issues when inverting the matrix in likelihood analysis. "
-                "Using the diagonal covariance only may be a temporary workaround.",
-                UserWarning,
-                stacklevel=2,
-            )
-        all_passed = False
-    elif cond_status == 2:
-        if raise_warnings:
-            warnings.warn(
-                f"{name} matrix is ill-conditioned. "
-                "This may lead to unreliable results when inverting the matrix in likelihood analysis. "
-                "Using the diagonal covariance only may be a temporary workaround.",
-                UserWarning,
-                stacklevel=2,
-            )
-        all_passed = False
-
+        
     return all_passed
