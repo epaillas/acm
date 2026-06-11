@@ -86,7 +86,7 @@ class BaseGalaxyCatalog(ABC):
         -------
         pd.DataFrame
             The tracer data with transforms applied (or raw if `raw=True`).
-            
+
         Raises
         ------
         RuntimeError

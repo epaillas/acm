@@ -234,7 +234,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         # FIXME
         """Interpolate the number density on the full redshift range."""
         # Use cache if available.
-        tracer_cache = "all" or "_".join(tracers)
+        tracer_cache = "_".join(list(tracers)) or "all"
         cache_key = (tracer_cache, bins, self._transform_state)
         if cache_key in self._interpolate_nz_cache:
             return self._interpolate_nz_cache[cache_key]
