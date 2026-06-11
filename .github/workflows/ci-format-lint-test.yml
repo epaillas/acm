@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: ["dev","main"]
     types: [opened, synchronize, reopened]
+    paths:
+      - "acm/**"
 
 permissions:
   contents: write
