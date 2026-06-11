@@ -85,7 +85,7 @@ jobs:
           exit 1
 
       - name: Update target coverage
-        if: inputs.update_coverage == true
+        if: ${{ inputs.update_coverage == true && steps.coverage.outputs.coverage != steps.get_coverage.outputs.coverage }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -94,5 +94,5 @@ jobs:
           sed -i '/<!-- Pytest Coverage Comment:Begin -->/,/<!-- Pytest Coverage Comment:End -->/c\<!-- Pytest Coverage Comment:Begin -->\n${{ steps.badge.outputs.coverageHtml }}\n<!-- Pytest Coverage Comment:End -->' ./README.md
           
           git add coverage.txt README.md
-          git commit -m "Update target coverage to ${{ steps.coverage.outputs.coverage }}%"
+          git commit -m "Update target coverage to ${{ steps.coverage.outputs.coverage }}"
           git push
