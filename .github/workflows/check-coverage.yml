@@ -85,7 +85,7 @@ jobs:
           exit 1
 
       - name: Update target coverage
-        if: inputs.update_coverage == true
+        if: ${{ inputs.update_coverage == true && steps.coverage.outputs.coverage != steps.get_coverage.outputs.coverage }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
