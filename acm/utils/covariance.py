@@ -129,7 +129,7 @@ def gk_mad_covariance(residuals: np.ndarray, eps: float = 1e-12) -> np.ndarray:
 
 
 def orthogonal_gk_mad_covariance(
-    residuals: np.ndarray, 
+    residuals: np.ndarray,
     eps: float = 1e-12,
 ) -> np.ndarray:
     """
@@ -246,7 +246,7 @@ class ConditionStatus(IntEnum):
 
 
 def check_condition_number(
-    matrix: np.ndarray, 
+    matrix: np.ndarray,
     precision_threshold: float = 10,
 ) -> ConditionStatus:
     """
@@ -328,7 +328,7 @@ def check_covariance_matrix(
     # Check if matrix is 2D
     if matrix.ndim != 2:
         logger.log(
-            log_level, 
+            log_level,
             f"{name} matrix is not 2-dimensional (shape: {matrix.shape}).",
         )
         return False  # Can't proceed with other checks
