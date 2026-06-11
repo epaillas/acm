@@ -234,6 +234,7 @@ def check_positive_definite(matrix: np.ndarray) -> bool:
         return True
 
 class ConditionStatus(IntEnum):
+    """Enum to represent the condition status of a matrix."""
     WELL_CONDITIONED = 0
     ILL_CONDITIONED = 1
     SINGULAR = 2
