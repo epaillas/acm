@@ -58,11 +58,20 @@ jobs:
           # hide-report: true # Show only summary and badge
           # hide-emoji: true
 
+      - name: Coverage badge # Get only the badge HTML without report or comment
+        id: badge
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
+          hide-comment: true
+          hide-report: true
+
       - name: Get target coverage # stored in coverage.txt, which is only updated on the merge action
         id: get_coverage
         run: | 
           if [ -f "coverage.txt" ]; then
-            coverage = $(cat coverage.txt)
+            coverage=$(cat coverage.txt)
             echo "coverage=$coverage" >> $GITHUB_OUTPUT
           else
             echo "coverage=0" >> $GITHUB_OUTPUT
@@ -81,7 +90,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           echo ${{ steps.coverage.outputs.coverage }} > coverage.txt
-          sed -i '/<!-- Pytest Coverage Comment:Begin -->/,/<!-- Pytest Coverage Comment:End -->/c\<!-- Pytest Coverage Comment:Begin -->\n${{ steps.coverage.outputs.coverageHtml }}\n<!-- Pytest Coverage Comment:End -->' ./README.md
+          sed -i '/<!-- Pytest Coverage Comment:Begin -->/,/<!-- Pytest Coverage Comment:End -->/c\<!-- Pytest Coverage Comment:Begin -->\n${{ steps.badge.outputs.coverageHtml }}\n<!-- Pytest Coverage Comment:End -->' ./README.md
           
           git add coverage.txt README.md
           git commit -m "Update target coverage to ${{ steps.coverage.outputs.coverage }}%"

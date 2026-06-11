@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class BaseEstimator:
     """Base estimator class."""
 
-    # TODO: use a registry to avoid hardcoding backend names and imports
+    # TODO: use a registry to avoid hardcoding backend names and imports (TBD)
     def __init__(self, backend: str = "jaxpower", **kwargs) -> None:
         logger.info(f"Initializing {self.__class__.__name__}.")
         # Lazy import of backend classes to avoid forcing installation of all backends
