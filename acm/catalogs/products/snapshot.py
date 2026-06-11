@@ -235,9 +235,9 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             )
         )
 
-    def _nbar(self, tracer: str | None = None) -> float:
+    def _nbar(self, *tracers: str) -> float:
         """Return the number density of galaxies for a specific tracer, or the full catalog if tracer is None."""
-        n_gal = self._ngal(tracer)
+        n_gal = self._ngal(*tracers)
         boxsize = self.boxsize
         volume = np.prod(boxsize)
         return n_gal / volume if volume > 0 else 0.0
@@ -266,10 +266,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             raise RuntimeError(
                 "No tracers loaded in the catalog, cannot get positions."
             )
-        data = pd.concat(
-            [self.get_tracer_data(t, raw=raw) for t in self.tracers],
-            ignore_index=True,
-        )
+        data = self.get_tracer_data(*self.tracers.keys(), raw=raw)
         pos = data[list(self.pos_columns)]
         return pos
 

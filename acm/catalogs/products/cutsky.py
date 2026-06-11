@@ -144,7 +144,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
     def _range(
         self,
         coord: str,
-        tracer: str | None = None,
+        *tracers: str,
         periodic_wrap: float | None = None,
     ) -> tuple[float, float]:
         """
@@ -154,13 +154,13 @@ class CutskyCatalog(BaseGalaxyCatalog):
         ----------
         coord : str
             Coordinate to compute the range for (e.g., "ra", "dec", "z").
-        tracer : str | None
-            Specific tracer to compute the range for. If None, computes the range across all tracers.
+        *tracers : str
+            Specific tracers to compute the range for. If no tracers are specified, computes the range across all tracers.
         periodic_wrap : float | None
             If the coordinate is periodic (e.g., "ra"), specify the period to account for wrap-around in the range calculation.
         """
-        tracer_names = [tracer] if tracer is not None else list(self.tracers)
-        all_values = pd.concat([self.get_tracer_data(t) for t in tracer_names])[coord]
+        tracer_names = tracers or list(self.tracers)
+        all_values = self.get_tracer_data(*tracer_names, raw=True)[coord]
         min_val = np.min(all_values)
         max_val = np.max(all_values)
         cout = [min_val, max_val]
@@ -169,9 +169,9 @@ class CutskyCatalog(BaseGalaxyCatalog):
             cout = np.mod(cout, periodic_wrap).tolist()
         return tuple(cout)
 
-    def _zrange(self, tracer: str | None = None) -> tuple[float, float]:
+    def _zrange(self, *tracers: str) -> tuple[float, float]:
         """Return the redshift range of a specific tracer."""
-        return self._range("z", tracer=tracer)
+        return self._range("z", *tracers)
 
     @property
     def zrange(self) -> tuple[float, float]:
@@ -195,9 +195,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         if cache_key in self._fsky_cache:
             return self._fsky_cache[cache_key]
 
-        angles = pd.concat([self.get_tracer_data(t) for t in self.tracers])[
-            ["ra", "dec"]
-        ]
+        angles = self.get_tracer_data(*self.tracers)[["ra", "dec"]]
         ra = angles["ra"]
         dec = angles["dec"]
         result = _fsky(ra, dec, nside=self.hp_res)
@@ -210,7 +208,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         fsky = self.fsky
         return fsky * 4 * np.pi * (180 / np.pi) ** 2  # Steradians to square degrees
 
-    def _nbar(self, tracer: str | None = None) -> float:
+    def _nbar(self, *tracers: str) -> float:
         """
         Return the mean number density of a tracer in (Mpc/h)⁻³.
 
@@ -219,16 +217,16 @@ class CutskyCatalog(BaseGalaxyCatalog):
 
         Parameters
         ----------
-        tracer : str | None
-            Tracer name. If None, aggregates across all tracers.
+        *tracers : str
+            Tracer names. If no tracers are specified, aggregates across all tracers.
 
         Returns
         -------
         float
             Mean number density in (Mpc/h)⁻³.
         """
-        n_gal = self._ngal(tracer)
-        zrange = self._zrange(tracer) if tracer is not None else self.zrange
+        n_gal = self._ngal(*tracers)
+        zrange = self._zrange(*tracers) if tracers else self.zrange
         dv = self.fsky * _shell_volume(self.cosmo, np.array(zrange))
         return float(n_gal / dv[0])
 
@@ -239,17 +237,18 @@ class CutskyCatalog(BaseGalaxyCatalog):
 
     def _interpolate_nz(
         self,
-        tracer: str | None = None,
+        *tracers: str,
         bins: int = 50,
     ) -> Callable[[float], float]:
         # FIXME
         """Interpolate the number density on the full redshift range."""
-        cache_key = (tracer, bins, self._transform_state)
+        tn = "all" or "_".join(tracers)
+        cache_key = (tracers, bins, self._transform_state)
         if cache_key in self._interpolate_nz_cache:
             return self._interpolate_nz_cache[cache_key]
 
-        tracer_names = [tracer] if tracer is not None else list(self.tracers)
-        z_values = pd.concat([self.get_tracer_data(t) for t in tracer_names])["z"]
+        tracer_names = tracers or list(self.tracers)
+        z_values = self.get_tracer_data(*tracer_names)["z"]
 
         # Compute histogram of redshift distribution
         counts, bin_edges = np.histogram(z_values, bins=bins)
@@ -268,9 +267,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         self._interpolate_nz_cache[cache_key] = nofz
         return nofz
 
-    def n(
-        self, z: float, tracer: str | None = None, bins: int = 50
-    ) -> float | np.ndarray:
+    def n(self, z: float, *tracers: str, bins: int = 50) -> float | np.ndarray:
         """
         Evaluate the interpolated number density at redshift z.
 
@@ -278,15 +275,15 @@ class CutskyCatalog(BaseGalaxyCatalog):
         ----------
         z : float | np.ndarray
             Redshift value(s) at which to evaluate n(z).
-        tracer : str | None
-            Tracer name. If None, aggregates across all tracers.
+        *tracers : str
+            Tracer names. If no tracers are specified, aggregates across all tracers.
 
         Returns
         -------
         float | np.ndarray
             Number density in (Mpc/h)⁻³. Returns 0 outside the catalog's redshift range.
         """
-        return self._interpolate_nz(tracer=tracer, bins=bins)(z)
+        return self._interpolate_nz(*tracers, bins=bins)(z)
 
     # TODO: are extra properties needed to define that catalog at init ? Must repr reflect that ?
 

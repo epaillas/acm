@@ -62,14 +62,14 @@ class BaseGalaxyCatalog(ABC):
 
     def set_tracer_data(self, tracer: Tracer, data: pd.DataFrame) -> None:
         """Set the galaxy data for a given tracer."""
-        self.register_tracer(tracer)  # Ensure tracer is registered before setting data
         if not self._check_data_columns(data):
             raise ValueError(
                 f"Data for tracer '{tracer.name}' is missing required columns."
             )
+        self.register_tracer(tracer)  # Ensure tracer is registered before setting data
         self._data[tracer.name] = data
 
-    def get_tracer_data(self, tracer: str, raw: bool = False) -> pd.DataFrame:
+    def get_tracer_data(self, *tracers: str, raw: bool = False) -> pd.DataFrame:
         """
         Return tracer data with all pipeline transforms applied.
 
@@ -77,8 +77,8 @@ class BaseGalaxyCatalog(ABC):
 
         Parameters
         ----------
-        tracer : str
-            Name of the tracer to retrieve.
+        tracers : str
+            Name of the tracers to retrieve.
         raw : bool, optional
             If True, return the raw data without applying transforms. Default is False.
 
@@ -87,21 +87,30 @@ class BaseGalaxyCatalog(ABC):
         pd.DataFrame
             The tracer data with transforms applied (or raw if `raw=True`).
         """
-        if tracer not in self._data:
-            raise KeyError(f"No data loaded for tracer '{tracer}'.")
-        data = self._data[tracer].copy()
-        if not raw:
-            for transform in self._transforms.values():
-                if transform.tracer is None or transform.tracer == tracer:
-                    data = transform.apply(data)
-        return data
-
-    def _ngal(self, tracer: str | None = None) -> int:
-        """Return the total number of galaxies for a specific tracer, or the full catalog if tracer is None."""
         if not self.tracers:
-            raise RuntimeError("No tracers loaded in the catalog, cannot compute ngal.")
-        tracers = [tracer] if tracer is not None else list(self.tracers)
-        return sum(len(self.get_tracer_data(t)) for t in tracers)
+            raise RuntimeError("No tracers loaded in the catalog, cannot retrieve data.")
+        
+        if not tracers:
+            raise ValueError("At least one tracer name must be specified.")
+        
+        if any(tracer not in self.tracers for tracer in tracers):
+            missing = [tracer for tracer in tracers if tracer not in self.tracers]
+            raise KeyError(f"Tracers not found in catalog: {missing}")
+        
+        tracers_data = []
+        for tracer in tracers:
+            data = self._data[tracer].copy()
+            if not raw:
+                for transform in self._transforms.values():
+                    if transform.tracer is None or transform.tracer == tracer:
+                        data = transform.apply(data)
+            tracers_data.append(data)
+        return pd.concat(tracers_data, ignore_index=True)
+
+    def _ngal(self, *tracers: str) -> int:
+        """Return the total number of galaxies for a specified tracers, or the full catalog if tracer is None."""
+        tracers = tracers or tuple(self.tracers.keys())
+        return len(self.get_tracer_data(*tracers))
 
     @property
     def ngal(self) -> int:
