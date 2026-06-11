@@ -15,7 +15,7 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/check-coverage.yml
     permissions:
-      pull-requests: read
+      pull-requests: write
       contents: write
     with:
       update_coverage: true
