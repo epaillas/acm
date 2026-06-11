@@ -1,6 +1,6 @@
 name: Pipeline update on dev branch merge
 description: |
-  Updates coverage value and version on dev branch merge.
+  Updates coverage value and version on dev branch merge if the acm folder is modified.
 
 on:
   pull_request:
