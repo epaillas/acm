@@ -71,8 +71,8 @@ jobs:
         id: get_coverage
         run: | 
           if [ -f "coverage.txt" ]; then
-            cv = $(cat coverage.txt)
-            echo "coverage=$cv" >> $GITHUB_OUTPUT
+            coverage=$(cat coverage.txt)
+            echo "coverage=$coverage" >> $GITHUB_OUTPUT
           else
             echo "coverage=0" >> $GITHUB_OUTPUT
           fi
