@@ -254,10 +254,10 @@ class CutskyCatalog(BaseGalaxyCatalog):
         )  # Centers of the redshift bins
 
         nofz = interp1d(
-            z_centers, 
-            nz, 
-            kind="linear", 
-            fill_value=0.0, 
+            z_centers,
+            nz,
+            kind="linear",
+            fill_value=0.0,
             bounds_error=False,
         )
         self._interpolate_nz_cache[cache_key] = nofz

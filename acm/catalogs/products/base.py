@@ -97,15 +97,17 @@ class BaseGalaxyCatalog(ABC):
             If any specified tracer names are not found in the catalog.
         """
         if not self.tracers:
-            raise RuntimeError("No tracers loaded in the catalog, cannot retrieve data.")
-        
+            raise RuntimeError(
+                "No tracers loaded in the catalog, cannot retrieve data."
+            )
+
         if not tracers:
             raise ValueError("At least one tracer name must be specified.")
-        
+
         if any(tracer not in self.tracers for tracer in tracers):
             missing = [tracer for tracer in tracers if tracer not in self.tracers]
             raise KeyError(f"Tracers not found in catalog: {missing}")
-        
+
         tracers_data = []
         for tracer in tracers:
             data = self._data[tracer].copy()
