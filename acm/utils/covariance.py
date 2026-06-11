@@ -1,4 +1,5 @@
 """Utility functions for covariance matrix & sanity checks."""
+
 import logging
 from enum import IntEnum
 
@@ -6,6 +7,7 @@ import numpy as np
 from scipy.stats import norm
 
 logger = logging.getLogger(__name__)
+
 
 # %% Covariance utils methods
 def get_covariance_correction(
@@ -36,7 +38,7 @@ def get_covariance_correction(
     """
     if method in ("percival", "percival-fisher") and n_theta is None:
         raise ValueError(f"Method '{method}' requires n_theta to be provided.")
-    
+
     if method == "percival" and n_theta is not None:
         B = (n_s - n_d - 2) / ((n_s - n_d - 1) * (n_s - n_d - 4))
         return (n_s - 1) * (1 + B * (n_d - n_theta)) / (n_s - n_d + n_theta - 1)
@@ -71,8 +73,8 @@ def correlation_from_covariance(covariance: np.ndarray) -> np.ndarray:
 
 
 def mad_1d(
-    x: np.ndarray, 
-    axis: int | None = None, 
+    x: np.ndarray,
+    axis: int | None = None,
     keepdims: bool = False,
 ) -> np.ndarray:
     """Median absolute deviation with Gaussian-consistent scaling."""
@@ -119,7 +121,7 @@ def gk_mad_covariance(residuals: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     sp = mad_1d(X[:, i] + X[:, j], axis=0) ** 2
     sm = mad_1d(X[:, i] - X[:, j], axis=0) ** 2
     cov_ij = 0.25 * (sp - sm)
-    
+
     C = np.zeros((n_bins, n_bins), dtype=X.dtype)
     C[i, j] = C[j, i] = cov_ij
     np.fill_diagonal(C, s2)
@@ -148,7 +150,7 @@ def orthogonal_gk_mad_covariance(
         Covariance matrix of the residuals.
     """
     X = np.asarray(residuals)
-    
+
     # Debias the residuals
     X -= np.median(X, axis=0, keepdims=True)
 
@@ -233,13 +235,18 @@ def check_positive_definite(matrix: np.ndarray) -> bool:
     else:
         return True
 
+
 class ConditionStatus(IntEnum):
     """Enum to represent the condition status of a matrix."""
+
     WELL_CONDITIONED = 0
     ILL_CONDITIONED = 1
     SINGULAR = 2
 
-def check_condition_number(matrix: np.ndarray, precision_threshold: float = 10) -> ConditionStatus:
+
+def check_condition_number(
+    matrix: np.ndarray, precision_threshold: float = 10
+) -> ConditionStatus:
     """
     Compute the condition number of the matrix to check its inversibility.
 
@@ -314,11 +321,13 @@ def check_covariance_matrix(
     bool
         True if all checks pass, False otherwise.
     """
-    all_passed = True # flag to track if all checks passed
+    all_passed = True  # flag to track if all checks passed
 
     # Check if matrix is 2D
     if matrix.ndim != 2:
-        logger.log(log_level, f"{name} matrix is not 2-dimensional (shape: {matrix.shape}).")
+        logger.log(
+            log_level, f"{name} matrix is not 2-dimensional (shape: {matrix.shape})."
+        )
         return False  # Can't proceed with other checks
 
     # Check if matrix is square
@@ -329,13 +338,13 @@ def check_covariance_matrix(
     # Check if matrix is symmetric
     if not check_symmetric(matrix, rtol=rtol, atol=atol):
         logger.log(
-            log_level, 
+            log_level,
             f"{name} matrix is not symmetric. "
             f"Covariance matrices should be symmetric. "
             f"This may indicate numerical issues or incorrect computation.",
         )
         all_passed = False
-        
+
     # Check condition number
     cond_status = check_condition_number(matrix, precision_threshold)
     if cond_status == ConditionStatus.SINGULAR:
@@ -346,7 +355,7 @@ def check_covariance_matrix(
             "Using the diagonal covariance only may be a temporary workaround.",
         )
         return False  # Can't proceed with other checks
-    elif cond_status == ConditionStatus.ILL_CONDITIONED:
+    if cond_status == ConditionStatus.ILL_CONDITIONED:
         logger.log(
             log_level,
             f"{name} matrix is ill-conditioned. "
@@ -354,7 +363,7 @@ def check_covariance_matrix(
             "Using the diagonal covariance only may be a temporary workaround.",
         )
         all_passed = False
-    
+
     # Check if matrix is positive-definite
     if not check_positive_definite(matrix):
         # Get eigenvalues for more detailed diagnostics
@@ -369,5 +378,5 @@ def check_covariance_matrix(
             "Consider checking the mock realizations or increasing the number of samples.",
         )
         all_passed = False
-        
+
     return all_passed
