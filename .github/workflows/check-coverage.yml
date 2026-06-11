@@ -61,6 +61,7 @@ jobs:
 
       - name: Coverage badge # Get only the badge HTML without report or comment
         id: badge
+        if: inputs.update_coverage
         uses: MishaKav/pytest-coverage-comment@v1
         with:
           pytest-coverage-path: ./pytest-coverage.txt
@@ -73,16 +74,11 @@ jobs:
         run: | 
           if [ -f "coverage.txt" ]; then
             coverage=$(cat coverage.txt)
+            echo "found coverage.txt with $coverage"
             echo "coverage=$coverage" >> $GITHUB_OUTPUT
           else
             echo "coverage=0" >> $GITHUB_OUTPUT
           fi
-
-      - name: Fail if coverage too low
-        if: ${{ steps.coverage.outputs.coverage < steps.get_coverage.outputs.coverage }}
-        run: |
-          echo "Coverage decreased from ${{ steps.get_coverage.outputs.coverage }}% to ${{ steps.coverage.outputs.coverage }}%"
-          exit 1
 
       - name: Update target coverage
         if: ${{ inputs.update_coverage == true && steps.coverage.outputs.coverage != steps.get_coverage.outputs.coverage }}
@@ -96,3 +92,9 @@ jobs:
           git add coverage.txt README.md
           git commit -m "Update target coverage to ${{ steps.coverage.outputs.coverage }}"
           git push
+      
+      - name: Fail if coverage too low
+        if: ${{ steps.coverage.outputs.coverage < steps.get_coverage.outputs.coverage }}
+        run: |
+          echo "Coverage decreased from ${{ steps.get_coverage.outputs.coverage }}% to ${{ steps.coverage.outputs.coverage }}%"
+          exit 1
