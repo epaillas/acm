@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import pytest
@@ -165,3 +166,15 @@ class TestGetAbacusPhases:
         _make_phase_dir(tmp_path, cosmo=0, phase=1, z=0.500)
         fns, _ = get_abacus_phases(tmp_path, z=0.5, cosmo=0)
         assert all(fn.is_absolute() for fn in fns)
+        
+    def test_match_glob_and_no_re(self, tmp_path, caplog):
+        """Test that a file matching the glob pattern but not the regex is ignored with a warning level log."""
+        _make_phase_dir(tmp_path, cosmo=0, phase=1, z=0.500)
+        extra_dir = tmp_path / "AbacusSummit_small_c000_ph001_some_other_stuff/data/z0.500"
+        extra_dir.mkdir(parents=True)
+        
+        with caplog.at_level(logging.WARNING):
+            fns, phases = get_abacus_phases(tmp_path, z=0.5, cosmo=0)
+        assert "will be skipped" in caplog.text
+        assert len(fns) == 1
+        assert phases == [1]

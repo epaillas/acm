@@ -89,13 +89,15 @@ def get_abacus_phases(
     fns = sorted(phase_dir.glob(glob_pattern))
 
     phases = []
+    out_fns = []
     for f in fns:
         match = re_pattern.search(str(f.as_posix()))
         if match:
             phases.append(int(match.group("phase")))
+            out_fns.append(f)
         else:
             logger.warning(
-                f"File {f} does not match the expected pattern and will be skipped."
+                f"File {f} does not match the expected pattern and will be skipped in the phase indexes."
             )
 
-    return fns, phases
+    return out_fns, phases
