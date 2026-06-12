@@ -95,11 +95,11 @@ class BaseGalaxyCatalog(ABC):
             If no tracer names are specified.
         KeyError
             If any specified tracer names are not found in the catalog.
+        ValueError
+            If a tracer is called more than one time.
         """
         if not self.tracers:
-            raise RuntimeError(
-                "No tracers loaded in the catalog, cannot retrieve data."
-            )
+            raise RuntimeError("No tracers loaded in the catalog.")
 
         if not tracers:
             raise ValueError("At least one tracer name must be specified.")
@@ -107,6 +107,10 @@ class BaseGalaxyCatalog(ABC):
         if any(tracer not in self.tracers for tracer in tracers):
             missing = [tracer for tracer in tracers if tracer not in self.tracers]
             raise KeyError(f"Tracers not found in catalog: {missing}")
+
+        if len(tracers) != len(set(tracers)):
+            d = [i for i in set(tracers) if tracers.count(i) > 1]
+            raise ValueError(f"Duplicates found in call: {d}")
 
         tracers_data = []
         for tracer in tracers:

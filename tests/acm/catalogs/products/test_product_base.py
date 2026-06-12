@@ -145,11 +145,10 @@ class TestTracers:
         pd.testing.assert_frame_equal(foo_bar, expected_foo_bar)
         pd.testing.assert_frame_equal(bar_foo, expected_bar_foo)
     
-    def test_get_tracer_data_duplicated(self, populated_catalog, valid_data):
+    def test_get_tracer_data_duplicate_raises(self, populated_catalog, valid_data):
         """Passing the same tracer twice should return the dataframe with duplicate data."""
-        result = populated_catalog.get_tracer_data("FOO", "FOO")
-        expected = pd.concat([valid_data, valid_data], ignore_index=True)
-        pd.testing.assert_frame_equal(result, expected)
+        with pytest.raises(ValueError, match="FOO"):
+            populated_catalog.get_tracer_data("FOO", "FOO")
         
     
 class TestTransforms:
