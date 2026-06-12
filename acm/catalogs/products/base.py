@@ -159,12 +159,13 @@ class BaseGalaxyCatalog(ABC):
         self._transforms.clear()
         self._transform_state += 1
 
-    def __getitem__(self, tracer_name: str) -> pd.DataFrame:
+    def __getitem__(self, tracers: str | tuple[str]) -> pd.DataFrame:
         """Allow direct indexing to get tracer data, e.g. catalog['ELG']."""
-        return self.get_tracer_data(tracer_name)
+        _tracers = (tracers,) if isinstance(tracers, str) else tuple(tracers)
+        return self.get_tracer_data(*_tracers)
 
     def __len__(self) -> int:
-        """Return the total number of galaxies across all tracers."""
+        """Return the total number of galaxies across all raw catalogs."""
         return sum(len(data) for data in self._data.values())
 
     def save(self, path: str | Path, *columns: str) -> None:

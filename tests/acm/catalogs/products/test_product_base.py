@@ -85,6 +85,7 @@ def test_ngal_per_tracer(multi_tracer_catalog):
     """_ngal should return the correct count per tracer independently."""
     assert multi_tracer_catalog._ngal("FOO") == 2
     assert multi_tracer_catalog._ngal("BAR") == 1
+    assert multi_tracer_catalog._ngal("FOO", "BAR") == 3
 
 #%% Testing BaseGalaxyCatalog 
 
@@ -118,10 +119,39 @@ class TestTracers:
         result = populated_catalog.get_tracer_data("FOO")
         pd.testing.assert_frame_equal(result, valid_data)
 
-    def test_get_tracer_data_missing_raises(self, catalog):
+    def test_get_tracer_data_empty_raises(self, catalog):
+        """If no tracer are registered, get_tracer_data should reaise a RuntimeError"""
         with pytest.raises(RuntimeError, match="No tracers loaded"):
             catalog.get_tracer_data("FOO")
-
+            
+    def get_tracer_data_missing_raises(self, populated_catalog):
+        """Calling get_tracer_data without tracer name should raise a ValueError"""
+        with pytest.raises(ValueError, match="No tracers loaded"):
+            populated_catalog.get_tracer_data()
+    
+    def test_get_tracer_data_missing_raises(self, populated_catalog):
+        """Calling get_tracer_data with a non-existing tracer should raise a KeyError"""
+        with pytest.raises(KeyError, match="BAR"):
+            populated_catalog.get_tracer_data("BAR")
+        with pytest.raises(KeyError, match="BAR"):
+            populated_catalog.get_tracer_data("FOO", "BAR")
+    
+    def test_get_tracer_data_multi_tracer(self, multi_tracer_catalog, valid_data, valid_data_bar):
+        """Multi-tracer retrieval must respect the requested order, not sort or deduplicate."""
+        foo_bar = multi_tracer_catalog.get_tracer_data("FOO", "BAR")
+        bar_foo = multi_tracer_catalog.get_tracer_data("BAR", "FOO")
+        expected_foo_bar = pd.concat([valid_data, valid_data_bar], ignore_index=True)
+        expected_bar_foo = pd.concat([valid_data_bar, valid_data], ignore_index=True)
+        pd.testing.assert_frame_equal(foo_bar, expected_foo_bar)
+        pd.testing.assert_frame_equal(bar_foo, expected_bar_foo)
+    
+    def test_get_tracer_data_duplicated(self, populated_catalog, valid_data):
+        """Passing the same tracer twice should return the dataframe with duplicate data."""
+        result = populated_catalog.get_tracer_data("FOO", "FOO")
+        expected = pd.concat([valid_data, valid_data], ignore_index=True)
+        pd.testing.assert_frame_equal(result, expected)
+        
+    
 class TestTransforms:
 
     def test_get_tracer_data_applies_transforms(self, populated_catalog):
@@ -213,8 +243,18 @@ class TestTransforms:
 
 class TestMagicMethods:
 
-    def test_getitem(self, populated_catalog, valid_data):
+    def test_getitem_single(self, populated_catalog, valid_data):
         pd.testing.assert_frame_equal(populated_catalog["FOO"], valid_data)
+
+    def test_getitem_multiple(self, multi_tracer_catalog, valid_data, valid_data_bar):
+        result = multi_tracer_catalog["FOO", "BAR"]
+        expected = pd.concat([valid_data, valid_data_bar], ignore_index=True)
+        pd.testing.assert_frame_equal(result, expected)
+        
+    def test_getitem_unknown_tracer_raises(self, populated_catalog):
+        """Indexing an unknown tracer should propagate KeyError from get_tracer_data."""
+        with pytest.raises(KeyError):
+            _ = populated_catalog["UNKNOWN"]
 
     def test_len_single_tracer(self, populated_catalog):
         assert len(populated_catalog) == 2
