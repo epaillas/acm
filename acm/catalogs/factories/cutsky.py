@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 logger.warning("This module is in development and might return unexpected results!")
 
+
 class BaseCutskyFactory(BaseCatalogFactory):
     """Factory for creating cutsky-based catalogs."""
 
