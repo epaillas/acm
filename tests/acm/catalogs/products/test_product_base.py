@@ -124,18 +124,23 @@ class TestTracers:
         with pytest.raises(RuntimeError, match="No tracers loaded"):
             catalog.get_tracer_data("FOO")
             
-    def get_tracer_data_missing_raises(self, populated_catalog):
+    def test_get_tracer_data_missing_raises(self, populated_catalog):
         """Calling get_tracer_data without tracer name should raise a ValueError"""
-        with pytest.raises(ValueError, match="No tracers loaded"):
+        with pytest.raises(ValueError, match="At least one tracer"):
             populated_catalog.get_tracer_data()
     
-    def test_get_tracer_data_missing_raises(self, populated_catalog):
+    def test_get_tracer_data_incorrect_raises(self, populated_catalog):
         """Calling get_tracer_data with a non-existing tracer should raise a KeyError"""
         with pytest.raises(KeyError, match="BAR"):
             populated_catalog.get_tracer_data("BAR")
         with pytest.raises(KeyError, match="BAR"):
             populated_catalog.get_tracer_data("FOO", "BAR")
     
+    def test_get_tracer_data_duplicate_raises(self, populated_catalog, valid_data):
+        """Passing the same tracer twice should return the dataframe with duplicate data."""
+        with pytest.raises(ValueError, match="FOO"):
+            populated_catalog.get_tracer_data("FOO", "FOO")
+            
     def test_get_tracer_data_multi_tracer(self, multi_tracer_catalog, valid_data, valid_data_bar):
         """Multi-tracer retrieval must respect the requested order, not sort or deduplicate."""
         foo_bar = multi_tracer_catalog.get_tracer_data("FOO", "BAR")
@@ -144,11 +149,6 @@ class TestTracers:
         expected_bar_foo = pd.concat([valid_data_bar, valid_data], ignore_index=True)
         pd.testing.assert_frame_equal(foo_bar, expected_foo_bar)
         pd.testing.assert_frame_equal(bar_foo, expected_bar_foo)
-    
-    def test_get_tracer_data_duplicate_raises(self, populated_catalog, valid_data):
-        """Passing the same tracer twice should return the dataframe with duplicate data."""
-        with pytest.raises(ValueError, match="FOO"):
-            populated_catalog.get_tracer_data("FOO", "FOO")
         
     
 class TestTransforms:

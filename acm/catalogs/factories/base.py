@@ -55,7 +55,7 @@ class BaseCatalogFactory(ABC):
         self.cosmo = cosmo
         self.cosmo_fid = cosmo_fid if cosmo_fid is not None else DESI()
 
-    def __repr__(self) -> str:
+    def __repr__(self) -> str: # pragma: no cover
         """Provide a string representation of the catalog factory, including backend and catalog class information."""
         return (
             f"{self.__class__.__name__}("

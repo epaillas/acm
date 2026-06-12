@@ -197,6 +197,12 @@ def test_rsd_does_not_mutate_raw(populated_catalog):
     populated_catalog.rsd(los="z")
     populated_catalog.get_tracer_data("FOO")
     pd.testing.assert_frame_equal(populated_catalog._data["FOO"], raw_before)
+    
+def test_rsd_after_ap_warns(populated_catalog, caplog):
+    with caplog.at_level("WARNING"):
+        populated_catalog.ap(los="z")
+        populated_catalog.rsd(los="z")
+    assert "AP transform exists" in caplog.text
 
 
 #%% AP transform
