@@ -119,7 +119,7 @@ class TestTracers:
         pd.testing.assert_frame_equal(result, valid_data)
 
     def test_get_tracer_data_missing_raises(self, catalog):
-        with pytest.raises(RuntimeError, match="FOO"):
+        with pytest.raises(RuntimeError, match="No tracers loaded"):
             catalog.get_tracer_data("FOO")
 
 class TestTransforms:
