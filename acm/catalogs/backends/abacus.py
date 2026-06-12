@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import yaml
 from abacusnbody.hod.abacus_hod import AbacusHOD
-from pandas import DataFrame
 
 from acm.catalogs.backends.base import SnapshotBackend, register_backend
 from acm.catalogs.dataclasses import Tracer
