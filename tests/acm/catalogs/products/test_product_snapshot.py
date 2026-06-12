@@ -410,6 +410,7 @@ def test_nbar_per_tracer(multi_tracer_catalog):
     volume = 500.0 ** 3
     assert multi_tracer_catalog._nbar("FOO") == pytest.approx(100 / volume)
     assert multi_tracer_catalog._nbar("BAR") == pytest.approx(50 / volume)
+    assert multi_tracer_catalog._nbar("FOO", "BAR") == pytest.approx(150 / volume)
 
 def test_nbar_per_tracer_differ(multi_tracer_catalog):
     """Per-tracer nbar values should differ when tracers have different counts."""
