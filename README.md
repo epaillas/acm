@@ -1,5 +1,5 @@
 <!-- Pytest Coverage Comment:Begin -->
-<a href="https://github.com/epaillas/acm/blob/main/README.md"><img alt="Coverage" src="https://img.shields.io/badge/Coverage-10%25-red.svg" /></a>
+<a href="https://github.com/epaillas/acm/blob/main/README.md"><img alt="Coverage" src="https://img.shields.io/badge/Coverage-21%25-red.svg" /></a>
 <!-- Pytest Coverage Comment:End -->
 
 # Alternative Clustering Methods (ACM)
