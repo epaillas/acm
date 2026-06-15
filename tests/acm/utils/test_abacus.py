@@ -37,7 +37,8 @@ def _make_phase_dir(base: Path, cosmo: int, phase: int, z: float, subdir: str = 
 test_data = [
     ("base", 0, 0, "AbacusSummit_base_c000_ph000"),
     ("small", 1, 2, "AbacusSummit_small_c001_ph002"),
-    ("base", 5, 1000, "AbacusSummit_base_c005_ph1000")
+    ("base", 5, 1000, "AbacusSummit_base_c005_ph1000"),
+    ("png", 1, 2, "Abacus_pngbase_c001_ph002"),
 ]
 
 @pytest.mark.parametrize("simtype, cosmo, phase, expected", test_data)
