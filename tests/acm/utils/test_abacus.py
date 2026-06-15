@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from acm.utils.abacus import load_abacus_cosmologies, get_abacus_phases
+from acm.utils.abacus import (
+    get_abacus_simname,
+    map_params, 
+    load_abacus_cosmologies, 
+    get_abacus_phases,
+    ABACUS_MAP,
+)
 
 #%% Fixtures
 params = ["param1", "param2", "param3"]
@@ -28,6 +34,55 @@ def _make_phase_dir(base: Path, cosmo: int, phase: int, z: float, subdir: str = 
     leaf.mkdir(parents=True)
     return leaf
 
+test_data = [
+    ("base", 0, 0, "AbacusSummit_base_c000_ph000"),
+    ("small", 1, 2, "AbacusSummit_small_c001_ph002"),
+    ("base", 5, 1000, "AbacusSummit_base_c005_ph1000")
+]
+
+@pytest.mark.parametrize("simtype, cosmo, phase, expected", test_data)
+def test_get_abacus_simname(simtype, cosmo, phase, expected):
+    assert get_abacus_simname(simtype, cosmo, phase) == expected
+    
+class TestMapParams:
+    
+    def test_dict_default_mapping(self):
+        params = {"logM_1": 13.5, "A_cen": 0.1}
+        expected = {"logM1": 13.5, "Acent": 0.1}
+        assert map_params(params) == expected
+    
+    def test_list_default_mapping(self):
+        params = ["logM_1", "A_cen"]
+        expected = ["logM1", "Acent"]
+        assert map_params(params) == expected
+        
+    def test_dict_mutates(self):
+        """Dicts are mutated in-place"""
+        params = {"logM_1": 13.5, "A_cen": 0.1}
+        result = map_params(params)
+        assert params == result
+        
+    def test_extra_unchanged(self):
+        "Unmapped keys should stay inchanged"
+        params = {"unrelated_key": 42}
+        expected = {"unrelated_key": 42}
+        assert map_params(params) == params
+    
+    def test_custom_mapping(self):
+        custom_mapping = {"foo": ["bar", "baz"]}
+        params = {"baz": 1}
+        result = map_params(params, mapping=custom_mapping)
+        assert result == {"foo": 1}
+        
+    def test_invalid_type_raises(self):
+        with pytest.raises(ValueError):
+            map_params("not_a_dict_or_list")
+    
+    def test_empty_dict(self):
+        assert map_params({}) == {}
+        
+    def test_empty_list(self):
+        assert map_params([]) == []
 
 class TestLoadAbacusCosmologies:
     """Tests for the load_abacus_cosmologies function."""
