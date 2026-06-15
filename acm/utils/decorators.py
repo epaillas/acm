@@ -1,8 +1,7 @@
+import os
 from collections.abc import Callable
 from functools import wraps
 from typing import TypeVar
-
-from acm.utils.default import is_nersc
 
 T = TypeVar("T")  # Type variable for class methods
 
@@ -35,16 +34,54 @@ def temporary_class_state(**attrs) -> Callable:
 
 
 def require_nersc(enabled: bool = True) -> Callable:
-    """Restrict a function execution to NERSC environments."""
+    """Restrict function execution to NERSC environments.
+
+    Parameters
+    ----------
+    enabled: bool
+        If False, the restriction is lifted (e.g. for local development).
+    """
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> object:
-            if enabled and not is_nersc:
-                fname = getattr(func, "__name__", "unknown")
-                raise OSError(
-                    f"The function '{fname}' can only be executed in a NERSC environment."
-                )
+            if enabled and os.environ.get("NERSC_HOST") != "perlmutter":
+                _name = getattr(func, "__name__", "Callable")
+                raise OSError(f"'{_name}' can only be executed in a NERSC environment.")
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def kwargs_alias(**aliases: str) -> Callable:
+    """
+    Resolve keyword argument aliases before passing them to a function.
+
+    Parameters
+    ----------
+    **aliases: str
+        Mapping of canonical names to alias strings.
+
+    Examples
+    --------
+    >>> @kwargs_alias(canonical="old_alias")
+    ... def make_galaxy_catalog(self, ..., old_alias=2, **kwargs):
+    ...    var = canonical  # 'canonical' will be set to the value of 'old_alias' if provided
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs) -> object:
+            for canonical, alias in aliases.items():
+                if alias in kwargs and canonical in kwargs:
+                    _name = getattr(func, "__name__", "Callable")
+                    raise ValueError(
+                        f"{_name} cannot use both '{canonical}' and '{alias}' as arguments."
+                    )
+                if alias in kwargs:
+                    kwargs[canonical] = kwargs.pop(alias)
             return func(*args, **kwargs)
 
         return wrapper

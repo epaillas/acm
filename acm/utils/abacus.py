@@ -1,10 +1,84 @@
 import logging
 import re
 from pathlib import Path
+from typing import overload
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+BOXSIZES = {
+    "base": 2000,
+    "high": 1000,
+    "highbase": 1000,
+    "huge": 7500,
+    "hugebase": 2000,
+    "fixedbase": 1185,
+    "small": 500,
+    "png": 2000,
+}
+
+ABACUS_MAP = {
+    "logM1": ["logM_1"],
+    "Acent": ["A_cen"],
+    "Asat": ["A_sat"],
+    "Bcent": ["B_cen"],
+    "Bsat": ["B_sat"],
+}
+
+
+def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
+    """Build the Abacus simulation name based on the provided parameters."""
+    if sim_type == "png":
+        return f"Abacus_{sim_type}base_c{cosmo_idx:03d}_ph{phase_idx:03d}"
+    return f"AbacusSummit_{sim_type}_c{cosmo_idx:03d}_ph{phase_idx:03d}"
+
+
+@overload
+def map_params(params: dict, mapping: dict[str, list[str]] | None = None) -> dict: ...
+@overload
+def map_params(
+    params: list[str], mapping: dict[str, list[str]] | None = None
+) -> list[str]: ...
+def map_params(
+    params: dict | list[str],
+    mapping: dict[str, list[str]] | None = None,
+) -> dict | list[str]:
+    """
+    Map custom parameters names to fixed parameters.
+
+    Parameters
+    ----------
+    params : dict | list[str]
+        Dictionary or list of custom parameters.
+    mapping : dict[str, list[str]]
+        Mapping from custom parameter names to fixed parameter names.
+        Keys are fixed parameter names, values are lists of custom parameter names that map to the fixed parameter name.
+
+    Returns
+    -------
+    dict | list[str]
+        Dictionary or list of fixed parameters. Use the same type as the input params.
+
+    Raises
+    ------
+    ValueError
+        If the type of params is not dict or list.
+    """
+    mapping = mapping or ABACUS_MAP
+
+    if type(params) not in [dict, list]:
+        raise ValueError("Invalid type for params. Must be either dict or list.")
+
+    for abacus_key, custom_keys in mapping.items():
+        for custom_key in custom_keys:
+            if custom_key in params:  # Check if the custom key is used
+                # Replace custom key with Abacus key
+                if isinstance(params, dict):
+                    params[abacus_key] = params.pop(custom_key)
+                else:  # is list
+                    params[params.index(custom_key)] = abacus_key
+    return params
 
 
 def load_abacus_cosmologies(
