@@ -168,7 +168,30 @@ class TestLoadDarkMatterCatalog:
         b = AbacusHODBackend(config_file=path)
         with pytest.raises(ValueError, match="HOD parameters"):
             b.load_dark_matter_catalog(redshift=0.5, tracers=[Tracer(name="FOO")])
+            
+    def test_cache_populated_after_first_load(self, backend, tracer_foo):
+        """Cache should contain the redshift key after first load."""
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        assert 0.5 in backend._cache
+        
+    def test_cache_returns_same_instance(self, backend, tracer_foo):
+        """Second call with same redshift should return the exact same object."""
+        dm1 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        dm2 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        assert dm1 is dm2
 
+    def test_no_cache_bypasses_cache(self, backend, tracer_foo):
+        """no_cache=True should return a new instance even if redshift is cached."""
+        dm1 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        dm2 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo], no_cache=True)
+        assert dm1 is not dm2
+        
+    def test_different_redshifts_cached_separately(self, backend, tracer_foo):
+        """Each redshift should get its own cache entry."""
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        backend.load_dark_matter_catalog(redshift=1.0, tracers=[tracer_foo])
+        assert 0.5 in backend._cache
+        assert 1.0 in backend._cache
 
 class TestMakeGalaxyCatalog:
     """Tests for AbacusHODBackend.make_galaxy_catalog."""

@@ -56,6 +56,7 @@ class AbacusHODBackend(SnapshotBackend):
         ValueError
             If the config file is not found.
         """
+        super().__init__()
         if sim_type not in BOXSIZES:
             raise ValueError(
                 f"Unknown simulation type '{sim_type}'. Available types: {list(BOXSIZES)}"
@@ -91,13 +92,22 @@ class AbacusHODBackend(SnapshotBackend):
         self.sim_type = sim_type
         self.sim_params = sim_params
         self.hod_params = hod_params
+        
+        self._cache: dict[float, AbacusHOD]
 
     @override
     def load_dark_matter_catalog(
         self,
         redshift: float,
+        no_cache: bool = False,
         **kwargs,
     ) -> AbacusHOD:
+        if redshift in self._cache and no_cache is False:
+            logger.debug(
+                f'Loaded dark matter catalog for redshift z={redshift:.3f} from cache.'
+            )
+            return self._cache[redshift]
+        
         sim_params = self.sim_params.copy()
         sim_params["z_mock"] = redshift
 
@@ -109,7 +119,7 @@ class AbacusHODBackend(SnapshotBackend):
         logger.debug(
             f"Loaded dark matter catalog for redshift z={redshift:.3f} in {time.time() - t0:.2f} seconds."
         )
-
+        self._cache[redshift] = dark_matter_catalog
         return dark_matter_catalog
 
     @override
