@@ -92,7 +92,7 @@ class AbacusHODBackend(SnapshotBackend):
         self.sim_type = sim_type
         self.sim_params = sim_params
         self.hod_params = hod_params
-        
+
         self._cache: dict[float, AbacusHOD]
 
     @override
@@ -104,10 +104,10 @@ class AbacusHODBackend(SnapshotBackend):
     ) -> AbacusHOD:
         if redshift in self._cache and no_cache is False:
             logger.debug(
-                f'Loaded dark matter catalog for redshift z={redshift:.3f} from cache.'
+                f"Loaded dark matter catalog for redshift z={redshift:.3f} from cache."
             )
             return self._cache[redshift]
-        
+
         sim_params = self.sim_params.copy()
         sim_params["z_mock"] = redshift
 

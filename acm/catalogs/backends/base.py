@@ -59,8 +59,9 @@ class SnapshotBackend(DarkMatterBackend):
     Snapshot backends load one dark matter catalog per redshift, which maps
     naturally to N-body simulation suites.
     """
+
     def __init__(self) -> None:
-        self._cache: dict[float, object] = {} # Cache for dark matter catalogs
+        self._cache: dict[float, object] = {}  # Cache for dark matter catalogs
 
     @abstractmethod
     def load_dark_matter_catalog(
