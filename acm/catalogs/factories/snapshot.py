@@ -142,7 +142,7 @@ class SnapshotCatalogFactory(BaseSnapshotFactory):
 
             logger.info(f"Loading dark matter catalog at redshift z={z:.3f}")
             dm_kwargs = dark_matter_kwargs or {}
-            dm_catalog = self.backend.get_dark_matter_catalog(redshift=z, **dm_kwargs)
+            dm_catalog = self.backend.load_dark_matter_catalog(redshift=z, **dm_kwargs)
 
             logger.info(
                 f"Populating galaxy catalog at redshift z={z:.3f} for tracers {[t.name for t in snapshot_tracers]}"

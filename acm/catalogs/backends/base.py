@@ -47,7 +47,7 @@ class DarkMatterBackend(ABC):
         ...
 
     @abstractmethod
-    def get_dark_matter_catalog(self, *args, **kwargs) -> object:
+    def load_dark_matter_catalog(self, *args, **kwargs) -> object:
         """Load the dark matter catalog, to be implemented by geometry-specific subclasses."""
         ...
 
@@ -61,7 +61,7 @@ class SnapshotBackend(DarkMatterBackend):
     """
 
     @abstractmethod
-    def get_dark_matter_catalog(self, redshift: float, **kwargs) -> object:
+    def load_dark_matter_catalog(self, redshift: float, **kwargs) -> object:
         """
         Load the dark matter catalog for the specified redshift and tracers.
 

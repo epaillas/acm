@@ -93,7 +93,7 @@ class AbacusHODBackend(SnapshotBackend):
         self.hod_params = hod_params
 
     @override
-    def get_dark_matter_catalog(
+    def load_dark_matter_catalog(
         self,
         redshift: float,
         **kwargs,

@@ -247,7 +247,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         """Number density of galaxies in the entire catalog."""
         return self._nbar()
 
-    def positions(self, raw: bool = True) -> pd.DataFrame:
+    def positions(self, raw: bool = False) -> pd.DataFrame:
         """
         Get the positions of galaxies in the full catalog.
 
@@ -256,6 +256,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         raw : bool, optional
             If True, return the raw positions before any transformations.
             If False, return the positions after applying all transformations.
+            Defaults to False.
 
         Returns
         -------

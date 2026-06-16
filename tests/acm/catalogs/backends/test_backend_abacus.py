@@ -102,7 +102,7 @@ def tracer_bar():
 @pytest.fixture
 def dm_catalog(backend, tracer_foo):
     """A loaded dark matter catalog for a single tracer."""
-    return backend.get_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+    return backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
 
 
 class TestInit:
@@ -131,27 +131,27 @@ class TestInit:
         assert b.sim_params["custom_param"] == 42
 
 
-class TestGetDarkMatterCatalog:
-    """Tests for AbacusHODBackend.get_dark_matter_catalog."""
+class TestLoadDarkMatterCatalog:
+    """Tests for AbacusHODBackend.load_dark_matter_catalog."""
 
     def test_returns_mock_abacus_hod(self, backend, tracer_foo):
-        dm = backend.get_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        dm = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
         assert isinstance(dm, MockAbacusHOD)
 
     def test_redshift_set_in_sim_params(self, backend, tracer_foo):
-        """The redshift passed to get_dark_matter_catalog should be set in the sim_params of the returned AbacusHOD instance."""
-        dm = backend.get_dark_matter_catalog(redshift=0.8, tracers=[tracer_foo])
+        """The redshift passed should be set in the sim_params of the returned AbacusHOD instance."""
+        dm = backend.load_dark_matter_catalog(redshift=0.8, tracers=[tracer_foo])
         assert dm.sim_params["z_mock"] == 0.8
 
     def test_tracer_flag_enabled(self, backend, tracer_foo):
         """Requesting a tracer should set its flag to True in the returned AbacusHOD instance."""
-        dm = backend.get_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        dm = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
         assert dm.hod_params["tracer_flags"]["FOO"] is True
 
     def test_tracer_params_overridden(self, backend):
         """Params passed in the tracer should override those in the config."""
         tracer = Tracer(name="FOO", params={"alpha": 99.0})
-        dm = backend.get_dark_matter_catalog(redshift=0.5, tracers=[tracer])
+        dm = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
         assert dm.hod_params["FOO_params"]["alpha"] == 99.0
 
     def test_missing_tracer_params_raises(self, config_file, tmp_path):
@@ -167,7 +167,7 @@ class TestGetDarkMatterCatalog:
         path.write_text(yaml.dump(config))
         b = AbacusHODBackend(config_file=path)
         with pytest.raises(ValueError, match="HOD parameters"):
-            b.get_dark_matter_catalog(redshift=0.5, tracers=[Tracer(name="FOO")])
+            b.load_dark_matter_catalog(redshift=0.5, tracers=[Tracer(name="FOO")])
 
 
 class TestMakeGalaxyCatalog:
@@ -202,7 +202,7 @@ class TestMakeGalaxyCatalog:
     def test_bgs_alone_accepted(self, backend):
         """BGS requested alone should not raise."""
         tracer = Tracer(name="LRG", params={"alpha": 1.0})
-        dm_catalog = backend.get_dark_matter_catalog(redshift=0.5, tracers=[tracer])
+        dm_catalog = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
         tracer = Tracer(name="BGS", params={})
         result = backend.make_galaxy_catalog(dm_catalog, tracers=[tracer])
         assert tracer in result
