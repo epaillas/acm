@@ -27,7 +27,7 @@ def make_tracer_data(n: int = 100) -> pd.DataFrame:
     
 class DummyBackend(DarkMatterBackend):
     """A minimal implementation of DarkMatterBackend for testing."""
-    def get_dark_matter_catalog(self, redshift: float, **kwargs):
+    def load_dark_matter_catalog(self, redshift: float, **kwargs):
         return MagicMock()  # Return a dummy catalog object
 
     def make_galaxy_catalog(self, dm_catalog, tracers: list[Tracer], **kwargs) -> None:
