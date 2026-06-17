@@ -2,10 +2,10 @@ BGS:
   box:
     small:
       sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus/small/
-      subsample_dir: /pscratch/sd/s/sbouchar/summit_subsamples/boxes/small/
+      subsample_dir: /pscratch/sd/s/sbouchar/summit_subsamples/lowmass/boxes/small/
     base:
       sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus/
-      subsample_dir: /pscratch/sd/s/sbouchar/summit_subsamples/boxes/base/
+      subsample_dir: /pscratch/sd/s/sbouchar/summit_subsamples/lowmass/boxes/base/
   
 LRG:
   box:
