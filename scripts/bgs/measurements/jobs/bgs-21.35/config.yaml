@@ -1,8 +1,8 @@
 cosmologies: [0]
 phases: [0]
 seeds: [0]
-hod_dir: /pscratch/sd/s/sbouchar/acm/bgs-21.35/parameters/hod_params
-save_dir: /pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements
+hod_dir: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-21.35/parameters/hod_params
+save_dir: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-21.35/measurements
 estimator_config: estimator_parameters.yaml
 n_hod: 100
 sim_type: base
