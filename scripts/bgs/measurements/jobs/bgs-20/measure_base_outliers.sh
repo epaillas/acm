@@ -26,6 +26,6 @@ METHOD=corrupted_h5
 LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/outliers/log_${SIMTYPE}_${METHOD}.log"
 OUTLIERS="jobs/bgs-20/outliers/${METHOD}-simtype_${SIMTYPE}-all_measurements.npy"
 
-python measure_box.py --config jobs/bgs-20/config.yaml --gpu --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}" #--measurements power_spectrum density_split_power
+python measure_box.py --config jobs/bgs-20/config.yaml --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}" #--measurements power_spectrum density_split_power
 
 # Launch with : sbatch ...
