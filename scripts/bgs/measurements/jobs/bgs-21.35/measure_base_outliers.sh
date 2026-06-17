@@ -23,7 +23,8 @@ cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 SIMTYPE=base
 METHOD=sigma_clip
 
-LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements/logs/outliers/log_${SIMTYPE}_${METHOD}.log"
+RUN=1
+LOGFILE="/pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-21.35/logs/run${RUN}/measurements/${SIMTYPE}/log_outliers_${METHOD}.log"
 OUTLIERS="jobs/bgs-21.35/outliers/${METHOD}-simtype_${SIMTYPE}-all_measurements.npy"
 
 python measure_box.py --config jobs/bgs-21.35/config.yaml --log_file "${LOGFILE}" --overwrite --parameters_override "${OUTLIERS}" #--measurements power_spectrum density_split_power
