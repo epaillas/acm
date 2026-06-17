@@ -221,15 +221,12 @@ if __name__ == "__main__":
                     estimator_kwargs = init_config.get(stat_name, {})
                     compute_kwargs = compute_config.get(stat_name, {})
                     # TODO: find how to get a dynamic update here wrt estimator params
-                    if 'boxsize' in estimator_kwargs:
-                        estimator_kwargs.update(boxsize=catalog.boxsize)
-                    if 'los' in compute_kwargs:
-                        compute_kwargs.update(los=los, gpu=is_gpu, nthreads=nthreads)
+                    # To update: boxsize, los, gpu, nthreads
 
                     cls = get_estimator(stat_name)
                     estimator = cls(**estimator_kwargs)
                     estimator.compute(positions, **compute_kwargs)
-                    estimator.save(mock_dir, args.overwrite)
+                    estimator.save(mock_dir / f"{stat_name}.h5", args.overwrite)
 
             del estimator, catalog, positions
             clear_caches()
