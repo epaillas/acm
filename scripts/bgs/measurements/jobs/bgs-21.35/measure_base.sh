@@ -23,8 +23,9 @@ COSMO_LIST=(0 {1..4} 13 {100..126} {130..181}) # List of cosmologies to be used
 ID=$((SLURM_ARRAY_TASK_ID)) # ID of the cosmology to be used, starting from 0
 COSMO=${COSMO_LIST[ID]} # Cosmology to be used
 
-OVERRIDE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-20/parameters/override/c%03d.npy" ${COSMO}) # Ensure the same HODs are used for bgs-21.35 as for bgs-20
-LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements/logs/log_base_c%03d_ph000_seed0.log" ${COSMO})
+RUN=1
+OVERRIDE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-20/parameters/override/c%03d.npy" ${COSMO}) # Ensure the same HODs are used for bgs-21.35 as for bgs-20
+LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-21.35/logs/run%d/measurements/base/log_c%03d_ph000_seed0.log" ${RUN} ${COSMO})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 python measure_box.py --config jobs/bgs-21.35/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}"
