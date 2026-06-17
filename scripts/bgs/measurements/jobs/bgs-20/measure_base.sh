@@ -23,7 +23,8 @@ COSMO_LIST=(0 {1..4} 13 {100..126} {130..181}) # List of cosmologies to be used
 ID=$((SLURM_ARRAY_TASK_ID)) # ID of the cosmology to be used, starting from 0
 COSMO=${COSMO_LIST[ID]} # Cosmology to be used
 
-LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-20/measurements/logs/log_base_c%03d_ph000_seed0.log" ${COSMO})
+RUN=1
+LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-20/logs/run%d/measurements/base/log_c%03d_ph000_seed0.log" ${RUN} ${COSMO})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
 python measure_box.py --config jobs/bgs-20/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}"
