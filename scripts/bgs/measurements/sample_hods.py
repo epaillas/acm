@@ -1,8 +1,14 @@
 import argparse
+
 from sunbird.inference.priors import Bouchard25
+
 from acm.hod.parameters import HODLatinHypercube
 from acm.utils.abacus import load_abacus_cosmologies
 from acm.utils.default import cosmo_list
+from acm.utils.logging import get_logger_for_script, setup_logging
+
+logger = get_logger_for_script(__file__)
+setup_logging()
 
 # Default parameters
 filename = '/pscratch/sd/s/sbouchar/acm/bgs-20/parameters/cosmo_params/AbacusSummit.csv'
@@ -24,13 +30,13 @@ parameters = args.parameters
 cosmologies = args.cosmologies
 save_dir = args.save_dir
 
-print(f'Sampling {n} HODs for {len(cosmologies)} cosmologies from {filename} with parameters {parameters}')
+logger.info(f'Sampling {n} HODs for {len(cosmologies)} cosmologies from {filename} with parameters {parameters}')
 
 ranges = Bouchard25().ranges
 cosmo_params = load_abacus_cosmologies(
-    filename = filename, 
-    cosmologies = cosmologies, 
-    parameters = parameters, 
+    filename = filename,
+    cosmologies = cosmologies,
+    parameters = parameters,
     mapping = {'alpha_s': 'nrun'}, # map alpha_s to nrun to avoid overwriting alpha_s in HOD params
 )
 
@@ -42,4 +48,4 @@ save_fn = [f'{save_dir}/cosmo+hod_params/AbacusSummit_c{c:03d}.csv' for c in cos
 lhc.add_cosmo_params(cosmo_params, save_fn=save_fn)
 
 if save_dir:
-    print(f'Saved files to {save_dir}')
+    logger.info(f'Saved files to {save_dir}')
