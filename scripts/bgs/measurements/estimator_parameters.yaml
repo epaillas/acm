@@ -1,6 +1,11 @@
 initialization:
+  tpcf:
+
   spectrum:
+    meshsize: 512
+
   ds_xiqq:
+  
   ds_xiqg:
 
 
@@ -14,6 +19,14 @@ computation:
     mode: smu
     position_type: pos
     compute_sepsavg: False
+
+  spectrum:
+    edges:
+      step: 0.001
+    ells: [0, 2, 4]
+    boxsize:
+    los: z
+  
   ds_xiqg:
     edges:
       - !np.arange [0, 151, 1]
@@ -25,6 +38,7 @@ computation:
     los: z
     nthreads: 1
     gpu: False
+  
   ds_xiqq:
     edges:
       - !np.arange [0, 151, 1]
@@ -36,9 +50,3 @@ computation:
     los: z
     nthreads: 1
     gpu: False
-  spectrum:
-    edges:
-      step: 0.001
-    ells: [0, 2, 4]
-    boxsize:
-    los: z
