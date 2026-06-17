@@ -1,588 +1,245 @@
 """
 Script to measure clustering statistics from HOD catalogs generated with AbacusHOD.
-The script allows to compute various statistics such as the two-point correlation function (2PCF) and density split statistics.
-It supports loading HOD catalogs from a specified directory, applying redshift space distortions (RSD) and Alcock-Paczynski (AP) effects, and saving the results to disk
-for different cosmologies, phases, and seeds.
 
 Usage:
     python measure_box.py -h
-
-Directories and files:
-- HOD catalogs should be stored in a directory structure like:
-  <base_dir>/cXXX_phYYY/seedZ/hodAAA/galaxies.fits
-  where <base_dir> is the root directory for your HOD catalogs, XXX is the cosmology index, YYY is the phase index, Z is the seed, and AAA is the HOD index.
-  The <base_dir> can be specified via configuration, environment variable, or command-line argument, depending on your setup. Please refer to the code or documentation for details on how to set this path.
-- Results will be saved in a similar structure under their respective name and formats.
-"""
-import gc
-import sys
-import yaml
-import logging
+"""  # noqa: INP001
 import argparse
+import itertools
+from gc import collect
 from pathlib import Path
 
-import jax
-import fitsio
 import numpy as np
-from pycorr import TwoPointCorrelationFunction
+import pandas as pd
+import yaml
+from cosmoprimo.fiducial import AbacusSummit
+from jax import clear_caches
 
-from acm.hod import BoxHOD
-from acm.utils.logging import setup_logging
+from acm.catalogs.backends.abacus import AbacusHODBackend  #noqa: F401
+from acm.catalogs.dataclasses import Tracer
+from acm.catalogs.factories import SnapshotCatalogFactory
+from acm.catalogs.products.snapshot import SnapshotCatalog
+from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.paths import lookup_registry_path
-from acm.estimators.galaxy_clustering.density_split import DensitySplit
-from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
+from acm.utils.scripts import (
+    NumpyLoader,
+    apply_parser_default,
+    detect_gpu,
+    dump_config,
+    get_nthreads,
+    load_parser_default,
+)
 
-#%% Box loading functions
-def get_save_fn(
-    save_dir: str|Path,
-    measurement: str,
-    los: str = None,
-    extension: str = 'npy',
-    mkdir: bool = True,
-    exist_ok: bool = True,
-) -> Path:
+from ._estimators import get_estimator
+
+logger = get_logger_for_script(__file__)
+
+def get_hod_params(
+    tracer_names: list[str],
+    hod_dir: str | Path,
+    pattern: str,
+) -> dict[str, list[dict]]:
     """
-    Get the filename to save the measurement, with the 
-    `save_dir/measurement_los_Y.ext` format.
-    If the file already exists and exist_ok is False, returns None.
+    Determine the combination of HOD parameters for each tracer.
+
+    Provides only the first N parameters, where N is the smallest number of parameters found across all files.
 
     Parameters
     ----------
-    save_dir : str or Path
-        The base directory to save the measurements.
-    hod_idx : int
-        The HOD index.
-    measurement : str
-        The type of measurement (e.g., 'tpcf', 'density_split').
-    los : str, optional
-        The line-of-sight direction. If None, no los is added to the filename. Defaults to None.
-    extension : str, optional
-        The file extension. Defaults to 'npy'.
-    mkdir : bool, optional
-        Whether to create the directory if it does not exist. Defaults to True.
-    exist_ok : bool, optional
-        If False and the file already exists, returns None. Defaults to True.
+    tracer_names: list[str]
+        List of tracer names to get the HOD parameters for.
+    hod_dir: str | Path
+        Dicrectory where to find the HOD parameter CSV files.
+    pattern: str
+        Formatted string pattern to find the HOD parameter files in hod_dir.
+        Will try to format it with a parameter `tracer` corresponding to the tracer name.
 
     Returns
     -------
-    Path
-        The full path to the file where the measurement will be saved.
+    dict[str, list[dict]]
+        A dictionnary associating each tracer name with a list of dictionnaries,
+        each dictionary containing HOD parameters.
+
+    Raises
+    ------
+    FileNotFoundError
+        If any of the constructed filenames do not exist.
+    ValueError
+        If the number of parameters do not match across the HOD parameter files.
+
+    Examples
+    --------
+    >>> get_hod_params(['BGS'], '/some_dir/', pattern='{tracer}/myfile.csv')
+    {'BGS': [
+        {'p0': 0, 'p1': 1},
+        {'p0': 2, 'p1': 3},
+        ...
+    ]}
     """
-    extension = extension.lstrip('.') # Remove leading dot if present just in case
-    fn = measurement
-    if los is not None:
-        fn += f'_los_{los}'
-    fn += f'.{extension}'
-    save_fn = Path(save_dir) / fn
-    if mkdir:
-        save_fn.parent.mkdir(parents=True, exist_ok=True)
-    if not exist_ok and save_fn.exists():
-        return None
-    return save_fn
+    fns = [Path(hod_dir)/pattern.format(tracer=t) for t in tracer_names]
+    fnf = [fn for fn in fns if not fn.exists()] # Files Not Found
+    if any(fnf):
+        raise FileNotFoundError(f"Some files were not found: {fnf}")
 
-#%% Statistics computation functions
-def compute_number_density(
-    catalog: dict,
-    boxsize: float,
-    save_fn: Path = None,
-) -> float:
-    """
-    Compute the number density of the galaxies in the catalog.
+    _params = [pd.read_csv(f) for f in fns]
 
-    Parameters
-    ----------
-    catalog : dict
-        The HOD catalog.
-    boxsize : float or array-like
-        The size of the simulation box. 
-        If a float is provided, the box is assumed to be cubic. 
-        If an array-like of shape (3,) is provided, it is assumed to be the box size along each axis.
-    save_fn : Path, optional
-        The filename to save the density value as a numpy array. If None, the density is not saved. Defaults to None.
+    # Check that the number of columns is consistent
+    shapes = np.array([df.shape for df in _params])
+    Nhod = np.unique(shapes[:, 0])
+    Nparams = np.unique(shapes[:, 1])
+    if len(Nparams) != 1:
+        raise ValueError(f"Found inconsitent number of parameters across HOD parameter files: {Nparams}")
 
-    Returns
-    -------
-    float
-        The number density of the galaxies in h^3 Mpc^-3.
-    """
-    if isinstance(catalog, dict):
-        # Sanity check on catalog lengths
-        keys = list(catalog.keys())
-        values = list(catalog.values())
-        lengths = [len(val) for val in values]
-        if len(set(lengths)) != 1:
-            logger.warning(f"Catalog columns have different lengths. Assuming the {keys[0]} column length for density computation.")
-        n_galaxies = lengths[0]
-    else:
-        n_galaxies = len(catalog)
-        
-    # Sanity check on n_galaxies
-    if n_galaxies < 20:
-        logger.warning(f"Number of galaxies is very low ({n_galaxies}). Are you sure you passed the correct catalog?")
-        
-    if isinstance(boxsize, (list, tuple, np.ndarray)):
-        volume = np.prod(boxsize)
-    else:
-        volume = boxsize**3
+    _d = dict(zip(tracer_names, shapes, strict=True))
+    logger.debug(f"Found HOD parameter files of shapes: {_d}.")
 
-    density = n_galaxies / volume
-    if save_fn is not None:
-        np.save(save_fn, density)
-    return density
+    if len(np.unique(Nhod)) != 1:
+        n_min = min(Nhod)
+        logger.warning(f"Found different lengths for HOD parameter files. Keeping only first {n_min} parameter combinations.")
+        _params = [df[:n_min] for df in _params]
 
-def compute_tpcf(
-    positions, 
-    edges,
-    boxsize: float,
-    los: str = 'z', 
-    save_fn: Path = None, 
-    **kwargs
-) -> TwoPointCorrelationFunction:
-    """
-    Compute the two-point correlation function (2PCF) in (s, mu) bins
-    using the pycorr package.
-    
-    Parameters
-    ----------
-    positions : np.ndarray
-        The positions of the galaxies, with shape (N, 3).
-    edges : tuple of np.ndarray
-        The edges of the bins for the 2PCF. Should be a tuple of two arrays: (s_edges, mu_edges).
-    boxsize : float
-        The size of the simulation box.
-    los : str, optional
-        The line-of-sight direction. Defaults to 'z'.
-    save_fn : Path, optional
-        The filename to save the 2PCF trough the `save` method of the `pycorr` object. If None, the 2PCF is not saved. Defaults to None.
-    **kwargs
-        Additional keyword arguments to pass to the TwoPointCorrelationFunction constructor.
-    
-    Returns
-    -------
-    TwoPointCorrelationFunction
-        The computed two-point correlation function.
-    """
-    tpcf = TwoPointCorrelationFunction(
-        data_positions1 = positions,
-        edges = edges,
-        boxsize = boxsize,
-        los = los,
-        mode = 'smu',
-        position_type = 'pos', 
-        compute_sepsavg = False, # Ensure consistency with different computations
-        **kwargs
-    )
-    if save_fn is not None:
-        tpcf.save(save_fn)
-    
-    return tpcf
+    return {k: v.to_dict('records') for k, v in zip(tracer_names, _params, strict=True)}
 
-def compute_power_spectrum(
-    positions, 
-    edges,
-    boxsize: float,
-    los: str = 'z', 
-    save_fn: Path = None, 
-    **kwargs
-):
-    """
-    Compute the power spectrum using ACM's PowerSpectrumMultipoles wrapper around jaxpower.
-
-    Parameters
-    ----------
-    positions : np.ndarray
-        The positions of the galaxies, with shape (N, 3).
-    edges : tuple of np.ndarray
-        Binning specification for the spectrum. See `compute_spectrum`.
-    boxsize : float
-        The size of the simulation box.
-    los : str, optional
-        The line-of-sight direction. Defaults to 'z'.
-    save_fn : Path, optional
-        The filename to save the power spectrum trough the `save` method of the `jaxpower` mesh object. If None, the it is not saved. Defaults to None.
-    **kwargs
-        Additional keyword arguments to pass to the compute_spectrum method.
-    
-    Returns
-    -------
-    TwoPointCorrelationFunction
-        The computed two-point correlation function.
-    """
-    meshsize = kwargs.pop('meshsize', 512)
-    ps = PowerSpectrumMultipoles(data_positions=positions, boxsize=boxsize, boxcenter=boxsize/2, meshsize=meshsize)
-    ps.set_density_contrast(resampler='tsc', interlacing=3, compensate=True) # FIXME: Remove hardcoded values!
-    pk = ps.compute_spectrum(edges=edges, los=los, save_fn=save_fn, **kwargs)
-    
-    return pk
-
-def compute_density_split(
-    positions,
-    edges,
-    boxsize: float,
-    los: str = 'z',
-    cellsize: float = 5.0,
-    smoothing_radius: float = 10.0,
-    nquantiles: int = 5,
-    type: str = 'correlation',
-    save_fn_qd: Path = None,
-    save_fn_qq: Path = None,
-    **kwargs
-) -> tuple[list, list]:
-    """
-    Compute the density split statistics: the cross-correlation between
-    the quantile regions and the data, and the auto-correlation of the
-    quantile regions.
-    
-    Parameters
-    ----------
-    positions : np.ndarray
-        The positions of the galaxies, with shape (N, 3).
-    edges : tuple of np.ndarray
-        The edges of the bins for the correlation functions. Should be a tuple of two arrays:
-        (s_edges, mu_edges).
-    boxsize : float
-        The size of the simulation box.
-    los : str, optional
-        The line-of-sight direction. Defaults to 'z'.
-    cellsize : float, optional
-        The size of the cells for the density field. Defaults to 5.0.
-    smoothing_radius : float, optional
-        The radius for smoothing the density field. Defaults to 10.0.
-    nquantiles : int, optional
-        The number of quantiles to split the density field into. Defaults to 5.
-    type: str, optional
-        The type of statistic to compute. Can be either 'correlation' for correlation functions or 'power' for power spectra. Defaults to 'correlation'.
-    save_fn_qd : Path, optional
-        The filename to save the cross-correlation function. If None, the CCF is not saved. Defaults to None.
-    save_fn_acf : Path, optional
-        The filename to save the auto-correlation function. If None, the ACF is not saved. Defaults to None.
-    **kwargs
-        Additional keyword arguments to pass to the computation functions.
-    
-    Returns
-    -------
-    tuple of list
-        A tuple containing the cross-correlation function and the auto-correlation functions for each quantile.
-    """
-    ds = DensitySplit(data_positions=positions, boxsize=boxsize, boxcenter=boxsize/2, cellsize=cellsize)
-    ds.set_density_contrast(smoothing_radius=smoothing_radius)
-    ds.set_quantiles(nquantiles=nquantiles, query_method='randoms')
-
-    if type == 'correlation':
-        qd = ds.quantile_data_correlation(
-            data_positions = positions,
-            edges = edges,
-            los = los,
-            compute_sepsavg = False,
-            save_fn = save_fn_qd,
-            **kwargs
-        )
-        qq = ds.quantile_correlation(
-            edges = edges,
-            los = los,
-            compute_sepsavg = False,
-            save_fn = save_fn_qq,
-            **kwargs
-        )
-    elif type == 'power':
-        qd = ds.quantile_data_power(
-            data_positions = positions,
-            edges = edges,
-            los = los,
-            save_fn = save_fn_qd,
-            **kwargs,
-        )
-        qq = ds.quantile_power(
-            edges = edges,
-            los = los,
-            save_fn = save_fn_qq,
-            **kwargs
-        )
-    else:
-        raise ValueError(f"Unknown type '{type}'. Available types: 'correlation', 'power'")
-    
-    return qd, qq
-
-#%% Main script
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description="Measure clustering statistics from HOD catalogs.")
-    parser.add_argument('--config', type=str, default=None, help='Path to a configuration file (YAML format) with the parameters below. Command line arguments override config file settings.')
-    parser.add_argument('--dump_config', action='store_true', help='If set, dumps the current configuration in the console and exits.')
-    parser.add_argument('-c', '--cosmologies', type=int, nargs='+', help='List of cosmology indices to process.')
-    parser.add_argument('-p', '--phases', type=int, nargs='+', help='List of phase indices to process.')
-    parser.add_argument('-s', '--seeds', type=int, nargs='+', help='List of seeds to process.')
-    parser.add_argument('--hods', type=int, nargs='+', default=None, help='List of HOD indices to process. If None, processes all HODs in the catalog file.')
-    parser.add_argument('-t', '--sim_type', type=str, default='base', help='Simulation type (e.g., base, small).')
-    parser.add_argument('--abacus_tracer', type=str, default='BGS', help='Tracer type for Abacus catalogs loading (e.g., BGS, LRG), see `acm.utils.paths.lookup_registry_path`.') # NOTE: Should be temporary ?
-    parser.add_argument('-z', '--redshift', type=float, default=0.2, help='Redshift of the simulations to load.')
-    parser.add_argument('-n', '--n_hod', type=int, default=100, help='Number of HODs to run per cosmology, phase and seed.')
-    parser.add_argument('--hod_start', type=int, default=None, help='Starting index for HODs to process (for resuming interrupted runs).')
-    parser.add_argument('--hod_dir', type=str, help='Directory containing the HOD catalogs.')
-    parser.add_argument('--parameters_override', type=str, default=None, help='Path to a specific .npy file containing a dictionary of HOD indexes for each cosmo, phase and seed. Will override any other parameter selection if provided.')
-    parser.add_argument('-nz', '--target_density', type=float, default=1e-2, help='Target density for the tracer in h^3 Mpc^-3.')
-    parser.add_argument('-ns', '--target_density_sigma', type=float, default=1e-5, help='Allowed sigma around the target density in h^3 Mpc^-3.')
-    parser.add_argument('--process_underdense', action='store_true', help='Whether to process HODs that are underdense compared to the target density.')
-    parser.add_argument('--add_rsd', action='store_true', help='Whether to add RSD (redshift space distortion) effects.')
-    parser.add_argument('--add_ap', action='store_true', help='Whether to add AP (Alcock-Paczynski) effects.')
-    parser.add_argument('--measurements', type=str, nargs='+', help='List of measurements to compute. See details below.')
-    parser.add_argument('--gpu', action='store_true', help='Use GPU acceleration if available.')
-    parser.add_argument('--nthreads', type=int, default=4, help='Number of threads to use for computations.')
-    parser.add_argument('--save_dir', type=str, default=None, help='Directory to save the measurements. If None, measurements are not saved.')
-    parser.add_argument('--save_galaxies', action='store_true', help='Whether to save the generated galaxy catalogs.')
-    parser.add_argument('--overwrite', action='store_true', help='Whether to overwrite existing measurement files.')
-    parser.add_argument('--log_level', type=str, default='INFO', help='Logging level (e.g., DEBUG, INFO, WARNING, ERROR).')
-    parser.add_argument('--log_file', type=str, default=None, help='File to save logs. If None, logs are printed to console.')
-    parser.add_argument('--failures', type=int, default=3, help='Number of tries to attempt before skipping a measurement in case of failure.')
-    
-    parser.epilog = """
-    Measurements options:
-    - 'density': Compute and save the number density of the tracer.
-    - 'tpcf': Compute and save the two-point correlation function (2PCF in (s, mu) bins).
-    - 'density_split': Compute and save the density split statistics (cross-correlation and auto-correlation).
-    - 'power_spectrum': Compute and save the power spectrum (in (k, mu) bins).
-    - 'density_split_power': Compute and save the density split power spectra (cross-power and auto-power).
-    You can specify multiple measurements by providing a list, e.g., --measurements density tpcf power_spectrum density_split_power
-    
-    The parameters_override parameter allows to specify a custom set of indexes. If provided, it will override any other HOD selection parameters.
-    It expects a .npy file containing a dictionary with keys following the structure: 
-    dict['cosmo_idx']['phase_idx']['seed'] = [hod_idx1, hod_idx2, ...]
-    """
-    
+    parser = argparse.ArgumentParser(description="Generate snapshot mocks and compute measurements on several statistics.")
+    parser.add_argument("--config", type=str, help="Path to a YAML file to set default parameters. Command line arguments override config file settings.")
+    parser.add_argument("--dump_config", action="store_true", help="If set, dumps the current configuration in the console and exits.")
+
+    config_args = load_parser_default(parser)
+
+    parser.add_argument("-c", "--cosmologies", type=int, nargs="+", required=True, help="List of cosmology indices to process.")
+    parser.add_argument("-p", "--phases", type=int, nargs="+", required=True, help="List of phase indices to process.")
+    parser.add_argument("-s", "--seeds", type=int, nargs="+", required=True, help="List of seeds to process.")
+    parser.add_argument("--hod_dir", type=str, required=True, help="Directory containing the HOD parameter files.")
+    parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the measurements.")
+    parser.add_argument("--estimator_config", typ=str, required=True, help="YAML file containing estimator parameters.")
+    parser.add_argument("--hods", type=int, nargs="+", help="List of HOD indices to process. Disables start_hod and n_hod.")
+    parser.add_argument("--n_hod", type=int, default=100, help="Number of HODs to run per cosmology, phase and seed.")
+    parser.add_argument("--start_hod", type=int, default=0, help="Starting index for HODs to process.")
+    parser.add_argument("--max_hod", type=int, default=1000, help="Maximum number of HOD processed per cosmology, phase and seed.")
+    parser.add_argument("--sim_type", type=str, default="base", help="Simulation type (e.g., base, small).")
+    parser.add_argument("--redshift", type=float, default=0.2, help="Redshift of the simulations to load.")
+    parser.add_argument("--add_rsd", action="store_true", help="Add RSD distorsions.")
+    parser.add_argument("--add_ap", action="store_true", help="Add AP distorsions.")
+    parser.add_argument("--target_density", type=float, help="Only compute measurements on mocks reaching this density if set.")
+    parser.add_argument("--process_underdense", action="store_true", help="Compute underdense measurements, if target_density is set.")
+    parser.add_argument("--save_galaxies", action="store_true", help="Save galaxy catalogs.")
+    parser.add_argument("--measurements", type=str, nargs="+", default=[], help="List of statistics to measure on mocks.")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files.")
+    parser.add_argument("--parameters_override", type=str, help="File containing an array of parameters overriding cosmologies, phases, seeds and hod parameter values.")
+    parser.add_argument("--log_level", type=str, default="INFO", help="Logging level (e.g., DEBUG, INFO, WARNING, ERROR).")
+    parser.add_argument("--log_file", type=str, help="File to save logs. If None, logs are printed to console.")
+
+    apply_parser_default(parser, config_args)
+    dump_config(parser)
     args = parser.parse_args()
-    
-    if args.config is not None:
-        with open(args.config, 'r') as f:
-            config_args = yaml.safe_load(f)
-            parser.set_defaults(**config_args)
-        args = parser.parse_args() # Re-parse arguments with config defaults
-    if args.dump_config:
-        parser.print_help(sys.stdout)
-        print("\nCurrent configuration:")
-        print("----------------------")
-        tmp_args = vars(args).copy()
-        del tmp_args['config']
-        del tmp_args['dump_config']
-        for arg in tmp_args:
-            print(f"{arg}: {getattr(args, arg)}")
-        sys.exit(-1)
-    
-    # Setup argument parameters
-    cosmologies = args.cosmologies
-    phases = args.phases
-    seeds = args.seeds
-    sim_type = args.sim_type
-    abacus_tracer = args.abacus_tracer
-    redshift = args.redshift
-    n_hod = args.n_hod
-    hod_dir = args.hod_dir
-    
-    tracer_density = [args.target_density - args.target_density_sigma, args.target_density] if args.target_density else None
-    process_underdense = args.process_underdense
-    add_rsd = args.add_rsd
-    add_ap = args.add_ap
+    target_density = args.target_density
 
-    measurements = args.measurements
-    failures = args.failures
-    gpu = args.gpu
-    nthreads = args.nthreads
-    save_galaxies = args.save_galaxies
-    overwrite = args.overwrite
-    
-    # Setup logging
     setup_logging(level=args.log_level, filename=args.log_file)
-    logger = logging.getLogger(__file__.split('/')[-1])
-    
-    # Parameters lists override
-    if args.parameters_override is not None:
-        parameters_override = np.load(args.parameters_override, allow_pickle=True).item()
-        cosmologies = list(map(int, parameters_override.keys()))
-        logger.info(f'Using parameters override from {args.parameters_override}. Cosmologies to process: {cosmologies}')
 
-    for cosmo_idx in cosmologies:
-        if args.parameters_override is not None:
-            phases = list(map(int, parameters_override.get(str(cosmo_idx), {}).keys())) # list of integers
-            logger.info(f'Using phases from parameters override for cosmology {cosmo_idx}: {phases}')
-        
-        # Get the indexes of the HODs to process
-        hod_file = np.genfromtxt(Path(hod_dir) / f'Bouchard25_c{cosmo_idx:03d}.csv', delimiter=',', names=True)
-        hod_params = list(hod_file.dtype.names)
-        hods = range(len(hod_file)) if args.hods is None else args.hods 
-        if args.hod_start is not None:
-            hods = [h for h in hods if h >= args.hod_start]
-        if len(hods) == 0:
-            logger.warning(f'No HODs to process for cosmology {cosmo_idx}. Skipping...')
-            continue
-        
-        for phase_idx in phases:
-            if args.parameters_override is not None:
-                seeds = list(map(int, parameters_override.get(str(cosmo_idx), {}).get(str(phase_idx), {}).keys())) # list of integers
-                logger.info(f'Using seeds from parameters override for cosmology {cosmo_idx}, phase {phase_idx}: {seeds}')
-                
-            logger.info(f"Processing c{cosmo_idx:03d}_ph{phase_idx:03d}")
-            
-            abacus = BoxHOD(
-                varied_params = hod_params,
-                cosmo_idx = cosmo_idx,
-                phase_idx = phase_idx,
-                sim_type = sim_type,
-                redshift = redshift,
-                DM_DICT = lookup_registry_path('Abacus.yaml', abacus_tracer, 'box'), # TODO : Maybe change this if using Hanyu's profile version (no need for BGS-specific catalog ?)
+    with Path(args.estimator_config).open() as f:
+        estimator_config = yaml.load(f, Loader=NumpyLoader)  # noqa: S506
+        init_config = estimator_config.get('initialization', {})
+        compute_config = estimator_config.get('computation', {})
+
+    is_gpu = detect_gpu()
+    nthreads = get_nthreads()
+
+    # NOTE: Hardcoded single BGS tracer for this script
+    abacus_paths = lookup_registry_path("Abacus.yaml", "BGS", "box", args.sim_type)
+    tracer_names = ['BGS']
+
+    # Precompute indices to avoid loop nesting & make indice overload easier
+    hods = args.hods or range(args.start_hod, args.start_hod + args.max_hod)
+    indices = itertools.product(args.cosmologies, args.phases, args.seeds, hods)
+    if args.parameters_override:
+        _po = np.load(args.parameters_override)
+        indices = _po[np.lexsort((_po[:, 1], _po[:, 0]))] # sort by (cosmo, phase)
+        logger.info(f"Overriding parameters from {args.parameters_override}.")
+    grouped = itertools.groupby(indices, key=lambda x: (x[0], x[1]))
+
+    hod_count = 0 # Number of computed HODs
+    for (cosmo_idx, phase_idx), group in grouped:
+        factory = SnapshotCatalogFactory(
+            backend = "AbacusHOD",
+            catalog_class = SnapshotCatalog,
+            cosmo = AbacusSummit(cosmo_idx), # NOTE: cosmo_fid=DESI()
+            cosmo_idx = cosmo_idx, # From here, backend arguments are passed as kwargs
+            phase_idx = phase_idx,
+            sim_type = args.sim_type,
+            sim_dir = abacus_paths["sim_dir"],
+            subsample_dir = abacus_paths["subsample_dir"],
+        )
+        logger.info(f'Loaded factory for c{cosmo_idx:03d}_ph{phase_idx:03d}')
+
+        hod_fn = f"Bouchard25_{cosmo_idx:03d}.csv"
+        hod_params = get_hod_params(tracer_names, args.hod_dir, pattern=hod_fn)
+
+        for _, _, seed, hod_idx in group:
+            tracers = [Tracer(name=k, params=v[hod_idx]) for k, v in hod_params.items()]
+            factory.make_catalogs(
+                redshifts = [args.redshift],
+                tracers = tracers,
+                dark_matter_kwargs = {"tracers": tracers}, # Needed for AbacusHOD
+                use_logsigma = True,
+                seed = seed,
             )
-            
-            for seed in seeds:
-                
-                if args.parameters_override is not None:
-                    hods = parameters_override.get(str(cosmo_idx), {}).get(str(phase_idx), {}).get(str(seed), []) 
-                    logger.info(f'Using HODs from parameters override for cosmology {cosmo_idx}, phase {phase_idx}, seed {seed}: {hods}')
-                    
-                N = 1
-                for hod_idx in hods:
-                    if N > n_hod: continue
-                    hod = {key: hod_file[key][hod_idx] for key in hod_params}
-                    
-                    save_dir = Path(args.save_dir) / sim_type / f'c{cosmo_idx:03d}_ph{phase_idx:03d}' / f'seed{seed}' / f'hod{hod_idx:03d}'
-                    # No mkdir here to avoid creating empty directories
-                    # NOTE: args.save_dir can't be None !
-                    
-                    save_fn = get_save_fn(save_dir, measurement='galaxies', extension='fits', mkdir=False, exist_ok=overwrite)
-                    if save_fn is None:
-                        save_fn = get_save_fn(save_dir, measurement='galaxies', extension='fits')
-                        logger.info(f'HOD file exists. Loading catalog from file...')
-                        catalog, header = fitsio.read(save_fn, header=True)
-                        # NOTE: in theory, all these parameters exist already in the BoxHOD instance above, 
-                        # but to be consistent with the file, we'll use the header values
-                        boxsize = BoxHOD.get_boxsize(header['BOXSIZE'], add_ap=add_ap, los='x', q_par=header.get('Q_PAR', 1.0), q_perp=header.get('Q_PERP', 1.0))
-                        density = compute_number_density(catalog, boxsize)
-                        abacus.in_density = density > min(tracer_density) if tracer_density else True
-                    else:
-                        catalog = abacus.run(
-                            hod,
-                            nthreads = nthreads,
-                            tracer_density = tracer_density,
-                            process_underdense = process_underdense,
-                            seed = seed,
-                            add_ap = add_ap,
-                            save_fn = save_fn if save_galaxies else None,
-                        )
-                        catalog = catalog['LRG'] # NOTE : assuming LRG tracer here
-                    if not abacus.in_density and not process_underdense: continue
-                    N += abacus.in_density
+            catalog = factory.get_catalog(args.redshift) # NOTE: TO TEST UP TO HERE
+            mock_dir = Path(args.save_dir) / f'c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}'
 
-                    if 'density' in measurements:
-                        save_fn = get_save_fn(save_dir, measurement='density')
-                        boxsize = BoxHOD.get_boxsize(boxsize=abacus.boxsize, add_ap=add_ap, los='x', q_par=abacus.q_par, q_perp=abacus.q_perp)
-                        density = compute_number_density(catalog, boxsize, save_fn=save_fn)
-                        logger.info(f"Density for HOD {hod_idx:03d}: {density:.4e} h^3 Mpc^-3")
+            if args.save_galaxies:
+                catalog.save(mock_dir / 'catalog.h5')
 
-                    for los in ['x', 'y', 'z']:
-                        logger.info(f'Computing measurements for HOD {hod_idx:03d}, seed {seed}, los {los}')
-                        boxsize = BoxHOD.get_boxsize(
-                            boxsize=abacus.boxsize, 
-                            add_ap=add_ap, 
-                            los=los, 
-                            q_par=abacus.q_par, 
-                            q_perp=abacus.q_perp
-                        )
-                        positions = BoxHOD.get_positions(
-                            catalog, 
-                            los=los,
-                            add_rsd=add_rsd,
-                            hubble=abacus.hubble,
-                            az=abacus.az,
-                            boxsize=abacus.boxsize,
-                            add_ap=add_ap,
-                            q_par=abacus.q_par,
-                            q_perp=abacus.q_perp,
-                        )
-                        
-                        logger.debug(f'Positions shape: {positions.shape}')
-                        logger.info(f'Box size: {boxsize}')
-                        
-                        if 'tpcf' in measurements:
-                            save_fn = get_save_fn(save_dir, measurement='tpcf', los=los, exist_ok=overwrite)
-                            if save_fn is None: # Only if the file exists and overwrite is False
-                                logger.info(f'TPCF file exists. Skipping...')
-                            else:
-                                # NOTE : hardcoded settings for simplification
-                                kwargs = dict( # Dict for code readability
-                                    edges = (np.arange(0, 151, 1), np.linspace(-1, 1, 120)), # s and mu edges for the correlation functions
-                                    boxsize = boxsize,
-                                    los = los,
-                                    save_fn = save_fn,
-                                    nthreads = nthreads,
-                                    gpu = gpu,
-                                )
-                                compute_tpcf(positions, **kwargs)
+            for los in ['x', 'y', 'z']:
+                logger.info(f'Computing measurements for HOD {hod_idx:03d}, seed {seed}, los {los}')
+                catalog.clear_transforms()
+                if args.add_rsd:
+                    offset = catalog.boxsize[catalog.pos_columns.index(los)] / 2
+                    catalog.rsd(los=los, wrap=True, offset=offset)
+                if args.add_ap:
+                    catalog.ap(los=los)
 
-                        if 'density_split' in measurements:
-                            save_fn_qd = get_save_fn(save_dir, measurement='quantile_data_correlation', los=los, exist_ok=overwrite)
-                            save_fn_qq = get_save_fn(save_dir, measurement='quantile_correlation', los=los, exist_ok=overwrite)
-                            if save_fn_qd is None and save_fn_qq is None:
-                                logger.info(f'Quantile correlation files exist. Skipping...')
-                            else:
-                                # NOTE : hardcoded settings for simplification
-                                kwargs = dict(
-                                    edges = (np.arange(0, 151, 1), np.linspace(-1, 1, 120)), # FIXME: Set s_max back to 31 when done testing
-                                    cellsize = 5.0,
-                                    smoothing_radius = 10.0,
-                                    nquantiles = 5,
-                                    boxsize = boxsize,
-                                    los = los,
-                                    save_fn_qd = save_fn_qd,
-                                    save_fn_qq = save_fn_qq,
-                                    nthreads = nthreads,
-                                    gpu = gpu,
-                                )
-                                n_tries = 0
-                                while n_tries < failures: # NOTE: This is a temporary workaround to handle potential memory issues with jax.
-                                    try:
-                                        compute_density_split(positions, type='correlation', **kwargs)
-                                        break
-                                    except Exception as e:
-                                        n_tries += 1
-                                        logger.warning(f'Error computing density split for HOD {hod_idx:03d}, seed {seed}, los {los}. Try {n_tries}/{failures}. Error: {e}')
-                                        logger.info('Clearing cache and retrying...')
-                                        jax.clear_caches()
-                                        gc.collect()
-                                if n_tries == failures:
-                                    logger.error(f'Failed to compute density split for HOD {hod_idx:03d}, seed {seed}, los {los} after {failures} tries. Skipping...')
-                                    continue
+                nbar = catalog.nbar
+                if los =='x':
+                    logger.info(f"Density for hod {hod_idx:03d}: {nbar:.4e} h^3 Mpc^-3")
+                    density_file = mock_dir / 'density.npy'
+                    if not density_file.exists() or args.overwrite:
+                        np.save(density_file, nbar)
 
-                        if 'power_spectrum' in measurements:
-                            save_fn = get_save_fn(save_dir, measurement='power_spectrum', los=los, exist_ok=overwrite, extension='h5')
-                            if save_fn is None:
-                                logger.info(f'Power spectrum file exists. Skipping...')
-                            else:
-                                # NOTE : hardcoded settings for simplification
-                                kwargs = dict(
-                                    edges = {'step': 0.001},
-                                    ells = (0, 2, 4),
-                                    boxsize = boxsize,
-                                    los = los,
-                                    save_fn = save_fn,
-                                )
-                                compute_power_spectrum(positions, **kwargs)
-                        
-                        if 'density_split_power' in measurements:
-                            save_fn_qd = get_save_fn(save_dir, measurement='quantile_data_power', los=los, exist_ok=overwrite, extension='h5')
-                            save_fn_qq = get_save_fn(save_dir, measurement='quantile_power', los=los, exist_ok=overwrite, extension='h5')
-                            if save_fn_qd is None and save_fn_qq is None:
-                                logger.info(f'Quantile power files exist. Skipping...')
-                            else:
-                                # NOTE : hardcoded settings for simplification
-                                kwargs = dict(
-                                    edges = {'step': 0.001},
-                                    ells = (0, 2, 4),
-                                    cellsize = 5.0,
-                                    smoothing_radius = 10.0,
-                                    nquantiles = 5,
-                                    boxsize = boxsize,
-                                    los = los,
-                                    save_fn_qd = save_fn_qd,
-                                    save_fn_qq = save_fn_qq,
-                                )
-                                compute_density_split(positions, type='power', **kwargs)
-            
-            del abacus, catalog, positions
-            jax.clear_caches()
-            gc.collect()
+                if target_density:
+                    if nbar < target_density and not args.process_underdense:
+                        logger.info(f"Density below target ({nbar:.4e}<{target_density:.4e}). Skipping...")
+                        continue
+                    for tracer in tracers: # FIXME (later): target density selection wrt tracers ?
+                        catalog.downsample(tracer.name, nbar=target_density, seed=42)
+
+                positions = catalog.positions(raw=False).to_numpy() # FIXME: remove raw=False when #266 is merged
+                logger.debug(f'Positions shape: {positions.shape}')
+                logger.info(f'Box size: {catalog.boxsize}')
+
+                for stat_name in args.measurements:
+                    estimator_kwargs = init_config.get(stat_name, {})
+                    compute_kwargs = compute_config.get(stat_name, {})
+                    # TODO: find how to get a dynamic update here wrt estimator params
+                    if 'boxsize' in estimator_kwargs:
+                        estimator_kwargs.update(boxsize=catalog.boxsize)
+                    if 'los' in compute_kwargs:
+                        compute_kwargs.update(los=los, gpu=is_gpu, nthreads=nthreads)
+
+                    cls = get_estimator(stat_name)
+                    estimator = cls(**estimator_kwargs)
+                    estimator.compute(positions, **compute_kwargs)
+                    estimator.save(mock_dir, args.overwrite)
+
+            del estimator, catalog, positions
+            clear_caches()
+            collect()
+
+        del factory
+        clear_caches()
+        collect()
+
+        hod_count += 1
+        if hod_count >= args.n_hod:
+            logger.debug(f"Computed {args.n_hod} mocks, stopping here.")
+            break

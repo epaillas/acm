@@ -1,0 +1,44 @@
+initialization:
+  spectrum:
+  ds_xiqq:
+  ds_xiqg:
+
+
+computation:
+  tpcf:
+    edges: 
+      - !np.arange [0, 151, 1]
+      - !np.linspace [-1, 1, 120]
+    boxsize: 
+    los: z
+    mode: smu
+    position_type: pos
+    compute_sepsavg: False
+  ds_xiqg:
+    edges:
+      - !np.arange [0, 151, 1]
+      - !np.linspace [-1, 1, 120]
+    cellsize: 5.0
+    smoothing_radius: 10.0
+    nquantiles: 5
+    boxsize: 
+    los: z
+    nthreads: 1
+    gpu: False
+  ds_xiqq:
+    edges:
+      - !np.arange [0, 151, 1]
+      - !np.linspace [-1, 1, 120]
+    cellsize: 5.0
+    smoothing_radius: 10.0
+    nquantiles: 5
+    boxsize: 
+    los: z
+    nthreads: 1
+    gpu: False
+  spectrum:
+    edges:
+      step: 0.001
+    ells: [0, 2, 4]
+    boxsize:
+    los: z
