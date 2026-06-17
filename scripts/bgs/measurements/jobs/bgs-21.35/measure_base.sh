@@ -27,6 +27,6 @@ OVERRIDE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-20/parameters/override/c%03d.
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements/logs/log_base_c%03d_ph000_seed0.log" ${COSMO})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/bgs-21.35/config.yaml --gpu --cosmologies ${COSMO} --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}"
+python measure_box.py --config jobs/bgs-21.35/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}"
 
 # Launch with : sbatch --array=0-84 ...
