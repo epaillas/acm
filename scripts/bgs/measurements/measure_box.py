@@ -100,6 +100,12 @@ def get_hod_params(
 
     return {k: v.to_dict('records') for k, v in zip(tracer_names, _params, strict=True)}
 
+def update_dict_with_keys(*d: dict, **kwargs) -> None:
+    """Update a dictionaries in place if the parameter names are present in its keys."""
+    for _d in d:
+        update_keys = {k: v for k, v in kwargs.items() if k in _d}
+        _d.update(update_keys)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate snapshot mocks and compute measurements on several statistics.")
     parser.add_argument("--config", type=str, help="Path to a YAML file to set default parameters. Command line arguments override config file settings.")
@@ -220,8 +226,14 @@ if __name__ == "__main__":
                 for stat_name in args.measurements:
                     estimator_kwargs = init_config.get(stat_name, {})
                     compute_kwargs = compute_config.get(stat_name, {})
-                    # TODO: find how to get a dynamic update here wrt estimator params
-                    # To update: boxsize, los, gpu, nthreads
+                    update_dict_with_keys(
+                        estimator_kwargs,
+                        compute_kwargs,
+                        boxsize=catalog.boxsize,
+                        los=los,
+                        gpu=is_gpu,
+                        nthreads=nthreads,
+                    )
 
                     cls = get_estimator(stat_name)
                     estimator = cls(**estimator_kwargs)
