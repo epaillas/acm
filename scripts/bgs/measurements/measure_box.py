@@ -172,7 +172,7 @@ if __name__ == "__main__":
         )
         logger.info(f'Loaded factory for c{cosmo_idx:03d}_ph{phase_idx:03d}')
 
-        hod_fn = f"Bouchard25_{cosmo_idx:03d}.csv"
+        hod_fn = f"Bouchard25_{cosmo_idx:03d}.csv" # NOTE: Hardcoded pattern
         hod_params = get_hod_params(tracer_names, args.hod_dir, pattern=hod_fn)
 
         for _, _, seed, hod_idx in group:
@@ -184,7 +184,7 @@ if __name__ == "__main__":
                 use_logsigma = True,
                 seed = seed,
             )
-            catalog = factory.get_catalog(args.redshift) # NOTE: TO TEST UP TO HERE
+            catalog = factory.get_catalog(args.redshift)
             mock_dir = Path(args.save_dir) / f'c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}'
 
             if args.save_galaxies:
