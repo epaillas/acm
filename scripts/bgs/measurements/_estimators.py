@@ -14,7 +14,7 @@ logger = logging.getLogger('_estimators')
 
 class Estimator(ABC):
 
-    save_ext = ['h5', 'hdf5']
+    save_ext = ('h5', 'hdf5')
 
     def __init__(self) -> None:
         self.estimate: LsstypeObject | None = None
@@ -59,6 +59,7 @@ class PycorrEstimator(Estimator):
         Positions are passed as `data_positions1`; other kwargs are passed as-is.
         See :func:`pycorr.TwoPointCorrelationFunction`
         """
+        logger.debug("Computing TPCF.")
         correlation = TwoPointCorrelationFunction(
             data_positions1 = positions,
             **kwargs
