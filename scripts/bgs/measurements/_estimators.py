@@ -13,7 +13,7 @@ from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
 from acm.utils.compression import LsstypeObject
 
 logger = logging.getLogger('_estimators')
-# TODO: handle failures
+
 def save_lsstype(filename: str | Path, obj: LsstypeObject, overwrite: bool = False) -> None:
     """Save an lstype object to an h5 file."""
     fn = Path(filename)
