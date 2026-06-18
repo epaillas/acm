@@ -44,7 +44,7 @@ def load_parser_default(parser: argparse.ArgumentParser) -> dict:
 
     Expects at least a 'config' argument in the parser.
     """
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     if not hasattr(args, "config"):
         raise ValueError("parser_default_config requires a 'config' argument to work.")
     config_args = {}

@@ -82,8 +82,13 @@ class TestLoadParserDefault:
         """A parser without a --config argument should raise before any file I/O."""
         parser = argparse.ArgumentParser()
         with patch("sys.argv", ["prog"]), pytest.raises(ValueError, match="config"):
-                load_parser_default(parser)
+            load_parser_default(parser)
 
+    def test_extra_args_ignored(self, config_file):
+        """Extra arguments added after load_parser_default should not cause an error."""
+        parser = make_parser_with_config(str(config_file))
+        with patch("sys.argv", ["prog", "--some_arg", "0"]):
+            load_parser_default(parser)
 
 class TestApplyParserDefault:
     def test_sets_defaults(self):
@@ -114,7 +119,7 @@ class TestDumpConfig:
         parser.add_argument("--dump_config", action="store_true")
         parser.add_argument("--config", default=None)
         with patch("sys.argv", ["prog", "--dump_config"]), pytest.raises(SystemExit):
-                dump_config(parser)
+            dump_config(parser)
 
     def test_does_nothing_when_false(self):
         parser = argparse.ArgumentParser()
@@ -130,7 +135,7 @@ class TestDumpConfig:
         parser.add_argument("--alpha", type=float, default=3.14)
         parser.add_argument("--label", default="test")
         with patch("sys.argv", ["prog", "--dump_config"]), pytest.raises(SystemExit):
-                dump_config(parser)
+            dump_config(parser)
         captured = capsys.readouterr().out
         assert "alpha: 3.14" in captured
         assert "label: test" in captured
