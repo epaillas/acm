@@ -28,6 +28,7 @@ from acm.utils.scripts import (
     dump_config,
     get_nthreads,
     load_parser_default,
+    retry,
 )
 
 from ._estimators import get_estimator
@@ -238,7 +239,7 @@ if __name__ == "__main__":
                     )
 
                     func = get_estimator(stat_name)
-                    func(positions, fn, **estimator_kwargs)
+                    retry(args.failures, func, positions, fn, **estimator_kwargs)
 
             del catalog, positions
             clear_caches()
