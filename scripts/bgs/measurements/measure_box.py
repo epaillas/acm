@@ -15,7 +15,7 @@ import yaml
 from cosmoprimo.fiducial import AbacusSummit
 from jax import clear_caches
 
-from acm.catalogs.backends.abacus import AbacusHODBackend  #noqa: F401
+from acm.catalogs.backends.abacus import AbacusHODBackend  # noqa: F401
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.factories import SnapshotCatalogFactory
 from acm.catalogs.products.snapshot import SnapshotCatalog
@@ -101,7 +101,7 @@ def get_hod_params(
     return {k: v.to_dict('records') for k, v in zip(tracer_names, _params, strict=True)}
 
 def update_dict_with_keys(*d: dict, **kwargs) -> None:
-    """Update a dictionaries in place if the parameter names are present in its keys."""
+    """Update dictionaries in place if the parameter names are present in their respective keys."""
     for _d in d:
         update_keys = {k: v for k, v in kwargs.items() if k in _d}
         _d.update(update_keys)
@@ -145,8 +145,6 @@ if __name__ == "__main__":
 
     with Path(args.estimator_config).open() as f:
         estimator_config = yaml.load(f, Loader=NumpyLoader)  # noqa: S506
-        init_config = estimator_config.get('initialization', {})
-        compute_config = estimator_config.get('computation', {})
 
     is_gpu = detect_gpu()
     nthreads = get_nthreads()
@@ -224,23 +222,25 @@ if __name__ == "__main__":
                 logger.info(f'Box size: {catalog.boxsize}')
 
                 for stat_name in args.measurements:
-                    estimator_kwargs = init_config.get(stat_name, {})
-                    compute_kwargs = compute_config.get(stat_name, {})
+                    fn = mock_dir / f"{stat_name}_los-{los}.h5"
+                    if fn.exists() and args.overwrite is False:
+                        logger.info(f'File {fn} exists and {args.overwrite=}. Skipping...')
+                        continue
+
+                    estimator_kwargs = estimator_config.get(stat_name, {}).copy()
                     update_dict_with_keys(
                         estimator_kwargs,
-                        compute_kwargs,
-                        boxsize=catalog.boxsize,
-                        los=los,
-                        gpu=is_gpu,
-                        nthreads=nthreads,
+                        boxsize = catalog.boxsize,
+                        boxcenter = catalog.boxsize / 2,
+                        los = los,
+                        gpu = is_gpu,
+                        nthreads = nthreads,
                     )
 
-                    cls = get_estimator(stat_name)
-                    estimator = cls(**estimator_kwargs)
-                    estimator.compute(positions, **compute_kwargs)
-                    estimator.save(mock_dir / f"{stat_name}.h5", args.overwrite)
+                    func = get_estimator(stat_name)
+                    func(positions, fn, **estimator_kwargs)
 
-            del estimator, catalog, positions
+            del catalog, positions
             clear_caches()
             collect()
 

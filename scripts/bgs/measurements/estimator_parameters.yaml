@@ -1,52 +1,78 @@
-initialization:
-  tpcf:
 
-  spectrum:
-    meshsize: 512
+tpcf:
+  edges: # s and mu edges for the correlation functions
+    - !np.arange [0, 151, 1]
+    - !np.linspace [-1, 1, 120]
+  boxsize: 
+  los: z
+  mode: smu
+  position_type: pos
+  compute_sepsavg: False # Ensure consistency with different computations
+  nthreads: 1
+  gpu: False
 
-  ds_xiqq:
-  
-  ds_xiqg:
+spectrum:
+  boxsize: 
+  boxcenter: 
+  edges:
+    step: 0.001
+  ells: [0, 2, 4]
+  los: z
 
+ds_xiqg:
+  ds_type: correlation
+  method: cross 
+  boxsize: 
+  boxcenter: 
+  cellsize: 5.0
+  smoothing_radius: 10.0
+  nquantiles: 5
+  edges:
+    - !np.arange [0, 31, 1]
+    - !np.linspace [-1, 1, 120]
+  los: z
+  compute_sepsavg: False
+  nthreads: 1
+  gpu: False
 
-computation:
-  tpcf:
-    edges: 
-      - !np.arange [0, 151, 1]
-      - !np.linspace [-1, 1, 120]
-    boxsize: 
-    los: z
-    mode: smu
-    position_type: pos
-    compute_sepsavg: False
+ds_xiqq:
+  ds_type: correlation
+  method: auto 
+  boxsize: 
+  boxcenter: 
+  cellsize: 5.0
+  smoothing_radius: 10.0
+  nquantiles: 5
+  edges:
+    - !np.arange [0, 31, 1]
+    - !np.linspace [-1, 1, 120]
+  los: z
+  compute_sepsavg: False
+  nthreads: 1
+  gpu: False
 
-  spectrum:
-    edges:
-      step: 0.001
-    ells: [0, 2, 4]
-    boxsize:
-    los: z
-  
-  ds_xiqg:
-    edges:
-      - !np.arange [0, 151, 1]
-      - !np.linspace [-1, 1, 120]
-    cellsize: 5.0
-    smoothing_radius: 10.0
-    nquantiles: 5
-    boxsize: 
-    los: z
-    nthreads: 1
-    gpu: False
-  
-  ds_xiqq:
-    edges:
-      - !np.arange [0, 151, 1]
-      - !np.linspace [-1, 1, 120]
-    cellsize: 5.0
-    smoothing_radius: 10.0
-    nquantiles: 5
-    boxsize: 
-    los: z
-    nthreads: 1
-    gpu: False
+ds_pkqg:
+  ds_type: power
+  method: cross 
+  boxsize: 
+  boxcenter: 
+  cellsize: 5.0
+  smoothing_radius: 10.0
+  nquantiles: 5
+  edges:
+    step: 0.001
+  ells: [0, 2, 4]
+  los: z
+
+ds_pkqq:
+  ds_type: power
+  method: auto 
+  boxsize: 
+  boxcenter: 
+  cellsize: 5.0
+  smoothing_radius: 10.0
+  nquantiles: 5
+  edges:
+    step: 0.001
+  ells: [0, 2, 4]
+  los: z
