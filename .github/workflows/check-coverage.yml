@@ -102,5 +102,5 @@ jobs:
       - name: Fail if coverage too low # Then, fail if coverage lowers
         if: ${{ steps.coverage.outputs.coverage < steps.get_coverage.outputs.coverage }}
         run: |
-          echo "Coverage decreased from ${{ steps.get_coverage.outputs.coverage }}% to ${{ steps.coverage.outputs.coverage }}%"
+          echo "Coverage decreased from ${{ steps.get_coverage.outputs.coverage }} to ${{ steps.coverage.outputs.coverage }}"
           exit 1
