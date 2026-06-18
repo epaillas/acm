@@ -15,7 +15,7 @@ from acm.utils.paths import lookup_registry_path
 
 logger = logging.getLogger(__name__)
 
-
+logger.warning('DEPRECATED: `acm.hod` will be deprecated in v1.1.0. Use `acm.catalogs` instead')
 class BoxHOD:
     """
     BoxHOD is a wrapper around AbacusHOD, a class for handling Halo Occupation Distribution (HOD) modeling
