@@ -4,8 +4,9 @@ Script to measure clustering statistics from HOD catalogs generated with AbacusH
 Usage:
     python measure_box.py -h
 """  # noqa: INP001
-import argparse
+import argparse  # noqa: I001
 import itertools
+import logging
 from gc import collect
 from pathlib import Path
 
@@ -31,7 +32,7 @@ from acm.utils.scripts import (
     retry,
 )
 
-from ._estimators import get_estimator
+from _estimators import get_estimator
 
 logger = get_logger_for_script(__file__)
 
@@ -119,7 +120,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--seeds", type=int, nargs="+", required=True, help="List of seeds to process.")
     parser.add_argument("--hod_dir", type=str, required=True, help="Directory containing the HOD parameter files.")
     parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the measurements.")
-    parser.add_argument("--estimator_config", typ=str, required=True, help="YAML file containing estimator parameters.")
+    parser.add_argument("--estimator_config", type=str, required=True, help="YAML file containing estimator parameters.")
     parser.add_argument("--hods", type=int, nargs="+", help="List of HOD indices to process. Disables start_hod and n_hod.")
     parser.add_argument("--n_hod", type=int, default=100, help="Number of HODs to run per cosmology, phase and seed.")
     parser.add_argument("--start_hod", type=int, default=0, help="Starting index for HODs to process.")
@@ -134,6 +135,7 @@ if __name__ == "__main__":
     parser.add_argument("--measurements", type=str, nargs="+", default=[], help="List of statistics to measure on mocks.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files.")
     parser.add_argument("--parameters_override", type=str, help="File containing an array of parameters overriding cosmologies, phases, seeds and hod parameter values.")
+    parser.add_argument("--failures", type=int, default=3, help="Number of tries for each etsimator computation before skipping (solving memory issues).")
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level (e.g., DEBUG, INFO, WARNING, ERROR).")
     parser.add_argument("--log_file", type=str, help="File to save logs. If None, logs are printed to console.")
 
@@ -143,6 +145,9 @@ if __name__ == "__main__":
     target_density = args.target_density
 
     setup_logging(level=args.log_level, filename=args.log_file)
+    logging.getLogger("numba").setLevel(logging.INFO) # Remove noisy DEBUG levels
+    logging.getLogger("jax").setLevel(logging.INFO)
+    logging.getLogger("h5py").setLevel(logging.INFO)
 
     with Path(args.estimator_config).open() as f:
         estimator_config = yaml.load(f, Loader=NumpyLoader)  # noqa: S506
@@ -163,8 +168,8 @@ if __name__ == "__main__":
         logger.info(f"Overriding parameters from {args.parameters_override}.")
     grouped = itertools.groupby(indices, key=lambda x: (x[0], x[1]))
 
-    hod_count = 0 # Number of computed HODs
     for (cosmo_idx, phase_idx), group in grouped:
+        hod_count = 0 # Number of computed HODs per cosmo/phase pair
         factory = SnapshotCatalogFactory(
             backend = "AbacusHOD",
             catalog_class = SnapshotCatalog,
@@ -177,7 +182,7 @@ if __name__ == "__main__":
         )
         logger.info(f'Loaded factory for c{cosmo_idx:03d}_ph{phase_idx:03d}')
 
-        hod_fn = f"Bouchard25_{cosmo_idx:03d}.csv" # NOTE: Hardcoded pattern
+        hod_fn = f"Bouchard25_c{cosmo_idx:03d}.csv" # NOTE: Hardcoded pattern
         hod_params = get_hod_params(tracer_names, args.hod_dir, pattern=hod_fn)
 
         for _, _, seed, hod_idx in group:
@@ -209,6 +214,7 @@ if __name__ == "__main__":
                     logger.info(f"Density for hod {hod_idx:03d}: {nbar:.4e} h^3 Mpc^-3")
                     density_file = mock_dir / 'density.npy'
                     if not density_file.exists() or args.overwrite:
+                        mock_dir.mkdir(exist_ok=True, parents=True)
                         np.save(density_file, nbar)
 
                 if target_density:
@@ -218,7 +224,7 @@ if __name__ == "__main__":
                     for tracer in tracers: # FIXME (later): target density selection wrt tracers ?
                         catalog.downsample(tracer.name, nbar=target_density, seed=42)
 
-                positions = catalog.positions(raw=False).to_numpy() # FIXME: remove raw=False when #266 is merged
+                positions = catalog.positions().to_numpy()
                 logger.debug(f'Positions shape: {positions.shape}')
                 logger.info(f'Box size: {catalog.boxsize}')
 
@@ -238,18 +244,14 @@ if __name__ == "__main__":
                         nthreads = nthreads,
                     )
 
-                    func = get_estimator(stat_name)
+                    func = get_estimator(stat_name) # FIXME: use estimator classes when implemented
                     retry(args.failures, func, positions, fn, **estimator_kwargs)
-
-            del catalog, positions
-            clear_caches()
-            collect()
-
+            hod_count += 1
+            if hod_count >= args.n_hod:
+                logger.debug(
+                    f"Computed {args.n_hod} mocks for c{cosmo_idx:03d}_ph{phase_idx:03d}, stopping here."
+                )
+                break # break inner loop
         del factory
         clear_caches()
         collect()
-
-        hod_count += 1
-        if hod_count >= args.n_hod:
-            logger.debug(f"Computed {args.n_hod} mocks, stopping here.")
-            break
