@@ -19,8 +19,8 @@ def save_lsstype(filename: str | Path, obj: LsstypeObject, overwrite: bool = Fal
     fn = Path(filename)
     if jax.process_index() != 0:  # Only process 0 saves to disk
         return  # Exit early for non-zero processes
-    if fn.suffix not in ('h5', 'hdf5'):
-        raise ValueError(f"{fn} must have one of the following extensions: {('h5', 'hdf5')}")
+    if fn.suffix not in ('.h5', '.hdf5'):
+        raise ValueError(f"{fn} must have one of the following extensions: {('.h5', '.hdf5')}")
     if fn.exists() and overwrite is False:
         logger.info(f'File {fn} exists and {overwrite=}. Skipping...')
         return
@@ -121,8 +121,8 @@ def compute_density_split(
     ds.set_quantiles(nquantiles=nquantiles, query_method=query_method)
 
     methods = {
-        'cross':'quantile_data_',
-        'auto': 'quantile_',
+        'cross':'quantile_data',
+        'auto': 'quantile',
     }
     allowed_types = ('correlation', 'power')
 
