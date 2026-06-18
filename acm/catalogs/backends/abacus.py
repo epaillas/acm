@@ -265,7 +265,8 @@ class AbacusHODBackend(SnapshotBackend):
         tracer_flags = hod_params.get("tracer_flags", {})
 
         for tracer in tracers:
-            tracer_key = f"{tracer.name}_params"
+            tracer_name = self._resolve_tracer_name(tracer.name)
+            tracer_key = f"{tracer_name}_params"
 
             # Get the tracer parameters from the tracer instance with mapping
             ntp = map_params(tracer.params.copy(), mapping=mapping)
@@ -277,15 +278,15 @@ class AbacusHODBackend(SnapshotBackend):
 
             if len(tracer_params) == 0:
                 raise ValueError(
-                    f"Default HOD parameters for tracer '{tracer.name}' must be provided either through the config file, as kwargs, or in the tracer instance."
+                    f"Default HOD parameters for tracer '{tracer_name}' must be provided either through the config file, as kwargs, or in the tracer instance."
                 )
 
             logger.debug(
-                f"Setting default HOD parameters for tracer '{tracer.name}': {tracer_params}"
+                f"Setting default HOD parameters for tracer '{tracer_name}': {tracer_params}"
             )
 
             # Ensure flag is True, even if it wasn't set in the config file
-            tracer_flags[tracer.name] = True
+            tracer_flags[tracer_name] = True
 
         # Update tracer_flags in hod_params
         hod_params["tracer_flags"] = tracer_flags
