@@ -1,4 +1,5 @@
 """Useful functions usually called in scripts."""
+
 import argparse
 import gc
 import logging
@@ -87,6 +88,7 @@ def dump_config(parser: argparse.ArgumentParser) -> None:
             print(f"{arg}: {getattr(args, arg)}")  # noqa: T201
         sys.exit(-1)
 
+
 def retry(times: int, operation: Callable, *args, **kwargs) -> Any | None:  # noqa: ANN401
     """Run a function n times then fails with logged error."""
     name = getattr(operation, "__name__", "operation")
@@ -94,16 +96,17 @@ def retry(times: int, operation: Callable, *args, **kwargs) -> Any | None:  # no
         raise ValueError(f"'times' must be >= 1, got {times}.")
     for i in range(times):
         try:
-            logger.debug(f'Calling {name}, attempt {i + 1} of {times}')
+            logger.debug(f"Calling {name}, attempt {i + 1} of {times}")
             return operation(*args, **kwargs)
         except Exception as e:  # noqa: BLE001 FIXME: catch jax exception type here
-            logger.warning(f'Calling {name} failed with error: {e}')
-            logger.info('Clearing cache and retrying...')
+            logger.warning(f"Calling {name} failed with error: {e}")
+            logger.info("Clearing cache and retrying...")
             jax.clear_caches()
             gc.collect()
     # Only runs when run reaches n
-    logger.error(f'Calling {name} definitely failed after {times} times.')
+    logger.error(f"Calling {name} definitely failed after {times} times.")
     return None
+
 
 class NumpyLoader(yaml.SafeLoader):
     """A YAML loader to allow numpy functions to be registered."""
