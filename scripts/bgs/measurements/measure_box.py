@@ -210,6 +210,7 @@ if __name__ == "__main__":
                     catalog.ap(los=los)
 
                 nbar = catalog.nbar
+
                 if los =='x':
                     logger.info(f"Density for hod {hod_idx:03d}: {nbar:.4e} h^3 Mpc^-3")
                     density_file = mock_dir / 'density.npy'
@@ -217,10 +218,10 @@ if __name__ == "__main__":
                         mock_dir.mkdir(exist_ok=True, parents=True)
                         np.save(density_file, nbar)
 
-                if target_density:
+                if target_density is not None:
                     if nbar < target_density and not args.process_underdense:
                         logger.info(f"Density below target ({nbar:.4e}<{target_density:.4e}). Skipping...")
-                        continue
+                        break # In theory, same density for all los on boxes
                     for tracer in tracers: # FIXME (later): target density selection wrt tracers ?
                         catalog.downsample(tracer.name, nbar=target_density, seed=42)
 
@@ -243,14 +244,13 @@ if __name__ == "__main__":
                         gpu = is_gpu,
                         nthreads = nthreads,
                     )
-
-                    func = get_estimator(stat_name) # FIXME: use estimator classes when implemented
+                    # FIXME: use estimator classes when implemented
+                    func = get_estimator(stat_name)
                     retry(args.failures, func, positions, fn, **estimator_kwargs)
-            hod_count += 1
+            else: # Only run if target_density does not break los loop
+                hod_count += 1
+                logger.debug(f"c{cosmo_idx:03d}_ph{phase_idx:03d}: Computed {hod_count}/{args.n_hod} mocks.")
             if hod_count >= args.n_hod:
-                logger.debug(
-                    f"Computed {args.n_hod} mocks for c{cosmo_idx:03d}_ph{phase_idx:03d}, stopping here."
-                )
                 break # break inner loop
         del factory
         clear_caches()
