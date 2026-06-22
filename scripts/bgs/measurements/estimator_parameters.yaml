@@ -76,3 +76,14 @@ ds_pkqq:
     step: 0.001
   ells: [0, 2, 4]
   los: z
+
+wst-j4:
+  J: 4
+  L: 4
+  q: 1
+  sigma: 0.8
+  kymatio_backend: torch
+  boxsize:
+  boxcenter:
+  meshsize: 360
+  init_fn: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-20/parameters/kymatio/eshsize-360_J4_L4_simga0.8.pkl

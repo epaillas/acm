@@ -1,5 +1,6 @@
 """Temporary estimator classes, that will eventually be replaced by ACM standardized classes.""" # noqa: INP001
 import logging
+import pickle
 from collections.abc import Callable
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from pycorr import TwoPointCorrelationFunction
 
 from acm.estimators.galaxy_clustering.density_split import DensitySplit
 from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
+from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
 from acm.utils.compression import LsstypeObject
 
 logger = logging.getLogger('_estimators')
@@ -143,8 +145,32 @@ def compute_density_split(
 def compute_bispectrum() -> None:
     pass
 
-def compute_wst() -> None:
-    pass
+def compute_wst(
+    positions: np.ndarray,
+    save_fn: str | Path,
+    init_fn: str | Path | None = None,
+    **kwargs
+    ) -> None:
+    """
+    Compute wst statistics on the positions.
+
+    Parameters
+    ----------
+    positions : np.ndarray
+        The positions of the galaxies, with shape (N, 3).
+    save_fn: str | Path
+        The filename to save the LSStypes estimator to.
+    init_fn: str | Path, optional
+        Path to a file containing a kymatio pickled object to bypass kymatio initialization.
+    """
+    if init_fn is not None and Path(init_fn).exists():
+        with Path(init_fn).open('rb') as f:
+            init_kymatio = pickle.load(f)  # noqa: S301
+    else:
+        init_kymatio = None
+    wst = WaveletScatteringTransform(data_positions=positions, backend='pypower', init_kymatio=init_kymatio, **kwargs)
+    wst.set_density_contrast()
+    wst.run(save_fn=save_fn)  # ty:ignore[invalid-argument-type]
 
 def get_estimator(stat_name: str) -> Callable:
     """Return the relevant estimator method for a given stat_name value."""
@@ -152,6 +178,8 @@ def get_estimator(stat_name: str) -> Callable:
         _callable = compute_tpcf
     elif stat_name == 'spectrum':
         _callable = compute_power_spectrum
+    elif stat_name.startswith('wst'):
+        _callable = compute_wst
     elif stat_name.startswith('ds_'):
         _callable = compute_density_split
     else:
