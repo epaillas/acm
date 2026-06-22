@@ -195,7 +195,7 @@ if __name__ == "__main__":
                 seed = seed,
             )
             catalog = factory.get_catalog(args.redshift)
-            mock_dir = Path(args.save_dir) / f'c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}'
+            mock_dir = Path(args.save_dir) / args.sim_type / f'c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}'
 
             if args.save_galaxies:
                 catalog.save(mock_dir / 'catalog.h5')
