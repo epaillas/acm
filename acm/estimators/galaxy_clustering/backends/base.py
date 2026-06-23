@@ -33,17 +33,28 @@ class EstimatorBackend(ABC):
         if data_positions.ndim != 2 or data_positions.shape[1] != 3:
             raise ValueError("data_positions must be of shape (N, 3).")
 
-        if (randoms_positions is not None) and (randoms_positions.ndim != 2 or randoms_positions.shape[1] != 3):
+        if (randoms_positions is not None) and (
+            randoms_positions.ndim != 2 or randoms_positions.shape[1] != 3
+        ):
             raise ValueError("randoms_positions must be of shape (M, 3).")
 
-        if (data_weights is not None) and (data_weights.ndim != 1 or data_weights.shape[0] != data_positions.shape[0]):
-            raise ValueError("data_weights must be 1D and have the same length as data_positions.")
+        if (data_weights is not None) and (
+            data_weights.ndim != 1 or data_weights.shape[0] != data_positions.shape[0]
+        ):
+            raise ValueError(
+                "data_weights must be 1D and have the same length as data_positions."
+            )
 
         if randoms_weights is not None:
             if randoms_positions is None:
                 raise ValueError("randoms_weights requires randoms_positions.")
-            if randoms_weights.ndim != 1 or randoms_weights.shape[0] != randoms_positions.shape[0]:
-                raise ValueError("randoms_weights must be 1D and have the same length as randoms_weights.")
+            if (
+                randoms_weights.ndim != 1
+                or randoms_weights.shape[0] != randoms_positions.shape[0]
+            ):
+                raise ValueError(
+                    "randoms_weights must be 1D and have the same length as randoms_weights."
+                )
 
         # Assign attributes
         self.data_positions = data_positions
@@ -57,7 +68,9 @@ class EstimatorBackend(ABC):
     def density_contrast(self) -> np.ndarray:
         """Density contrast field."""
         if self._density_contrast is None:
-            raise AttributeError('density_contrast has not been set, run set_density_contrast first.')
+            raise AttributeError(
+                "density_contrast has not been set, run set_density_contrast first."
+            )
         return self._density_contrast
 
     @property
@@ -103,6 +116,7 @@ class EstimatorBackend(ABC):
     ) -> np.ndarray:
         """Generate query positions to sample the density PDF."""
         ...
+
 
 # Create a registry for estimator backends
 _registry = BackendRegistry(EstimatorBackend)

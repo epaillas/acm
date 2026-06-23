@@ -15,11 +15,13 @@ from .base import EstimatorBackend, register_backend
 
 logger = logging.getLogger(__name__)
 
+
 def _2r(mesh: RealMeshField | ComplexMeshField) -> RealMeshField:
     """FFT, from complex to real, if applicable."""
     if not isinstance(mesh, RealMeshField):
         mesh = mesh.c2r()
     return mesh
+
 
 def _2c(mesh: RealMeshField | ComplexMeshField) -> ComplexMeshField:
     """FFT, from real to complex, if applicable."""
@@ -27,7 +29,8 @@ def _2c(mesh: RealMeshField | ComplexMeshField) -> ComplexMeshField:
         mesh = mesh.r2c()
     return mesh
 
-@register_backend('jaxpower')
+
+@register_backend("jaxpower")
 class JaxpowerBackend(EstimatorBackend):
     """
     Backend using jaxpower for galaxy clustering measurements.
@@ -44,7 +47,7 @@ class JaxpowerBackend(EstimatorBackend):
         randoms_positions: np.ndarray | None = None,
         data_weights: np.ndarray | None = None,
         randoms_weights: np.ndarray | None = None,
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Initialize the backend positional properties.
@@ -91,13 +94,12 @@ class JaxpowerBackend(EstimatorBackend):
         self.data_mesh = data_mesh
         self.randoms_mesh = randoms_mesh
 
-        logger.debug(f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}")
+        logger.debug(
+            f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}"
+        )
 
         super().__init__(
-            data_positions,
-            randoms_positions,
-            data_weights,
-            randoms_weights
+            data_positions, randoms_positions, data_weights, randoms_weights
         )
 
     @property
@@ -125,7 +127,7 @@ class JaxpowerBackend(EstimatorBackend):
         smoothing_radius: float | None = None,
         threshold: float = 0.01,
         method: str = "noise",
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Compute the density contrast field.
@@ -140,16 +142,16 @@ class JaxpowerBackend(EstimatorBackend):
             logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
             kernel = self.gaussian_kernel(self.mattrs, smoothing_radius)
         else:
-            kernel = 1.0 # NOTE: check if it's consistent with older implementation
+            kernel = 1.0  # NOTE: check if it's consistent with older implementation
 
-        data_mesh: RealMeshField = self.data_mesh.paint(out='real', **kwargs)
+        data_mesh: RealMeshField = self.data_mesh.paint(out="real", **kwargs)
         _smoothed_mesh: ComplexMeshField = _2c(data_mesh) * kernel  # ty:ignore[unsupported-operator]
         data_mesh = _2r(_smoothed_mesh)
 
         if self.randoms_mesh is not None:
             ft = self._get_field_threshold(self.randoms_mesh, threshold, method)
 
-            randoms_mesh: RealMeshField = self.randoms_mesh.paint(out='real', **kwargs)
+            randoms_mesh: RealMeshField = self.randoms_mesh.paint(out="real", **kwargs)
             _smoothed_mesh: ComplexMeshField = _2c(randoms_mesh) * kernel  # ty:ignore[unsupported-operator]
             randoms_mesh = _2r(_smoothed_mesh)
 
@@ -160,10 +162,10 @@ class JaxpowerBackend(EstimatorBackend):
             alpha: RealMeshField = sum_data * 1.0 / sum_randoms  # ty:ignore[unsupported-operator]
             delta_mesh: RealMeshField = data_mesh - alpha * randoms_mesh  # ty:ignore[unsupported-operator]
 
-            _val = jax.numpy.where( # keep values above threshold
+            _val = jax.numpy.where(  # keep values above threshold
                 randoms_mesh.value > ft,
                 delta_mesh.value / (alpha * randoms_mesh.value),  # ty:ignore[unsupported-operator]
-                0.0
+                0.0,
             )
             delta_mesh = delta_mesh.clone(value=_val)
         else:
@@ -190,13 +192,13 @@ class JaxpowerBackend(EstimatorBackend):
             Gaussian kernel in Fourier space.
         """
         coords = mattrs.kcoords(sparse=True)
-        return jax.numpy.exp(-0.5 * sum(kc * smoothing_radius **2 for kc in coords))
+        return jax.numpy.exp(-0.5 * sum(kc * smoothing_radius**2 for kc in coords))
 
     @staticmethod
     def _get_field_threshold(
         field: ParticleField,
         threshold: float = 0.01,
-        method: str = 'noise',
+        method: str = "noise",
     ) -> float:
         """
         Compute threshold for a particle field to avoid division by zero.

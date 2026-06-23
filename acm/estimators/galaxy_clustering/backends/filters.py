@@ -1,4 +1,5 @@
 """Legacy module for pypower filters."""
+
 import numpy as np
 
 
@@ -44,6 +45,7 @@ class TopHatFilter:
             w = 3 * (np.sin(kr) / kr**3 - np.cos(kr) / kr**2)
         w[k == 0] = 1.0
         return w * v
+
 
 class GaussianFilter:
     """
