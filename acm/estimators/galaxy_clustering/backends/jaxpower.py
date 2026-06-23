@@ -11,10 +11,7 @@ from jaxpower import (
     get_mesh_attrs,
 )
 
-from acm.estimators.galaxy_clustering.backends.base import (
-    EstimatorBackend,
-    register_backend,
-)
+from .base import EstimatorBackend, register_backend
 
 logger = logging.getLogger(__name__)
 
@@ -94,14 +91,14 @@ class JaxpowerBackend(EstimatorBackend):
         self.data_mesh = data_mesh
         self.randoms_mesh = randoms_mesh
 
+        logger.debug(f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}")
+
         super().__init__(
             data_positions,
             randoms_positions,
             data_weights,
             randoms_weights
         )
-
-        logger.debug(f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}")
 
     @property
     def boxsize(self) -> jax.Array:
