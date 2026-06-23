@@ -9,8 +9,14 @@ To implement a new backend, subclass SnapshotBackend or LightconeBackend
 and register it with @register_backend("<name>").
 """
 
+from acm.utils.modules import check_installed
+
 from .base import (
     DarkMatterBackend,
     SnapshotBackend,
     load_backend,
 )
+
+# Register backends if possible:
+if check_installed("abacusnbody"):
+    from .abacus import AbacusHODBackend

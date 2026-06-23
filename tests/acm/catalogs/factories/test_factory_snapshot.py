@@ -27,7 +27,7 @@ def make_tracer_data(n: int = 100) -> pd.DataFrame:
     
 class DummyBackend(DarkMatterBackend):
     """A minimal implementation of DarkMatterBackend for testing."""
-    def get_dark_matter_catalog(self, redshift: float, **kwargs):
+    def load_dark_matter_catalog(self, redshift: float, **kwargs):
         return MagicMock()  # Return a dummy catalog object
 
     def make_galaxy_catalog(self, dm_catalog, tracers: list[Tracer], **kwargs) -> None:
@@ -68,7 +68,7 @@ def mock_backend():
 def magic_mock_factory():
     """A factory using MagicMock to mimics SnapshotBackend with valid return values."""
     backend = MagicMock(spec=DarkMatterBackend)
-    backend.get_dark_matter_catalog.return_value = MagicMock()
+    backend.load_dark_matter_catalog.return_value = MagicMock()
     backend.make_galaxy_catalog.side_effect = lambda dm_catalog, tracers, **kwargs: {t: make_tracer_data() for t in tracers}
     backend.boxsize = 500.0
     
@@ -172,8 +172,8 @@ class TestMakeCatalogs:
             tracers=[tracer_foo],
             dark_matter_kwargs=dark_matter_kwargs,
         )
-        magic_mock_factory.backend.get_dark_matter_catalog.assert_called_once()
-        call_kwargs = magic_mock_factory.backend.get_dark_matter_catalog.call_args[1]
+        magic_mock_factory.backend.load_dark_matter_catalog.assert_called_once()
+        call_kwargs = magic_mock_factory.backend.load_dark_matter_catalog.call_args[1]
         assert call_kwargs["redshift"] == 0.5
         assert call_kwargs["seed"] == 42
         assert call_kwargs["cosmology_variant"] == "base"

@@ -47,7 +47,7 @@ class DarkMatterBackend(ABC):
         ...
 
     @abstractmethod
-    def get_dark_matter_catalog(self, *args, **kwargs) -> object:
+    def load_dark_matter_catalog(self, *args, **kwargs) -> object:
         """Load the dark matter catalog, to be implemented by geometry-specific subclasses."""
         ...
 
@@ -60,8 +60,16 @@ class SnapshotBackend(DarkMatterBackend):
     naturally to N-body simulation suites.
     """
 
+    def __init__(self) -> None:
+        self._cache: dict[float, object] = {}  # Cache for dark matter catalogs
+
     @abstractmethod
-    def get_dark_matter_catalog(self, redshift: float, **kwargs) -> object:
+    def load_dark_matter_catalog(
+        self,
+        redshift: float,
+        no_cache: bool = False,
+        **kwargs,
+    ) -> object:
         """
         Load the dark matter catalog for the specified redshift and tracers.
 
