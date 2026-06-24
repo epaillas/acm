@@ -33,6 +33,7 @@ class BaseFilter(ABC):
         """
         ...
 
+
 class TopHatFilter(BaseFilter):
     """
     Top-hat filter in Fourier space.
@@ -65,6 +66,7 @@ class TopHatFilter(BaseFilter):
         w[k == 0] = 1.0
         return w * v
 
+
 class GaussianFilter(BaseFilter):
     """
     Gaussian filter in Fourier space.
@@ -92,6 +94,7 @@ class GaussianFilter(BaseFilter):
         r = self.r
         k2 = sum(ki**2 for ki in k)
         return np.exp(-0.5 * k2 * r**2) * v
+
 
 class NoFilter(BaseFilter):
     """

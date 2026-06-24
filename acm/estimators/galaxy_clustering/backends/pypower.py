@@ -12,7 +12,7 @@ from .base import EstimatorBackend, register_backend
 logger = logging.getLogger(__name__)
 
 
-@register_backend('pypower')
+@register_backend("pypower")
 class PypowerBackend(EstimatorBackend):
     """Backend using pypower for galaxy clustering measurements.
 
@@ -64,13 +64,13 @@ class PypowerBackend(EstimatorBackend):
         )
 
         mesh = CatalogMesh(
-            data_positions = data_positions,
-            data_weights = data_weights,
-            randoms_positions = randoms_positions,
-            randoms_weights = randoms_weights,
-            interlacing = interlacing,
-            resampler = resampler,
-            position_type = "pos", # NOTE: hardcoded w/ position arrays shapes
+            data_positions=data_positions,
+            data_weights=data_weights,
+            randoms_positions=randoms_positions,
+            randoms_weights=randoms_weights,
+            interlacing=interlacing,
+            resampler=resampler,
+            position_type="pos",  # NOTE: hardcoded w/ position arrays shapes
             **kwargs,
         )
 
@@ -135,10 +135,12 @@ class PypowerBackend(EstimatorBackend):
         t0 = time.time()
 
         if smoothing_radius is not None:
-            logger.info(f"Smoothing with {smoothing_radius} Mpc/h {filter_shape} kernel.")
+            logger.info(
+                f"Smoothing with {smoothing_radius} Mpc/h {filter_shape} kernel."
+            )
             kernel = self._get_kernel(filter_shape, smoothing_radius)
         else:
-            kernel = self._get_kernel('NoFilter', 0.0)
+            kernel = self._get_kernel("NoFilter", 0.0)
 
         data_mesh = self.mesh.to_mesh(field="data", **kwargs)
         _smoothed_mesh = data_mesh.r2c().apply(kernel)
@@ -168,14 +170,14 @@ class PypowerBackend(EstimatorBackend):
     def _get_kernel(filter_shape: str, smoothing_radius: float) -> filters.BaseFilter:
         """Get the matching initialized filter from :mod:`filters`."""
         name = filter_shape.lower()
-        if name.startswith('gaussian'):
+        if name.startswith("gaussian"):
             f = filters.GaussianFilter(smoothing_radius)
-        elif name.startswith('tophat'):
+        elif name.startswith("tophat"):
             f = filters.TopHatFilter(smoothing_radius)
-        elif name.startswith('nofilter'):
+        elif name.startswith("nofilter"):
             f = filters.NoFilter(smoothing_radius)
         else:
-            raise ValueError(f'{name} filter not found.')
+            raise ValueError(f"{name} filter not found.")
         return f
 
     def get_query_positions(
@@ -214,8 +216,8 @@ class PypowerBackend(EstimatorBackend):
         if method == "lattice":
             centres: list[np.ndarray] = []
             for ax in range(3):
-                start = boxcenter[ax] - boxsize[ax]/2 - cellsize[ax]/2
-                stop = boxcenter[ax] + boxsize[ax]/2
+                start = boxcenter[ax] - boxsize[ax] / 2 - cellsize[ax] / 2
+                stop = boxcenter[ax] + boxsize[ax] / 2
                 step = cellsize[ax]
                 edges = np.arange(start, stop, step)
                 centres.append(0.5 * (edges[:-1] + edges[1:]))
