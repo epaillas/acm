@@ -147,6 +147,20 @@ class JaxpowerBackend(EstimatorBackend):
         Paints particles to a mesh and computes the density contrast using
         either data only or data+randoms (FKP method). Optionally applies
         Gaussian smoothing.
+
+        Parameters
+        ----------
+        smoothing_radius: float, optional
+            Gaussian smoothing scale in Mpc/h. If None, no smoothing is applied.
+        threshold: float, optional
+            Threshold value for randoms field to avoid division by zero.
+            Defaults to 0.01.
+        method: str, optional
+            Method to compute randoms threshold. Options: 'noise' or 'mean'.
+            Defaults to "noise"
+        **kwargs
+            Arguments passed when painting particles to mesh.
+            See :meth:`jaxpower.RealMeshField.paint`
         """
         t0 = time.time()
 
@@ -284,4 +298,4 @@ class JaxpowerBackend(EstimatorBackend):
             logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         else:
             raise ValueError("method must be one of ['lattice', 'randoms']")
-        return np.asarray(coords, dtype=np.float32)
+        return np.asarray(coords, dtype=np.float32) # NOTE: float32 mandatory here ?

@@ -94,7 +94,7 @@ class EstimatorBackend(ABC):
 
     @property
     @abstractmethod
-    def cellsize(self) -> float:
+    def cellsize(self) -> float | list | np.ndarray:
         """Physical size of each mesh cell."""
         ...
 
