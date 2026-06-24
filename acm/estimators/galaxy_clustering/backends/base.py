@@ -56,12 +56,8 @@ class EstimatorBackend(ABC):
                     "randoms_weights must be 1D and have the same length as randoms_weights."
                 )
 
-        # Assign attributes
-        self.data_positions = data_positions
-        self.randoms_positions = randoms_positions
-        self.data_weights = data_weights
-        self.randoms_weights = randoms_weights
-
+        # Assign internal attributes
+        self._size_data = len(data_positions)
         self._density_contrast: np.ndarray | None = None
 
     @property
@@ -76,7 +72,7 @@ class EstimatorBackend(ABC):
     @property
     def size_data(self) -> int:
         """Number of data points."""
-        return len(self.data_positions)
+        return self._size_data
 
     @property
     @abstractmethod

@@ -39,6 +39,15 @@ class JaxpowerBackend(EstimatorBackend):
     catalogs and compute density contrasts using JAX for GPU acceleration.
     Supports both data-only and data+randoms configurations for FKP-style
     estimators.
+
+    Attributes
+    ----------
+    mattrs: MeshAttrs
+        Mesh attributes object containing box properties.
+    data_mesh: ParticleField
+        jaxpower particle field for data.
+    randoms_mesh: ParticleField | None
+        jaxpower particle field for randoms, if provided.
     """
 
     def __init__(
@@ -68,6 +77,13 @@ class JaxpowerBackend(EstimatorBackend):
             Otherwise, mesh attributes are inferred from positions.
             See :func:`jax.get_mesh_attrs`
         """
+        super().__init__(
+            data_positions,
+            randoms_positions,
+            data_weights,
+            randoms_weights,
+        )
+
         pos = [p for p in [data_positions, randoms_positions] if p is not None]
         mattrs: MeshAttrs = get_mesh_attrs(*pos, **kwargs)
 
@@ -89,17 +105,13 @@ class JaxpowerBackend(EstimatorBackend):
                 backend="jax",
             )
 
-        # Store some extra properties
+        # Store some extra attributes
         self.mattrs = mattrs
         self.data_mesh = data_mesh
         self.randoms_mesh = randoms_mesh
 
         logger.debug(
             f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}"
-        )
-
-        super().__init__(
-            data_positions, randoms_positions, data_weights, randoms_weights
         )
 
     @property
