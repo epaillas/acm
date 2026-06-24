@@ -110,6 +110,8 @@ class JaxpowerBackend(EstimatorBackend):
         self.data_mesh = data_mesh
         self.randoms_mesh = randoms_mesh
 
+        self._density_contrast: RealMeshField | None = None
+
         logger.debug(
             f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}"
         )
@@ -197,7 +199,7 @@ class JaxpowerBackend(EstimatorBackend):
         else:
             delta_mesh: RealMeshField = data_mesh / data_mesh.mean() - 1  # ty:ignore[unresolved-attribute]
 
-        self._density_contrast = np.asarray(delta_mesh)
+        self._density_contrast = delta_mesh
         logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
 
     @staticmethod
@@ -253,6 +255,35 @@ class JaxpowerBackend(EstimatorBackend):
         else:
             val = threshold * field.sum() / field.size
         return val
+
+    def read_density_contrast(
+        self,
+        positions: np.ndarray,
+        resampler: str = "cic",
+    ) -> np.ndarray:
+        """
+        Get the density contrast at the input positions.
+
+        Parameters
+        ----------
+        positions : np.ndarray
+            Input positions.
+        resampler : str, optional
+            Resampling scheme. Default is 'cic'.
+
+        Returns
+        -------
+        np.ndarray
+            Density contrast at the input positions.
+        """
+        if self._density_contrast is None:
+            raise AttributeError(
+                "Density contrast has not been set, run set_density_contrast first."
+            )
+        t0 = time.time()
+        delta = self._density_contrast.read(positions, resampler=resampler)  # ty:ignore[invalid-argument-type]
+        logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
+        return delta
 
     def get_query_positions(
         self,

@@ -77,6 +77,8 @@ class PypowerBackend(EstimatorBackend):
         # Store some extra attributes
         self.mesh = mesh
 
+        self._density_contrast = None
+
         logger.debug(
             f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}"
         )
@@ -163,7 +165,7 @@ class PypowerBackend(EstimatorBackend):
         else:
             delta_mesh = data_mesh / np.mean(data_mesh) - 1
 
-        self._density_contrast = np.asarray(delta_mesh)
+        self._density_contrast = delta_mesh
         logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
 
     @staticmethod
@@ -179,6 +181,37 @@ class PypowerBackend(EstimatorBackend):
         else:
             raise ValueError(f"{name} filter not found.")
         return f
+
+    def read_density_contrast(
+        self,
+        positions: np.ndarray,
+        resampler: str = "cic",
+    ) -> np.ndarray:
+        """
+        Get the density contrast at the input positions.
+
+        Parameters
+        ----------
+        positions : np.ndarray
+            Input positions.
+        resampler : str, optional
+            Resampling scheme. Default is 'cic'.
+
+        Returns
+        -------
+        np.ndarray
+            Density contrast at the input positions.
+        """
+        if self._density_contrast is None:
+            raise AttributeError(
+                "Density contrast has not been set, run set_density_contrast first."
+            )
+        t0 = time.time()
+        # offset = self.boxcenter - self.boxsize / 2.0
+        # positions = positions - offset
+        delta = self._density_contrast.readout(positions, resampler=resampler)
+        logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
+        return delta
 
     def get_query_positions(
         self,

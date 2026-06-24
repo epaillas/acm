@@ -58,16 +58,6 @@ class EstimatorBackend(ABC):
 
         # Assign internal attributes
         self._size_data = len(data_positions)
-        self._density_contrast: np.ndarray | None = None
-
-    @property
-    def density_contrast(self) -> np.ndarray:
-        """Density contrast field."""
-        if self._density_contrast is None:
-            raise AttributeError(
-                "density_contrast has not been set, run set_density_contrast first."
-            )
-        return self._density_contrast
 
     @property
     def size_data(self) -> int:
@@ -101,6 +91,29 @@ class EstimatorBackend(ABC):
     @abstractmethod
     def set_density_contrast(self, **kwargs) -> None:
         """Compute the density contrast field."""
+        ...
+
+    @abstractmethod
+    def read_density_contrast(
+        self,
+        positions: np.ndarray,
+        resampler: str = "cic",
+    ) -> np.ndarray:
+        """
+        Get the density contrast at the input positions.
+
+        Parameters
+        ----------
+        positions : np.ndarray
+            Input positions.
+        resampler : str, optional
+            Resampling scheme. Default is 'cic'.
+
+        Returns
+        -------
+        np.ndarray
+            Density contrast at the input positions.
+        """
         ...
 
     @abstractmethod
