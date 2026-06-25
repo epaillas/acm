@@ -10,3 +10,5 @@ from .base import EstimatorBackend, load_backend
 
 if check_installed("jaxpower"):
     from .jaxpower import JaxpowerBackend
+if check_installed("pypower"):
+    from .pypower import PypowerBackend
