@@ -53,16 +53,24 @@ class EstimatorBackend(ABC):
                 or randoms_weights.shape[0] != randoms_positions.shape[0]
             ):
                 raise ValueError(
-                    "randoms_weights must be 1D and have the same length as randoms_weights."
+                    "randoms_weights must be 1D and have the same length as randoms_positions."
                 )
 
         # Assign internal attributes
         self._size_data = len(data_positions)
+        self._size_randoms = len(randoms_positions) if randoms_positions is not None else None
 
     @property
     def size_data(self) -> int:
         """Number of data points."""
         return self._size_data
+
+    @property
+    def size_randoms(self) -> int:
+        """Number of randoms points."""
+        if self._size_randoms is None:
+            raise ValueError('Randoms have not been set at initalization.')
+        return self._size_randoms
 
     @property
     @abstractmethod

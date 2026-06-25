@@ -1,279 +1,209 @@
 import logging
 import time
+from typing import Any
 
 import numpy as np
-import numpy.typing as npt
 from pyrecon import RealMesh
+
+from acm.utils.decorators import kwargs_alias
+
+from .base import EstimatorBackend, register_backend
 
 logger = logging.getLogger(__name__)
 
 
-class PyreconBackend:
+def _make_array( # TODO: move this to utils ?
+    value: Any,  # noqa: ANN401
+    shape: int | tuple[int],
+    dtype: str | type = np.float64,
+) -> np.ndarray:
+    """Return a numpy array by broadcasting the value on the expected shape."""
+    toret = np.full(shape, np.nan, dtype=dtype)
+    toret[...] = value
+    if np.any(np.isnan(toret)):
+        raise ValueError(f'Broadcasted {value} to array but found NaN values inside.')
+    return toret
+
+
+@register_backend("pyrecon")
+class PyreconBackend(EstimatorBackend):
     """Backend using pyrecon for galaxy clustering measurements.
 
     This backend uses the pyrecon package to create mesh fields from galaxy
     catalogs and compute density contrasts. It supports both data-only and
-    data+randoms configurations and provides methods for assigning particles
-    to meshes incrementally.
+    data+randoms configurations for FKP-style estimators.
 
     Attributes
     ----------
-    name : str
-        Backend name identifier ('pyrecon').
-    boxsize : ndarray
-        Size of the simulation box in each dimension.
-    boxcenter : ndarray
-        Center coordinates of the box.
-    meshsize : ndarray
-        Number of mesh cells in each dimension.
-    cellsize : ndarray
-        Size of each mesh cell.
-    data_mesh : RealMesh
-        Pyrecon mesh object for data.
-    randoms_mesh : RealMesh or None
-        Pyrecon mesh object for randoms, if provided.
-    size_data : int
-        Number of data points assigned to the mesh.
-    delta_mesh : RealMesh
-        Density contrast field (set by set_density_contrast).
-    ran_min : float
-        Minimum randoms threshold value (set by set_density_contrast).
+    data_mesh: ParticleField
+        pyrecon particle field for data.
+    randoms_mesh: ParticleField | None
+        pyrecon particle field for randoms, if provided.
     """
 
+    @kwargs_alias(nmesh='meshsize')
     def __init__(
         self,
-        data_positions: npt.NDArray | None = None,
-        data_weights: npt.NDArray | None = None,
-        randoms_positions: npt.NDArray | None = None,
-        randoms_weights: npt.NDArray | None = None,
-        **kwargs,
+        data_positions: np.ndarray,
+        boxsize: float | np.ndarray,
+        meshsize: float | np.ndarray,
+        randoms_positions: np.ndarray | None = None,
+        data_weights: np.ndarray | None = None,
+        randoms_weights: np.ndarray | None = None,
+        boxcenter: float | np.ndarray = 0.0,
     ) -> None:
-        """Initialize the pyrecon backend.
+        super().__init__(
+            data_positions,
+            randoms_positions,
+            data_weights,
+            randoms_weights,
+        )
 
-        Parameters
-        ----------
-        data_positions : array_like, shape (N, 3)
-            Positions of data galaxies.
-        data_weights : array_like, shape (N,), optional
-            Weights for data galaxies.
-        randoms_positions : array_like, shape (M, 3), optional
-            Positions of random catalog.
-        randoms_weights : array_like, shape (M,), optional
-            Weights for randoms.
-        **kwargs : dict
-            Additional keyword arguments for mesh configuration.
-            Required:
-            - boxsize : float or array_like
-                Size of the box.
-            - meshsize : int or array_like
-                Number of mesh cells per dimension.
-            Optional:
-            - boxcenter : float or array_like, default=0.0
-                Center of the box.
+        # Set private attributes
+        self._boxsize = _make_array(boxsize, 3)
+        self._boxcenter = _make_array(boxcenter, 3)
+        self._meshsize = _make_array(meshsize, 3, dtype=int)
 
-        Raises
-        ------
-        ValueError
-            If boxsize or meshsize are not provided.
-        """
-        self.name = "pyrecon"
+        data_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
+        data_mesh.assign_cic(data_positions, data_weights, wrap=True)
 
-        # Extract mesh parameters
-        boxsize = kwargs.get("boxsize")
-        boxcenter = kwargs.get("boxcenter", 0.0)
-        meshsize = kwargs.get("meshsize")
-
-        if boxsize is None:
-            raise ValueError("boxsize must be provided for pyrecon backend")
-        if meshsize is None:
-            raise ValueError("meshsize must be provided for pyrecon backend")
-
-        # Convert to array format
-        if np.isscalar(boxsize):
-            boxsize = np.array([boxsize, boxsize, boxsize])
-        else:
-            boxsize = np.asarray(boxsize)
-
-        if np.isscalar(boxcenter):
-            boxcenter = np.array([boxcenter, boxcenter, boxcenter])
-        else:
-            boxcenter = np.asarray(boxcenter)
-
-        if np.isscalar(meshsize):
-            meshsize = np.array([meshsize, meshsize, meshsize], dtype=int)
-        else:
-            meshsize = np.asarray(meshsize, dtype=int)
-
-        # Store mesh attributes
-        self.boxsize = boxsize
-        self.boxcenter = boxcenter
-        self.meshsize = meshsize
-        self.cellsize = boxsize / meshsize
-
-        # Assign data and randoms
-        self.size_data = 0
-        self._size_randoms = 0
-
-        # Initialize meshes
-        self.data_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
-
-        if data_positions is not None:
-            self._assign_data(data_positions, weights=data_weights)
-
-        self.has_randoms = randoms_positions is not None
+        randoms_mesh = None
         if randoms_positions is not None:
-            self.randoms_mesh = RealMesh(
-                boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize
-            )
-            self._assign_randoms(randoms_positions, weights=randoms_weights)
+            randoms_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
+            randoms_mesh.assign_cic(randoms_positions, randoms_weights, wrap=True)
 
-        logger.info(f"Box size: {self.boxsize}")
-        logger.info(f"Box center: {self.boxcenter}")
-        logger.info(f"Box meshsize: {self.meshsize}")
+        # Store some extra attributes
+        self.data_mesh = data_mesh
+        self.randoms_mesh = randoms_mesh
 
-    def _assign_data(
-        self,
-        positions: npt.NDArray,
-        weights: npt.NDArray | None = None,
-        wrap: bool = True,
-        clear_previous: bool = True,
-    ) -> None:
-        """Assign data particles to the mesh.
+        self._density_contrast = None
 
-        Uses Cloud-in-Cell (CIC) interpolation to paint particles onto the mesh.
+        logger.debug(
+            f"Loaded {self.__class__.__name__} with boxsize {self.boxsize}, box center {self.boxcenter} and meshsize {self.meshsize}"
+        )
 
-        Parameters
-        ----------
-        positions : array_like, shape (N, 3)
-            Positions of the data points.
-        weights : array_like, shape (N,), optional
-            Weights of the data points. If not provided, all points are
-            assumed to have unit weight.
-        wrap : bool, default=True
-            Wrap the data points around the box, assuming periodic boundaries.
-        clear_previous : bool, default=True
-            Clear previous data before assignment. If False, particles are
-            added to existing mesh values.
-        """
-        if clear_previous:
-            self.data_mesh.value = None
-        if self.data_mesh.value is None:
-            self.size_data = 0
-        self.data_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
-        self.size_data += len(positions)
+    @property
+    def boxsize(self) -> np.ndarray:
+        """Physical size of the box along each dimension. If None, set to meshsize."""
+        return self._boxsize
 
-    def _assign_randoms(
-        self,
-        positions: npt.NDArray,
-        weights: npt.NDArray | None = None,
-        wrap: bool = True,
-    ) -> None:
-        """Assign random particles to the mesh.
+    @property
+    def boxcenter(self) -> np.ndarray:
+        """Physical coordinates of the box center along each dimension."""
+        return self._boxcenter
 
-        Uses Cloud-in-Cell (CIC) interpolation to paint random particles onto
-        the randoms mesh.
+    @property
+    def meshsize(self) -> np.ndarray:
+        """Number of mesh cells along each dimension."""
+        return self._meshsize
 
-        Parameters
-        ----------
-        positions : array_like, shape (N, 3)
-            Positions of the random points.
-        weights : array_like, shape (N,), optional
-            Weights of the random points. If not provided, all points are
-            assumed to have unit weight.
-        wrap : bool, default=True
-            Wrap the random points around the box, assuming periodic boundaries.
-        """
-        if not self.has_randoms:
-            raise ValueError(
-                "Randoms mesh not initialized. Provide randoms positions at initialization or call assign_randoms first."
-            )
-        self.randoms_mesh.assign_cic(positions=positions, weights=weights, wrap=wrap)
-        self._size_randoms += len(positions)
+    @property
+    def cellsize(self) -> np.ndarray:
+        """Physical size of each mesh cell."""
+        return self._boxsize / self._meshsize
 
     def set_density_contrast(
         self,
         smoothing_radius: float | None = None,
-        check: bool = False,
-        ran_min: float = 0.01,
-        save_wisdom: bool = False,
-    ) -> RealMesh:
-        """Compute the density contrast field.
+        threshold: float = 0.01,
+        **kwargs,
+    ) -> None:
+        """
+        Compute the density contrast field.
 
-        Computes the density contrast using data mesh and optionally randoms
-        mesh (FKP method). Optionally applies Gaussian smoothing using FFTW.
+        Computes the density contrast using
+        either data only or data+randoms (FKP method). Optionally applies
+        Gaussian smoothing using FFTW.
 
         Parameters
         ----------
-        smoothing_radius : float, optional
+        smoothing_radius: float, optional
             Gaussian smoothing scale in Mpc/h. If None, no smoothing is applied.
-        check : bool, default=False
-            Check if there are enough randoms in the mesh to avoid
-            numerical issues.
-        ran_min : float, default=0.01
-            Minimum randoms threshold as fraction of mean randoms density.
-            Cells with randoms below this threshold are set to zero.
-        save_wisdom : bool, default=False
-            Save FFTW wisdom to disk for faster future FFTs.
-
-        Returns
-        -------
-        delta_mesh : RealMesh
-            Density contrast field.
-
-        Raises
-        ------
-        ValueError
-            If check=True and very few randoms are found.
+        threshold: float, optional
+            Threshold value for randoms field to avoid division by zero.
+            Defaults to 0.01.
+        **kwargs
+            Arguments passed when applying gaussian smoothing.
+            See :meth:`_apply_smoothing`
         """
         t0 = time.time()
 
-        if smoothing_radius:
-            logger.info(f"Smoothing with {smoothing_radius} Mpc/h Gaussian kernel.")
-            self.data_mesh.smooth_gaussian(
-                smoothing_radius,
-                engine="fftw",
-                save_wisdom=save_wisdom,
-            )
+        data_mesh = self.data_mesh # Already painted
+        self._apply_smoothing(data_mesh, smoothing_radius, **kwargs)
 
-        if self.has_randoms:
-            if check:
-                mask_nonzero = self.randoms_mesh.value > 0.0
-                nnonzero = mask_nonzero.sum()
-                if nnonzero < 2:
-                    raise ValueError("Very few randoms.")
+        if self.randoms_mesh is not None:
+            randoms_mesh = self.randoms_mesh
+            self._apply_smoothing(randoms_mesh, smoothing_radius, **kwargs)
 
-            if smoothing_radius:
-                self.randoms_mesh.smooth_gaussian(
-                    smoothing_radius, engine="fftw", save_wisdom=save_wisdom
-                )
-
-            sum_data, sum_randoms = (
-                np.sum(self.data_mesh.value),
-                np.sum(self.randoms_mesh.value),
-            )
+            logger.info("Using randoms to compute density contrast.")
+            sum_data = np.sum(data_mesh.value)
+            sum_randoms = np.sum(randoms_mesh.value)
             alpha = sum_data * 1.0 / sum_randoms
-            self.delta_mesh = self.data_mesh - alpha * self.randoms_mesh
-            self.ran_min = ran_min * sum_randoms / self._size_randoms
-            mask = self.randoms_mesh > self.ran_min
-            self.delta_mesh[mask] /= alpha * self.randoms_mesh[mask]
-            self.delta_mesh[~mask] = 0.0
-        else:
-            self.mean = np.mean(self.data_mesh)
-            self.delta_mesh = self.data_mesh / self.mean - 1.0
+            delta_mesh = data_mesh - alpha * randoms_mesh
 
+            ft = threshold * sum_randoms / self.size_randoms
+            mask = randoms_mesh > ft
+            delta_mesh[mask] /= alpha * randoms_mesh[mask]
+            delta_mesh[~mask] = 0.0
+        else:
+            delta_mesh = data_mesh / np.mean(data_mesh) - 1
+
+        self._density_contrast = delta_mesh
         logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
-        return self.delta_mesh
+
+    def _apply_smoothing(
+        self,
+        mesh: RealMesh,
+        radius:float | np.ndarray | None,
+        method: str='fftw',
+        **kwargs,
+    ) -> None:
+        """Apply smoothing radius to a mesh, see :func:`pyrecon.RealMesh.smooth_gaussian`."""
+        if radius is not None:
+            mesh.smooth_gaussian(radius, method=method, **kwargs)
+
+    def read_density_contrast(
+        self,
+        positions: np.ndarray,
+        resampler: str = "cic",
+    ) -> np.ndarray:
+        """
+        Get the density contrast at the input positions.
+
+        Parameters
+        ----------
+        positions : np.ndarray
+            Input positions.
+        resampler : str, optional
+            Resampling scheme. Default is 'cic'.
+
+        Returns
+        -------
+        np.ndarray
+            Density contrast at the input positions.
+        """
+        if self._density_contrast is None:
+            raise AttributeError(
+                "Density contrast has not been set, run set_density_contrast first."
+            )
+        if resampler != 'cic':
+            raise NotImplementedError("Pyrecon backend only supports CIC resampling.")
+        t0 = time.time()
+        delta = self._density_contrast.read_cic(positions)
+        logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
+        return delta
 
     def get_query_positions(
         self,
         method: str = "randoms",
         nquery: int | None = None,
         seed: int = 42,
-    ) -> npt.NDArray:
-        """Generate query positions to sample the density PDF.
+    ) -> np.ndarray:
+        """
+        Generate query positions to sample the density PDF.
 
         Creates either a regular lattice of points at mesh cell centers or
-        random points within the mesh for sampling the density field.
+        random points within the density mesh for sampling the density field.
 
         Parameters
         ----------
@@ -290,41 +220,28 @@ class PyreconBackend:
         Returns
         -------
         query_positions : ndarray, shape (nquery, 3)
-            Query positions.
+            Query positions as float32 array.
         """
+        t0 = time.time()
         boxcenter = self.boxcenter
         boxsize = self.boxsize
         cellsize = self.cellsize
-
         if method == "lattice":
-            logger.info("Generating lattice query points within the box.")
-            xedges = np.arange(
-                boxcenter[0] - boxsize[0] / 2 - cellsize[0] / 2,
-                boxcenter[0] + boxsize[0] / 2,
-                cellsize[0],
-            )
-            yedges = np.arange(
-                boxcenter[1] - boxsize[1] / 2 - cellsize[1] / 2,
-                boxcenter[1] + boxsize[1] / 2,
-                cellsize[1],
-            )
-            zedges = np.arange(
-                boxcenter[2] - boxsize[2] / 2 - cellsize[2] / 2,
-                boxcenter[2] + boxsize[2] / 2,
-                cellsize[2],
-            )
-            xcentres = 1 / 2 * (xedges[:-1] + xedges[1:])
-            ycentres = 1 / 2 * (yedges[:-1] + yedges[1:])
-            zcentres = 1 / 2 * (zedges[:-1] + zedges[1:])
-            lattice_x, lattice_y, lattice_z = np.meshgrid(xcentres, ycentres, zcentres)
-            lattice_x = lattice_x.flatten()
-            lattice_y = lattice_y.flatten()
-            lattice_z = lattice_z.flatten()
-            return np.vstack((lattice_x, lattice_y, lattice_z)).T
-        if method == "randoms":
-            logger.info("Generating random query points within the box.")
+            centres: list[np.ndarray] = []
+            for ax in range(3):
+                start = boxcenter[ax] - boxsize[ax] / 2 - cellsize[ax] / 2
+                stop = boxcenter[ax] + boxsize[ax] / 2
+                step = cellsize[ax]
+                edges = np.arange(start, stop, step)
+                centres.append(0.5 * (edges[:-1] + edges[1:]))
+            lattice = [_l.flatten() for _l in np.meshgrid(*centres)]
+            coords = np.vstack(lattice).T
+            logger.info(f"Generated lattice query points in {time.time() - t0:.2f} s.")
+        elif method == "randoms":
             rng = np.random.default_rng(seed)
-            if nquery is None:
-                nquery = 5 * self.size_data
-            return rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
-        raise ValueError(f"Unknown method '{method}' for generating query points.")
+            nquery = nquery or 5 * self.size_data
+            coords = rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
+            logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
+        else:
+            raise ValueError("method must be one of ['lattice', 'randoms']")
+        return np.asarray(coords, dtype=np.float32)
