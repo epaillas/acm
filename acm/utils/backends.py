@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 S = TypeVar("S")
 
+
 class BackendRegistry[T]:
     """
     A generic registry for loading backend classes by name.
