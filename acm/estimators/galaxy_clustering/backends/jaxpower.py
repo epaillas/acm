@@ -44,9 +44,9 @@ class JaxpowerBackend(EstimatorBackend):
     ----------
     mattrs: MeshAttrs
         Mesh attributes object containing box properties.
-    data_mesh: ParticleField
+    data_field: ParticleField
         jaxpower particle field for data.
-    randoms_mesh: ParticleField | None
+    randoms_field: ParticleField | None
         jaxpower particle field for randoms, if provided.
     """
 
@@ -87,17 +87,17 @@ class JaxpowerBackend(EstimatorBackend):
         pos = [p for p in [data_positions, randoms_positions] if p is not None]
         mattrs: MeshAttrs = get_mesh_attrs(*pos, **kwargs)
 
-        # Create meshes
-        data_mesh = ParticleField(
+        # Create fields
+        data_field = ParticleField(
             data_positions,  # ty:ignore[invalid-argument-type]
             data_weights,  # ty:ignore[invalid-argument-type]
             attrs=mattrs,
             exchange=True,
             backend="jax",
         )
-        randoms_mesh = None
+        randoms_field = None
         if randoms_positions is not None:
-            randoms_mesh = ParticleField(
+            randoms_field = ParticleField(
                 randoms_positions,  # ty:ignore[invalid-argument-type]
                 randoms_weights,  # ty:ignore[invalid-argument-type]
                 attrs=self.mattrs,
@@ -107,8 +107,8 @@ class JaxpowerBackend(EstimatorBackend):
 
         # Store some extra attributes
         self.mattrs = mattrs
-        self.data_mesh = data_mesh
-        self.randoms_mesh = randoms_mesh
+        self.data_field = data_field
+        self.randoms_field = randoms_field
 
         self._density_contrast: RealMeshField | None = None
 
@@ -172,24 +172,22 @@ class JaxpowerBackend(EstimatorBackend):
         else:
             kernel = 1.0  # NOTE: check if it's consistent with older implementation
 
-        data_mesh: RealMeshField = self.data_mesh.paint(out="real", **kwargs)
+        data_mesh: RealMeshField = self.data_field.paint(out="real", **kwargs)
         _smoothed_mesh: ComplexMeshField = _2c(data_mesh) * kernel  # ty:ignore[unsupported-operator]
         data_mesh = _2r(_smoothed_mesh)
 
-        if self.randoms_mesh is not None:
-            ft = self._get_field_threshold(self.randoms_mesh, threshold, method)
-
-            randoms_mesh: RealMeshField = self.randoms_mesh.paint(out="real", **kwargs)
+        if self.randoms_field is not None:
+            randoms_mesh: RealMeshField = self.randoms_field.paint(out="real", **kwargs)
             _smoothed_mesh: ComplexMeshField = _2c(randoms_mesh) * kernel  # ty:ignore[unsupported-operator]
             randoms_mesh = _2r(_smoothed_mesh)
 
             logger.info("Using randoms to compute density contrast.")
-            randoms_mesh = _2r(randoms_mesh)
             sum_data: jax.Array = data_mesh.sum()  # ty:ignore[unresolved-attribute]
             sum_randoms: jax.Array = randoms_mesh.sum()  # ty:ignore[unresolved-attribute]
             alpha: jax.Array = sum_data * 1.0 / sum_randoms
             delta_mesh: RealMeshField = data_mesh - alpha * randoms_mesh  # ty:ignore[unsupported-operator]
 
+            ft = self._get_field_threshold(self.randoms_field, threshold, method)
             _val = jax.numpy.where(  # keep values above threshold
                 randoms_mesh.value > ft,
                 delta_mesh.value / (alpha * randoms_mesh.value),
