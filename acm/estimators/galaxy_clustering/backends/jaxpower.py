@@ -185,14 +185,14 @@ class JaxpowerBackend(EstimatorBackend):
 
             logger.info("Using randoms to compute density contrast.")
             randoms_mesh = _2r(randoms_mesh)
-            sum_data: RealMeshField = data_mesh.sum()  # ty:ignore[unresolved-attribute]
-            sum_randoms: RealMeshField = randoms_mesh.sum()  # ty:ignore[unresolved-attribute]
-            alpha: RealMeshField = sum_data * 1.0 / sum_randoms  # ty:ignore[unsupported-operator]
+            sum_data: jax.Array = data_mesh.sum()  # ty:ignore[unresolved-attribute]
+            sum_randoms: jax.Array = randoms_mesh.sum()  # ty:ignore[unresolved-attribute]
+            alpha: jax.Array = sum_data * 1.0 / sum_randoms
             delta_mesh: RealMeshField = data_mesh - alpha * randoms_mesh  # ty:ignore[unsupported-operator]
 
             _val = jax.numpy.where(  # keep values above threshold
                 randoms_mesh.value > ft,
-                delta_mesh.value / (alpha * randoms_mesh.value),  # ty:ignore[unsupported-operator]
+                delta_mesh.value / (alpha * randoms_mesh.value),
                 0.0,
             )
             delta_mesh = delta_mesh.clone(value=_val)
