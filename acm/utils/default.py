@@ -1,6 +1,8 @@
+"""Default values and helper methods used in the acm package."""
 import os
+from typing import Any
 
-# This file contains default values used in the ACM package
+import numpy as np
 
 # List of cosmologies in AbacusSummit
 cosmo_list = (
@@ -9,3 +11,15 @@ cosmo_list = (
 
 # Flag to indicate if running on NERSC
 is_nersc = os.environ.get("NERSC_HOST") == "perlmutter"
+
+def _make_array(
+    value: Any,  # noqa: ANN401
+    shape: int | tuple[int, ...],
+    dtype: str | type = np.float64,
+) -> np.ndarray:
+    """Return a numpy array by broadcasting the value on the expected shape."""
+    toret = np.full(shape, np.nan, dtype=dtype)
+    toret[...] = value
+    if np.any(np.isnan(toret)):
+        raise ValueError(f'Broadcasted {value} to array but found NaN values inside.')
+    return toret

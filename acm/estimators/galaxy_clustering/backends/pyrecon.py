@@ -1,28 +1,15 @@
 import logging
 import time
-from typing import Any
 
 import numpy as np
 from pyrecon import RealMesh
 
 from acm.utils.decorators import kwargs_alias
+from acm.utils.default import _make_array
 
 from .base import EstimatorBackend, register_backend
 
 logger = logging.getLogger(__name__)
-
-
-def _make_array(  # TODO: move this to utils ?
-    value: Any,  # noqa: ANN401
-    shape: int | tuple[int],
-    dtype: str | type = np.float64,
-) -> np.ndarray:
-    """Return a numpy array by broadcasting the value on the expected shape."""
-    toret = np.full(shape, np.nan, dtype=dtype)
-    toret[...] = value
-    if np.any(np.isnan(toret)):
-        raise ValueError(f"Broadcasted {value} to array but found NaN values inside.")
-    return toret
 
 
 @register_backend("pyrecon")
