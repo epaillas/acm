@@ -44,7 +44,13 @@ class TestGetClassFromModule:
 
 class TestCheckInstalled:
     def test_installed_package(self):
-        assert check_installed("numpy") is True
+        assert check_installed("os") is True
 
     def test_missing_package(self):
         assert check_installed("definitely_not_a_real_package") is False
+
+    def test_several_packages(self):
+        assert check_installed("os", "math", "csv")
+
+    def test_missing_among_list(self):
+        assert check_installed("os", "iswearimapackage", 'csv') is False
