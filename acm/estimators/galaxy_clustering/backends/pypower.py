@@ -107,6 +107,7 @@ class PypowerBackend(EstimatorBackend):
         self,
         smoothing_radius: float | None = None,
         filter_shape: str = "Gaussian",
+        threshold: float = 0.01,
         **kwargs,
     ) -> None:
         """
@@ -120,16 +121,13 @@ class PypowerBackend(EstimatorBackend):
         ----------
         smoothing_radius: float, optional
             Gaussian smoothing scale in Mpc/h. If None, no smoothing is applied.
-        threshold: float, optional
-            Threshold value for randoms field to avoid division by zero.
-            Defaults to 0.01.
-        method: str, optional
-            Method to compute randoms threshold. Options: 'noise' or 'mean'.
-            Defaults to "noise"
         filter_shape: str, optional
             Shape of the smoothing filter. Use one of the filters
             in :mod:`filters`.
             Defaults to "Gaussian"
+        threshold: float, optional
+            Threshold value for randoms field to avoid division by zero.
+            Defaults to 0.01.
         **kwargs
             Arguments passed when painting particles to mesh.
             See :meth:`pypower.CatalogMesh.to_mesh`
@@ -150,8 +148,8 @@ class PypowerBackend(EstimatorBackend):
 
         if self.mesh.with_randoms:
             randoms_mesh = self.mesh.to_mesh(field="data-normalized_randoms", **kwargs)
-            randoms_mesh = randoms_mesh.r2c().apply(kernel)
-            randoms_mesh = randoms_mesh.c2r()
+            _smoothed_mesh = randoms_mesh.r2c().apply(kernel)
+            randoms_mesh = _smoothed_mesh.c2r()
 
             logger.info("Using randoms to compute density contrast.")
             sum_data = np.sum(data_mesh.value)
@@ -159,7 +157,9 @@ class PypowerBackend(EstimatorBackend):
             alpha = sum_data / sum_randoms
             delta_mesh = data_mesh - alpha * randoms_mesh
 
-            mask = randoms_mesh > 0
+
+            ft = threshold * sum_randoms / self.size_randoms
+            mask = randoms_mesh > ft
             delta_mesh[mask] /= alpha * randoms_mesh[mask]
             delta_mesh[~mask] = 0.0
         else:
@@ -257,7 +257,7 @@ class PypowerBackend(EstimatorBackend):
             lattice = [_l.flatten() for _l in np.meshgrid(*centres)]
             coords = np.vstack(lattice).T
             logger.info(f"Generated lattice query points in {time.time() - t0:.2f} s.")
-        if method == "randoms":
+        elif method == "randoms":
             rng = np.random.default_rng(seed)
             nquery = nquery or 5 * self.size_data
             coords = rng.random((nquery, 3)) * boxsize + (boxcenter - boxsize / 2)
