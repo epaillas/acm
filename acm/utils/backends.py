@@ -5,7 +5,7 @@ from typing import TypeVar
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
-
+S = TypeVar("S")
 
 class BackendRegistry[T]:
     """
@@ -41,7 +41,7 @@ class BackendRegistry[T]:
         self.base_class = base_class
         self._registry: dict[str, type[T]] = {}
 
-    def register(self, name: str) -> Callable[[type[T]], type[T]]:
+    def register(self, name: str) -> Callable[[type[S]], type[S]]:
         """
         Register a backend class under a given name.
 
@@ -56,7 +56,7 @@ class BackendRegistry[T]:
             If the class does not inherit from the base class.
         """
 
-        def decorator(cls: type[T]) -> type[T]:
+        def decorator(cls: type[S]) -> type[S]:
             if not issubclass(cls, self.base_class):
                 raise TypeError(
                     f"{cls.__name__} must inherit from {self.base_class.__name__} to be registered."
