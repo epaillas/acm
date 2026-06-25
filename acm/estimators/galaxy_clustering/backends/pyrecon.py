@@ -12,7 +12,7 @@ from .base import EstimatorBackend, register_backend
 logger = logging.getLogger(__name__)
 
 
-def _make_array( # TODO: move this to utils ?
+def _make_array(  # TODO: move this to utils ?
     value: Any,  # noqa: ANN401
     shape: int | tuple[int],
     dtype: str | type = np.float64,
@@ -21,7 +21,7 @@ def _make_array( # TODO: move this to utils ?
     toret = np.full(shape, np.nan, dtype=dtype)
     toret[...] = value
     if np.any(np.isnan(toret)):
-        raise ValueError(f'Broadcasted {value} to array but found NaN values inside.')
+        raise ValueError(f"Broadcasted {value} to array but found NaN values inside.")
     return toret
 
 
@@ -41,7 +41,7 @@ class PyreconBackend(EstimatorBackend):
         pyrecon particle field for randoms, if provided.
     """
 
-    @kwargs_alias(nmesh='meshsize')
+    @kwargs_alias(nmesh="meshsize")
     def __init__(
         self,
         data_positions: np.ndarray,
@@ -69,7 +69,9 @@ class PyreconBackend(EstimatorBackend):
 
         randoms_mesh = None
         if randoms_positions is not None:
-            randoms_mesh = RealMesh(boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize)
+            randoms_mesh = RealMesh(
+                boxsize=boxsize, boxcenter=boxcenter, nmesh=meshsize
+            )
             randoms_mesh.assign_cic(randoms_positions, randoms_weights, wrap=True)
 
         # Store some extra attributes
@@ -128,7 +130,7 @@ class PyreconBackend(EstimatorBackend):
         """
         t0 = time.time()
 
-        data_mesh = self.data_mesh # Already painted
+        data_mesh = self.data_mesh  # Already painted
         self._apply_smoothing(data_mesh, smoothing_radius, **kwargs)
 
         if self.randoms_mesh is not None:
@@ -154,8 +156,8 @@ class PyreconBackend(EstimatorBackend):
     def _apply_smoothing(
         self,
         mesh: RealMesh,
-        radius:float | np.ndarray | None,
-        method: str='fftw',
+        radius: float | np.ndarray | None,
+        method: str = "fftw",
         **kwargs,
     ) -> None:
         """Apply smoothing radius to a mesh, see :func:`pyrecon.RealMesh.smooth_gaussian`."""
@@ -186,7 +188,7 @@ class PyreconBackend(EstimatorBackend):
             raise AttributeError(
                 "Density contrast has not been set, run set_density_contrast first."
             )
-        if resampler != 'cic':
+        if resampler != "cic":
             raise NotImplementedError("Pyrecon backend only supports CIC resampling.")
         t0 = time.time()
         delta = self._density_contrast.read_cic(positions)

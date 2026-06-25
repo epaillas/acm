@@ -157,7 +157,6 @@ class PypowerBackend(EstimatorBackend):
             alpha = sum_data / sum_randoms
             delta_mesh = data_mesh - alpha * randoms_mesh
 
-
             ft = threshold * sum_randoms / self.size_randoms
             mask = randoms_mesh > ft
             delta_mesh[mask] /= alpha * randoms_mesh[mask]
