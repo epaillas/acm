@@ -1,7 +1,8 @@
-import pytest
+from unittest.mock import MagicMock
+
 import numpy as np
 import pandas as pd
-from unittest.mock import MagicMock
+import pytest
 
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.products.cutsky import (
@@ -11,7 +12,9 @@ from acm.catalogs.products.cutsky import (
     _shell_volume,
 )
 
-#%% Fixtures 
+# ruff: noqa: ANN001, ANN201, ARG001, D101, D102, D103, INP001, S101
+
+#%% Fixtures
 
 def make_tracer_data(n: int = 200) -> pd.DataFrame:
     """Generate minimal valid cutsky tracer data with known angular and redshift ranges."""
@@ -73,7 +76,7 @@ class TestFsky:
         assert result < 0.1
 
     def test_returns_float_in_unit_interval(self):
-        """fsky should always be in [0, 1]."""
+        """Fsky should always be in [0, 1]."""
         rng = np.random.default_rng(0)
         ra = rng.uniform(0, 360, 1000)
         dec = rng.uniform(-90, 90, 1000)
@@ -110,7 +113,7 @@ class TestShellVolume:
         assert result[2] > result[1]
 
 
-#%% CutskyCatalog construction 
+#%% CutskyCatalog construction
 
 def test_default_hp_res(catalog):
     assert catalog.hp_res == 256
@@ -124,7 +127,7 @@ def test_caches_initialised_empty(catalog):
     assert catalog._interpolate_nz_cache == {}
 
 
-#%% _check_data_columns 
+#%% _check_data_columns
 
 def test_check_data_columns_valid(catalog, valid_data):
     assert catalog._check_data_columns(valid_data) is True
@@ -158,8 +161,7 @@ def test_zrange_none_equals_global(populated_catalog):
     assert populated_catalog._zrange() == populated_catalog.zrange
 
 def test_rarange_wrapping(cosmo, cosmo_fid):
-    """RA values stored beyond 360 (e.g. from box periodicity) should produce
-    a wrap-around range where ra_min > ra_max after mod."""
+    """RA values stored beyond 360 (e.g. from box periodicity) should produce a wrap-around range where ra_min > ra_max after mod."""
     tracer = Tracer(name="FOO", params={})
     cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
     rng = np.random.default_rng(0)
@@ -174,7 +176,7 @@ def test_rarange_wrapping(cosmo, cosmo_fid):
     assert ra_min > ra_max
 
 
-#%% fsky and area 
+#%% fsky and area
 
 def test_fsky_no_tracers_raises(catalog):
     with pytest.raises(RuntimeError, match="No tracers"):
@@ -266,7 +268,7 @@ def test_interpolate_nz_invalidated_after_transform(populated_catalog):
     assert f1 is not f2
 
 
-#%% add_distance_column transform 
+#%% add_distance_column transform
 
 def test_add_distance_column_adds_transform(populated_catalog):
     populated_catalog.add_distance_column()
@@ -286,7 +288,7 @@ def test_add_distance_column_does_not_mutate_raw(populated_catalog):
     )
 
 
-#%% downsample transform 
+#%% downsample transform
 
 def test_downsample_adds_transform(populated_catalog):
     populated_catalog.downsample("FOO", n_gal=100)
@@ -337,14 +339,14 @@ def test_save_load_tracer_data(populated_catalog, tmp_path, cosmo, cosmo_fid, va
         loaded.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         valid_data.reset_index(drop=True),
     )
-    
+
 def test_save_load_preserves_tracer_names(populated_catalog, tmp_path, cosmo, cosmo_fid):
     """Tracer names should be preserved through a save/load roundtrip."""
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
     loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
     assert set(loaded.tracers.keys()) == set(populated_catalog.tracers.keys())
-    
+
 def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid):
     """Transforms registered before saving should not be present after loading."""
     populated_catalog.add_distance_column()
@@ -354,7 +356,7 @@ def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid)
     assert "add_distance" not in loaded.transform_pipeline
 
 
-#%% Multi-tracer 
+#%% Multi-tracer
 
 @pytest.fixture
 def tracer_bar():
@@ -400,7 +402,7 @@ def test_add_distance_column_applies_to_all_tracers(multi_tracer_catalog):
     assert "distance" in multi_tracer_catalog.get_tracer_data("BAR").columns
 
 
-#%% RandomCutskyCatalog 
+#%% RandomCutskyCatalog
 
 @pytest.fixture
 def random_catalog(populated_catalog):
@@ -456,7 +458,7 @@ def test_from_snapshot_tracers_independent_seeds(populated_catalog, tracer_bar, 
     assert not np.allclose(foo_z, bar_z)
 
 
-#%% RandomCutskyCatalog._random_positions 
+#%% RandomCutskyCatalog._random_positions
 
 class TestRandomPositions:
     def test_output_shape(self):

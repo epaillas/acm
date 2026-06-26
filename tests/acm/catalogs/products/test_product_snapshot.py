@@ -1,25 +1,29 @@
-import pytest
+from unittest.mock import MagicMock
+
 import numpy as np
 import pandas as pd
-from unittest.mock import MagicMock
+import pytest
 
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.products.snapshot import (
-    SnapshotCatalog,
     RandomSnapshotCatalog,
+    SnapshotCatalog,
 )
+
+# ruff: noqa: ANN001, ANN201, ARG001, D103, INP001, S101
 
 #%% Fixtures
 
 def make_tracer_data(n: int = 100) -> pd.DataFrame:
     """Generate minimal valid tracer data."""
+    rng = np.random.default_rng(42)
     return pd.DataFrame({
-        "x": np.random.uniform(0, 500, n),
-        "y": np.random.uniform(0, 500, n),
-        "z": np.random.uniform(0, 500, n),
-        "vx": np.random.normal(0, 1, n),
-        "vy": np.random.normal(0, 1, n),
-        "vz": np.random.normal(0, 1, n),
+        "x": rng.uniform(0, 500, n),
+        "y": rng.uniform(0, 500, n),
+        "z": rng.uniform(0, 500, n),
+        "vx": rng.normal(0, 1, n),
+        "vy": rng.normal(0, 1, n),
+        "vz": rng.normal(0, 1, n),
     })
 
 @pytest.fixture
@@ -150,7 +154,7 @@ def test_nbar(populated_catalog):
     assert populated_catalog.nbar == pytest.approx(100 / volume)
 
 def test_nbar_empty_raises(catalog):
-    """nbar property should raise if no tracers are registered."""
+    """Nbar property should raise if no tracers are registered."""
     with pytest.raises(RuntimeError, match="No tracers"):
         _ = catalog.nbar
 
@@ -166,14 +170,14 @@ def test_rsd_invalid_los_raises(populated_catalog):
     """Invalid los should raise an error."""
     with pytest.raises(ValueError, match="los"):
         populated_catalog.rsd(los="w")
-        
+
 def rsd_formula(populated_catalog, raw):
     """RSD transform should shift positions along the los according to the formula z' = z + vz / (H * az)."""
     populated_catalog.rsd(los="z")
     result = populated_catalog.get_tracer_data("FOO")
     expected_z = raw["z"] + raw["vz"] / (populated_catalog.hubble * populated_catalog.az)
     pd.testing.assert_series_equal(result["z"], expected_z, check_names=False)
-        
+
 def test_rsd_with_wrap(populated_catalog, boxsize):
     """RSD with wrap should apply periodic wrapping after shifting."""
     raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
@@ -197,7 +201,7 @@ def test_rsd_does_not_mutate_raw(populated_catalog):
     populated_catalog.rsd(los="z")
     populated_catalog.get_tracer_data("FOO")
     pd.testing.assert_frame_equal(populated_catalog._data["FOO"], raw_before)
-    
+
 def test_rsd_after_ap_warns(populated_catalog, caplog):
     with caplog.at_level("WARNING"):
         populated_catalog.ap(los="z")
@@ -262,7 +266,7 @@ def test_downsample_by_nbar(populated_catalog):
     assert len(populated_catalog.get_tracer_data("FOO")) == 50
 
 def test_downsample_nbar_uses_ap_boxsize(populated_catalog, cosmo, cosmo_fid):
-    """nbar downsampling should use AP-scaled boxsize when AP is in the pipeline."""
+    """Nbar downsampling should use AP-scaled boxsize when AP is in the pipeline."""
     cosmo.efunc.return_value = 0.8
     cosmo_fid.efunc.return_value = 1.0
     populated_catalog.ap(los="z")
@@ -284,17 +288,17 @@ def test_positions_returns_dataframe(populated_catalog):
     """get_tracer_data with raw=False should return a DataFrame."""
     result = populated_catalog.positions()
     assert isinstance(result, pd.DataFrame)
-    
+
 def test_positions_columns_match_pos_columns(populated_catalog):
     """Position columns in the data should match the pos_columns specified in the catalog."""
     result = populated_catalog.positions()
     assert list(result.columns) == list(SnapshotCatalog.pos_columns)
-        
+
 def test_positions_no_velocity_columns(populated_catalog):
     """Position data should not include velocity columns."""
     result = populated_catalog.positions()
     assert not any(col in result.columns for col in SnapshotCatalog.vel_columns)
-    
+
 def test_positions_length_equals_ngal(populated_catalog):
     """Total rows should equal ngal."""
     assert len(populated_catalog.positions()) == populated_catalog.ngal
@@ -334,7 +338,7 @@ def test_save_load_preserves_tracer_names(populated_catalog, tmp_path, cosmo, co
     populated_catalog.save(path)
     loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
     assert set(loaded.tracers.keys()) == set(populated_catalog.tracers.keys())
-    
+
 def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid):
     """Transforms registered before saving should not be present after loading."""
     populated_catalog.ap(los="z")
@@ -388,7 +392,7 @@ def test_random_catalog_rsd_raises(random_catalog):
     """RSD transform should not be implemented for RandomSnapshotCatalog and should raise NotImplementedError."""
     with pytest.raises(NotImplementedError, match="RSD"):
         random_catalog.rsd()
-        
+
 #%%Multi-tracer catalogs
 
 @pytest.fixture
@@ -407,7 +411,7 @@ def multi_tracer_catalog(catalog, tracer, tracer_bar, valid_data, valid_data_bar
     return catalog
 
 def test_nbar_multi_tracer(multi_tracer_catalog):
-    """nbar should use total ngal over total volume."""
+    """Nbar should use total ngal over total volume."""
     volume = 500.0 ** 3
     assert multi_tracer_catalog.nbar == pytest.approx(150 / volume)
 
@@ -454,13 +458,13 @@ def test_downsample_independent_per_tracer(multi_tracer_catalog):
     assert len(multi_tracer_catalog.get_tracer_data("BAR")) == 30
 
 def test_downsample_ngal_multi_tracer_updates_total(multi_tracer_catalog):
-    """ngal should reflect downsampled counts across all tracers."""
+    """Ngal should reflect downsampled counts across all tracers."""
     multi_tracer_catalog.downsample("FOO", n_gal=60)
     multi_tracer_catalog.downsample("BAR", n_gal=30)
     assert multi_tracer_catalog.ngal == 90
 
 def test_downsample_nbar_uses_full_volume(multi_tracer_catalog):
-    """nbar downsampling should use catalog boxsize, not per-tracer extent."""
+    """Nbar downsampling should use catalog boxsize, not per-tracer extent."""
     volume = 500.0 ** 3
     target_nbar = 60 / volume
     multi_tracer_catalog.downsample("FOO", nbar=target_nbar)

@@ -1,13 +1,18 @@
 import os
-import pytest
 from unittest.mock import patch
 
-from acm.utils.decorators import temporary_class_state, require_nersc, kwargs_alias
+import pytest
+
+from acm.utils.decorators import kwargs_alias, require_nersc, temporary_class_state
+
+# ruff: noqa: ANN001, ANN201, ANN204, D102, D103, INP001, S101
+
 
 #%% Tests for temporary_class_state decorator
 
 class Dummy:
     """A simple class with attributes to test temporary_class_state."""
+
     def __init__(self, x=1, y=2):
         self.x = x
         self.y = y
@@ -83,9 +88,8 @@ class TestRequireNersc:
     """General test suite for the require_nersc decorator."""
 
     def test_raises_outside_nersc_when_enabled(self):
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(OSError, match="nersc_dummy"):
-                nersc_dummy()
+        with patch.dict(os.environ, {}, clear=True), pytest.raises(OSError, match="nersc_dummy"):
+            nersc_dummy()
 
     def test_runs_outside_nersc_when_disabled(self):
         with patch.dict(os.environ, {}, clear=True):

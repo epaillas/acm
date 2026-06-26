@@ -7,14 +7,15 @@ from acm.utils.compression import (
     collect_measurements,
     compress_measurements,
     reindex_samples,
-    split_test_set,
     reshape_to_coords,
+    split_test_set,
 )
 
+# ruff: noqa: ANN001, ANN201, ANN202, ARG001, INP001, S101
 
 class TestReshapeToCoords:
     """Tests for the reshape_to_coords function."""
-    
+
     def test_basic(self):
         """Test that an array can be reshaped to match the provided coordinate lengths."""
         arr = np.arange(6)
@@ -39,7 +40,7 @@ class TestReshapeToCoords:
 
 class TestCastCoords:
     """Tests for the cast_coords function."""
-    
+
     def test_int_strings(self):
         """Test that strings representing integers are cast to int."""
         d = {"idx": ["000", "001", "002"]}
@@ -88,7 +89,7 @@ class TestCastCoords:
 
 class TestReindexSamples:
     """Tests for the reindex_samples function."""
-    
+
     def test_global(self):
         """Test global reindexing without grouping."""
         index_arrays = {
@@ -163,17 +164,17 @@ class TestReindexSamples:
 
 # %% split_test_set
 
-@pytest.fixture()
+@pytest.fixture
 def simple_dataset():
-    """A simple 2D dataset with cosmo and hod dimensions."""
+    """2D dataset with cosmo and hod dimensions."""
     x = xarray.DataArray(
-        np.random.rand(3, 4),
+        np.random.rand(3, 4),  # noqa: NPY002
         dims=["cosmo_idx", "hod_idx"],
         coords={"cosmo_idx": [0, 1, 2], "hod_idx": [0, 1, 2, 3]},
         name="x",
     )
     y = xarray.DataArray(
-        np.random.rand(3, 4),
+        np.random.rand(3, 4),  # noqa: NPY002
         dims=["cosmo_idx", "hod_idx"],
         coords={"cosmo_idx": [0, 1, 2], "hod_idx": [0, 1, 2, 3]},
         name="y",
@@ -182,7 +183,7 @@ def simple_dataset():
 
 class TestSplitTestSet:
     """Tests for the split_test_set function."""
-    
+
     def test_adds_test_train_variables(self, simple_dataset):
         """Test that the output contains x_test, x_train, y_test, y_train."""
         result = split_test_set(simple_dataset, filters={"cosmo_idx": [0, 1]})
@@ -218,7 +219,7 @@ class TestSplitTestSet:
 
 # %% collect_measurements
 
-@pytest.fixture()
+@pytest.fixture
 def mock_file_tree(tmp_path):
     """Create a minimal mock file tree and return the root path."""
     files = [
@@ -242,7 +243,7 @@ GLOB_PATTERN = "c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/power_spectru
 
 class TestCollectMeasurements:
     """Tests for the collect_measurements function."""
-    
+
     def test_groups_by_index(self, mock_file_tree):
         """Test that files are grouped by unique combinations of index values, ignoring specified indexes."""
         groups, _ = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
@@ -299,19 +300,19 @@ class TestCollectMeasurements:
 # %% compress_measurements
 
 def _dummy_reader(files):
-    """Returns a simple sentinel object (just the count of files)."""
+    """Return a simple sentinel object (just the count of files)."""
     return len(files)
 
 
 def _dummy_postprocess(data, **kwargs):
-    """Returns a flat array of ones with shape (n_samples, n_features=2)."""
+    """Return a flat array of ones with shape (n_samples, n_features=2)."""
     arr = np.ones((len(data), 2))
     coords = {"feature": [0, 1]}
     return arr, coords
 
 class TestCompressMeasurements:
     """Tests for the compress_measurements function."""
-    
+
     def test_sparse_grid_raises(self, tmp_path):
         """Sparse grids (missing index combinations) should raise a ValueError."""
         files = [

@@ -4,6 +4,8 @@ import pytest
 
 from acm.utils.modules import check_installed, get_class_from_module
 
+# ruff: noqa: ANN201, D101, D102, INP001, S101
+
 
 class TestGetClassFromModule:
 
