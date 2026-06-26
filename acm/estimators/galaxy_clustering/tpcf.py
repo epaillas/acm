@@ -17,9 +17,9 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
     def compute(self, **kwargs) -> LsstypeObject:
         """Compute the TPCF estimator."""
         correlation = TwoPointCorrelationFunction(
-            data_positions1 = self.data_positions,
-            boxsize = self.backend.boxsize,
-            position_type = 'pos', # Positions are of shape (N, 3)
+            data_positions1=self.data_positions,
+            boxsize=self.backend.boxsize,
+            position_type="pos",  # Positions are of shape (N, 3)
             **kwargs,
         )
         return from_pycorr(correlation)

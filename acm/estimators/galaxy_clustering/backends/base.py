@@ -62,7 +62,7 @@ class EstimatorBackend(ABC):
             len(randoms_positions) if randoms_positions is not None else None
         )
 
-        self._density_contrast = None # Initialized here for access in estimators
+        self._density_contrast = None  # Initialized here for access in estimators
 
     @property
     def size_data(self) -> int:

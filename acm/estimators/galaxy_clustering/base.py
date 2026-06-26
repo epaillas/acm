@@ -17,7 +17,7 @@ class BaseEstimator(ABC):
     Used to compute the result from the backend, and provides methods to load a similar result from file.
     """
 
-    save_ext = ('h5', 'hdf5')
+    save_ext = ("h5", "hdf5")
 
     def __init__(
         self,
@@ -39,7 +39,9 @@ class BaseEstimator(ABC):
             **kwargs,
         )
         # NOTE: no density contrast assignation because loaded bacend might already have it !
-        logger.info(f"Initializing {self.__class__.__name__} with {self.backend.__class__.__name__}")
+        logger.info(
+            f"Initializing {self.__class__.__name__} with {self.backend.__class__.__name__}"
+        )
 
         self.data_positions = data_positions
         self.randoms_positions = randoms_positions
@@ -48,10 +50,7 @@ class BaseEstimator(ABC):
 
     def __repr__(self) -> str:  # pragma: no cover
         """Provide a string representation of the estimator, including backend."""
-        return (
-            f"{self.__class__.__name__}("
-            f"backend={self.backend.__class__.__name__})"
-        )
+        return f"{self.__class__.__name__}(backend={self.backend.__class__.__name__})"
 
     def save(
         self,
@@ -76,9 +75,11 @@ class BaseEstimator(ABC):
         """
         save_fn = Path(save_fn)
         if save_fn.suffix not in self.save_ext:
-            raise ValueError(f"{save_fn} must have one of the following extensions: {self.save_ext}")
+            raise ValueError(
+                f"{save_fn} must have one of the following extensions: {self.save_ext}"
+            )
         if save_fn.exists() and overwrite is False:
-            logger.info(f'File {save_fn} exists and {overwrite=}. Skipping...')
+            logger.info(f"File {save_fn} exists and {overwrite=}. Skipping...")
             # NOTE: Should this be at INFo or WARNING level ?
             return
 
