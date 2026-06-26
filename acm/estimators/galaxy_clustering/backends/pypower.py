@@ -178,7 +178,7 @@ class PypowerBackend(EstimatorBackend):
         elif name.startswith("nofilter"):
             f = filters.NoFilter(smoothing_radius)
         else:
-            raise ValueError(f"{name} filter not found.")
+            raise ValueError(f"{filter_shape} filter not found.")
         return f
 
     def read_density_contrast(
