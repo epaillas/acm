@@ -4,6 +4,8 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
+# ruff: noqa: ANN001, ANN201, ANN202, ANN204, ARG002, D101, D102, D103, D105, E402, INP001, S101
+
 #%% Mock modules-level imports
 
 # Jax numpy methods used in JaxpowerBackend - mocked trough numpy
@@ -13,6 +15,7 @@ jax_mock.numpy.exp = np.exp
 jax_mock.numpy.sum = np.sum
 jax_mock.numpy.meshgrid = np.meshgrid
 jax_mock.numpy.vstack = np.vstack
+jax_mock.numpy.exp = np.exp
 sys.modules["jax"] = jax_mock
 sys.modules["jax.numpy"] = jax_mock.numpy
 
@@ -20,41 +23,36 @@ sys.modules["jax.numpy"] = jax_mock.numpy
 jaxpower_mock = MagicMock()
 
 class RealMeshField:
-    """Minimal real mesh sentinel so isinstance checks pass."""
+    """Minimal real mesh sentinel."""
 
-    def __init__(self, value: np.ndarray | None  = None):
-        self.value = value if value is not None else np.ones((32, 32, 32))
-
+    def __init__(self, value): self.value = value
     def paint(self, **kwargs): return self
     def sum(self): return np.sum(self.value)
     def mean(self): return np.mean(self.value)
     def read(self, positions, resampler="cic"): return np.zeros(len(positions))
     def clone(self, value): return RealMeshField(value)
     def r2c(self): return ComplexMeshField(self.value.astype(complex))
-
-    def __mul__(self, other): return RealMeshField(self.value * (other if np.isscalar(other) else other.value))
-    def __rmul__(self, other): return RealMeshField(self.value * other)
-    def __truediv__(self, other): return RealMeshField(self.value / (other if np.isscalar(other) else other.value))
-    def __sub__(self, other): return RealMeshField(self.value - (other if np.isscalar(other) else other.value))
+    def __mul__(self, other): return RealMeshField(self.value * (other.value if isinstance(other, RealMeshField) else other))
+    def __rmul__(self, other): return RealMeshField(self.value * (other.value if isinstance(other, RealMeshField) else other))
+    def __truediv__(self, other): return RealMeshField(self.value / (other.value if isinstance(other, RealMeshField) else other))
+    def __sub__(self, other): return RealMeshField(self.value - (other.value if isinstance(other, RealMeshField) else other))
 
 class ComplexMeshField:
-    """Minimal complex mesh sentinel so isinstance checks pass."""
+    """Minimal complex mesh sentinel."""
 
-    def __init__(self, value=None):
-        self.value = value if value is not None else np.ones((32, 32, 32), dtype=complex)
-
+    def __init__(self, value): self.value = value
     def c2r(self): return RealMeshField(self.value.real)
-    def __mul__(self, other): return ComplexMeshField(self.value * (other if np.isscalar(other) else other.value))
-    def __rmul__(self, other): return ComplexMeshField(self.value * other)
+    def __mul__(self, other): return ComplexMeshField(self.value * (other.value if isinstance(other, ComplexMeshField) else other))
+    def __rmul__(self, other): return ComplexMeshField(self.value * (other.value if isinstance(other, ComplexMeshField) else other))
 
 class ParticleField:
     """Minimal particle field sentinel."""
 
     def __init__(self, positions, weights=None, **kwargs):
+        self.positions = positions
         self.weights = weights if weights is not None else np.ones(len(positions))
         self._size = len(positions)
-
-    def paint(self, out="real", **kwargs): return RealMeshField()
+    def paint(self, out="real", **kwargs): return RealMeshField(np.random.default_rng(0).uniform(0.5, 1.5, (32, 32, 32)))
     def sum(self): return float(np.sum(self.weights))
     @property
     def size(self): return self._size
@@ -69,18 +67,20 @@ def _make_mesh_attrs():
     mattrs.cellsize = np.array([100.0 / 32] * 3)
     x = np.linspace(0, 100, 32)
     mattrs.rcoords.return_value = (x, x, x)
+    mattrs.kcoords.return_value = np.linspace(0, 10, 10)
     return mattrs
 
 jaxpower_mock.RealMeshField = RealMeshField
 jaxpower_mock.ComplexMeshField = ComplexMeshField
 jaxpower_mock.ParticleField = ParticleField
-jaxpower_mock.get_mesh_attrs = lambda *args, **kwargs: _make_mesh_attrs()
+jaxpower_mock.get_mesh_attrs = lambda *args, **kwargs: _make_mesh_attrs()  # noqa: ARG005
 jaxpower_mock.MeshAttrs = MagicMock
 
 sys.modules["jaxpower"] = jaxpower_mock
 
-from acm.estimators.galaxy_clustering.backends.jaxpower import JaxpowerBackend
-
+from acm.estimators.galaxy_clustering.backends.jaxpower import (
+    JaxpowerBackend,
+)
 
 #%% Fixtures
 N, M = 20, 30
@@ -179,14 +179,17 @@ class TestDensityContrast:
         assert backend_with_randoms._density_contrast is not None
 
     def test_set_with_smoothing(self, backend):
-        backend.set_density_contrast(smoothing_radius=10.0)
+        backend.set_density_contrast(smoothing_radius=5.0)
         assert backend._density_contrast is not None
 
 class TestGaussianKernel:
     def test_returns_jax_array(self, backend):
         """gaussian_kernel should call jax.numpy.exp and return its result."""
-        result = JaxpowerBackend.gaussian_kernel(backend.mattrs, smoothing_radius=5.0)
-        assert result is not None  # MagicMock will return a truthy mock
+        s = 5.0
+        x = np.linspace(0, 10, 10)
+        kernel = JaxpowerBackend.gaussian_kernel(backend.mattrs, smoothing_radius=s)
+        result = np.exp(-0.5 * sum(x * s**2))
+        assert kernel == result
 
 class TestGetFieldThreshold:
     def test_noise_method(self):
