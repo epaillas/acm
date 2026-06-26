@@ -100,7 +100,7 @@ class JaxpowerBackend(EstimatorBackend):
             randoms_field = ParticleField(
                 randoms_positions,  # ty:ignore[invalid-argument-type]
                 randoms_weights,  # ty:ignore[invalid-argument-type]
-                attrs=self.mattrs,
+                attrs=mattrs,
                 exchange=True,
                 backend="jax",
             )

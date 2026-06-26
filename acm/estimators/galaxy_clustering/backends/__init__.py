@@ -11,8 +11,9 @@ from acm.utils.modules import check_installed
 from .base import EstimatorBackend, load_backend
 
 if check_installed("jaxpower"):
-    from .jaxpower import JaxpowerBackend
+    from .jaxpower import JaxpowerBackend  # pragma: no cover
 if check_installed("pypower"):
-    from .pypower import PypowerBackend
+    from .pypower import PypowerBackend  # pragma: no cover
 if check_installed("pyrecon") and hasattr(import_module("pyrecon"), "RealMesh"):
-    from .pyrecon import PyreconBackend  # NOTE: RealMesh exists only on main branch
+    # NOTE: RealMesh exists only on main branch
+    from .pyrecon import PyreconBackend  # pragma: no cover

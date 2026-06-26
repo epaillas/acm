@@ -19,4 +19,4 @@ from .base import (
 
 # Register backends if possible:
 if check_installed("abacusnbody"):
-    from .abacus import AbacusHODBackend
+    from .abacus import AbacusHODBackend  # pragma: no cover
