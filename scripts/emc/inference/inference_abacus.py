@@ -130,6 +130,13 @@ def get_observable(observable_names):
     """Get the observable class by name."""
     if isinstance(observable_names, str):
         observable_names = [observable_names]
+    paths = {}
+    if args.data_dir:
+        paths["data_dir"] = Path(args.data_dir)
+    if args.model_dir:
+        paths["model_dir"] = Path(args.model_dir)
+    paths = paths or None
+
     observables = []
     for observable_name in observable_names:
         observable_name = resolve_statistic_name(observable_name)
@@ -139,16 +146,24 @@ def get_observable(observable_names):
             squeeze_output=True,
             select_filters=select_filters,
             slice_filters=slice_filters,
-            paths={"model_dir": Path(args.model_dir)} if args.model_dir else None,
+            paths=paths,
         )
         observables.append(obs)
     return obs if len(observables) == 1 else CombinedObservable(observables)
 
 
+def resolve_number_density_checkpoint():
+    """Resolve the optional EMC number-density emulator checkpoint."""
+    if args.model_dir:
+        return Path(args.model_dir) / "number_density.ckpt"
+    return NBAR_EMULATOR_CHECKPOINT
+
+
 def load_number_density_model():
     """Load the optional EMC number-density emulator checkpoint."""
-    logger.info(f"Loading number density emulator from {NBAR_EMULATOR_CHECKPOINT}")
-    return load_model_from_checkpoint(NBAR_EMULATOR_CHECKPOINT)
+    checkpoint_fn = resolve_number_density_checkpoint()
+    logger.info(f"Loading number density emulator from {checkpoint_fn}")
+    return load_model_from_checkpoint(checkpoint_fn)
 
 
 def get_data_model_cov(observable):
@@ -328,6 +343,12 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="Optional model directory override for emulator checkpoints.",
+    )
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default=None,
+        help="Optional directory containing compressed observable datasets.",
     )
     parser.add_argument(
         "--save_dir",
