@@ -1,86 +1,13 @@
-import sys
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
-# ruff: noqa: ANN001, ANN201, ANN202, ANN204, ARG002, D101, D102, D103, D105, E402, INP001, S101
-
-#%% Mock modules-level imports
-
-# Jax numpy methods used in JaxpowerBackend - mocked trough numpy
-jax_mock = MagicMock()
-jax_mock.numpy.where = np.where
-jax_mock.numpy.exp = np.exp
-jax_mock.numpy.sum = np.sum
-jax_mock.numpy.meshgrid = np.meshgrid
-jax_mock.numpy.vstack = np.vstack
-jax_mock.numpy.exp = np.exp
-sys.modules["jax"] = jax_mock
-sys.modules["jax.numpy"] = jax_mock.numpy
-
-# Mock relevant jaxpower properties - No expectations on the internal behavior or outputs here !
-jaxpower_mock = MagicMock()
-
-class RealMeshField:
-    """Minimal real mesh sentinel."""
-
-    def __init__(self, value): self.value = value
-    def paint(self, **kwargs): return self
-    def sum(self): return np.sum(self.value)
-    def mean(self): return np.mean(self.value)
-    def read(self, positions, resampler="cic"): return np.zeros(len(positions))
-    def clone(self, value): return RealMeshField(value)
-    def r2c(self): return ComplexMeshField(self.value.astype(complex))
-    def __mul__(self, other): return RealMeshField(self.value * (other.value if isinstance(other, RealMeshField) else other))
-    def __rmul__(self, other): return RealMeshField(self.value * (other.value if isinstance(other, RealMeshField) else other))
-    def __truediv__(self, other): return RealMeshField(self.value / (other.value if isinstance(other, RealMeshField) else other))
-    def __sub__(self, other): return RealMeshField(self.value - (other.value if isinstance(other, RealMeshField) else other))
-
-class ComplexMeshField:
-    """Minimal complex mesh sentinel."""
-
-    def __init__(self, value): self.value = value
-    def c2r(self): return RealMeshField(self.value.real)
-    def __mul__(self, other): return ComplexMeshField(self.value * (other.value if isinstance(other, ComplexMeshField) else other))
-    def __rmul__(self, other): return ComplexMeshField(self.value * (other.value if isinstance(other, ComplexMeshField) else other))
-
-class ParticleField:
-    """Minimal particle field sentinel."""
-
-    def __init__(self, positions, weights=None, **kwargs):
-        self.positions = positions
-        self.weights = weights if weights is not None else np.ones(len(positions))
-        self._size = len(positions)
-    def paint(self, out="real", **kwargs): return RealMeshField(np.random.default_rng(0).uniform(0.5, 1.5, (32, 32, 32)))
-    def sum(self): return float(np.sum(self.weights))
-    @property
-    def size(self): return self._size
-
-
-def _make_mesh_attrs():
-    """Return a MagicMock mattrs with sensible defaults for arithmetic and unpacking."""
-    mattrs = MagicMock()
-    mattrs.boxsize = np.array([100.0, 100.0, 100.0])
-    mattrs.boxcenter = np.array([50.0, 50.0, 50.0])
-    mattrs.meshsize = np.array([32, 32, 32])
-    mattrs.cellsize = np.array([100.0 / 32] * 3)
-    x = np.linspace(0, 100, 32)
-    mattrs.rcoords.return_value = (x, x, x)
-    mattrs.kcoords.return_value = np.linspace(0, 10, 10)
-    return mattrs
-
-jaxpower_mock.RealMeshField = RealMeshField
-jaxpower_mock.ComplexMeshField = ComplexMeshField
-jaxpower_mock.ParticleField = ParticleField
-jaxpower_mock.get_mesh_attrs = lambda *args, **kwargs: _make_mesh_attrs()  # noqa: ARG005
-jaxpower_mock.MeshAttrs = MagicMock
-
-sys.modules["jaxpower"] = jaxpower_mock
-
 from acm.estimators.galaxy_clustering.backends.jaxpower import (
     JaxpowerBackend,
 )
+
+# ruff: noqa: ANN001, ANN201, D101, D102, D103, INP001, S101
 
 #%% Fixtures
 N, M = 20, 30

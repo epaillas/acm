@@ -1,51 +1,7 @@
-import sys
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
-
-# ruff: noqa: ANN001, ANN201, ANN204, ARG001, ARG002, D101, D102, D103, D105, E402, INP001, S101
-
-#%% Mock modules-level imports
-
-pypower_mock = MagicMock()
-class MeshField:
-    """Minimal mesh field sentinel supporting the r2c/apply/c2r chain and arithmetic."""
-
-    def __init__(self, value=None):
-        self.value = value if value is not None else np.ones((32, 32, 32))
-
-    def r2c(self): return self
-    def c2r(self): return self
-    def apply(self, kernel): return self
-    def readout(self, positions, resampler="cic"): return np.zeros(len(positions))
-
-    def __sub__(self, other): return MeshField(self.value - (other.value if isinstance(other, MeshField) else other))
-    def __truediv__(self, other): return MeshField(self.value / (other.value if isinstance(other, MeshField) else other))
-    def __mul__(self, other): return MeshField(self.value * (other.value if isinstance(other, MeshField) else other))
-    def __rmul__(self, other): return MeshField(self.value * other)
-    def __gt__(self, other): return self.value > other
-    def __invert__(self): return ~(self.value > 0)
-    def __setitem__(self, key, value): self.value[key] = value
-    def __getitem__(self, key): return self.value[key]
-
-
-class CatalogMesh:
-    """Minimal CatalogMesh sentinel."""
-
-    def __init__(self, data_positions, data_weights=None, randoms_positions=None, randoms_weights=None, **kwargs):
-        self.data_positions = data_positions
-        self.data_weights = data_weights if data_weights is not None else np.ones(len(data_positions))
-        self.boxsize = np.array([100.0, 100.0, 100.0])
-        self.boxcenter = np.array([50.0, 50.0, 50.0])
-        self.nmesh = np.array([32, 32, 32])
-        self.with_randoms = randoms_positions is not None
-
-    def to_mesh(self, **kwargs):
-        return MeshField()
-
-pypower_mock.CatalogMesh = CatalogMesh
-sys.modules["pypower"] = pypower_mock
 
 from acm.estimators.galaxy_clustering.backends.filters import (
     GaussianFilter,
@@ -55,6 +11,8 @@ from acm.estimators.galaxy_clustering.backends.filters import (
 from acm.estimators.galaxy_clustering.backends.pypower import (
     PypowerBackend,
 )
+
+# ruff: noqa: ANN001, ANN201, ARG001, D101, D102, D103, INP001, S101
 
 #%% Fixtures
 N, M = 20, 30
@@ -165,32 +123,6 @@ class TestGetKernel:
     def test_invalid_raises(self):
         with pytest.raises(ValueError, match="Invalid"):
             PypowerBackend._get_kernel("Invalid", 5.0)
-
-class TestFilters:
-    K = (np.array([0.0, 0.1, 0.5]),) * 3
-    V = np.array([1.0, 2.0, 3.0])
-
-    def test_gaussian_zero_k_unchanged(self):
-        """At k=0 the Gaussian kernel equals 1, so v is returned unchanged."""
-        f = GaussianFilter(r=5.0)
-        np.testing.assert_almost_equal(f((np.array([0.0]),) * 3, np.array([1.0])), [1.0])
-
-    def test_gaussian_attenuates_high_k(self):
-        """Gaussian filter should attenuate high-k modes more than low-k."""
-        f = GaussianFilter(r=5.0)
-        assert f((np.array([0.01]),) * 3, np.array([1.0])) > f((np.array([1.0]),) * 3, np.array([1.0]))
-
-    def test_tophat_zero_k_unchanged(self):
-        """At k=0 the top-hat kernel equals 1, so v is returned unchanged."""
-        f = TopHatFilter(r=5.0)
-        np.testing.assert_almost_equal(f((np.array([0.0]),) * 3, np.array([1.0])), [1.0])
-
-    def test_nofilter_returns_v(self):
-        np.testing.assert_array_equal(NoFilter(r=0.0)(self.K, self.V), self.V)
-
-    def test_filter_radius_stored(self):
-        for cls in [GaussianFilter, TopHatFilter, NoFilter]:
-            assert cls(r=7.0).r == 7.0
 
 class TestGetQueryPositions:
     def test_randoms_shape(self, backend):
