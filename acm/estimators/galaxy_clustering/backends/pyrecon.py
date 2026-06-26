@@ -4,7 +4,6 @@ import time
 import numpy as np
 from pyrecon import RealMesh
 
-from acm.utils.decorators import kwargs_alias
 from acm.utils.default import _make_array
 
 from .base import EstimatorBackend, register_backend
@@ -28,7 +27,6 @@ class PyreconBackend(EstimatorBackend):
         pyrecon particle field for randoms, if provided.
     """
 
-    @kwargs_alias(nmesh="meshsize")
     def __init__(
         self,
         data_positions: np.ndarray,

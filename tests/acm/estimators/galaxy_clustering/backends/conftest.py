@@ -111,9 +111,35 @@ class CatalogMesh:
 pypower_mock = MagicMock()
 pypower_mock.CatalogMesh = CatalogMesh
 
+#%% pyrecon mock
+class RealMesh:
+    """Minimal RealMesh sentinel supporting arithmetic and masking."""
+
+    def __init__(self, value=None, **kwargs):
+        self.value = value if value is not None else np.random.default_rng(0).uniform(0.5, 1.5, (32, 32, 32))
+
+    def assign_cic(self, positions, weights=None, wrap=True): pass
+    def smooth_gaussian(self, radius, method="fftw", **kwargs): pass
+    def read_cic(self, positions): return np.zeros(len(positions))
+    def mean(self, **kwargs): return np.mean(self.value, **kwargs)
+    def sum(self, **kwargs): return np.sum(self.value, **kwargs)
+
+    def __sub__(self, other): return RealMesh(self.value - (other.value if isinstance(other, RealMesh) else other))
+    def __truediv__(self, other): return RealMesh(self.value / (other.value if isinstance(other, RealMesh) else other))
+    def __mul__(self, other): return RealMesh(self.value * (other.value if isinstance(other, RealMesh) else other))
+    def __rmul__(self, other): return RealMesh(self.value * other)
+    def __gt__(self, other): return self.value > other
+    def __invert__(self): return ~(self.value > 0)
+    def __setitem__(self, key, value): self.value[key] = value
+    def __getitem__(self, key): return self.value[key]
+
+RealMesh.smooth_gaussian = MagicMock()
+pyrecon_mock = MagicMock()
+pyrecon_mock.RealMesh = RealMesh
 
 def pytest_configure(config):  # noqa: ARG001
     sys.modules["jax"] = jax_mock
     sys.modules["jax.numpy"] = jax_mock.numpy
     sys.modules["jaxpower"] = jaxpower_mock
     sys.modules["pypower"] = pypower_mock
+    sys.modules["pyrecon"] = pyrecon_mock

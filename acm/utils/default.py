@@ -20,8 +20,8 @@ def _make_array(
     dtype: str | type = np.float64,
 ) -> np.ndarray:
     """Return a numpy array by broadcasting the value on the expected shape."""
-    toret = np.full(shape, np.nan, dtype=dtype)
+    toret = np.full(shape, np.nan)
     toret[...] = value
     if np.any(np.isnan(toret)):
         raise ValueError(f"Broadcasted {value} to array but found NaN values inside.")
-    return toret
+    return toret.astype(dtype=dtype)
