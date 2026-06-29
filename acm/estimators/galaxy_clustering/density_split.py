@@ -139,6 +139,11 @@ class DensitySplit(BaseEstimator):
         self._query_method = kwargs.get("method", "randoms")
         # NOTE: store delta query/density contrast ?
 
+    @property
+    def nquantiles(self) -> int:
+        """Return the number of quantiles."""
+        return len(self._quantiles)
+
     def _correlation(self, cross: bool, **kwargs) -> list[lsstypes.Count2Correlation]:
         """
         Compute the correlation function for each quantile.
@@ -388,3 +393,5 @@ class DensitySplit(BaseEstimator):
                 pole = quantile.project(ells=ell).value()
             ax.plot(ld, pole*ld**2, label=rf"${{\rm Q}}_{q}$", c=f'C{i}', **kwargs)
         return fig, ax
+
+    # TODO: add back plot_quantiles
