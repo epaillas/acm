@@ -300,13 +300,13 @@ class DensitySplit(BaseEstimator):
             raise ValueError(f"Unknown data type: {data_type}. Available types: 'correlation', 'power'.")
 
         quantiles = list(range(len(self._quantiles)))
-        attrs = { # FIXME: Choose which attributes to keep !
-            "query_method": self._query_method,
-            "boxsize": self.backend.boxsize,
-            "meshsize": self.backend.meshsize,
-            "nquantiles": len(self._quantiles),
-            "data_type": data_type,
-        }
+        attrs = dict( # FIXME: Choose which attributes to keep !
+            query_method = self._query_method,
+            boxsize = list(self.backend.boxsize),
+            meshsize = list(self.backend.meshsize),
+            nquantiles = len(self._quantiles),
+            data_type = data_type,
+        )
         tree = ObservableTree(leaves, quantiles=quantiles, attrs=attrs)
         return tree
 
