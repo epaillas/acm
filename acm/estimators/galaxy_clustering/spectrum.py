@@ -87,7 +87,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         data_mesh = self.backend.data_field.paint(out="real", **kwargs)
 
         if self.backend.randoms_field is not None:
-        # <=> randoms_positions is not None but also checks if randoms_field is not None
+            # <=> randoms_positions is not None but also checks if randoms_field is not None
             logger.info("Computing power spectrum using FKP estimator with randoms.")
             los = "firstpoint"  # NOTE: override los to firstpoint when using randoms
             randoms_mesh = self.backend.randoms_field.paint(out="real", **kwargs)
