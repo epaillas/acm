@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from lsstypes.external import from_pycorr
 from pycorr import TwoPointCorrelationFunction
 
-from acm.utils.compression import LsstypeObject
+from acm.typing import LsstypeObject
+from acm.utils.plotting import set_plot_style
 
 from .base import BaseEstimator
 
@@ -20,6 +21,7 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         """Compute the TPCF estimator."""
         correlation = TwoPointCorrelationFunction(
             data_positions1=self.data_positions,
+            randoms_positions1=self.randoms_positions,
             boxsize=self.backend.boxsize,
             position_type="pos",  # Positions are of shape (N, 3)
             **kwargs,
@@ -27,7 +29,7 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         return from_pycorr(correlation)
 
     @staticmethod
-    def load(filename: str | Path, ells: list[int] | None = None, **kwargs) -> LsstypeObject:
+    def load(filename: str | Path, project: bool = False, **kwargs) -> LsstypeObject:
         """
         Load a Count2Correlation object from file.
 
@@ -35,10 +37,10 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         ----------
         filename: str | Path
             Path to the file containing the Count2Correlation object.
-        ells: list[int] | None, optional
-            List of multipoles to project the Count2Correlation object onto. If None, no projection is performed.
+        project: bool, optional
+            Whether to project the loaded Count2Correlation object onto specified multipoles. Default is False.
         **kwargs
-            Additional keyword arguments for the projection. See :meth:`lsstypes.Count2Correlation.project` for details.
+            Additional keyword arguments for the projection. See :meth:`~lsstypes.Count2Correlation.project` for details.
 
         Returns
         -------
@@ -46,12 +48,17 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
             The loaded Count2Correlation object, optionally projected onto the specified multipoles.
         """
         obj: lsstypes.Count2Correlation = lsstypes.read(filename)
-        if ells is not None:
-            obj = obj.project(ells=ells, **kwargs)
+        if project:
+            obj = obj.project(**kwargs)
         return obj
 
     @staticmethod
-    def plot(obj: LsstypeObject, ells: list[int] = [0, 2, 4], **kwargs) -> tuple:
+    @set_plot_style
+    def plot(
+        obj: LsstypeObject,
+        ells: tuple[int, ...] | list[int] = (0, 2, 4),
+        **kwargs,
+    ) -> tuple:
         """
         Plot the Two-Point Correlation Function (TPCF) from a Count2Correlation or Count2CorrelationPoles object.
 
@@ -59,28 +66,32 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         ----------
         obj: LsstypeObject
             The Count2Correlation or Count2CorrelationPoles object to plot.
-        ells: list[int], optional
-            List of multipoles to plot. Default is [0, 2, 4].
+        ells: tuple[int, ...] | list[int], optional
+            List of multipoles to plot. Default is (0, 2, 4).
         **kwargs
             Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.subplots` for details.
             Can also include 'fig' and 'ax' to provide existing figure and axes for plotting,
             or 'figsize' to specify the size of the figure if new figure and axes are created.
             If 'fig' and 'ax' are provided, 'figsize' will be ignored.
+
+        Returns
+        -------
+        fig, ax: tuple
+            The matplotlib figure and axes objects containing the plot.
         """
-        if "fig" in kwargs and "ax" in kwargs:
-            fig, ax = kwargs["fig"], kwargs["ax"]
-        else:
-            figsize = kwargs.pop("figsize", (8, 6))
+        fig = kwargs.pop("fig", None)
+        ax = kwargs.pop("ax", None)
+        figsize = kwargs.pop("figsize", (8, 6))
+        if fig is None or ax is None:
             fig, ax = plt.subplots(figsize=figsize, **kwargs)
             ax.set_xlabel(r"$s$ [Mpc/h]")
             ax.set_ylabel(r"$s^2 \xi(s)$ [Mpc/h]$^2$")
 
         if isinstance(obj, lsstypes.Count2Correlation):
-            logger.info(f"Got pair counts, projecting to multipoles: {ells}")
+            logger.debug(f"Got pair counts, projecting to multipoles: {ells}")
             obj = obj.project(ells=ells)
 
         s = obj.flatten(level=None)[0].coords("s")
-
         for ell in ells:
             pole = obj.get(ells=ell).value()
             ax.plot(s, pole*s**2, label=rf"\ell={ell}", **kwargs)
