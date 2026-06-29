@@ -80,25 +80,25 @@ class EstimatorBackend(ABC):
 
     @property
     @abstractmethod
-    def boxsize(self) -> float | list | np.ndarray:
+    def boxsize(self) -> tuple | list | np.ndarray:
         """Physical size of the box along each dimension."""
         ...
 
     @property
     @abstractmethod
-    def boxcenter(self) -> float | list | np.ndarray:
+    def boxcenter(self) -> tuple | list | np.ndarray:
         """Physical coordinates of the box center along each dimension."""
         ...
 
     @property
     @abstractmethod
-    def meshsize(self) -> float | list | np.ndarray:
+    def meshsize(self) -> tuple | list | np.ndarray:
         """Number of mesh cells along each dimension."""
         ...
 
     @property
     @abstractmethod
-    def cellsize(self) -> float | list | np.ndarray:
+    def cellsize(self) -> tuple | list | np.ndarray:
         """Physical size of each mesh cell."""
         ...
 
