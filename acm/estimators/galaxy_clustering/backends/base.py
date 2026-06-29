@@ -18,6 +18,8 @@ class EstimatorBackend(ABC):
         """
         Initialize the backend positional properties.
 
+        Expects positions to be passed in cartesian coordinates of shape (N, 3) and weights to be 1D arrays of shape (N,).
+
         Parameters
         ----------
         data_positions: np.ndarray
