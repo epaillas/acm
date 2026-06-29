@@ -18,10 +18,10 @@ from lsstypes.external import from_pycorr
 from pandas import qcut
 from pycorr import TwoPointCorrelationFunction
 
-from acm.estimators.galaxy_clustering.backends.base import EstimatorBackend
-from acm.estimators.galaxy_clustering.backends.jaxpower import JaxpowerBackend
 from acm.typing import LsstypeObject
 
+from .backends.base import EstimatorBackend
+from .backends.jaxpower import JaxpowerBackend
 from .base import BaseEstimator
 
 logger = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ class DensitySplit(BaseEstimator):
         self._query_method = kwargs.get("method", "randoms")
         # NOTE: store delta query/density contrast ?
 
-    def _correlation(self, cross: bool, **kwargs) -> list[LsstypeObject]:
+    def _correlation(self, cross: bool, **kwargs) -> list[lsstypes.Count2Correlation]:
         """
         Compute the correlation function for each quantile.
 
@@ -152,7 +152,7 @@ class DensitySplit(BaseEstimator):
 
         Returns
         -------
-        list[LsstypeObject]
+        list[lsstypes.Count2Correlation]
             List of Count2Correlation objects for each quantile.
         """
         data_positions2 = self.data_positions if cross else None
@@ -190,7 +190,7 @@ class DensitySplit(BaseEstimator):
         ells: tuple[int, ...] | list[int] = (0, 2, 4),
         los: str = "z",
         **kwargs
-    ) -> list[LsstypeObject]:
+    ) -> list[lsstypes.Mesh2SpectrumPoles]:
         """
         Compute the power spectrum for each quantile.
 
@@ -209,6 +209,11 @@ class DensitySplit(BaseEstimator):
             Line-of-sight direction for the power spectrum computation. Defaults to "z".
         **kwargs
             Additional keyword arguments when painting quantiles or data to meshes. See :class:`~jaxpower.ParticleField.paint` for details.
+
+        Returns
+        -------
+        list[lsstypes.Mesh2SpectrumPoles]
+            List of power spectrum objects for each quantile.
         """
         if not isinstance(self.backend, JaxpowerBackend):
             raise TypeError("The backend must be a JaxpowerBackend for power spectrum computation.")
@@ -313,6 +318,11 @@ class DensitySplit(BaseEstimator):
             Whether to project the loaded DensitySplit object onto specified multipoles. Default is False.
         **kwargs
             Additional keyword arguments for the projection. See :meth:`~lsstypes.Count2Correlation.project` for details.
+
+        Returns
+        -------
+        obj: lsstypes.ObservableTree
+            The loaded DensitySplit object, optionally projected onto the specified multipoles.
         """
         obj: LsstypeObject = lsstypes.read(filename)
         if project:

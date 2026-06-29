@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from lsstypes.external import from_pycorr
 from pycorr import TwoPointCorrelationFunction
 
-from acm.typing import LsstypeObject
 from acm.utils.plotting import set_plot_style
 
 from .base import BaseEstimator
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 class TwoPointCorrelationFunctionEstimator(BaseEstimator):
     """Estimator for the Two-Point Correlation Function, using :mod:`pycorr`."""
 
-    def compute(self, **kwargs) -> LsstypeObject:
+    def compute(self, **kwargs) -> lsstypes.Count2Correlation:
         """Compute the TPCF estimator."""
         correlation = TwoPointCorrelationFunction(
             data_positions1=self.data_positions,
@@ -29,7 +28,7 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         return from_pycorr(correlation)
 
     @staticmethod
-    def load(filename: str | Path, project: bool = False, **kwargs) -> LsstypeObject:
+    def load(filename: str | Path, project: bool = False, **kwargs) -> lsstypes.Count2Correlation:
         """
         Load a Count2Correlation object from file.
 
@@ -55,7 +54,7 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
     @staticmethod
     @set_plot_style
     def plot(
-        obj: LsstypeObject,
+        obj: lsstypes.Count2Correlation | lsstypes.Count2CorrelationPoles,
         ells: tuple[int, ...] | list[int] = (0, 2, 4),
         **kwargs,
     ) -> tuple:
@@ -64,7 +63,7 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
 
         Parameters
         ----------
-        obj: LsstypeObject
+        obj: lsstypes.Count2Correlation | lsstypes.Count2CorrelationPoles
             The Count2Correlation or Count2CorrelationPoles object to plot.
         ells: tuple[int, ...] | list[int], optional
             List of multipoles to plot. Default is (0, 2, 4).
@@ -95,5 +94,4 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         for ell in ells:
             pole = obj.get(ells=ell).value()
             ax.plot(s, pole*s**2, label=rf"\ell={ell}", **kwargs)
-
         return fig, ax

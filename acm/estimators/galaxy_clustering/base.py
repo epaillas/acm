@@ -106,18 +106,18 @@ class BaseEstimator(ABC):
         tmp_fn.replace(filename)  # Atomic move to avoid partial writes
 
     @abstractmethod
-    def compute(self, **kwargs) -> LsstypeObject:
+    def compute(self) -> LsstypeObject:
         """Compute the estimator."""
         ...
 
     @abstractmethod
     @staticmethod
-    def load(filename: str | Path, **kwargs) -> LsstypeObject:
+    def load(filename: str | Path) -> LsstypeObject:
         """Load an estimator result from file."""
         ...
 
     @abstractmethod
     @staticmethod
-    def plot(obj: LsstypeObject, **kwargs) -> tuple:
+    def plot(obj: LsstypeObject) -> tuple:
         """Plot the provided estimator result. Return figure and ax."""
         ...
