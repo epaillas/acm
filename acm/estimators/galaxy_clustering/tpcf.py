@@ -28,7 +28,9 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         return from_pycorr(correlation)
 
     @staticmethod
-    def load(filename: str | Path, project: bool = False, **kwargs) -> lsstypes.Count2Correlation:
+    def load(
+        filename: str | Path, project: bool = False, **kwargs
+    ) -> lsstypes.Count2Correlation:
         """
         Load a Count2Correlation object from file.
 
@@ -93,5 +95,5 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         s = obj.flatten(level=None)[0].coords("s")
         for ell in ells:
             pole = obj.get(ells=ell).value()
-            ax.plot(s, pole*s**2, label=rf"\ell={ell}", **kwargs)
+            ax.plot(s, pole * s**2, label=rf"\ell={ell}", **kwargs)
         return fig, ax

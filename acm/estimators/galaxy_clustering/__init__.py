@@ -1,4 +1,5 @@
 """Module for Galaxy clustering estimators."""
+
 from acm.utils.modules import check_installed
 
 if check_installed("pycorr"):

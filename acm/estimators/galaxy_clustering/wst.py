@@ -17,6 +17,7 @@ from .base import BaseEstimator
 
 logger = logging.getLogger(__name__)
 
+
 class WaveletScatteringTransform(BaseEstimator):
     """Class to compute the wavelet scattering transform with :mod:`kymatio`."""
 
@@ -30,7 +31,7 @@ class WaveletScatteringTransform(BaseEstimator):
         J: int = 4,  # noqa: N803
         L: int = 4,  # noqa: N803
         sigma: float = 0.8,
-        frontend: str = "torch", # FIXME: is this the backend of frontend ? Docs imply frontend but TBC w/ Georgios
+        frontend: str = "torch",  # FIXME: is this the backend of frontend ? Docs imply frontend but TBC w/ Georgios
         kymatio_object: Any | None = None,  # noqa: ANN401
         **kwargs,
     ) -> None:
@@ -54,11 +55,11 @@ class WaveletScatteringTransform(BaseEstimator):
                 shape=self.backend.meshsize,
                 L=L,
                 sigma_0=sigma,
-                frontend=frontend, # NOTE: dynamic frontend/backend selection
+                frontend=frontend,  # NOTE: dynamic frontend/backend selection
                 # FIXME: do we want to pass extra kwargs to kymatio here ? e.g., max_order, rotation_covariant, etc. They need to be explicit.
             )
             if S.backend == "torch":
-                pass # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                pass  # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 # FIXME: Use detect_gpu from scripts utils instead of torch.cuda.is_available() ?
             logger.info(f"Initialized Kymatio in {time.time() - t0:.2f} s.")
 
@@ -99,21 +100,21 @@ class WaveletScatteringTransform(BaseEstimator):
         smatavg: np.ndarray = _callable(density_contrast, q)
         logger.info(f"Computed WST coefficients in {time.time() - t0:.2f} s.")
 
-        attrs = dict( # FIXME: Choose which attributes to keep !
-            J = self._S.J,
-            L = self._S.L,
-            sigma_0 = self._S.sigma_0,
-            max_order = self._S.max_order,
-            frontend = self._S.backend, # frontend usually matches backend in kymatio
-            q = q,
-            boxsize = list(self.backend.boxsize),
-            boxcenter = list(self.backend.boxcenter),
-            meshsize = list(self.backend.meshsize),
+        attrs = dict(  # FIXME: Choose which attributes to keep !
+            J=self._S.J,
+            L=self._S.L,
+            sigma_0=self._S.sigma_0,
+            max_order=self._S.max_order,
+            frontend=self._S.backend,  # frontend usually matches backend in kymatio
+            q=q,
+            boxsize=list(self.backend.boxsize),
+            boxcenter=list(self.backend.boxcenter),
+            meshsize=list(self.backend.meshsize),
         )
         leaf = lsstypes.ObservableLeaf(
             coefficients=smatavg,
-            index = np.arange(len(smatavg)),
-            coords = ["index"],
+            index=np.arange(len(smatavg)),
+            coords=["index"],
             attrs=attrs,
         )
         return leaf

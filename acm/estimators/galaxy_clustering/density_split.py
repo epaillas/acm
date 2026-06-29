@@ -26,6 +26,7 @@ from .base import BaseEstimator
 
 logger = logging.getLogger(__name__)
 
+
 class DensitySplit(BaseEstimator):
     """Estimator for the Density Split Clustering. See http://arxiv.org/abs/2309.16541."""
 
@@ -102,7 +103,7 @@ class DensitySplit(BaseEstimator):
         query_positions: np.ndarray | None = None,
         nquantiles: int = 5,
         resampler: str = "cic",
-        **kwargs
+        **kwargs,
     ) -> None:
         """
         Set the quantiles for the density split.
@@ -123,7 +124,9 @@ class DensitySplit(BaseEstimator):
         """
         t0 = time.time()
         if query_positions is None and self.randoms_positions is None:
-            raise ValueError("query_positions must be provided when working with a non-uniform geometry.")
+            raise ValueError(
+                "query_positions must be provided when working with a non-uniform geometry."
+            )
         query_positions = query_positions or self.backend.get_query_positions(**kwargs)
         density_contrast = self.backend.read_density_contrast(
             query_positions, resampler=resampler
@@ -166,18 +169,18 @@ class DensitySplit(BaseEstimator):
         randoms_weights2 = self.randoms_weights if cross else None
 
         correlation_list = []
-        R1R2 = None # Store common random pair counts to save time
+        R1R2 = None  # Store common random pair counts to save time
         for quantile in self._quantiles:
             correlation = TwoPointCorrelationFunction(
                 data_positions1=quantile,
                 data_positions2=data_positions2,
                 randoms_positions1=self.randoms_positions,
                 randoms_positions2=randoms_positions2,
-                data_weights1=None, # setting uniform default weights for quantiles
+                data_weights1=None,  # setting uniform default weights for quantiles
                 data_weights2=data_weights2,
                 randoms_weights1=None,
                 randoms_weights2=randoms_weights2,
-                position_type="pos", # Positions are of shape (N, 3)
+                position_type="pos",  # Positions are of shape (N, 3)
                 boxsize=self.backend.boxsize,
                 R1R2=R1R2,
                 **kwargs,
@@ -194,7 +197,7 @@ class DensitySplit(BaseEstimator):
         edges: np.ndarray | dict = {"step": 0.001},
         ells: tuple[int, ...] | list[int] = (0, 2, 4),
         los: str = "z",
-        **kwargs
+        **kwargs,
     ) -> list[lsstypes.Mesh2SpectrumPoles]:
         """
         Compute the power spectrum for each quantile.
@@ -221,7 +224,9 @@ class DensitySplit(BaseEstimator):
             List of power spectrum objects for each quantile.
         """
         if not isinstance(self.backend, JaxpowerBackend):
-            raise TypeError("The backend must be a JaxpowerBackend for power spectrum computation.")
+            raise TypeError(
+                "The backend must be a JaxpowerBackend for power spectrum computation."
+            )
 
         mattrs = self.backend.mattrs
         bin_mesh = BinMesh2SpectrumPoles(mattrs, edges, ells)
@@ -236,7 +241,7 @@ class DensitySplit(BaseEstimator):
             exchange=True,
             backend="jax",
         )
-        data_mesh = data_field.paint(out='real', **kwargs)
+        data_mesh = data_field.paint(out="real", **kwargs)
         data_mesh = data_mesh - data_mesh.mean()
 
         spectrum_list = []
@@ -248,7 +253,7 @@ class DensitySplit(BaseEstimator):
                 exchange=True,
                 backend="jax",
             )
-            quantile_mesh = quantile_field.paint(out='real', **kwargs)
+            quantile_mesh = quantile_field.paint(out="real", **kwargs)
             quantile_mesh = quantile_mesh - quantile_mesh.mean()
             if cross:
                 fields = (quantile_field, data_field)
@@ -297,15 +302,17 @@ class DensitySplit(BaseEstimator):
         elif data_type == "power":
             leaves = self._power(cross, **kwargs)
         else:
-            raise ValueError(f"Unknown data type: {data_type}. Available types: 'correlation', 'power'.")
+            raise ValueError(
+                f"Unknown data type: {data_type}. Available types: 'correlation', 'power'."
+            )
 
         quantiles = list(range(len(self._quantiles)))
-        attrs = dict( # FIXME: Choose which attributes to keep !
-            query_method = self._query_method,
-            boxsize = list(self.backend.boxsize),
-            meshsize = list(self.backend.meshsize),
-            nquantiles = len(self._quantiles),
-            data_type = data_type,
+        attrs = dict(  # FIXME: Choose which attributes to keep !
+            query_method=self._query_method,
+            boxsize=list(self.backend.boxsize),
+            meshsize=list(self.backend.meshsize),
+            nquantiles=len(self._quantiles),
+            data_type=data_type,
         )
         tree = ObservableTree(leaves, quantiles=quantiles, attrs=attrs)
         return tree
@@ -338,10 +345,7 @@ class DensitySplit(BaseEstimator):
 
     @staticmethod
     def plot(
-        obj: LsstypeObject,
-        quantiles: list[int] = [0, 1, 3, 4],
-        ell: int = 0,
-        **kwargs
+        obj: LsstypeObject, quantiles: list[int] = [0, 1, 3, 4], ell: int = 0, **kwargs
     ) -> tuple:
         """
         Plot the density split results.
@@ -367,9 +371,13 @@ class DensitySplit(BaseEstimator):
         """
         data_type = obj.attrs.get("data_type")
         if data_type is None:
-            raise ValueError("The provided object does not have a 'data_type' attribute. Cannot determine whether it is a correlation or power spectrum.")
+            raise ValueError(
+                "The provided object does not have a 'data_type' attribute. Cannot determine whether it is a correlation or power spectrum."
+            )
         if data_type not in ["correlation", "power"]:
-            raise ValueError(f"Unknown data type: {data_type}. Available types: 'correlation', 'power'.")
+            raise ValueError(
+                f"Unknown data type: {data_type}. Available types: 'correlation', 'power'."
+            )
         is_power = data_type == "power"
 
         xlabel = r"$k$ [h/Mpc]" if is_power else r"$s$ [Mpc/h]"
@@ -391,7 +399,7 @@ class DensitySplit(BaseEstimator):
                 pole = quantile.get(ells=ell).value()
             else:
                 pole = quantile.project(ells=ell).value()
-            ax.plot(ld, pole*ld**2, label=rf"${{\rm Q}}_{q}$", c=f'C{i}', **kwargs)
+            ax.plot(ld, pole * ld**2, label=rf"${{\rm Q}}_{q}$", c=f"C{i}", **kwargs)
         return fig, ax
 
     # TODO: add back plot_quantiles

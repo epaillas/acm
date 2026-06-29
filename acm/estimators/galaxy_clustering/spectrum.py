@@ -28,7 +28,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
 
     def __init__(
         self,
-        backend: str | JaxpowerBackend, # NOTE: restrained backend here
+        backend: str | JaxpowerBackend,  # NOTE: restrained backend here
         data_positions: np.ndarray,
         randoms_positions: np.ndarray | None = None,
         data_weights: np.ndarray | None = None,
@@ -36,7 +36,9 @@ class PowerSpectrumMultipoles(BaseEstimator):
         **kwargs,
     ) -> None:
         if not isinstance(backend, JaxpowerBackend):
-            raise TypeError(f"PowerSpectrumMultipoles requires a JaxpowerBackend, got {type(backend)}")
+            raise TypeError(
+                f"PowerSpectrumMultipoles requires a JaxpowerBackend, got {type(backend)}"
+            )
         super().__init__(
             backend,
             data_positions,
@@ -84,9 +86,11 @@ class PowerSpectrumMultipoles(BaseEstimator):
 
         data_mesh = self.backend.data_field.paint(out="real", **kwargs)
 
-        if self.backend.randoms_field is not None: # <=> randoms_positions is not None but also checks if randoms_field is not None
+        if (
+            self.backend.randoms_field is not None
+        ):  # <=> randoms_positions is not None but also checks if randoms_field is not None
             logger.info("Computing power spectrum using FKP estimator with randoms.")
-            los = "firstpoint" # NOTE: override los to firstpoint when using randoms
+            los = "firstpoint"  # NOTE: override los to firstpoint when using randoms
             randoms_mesh = self.backend.randoms_field.paint(out="real", **kwargs)
             fkp = FKPField(data_mesh, randoms_mesh)
             norm = compute_fkp2_normalization(fkp, bin=bin_mesh)
@@ -147,5 +151,5 @@ class PowerSpectrumMultipoles(BaseEstimator):
         k = obj.flatten(level=None)[0].coords("k")
         for ell in ells:
             pole = obj.get(ells=ell).value()
-            ax.plot(k, pole*k**2, label=rf"\ell={ell}", **kwargs)
+            ax.plot(k, pole * k**2, label=rf"\ell={ell}", **kwargs)
         return fig, ax
