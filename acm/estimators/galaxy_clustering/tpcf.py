@@ -29,7 +29,9 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
 
     @staticmethod
     def load(
-        filename: str | Path, project: bool = False, **kwargs
+        filename: str | Path,
+        project: bool = False,
+        **kwargs,
     ) -> lsstypes.Count2Correlation:
         """
         Load a Count2Correlation object from file.

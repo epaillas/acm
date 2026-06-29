@@ -233,15 +233,8 @@ class DensitySplit(BaseEstimator):
 
         # FIXME: handle survey-mode geometry with FKPField for data mesh
         # using randoms ? What about weights ? How to handle cross-correlation with randoms ?
-        # FIXME: Use backend fields instead and paint on those!
         # FIXME: Compute shotnoise on cross too ?
-        data_field = ParticleField(
-            self.data_positions,  # ty:ignore[invalid-argument-type]
-            attrs=mattrs,
-            exchange=True,
-            backend="jax",
-        )
-        data_mesh = data_field.paint(out="real", **kwargs)
+        data_mesh = self.backend.data_field.paint(out="real", **kwargs)
         data_mesh = data_mesh - data_mesh.mean()
 
         spectrum_list = []
@@ -256,7 +249,7 @@ class DensitySplit(BaseEstimator):
             quantile_mesh = quantile_field.paint(out="real", **kwargs)
             quantile_mesh = quantile_mesh - quantile_mesh.mean()
             if cross:
-                fields = (quantile_field, data_field)
+                fields = (quantile_field, self.backend.data_field)
                 meshes = (quantile_mesh, data_mesh)
                 num_shotnoise = None
             else:
@@ -345,7 +338,10 @@ class DensitySplit(BaseEstimator):
 
     @staticmethod
     def plot(
-        obj: LsstypeObject, quantiles: list[int] = [0, 1, 3, 4], ell: int = 0, **kwargs
+        obj: LsstypeObject,
+        quantiles: list[int] = [0, 1, 3, 4],
+        ell: int = 0,
+        **kwargs,
     ) -> tuple:
         """
         Plot the density split results.
