@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 from acm.estimators.galaxy_clustering.backends import EstimatorBackend, load_backend
-from acm.utils.compression import LsstypeObject
+from acm.typing import LsstypeObject
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +67,9 @@ class BaseEstimator(ABC):
         obj: LsstypeObject
             Estimator result to save.
         save_fn: str | Path
-            TODO
+            Path to the file where the estimator result will be saved.
         overwrite: bool, optional
-            Wether to overwrite the file if it already exists. Defaults to False.
+            Whether to overwrite the file if it already exists. Defaults to False.
         **kwargs
             Optional arguments for :class:`h5py.File`
         """
@@ -88,7 +88,7 @@ class BaseEstimator(ABC):
         logger.info(f"Writing {self.__class__.__name__} estimator to {save_fn}.")
 
     @staticmethod
-    def _atomic_write(obj: LsstypeObject, fn: Path, **kwargs) -> None:
+    def _atomic_write(obj: LsstypeObject, filename: Path, **kwargs) -> None:
         """
         Write data to a temporary file moved to the final file to avoid partial write issues.
 
@@ -96,14 +96,14 @@ class BaseEstimator(ABC):
         ----------
         obj: LsstypeObject
             Object to write to file.
-        fn: Path
+        filename: Path
             Path used to create the temporary file and make the final move.
         **kwargs
             Optional arguments for :class:`h5py.File`
         """
-        tmp_fn = fn.with_name(fn.stem + ".tmp" + fn.suffix)
+        tmp_fn = filename.with_name(filename.stem + ".tmp" + filename.suffix)
         obj.write(tmp_fn, **kwargs)
-        tmp_fn.replace(fn)  # Atomic move to avoid partial writes
+        tmp_fn.replace(filename)  # Atomic move to avoid partial writes
 
     @abstractmethod
     def compute(self, **kwargs) -> LsstypeObject:
@@ -112,7 +112,7 @@ class BaseEstimator(ABC):
 
     @abstractmethod
     @staticmethod
-    def load(fn: str | Path, **kwargs) -> LsstypeObject:
+    def load(filename: str | Path, **kwargs) -> LsstypeObject:
         """Load an estimator result from file."""
         ...
 
