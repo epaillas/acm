@@ -1,3 +1,4 @@
+# type: ignore
 import logging
 
 import matplotlib.pyplot as plt
