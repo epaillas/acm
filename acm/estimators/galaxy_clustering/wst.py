@@ -101,7 +101,7 @@ class WaveletScatteringTransform(BaseEstimator):
     def initialize_kymatio(
         J: int,  # noqa: N803
         shape: list[int] | tuple[int, ...] | np.ndarray,
-        **kwargs
+        **kwargs,
     ) -> HarmonicScattering3D:
         """
         Initialize the Kymatio HarmonicScattering3D object.
@@ -133,7 +133,7 @@ class WaveletScatteringTransform(BaseEstimator):
     def compute(
         self,
         method: str = "lattice",
-        resampler: str = 'cic',
+        resampler: str = "cic",
         **kwargs,
     ) -> lsstypes.ObservableLeaf:
         """
@@ -155,7 +155,9 @@ class WaveletScatteringTransform(BaseEstimator):
             An :class:`~lsstypes.ObservableLeaf` object containing the WST coefficients and associated metadata.
         """
         query_positions = self.backend.get_query_positions(method=method, **kwargs)
-        density_contrast = self.backend.read_density_contrast(query_positions, resampler=resampler)
+        density_contrast = self.backend.read_density_contrast(
+            query_positions, resampler=resampler
+        )
 
         density_contrast = density_contrast.reshape(self.backend.meshsize)
 
@@ -188,6 +190,7 @@ class WaveletScatteringTransform(BaseEstimator):
     def _torch(self, density_contrast: np.ndarray) -> np.ndarray:
         """Run the wavelet scattering transform with Torch backend."""
         import torch  # noqa: PLC0415
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self._S.to(device)
