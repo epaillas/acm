@@ -122,7 +122,9 @@ class PyreconBackend(EstimatorBackend):
             self._size_data += len(pos)
         elif mesh_type == "randoms":
             if self.randoms_mesh is None or self._size_randoms is None:
-                raise ValueError("Randoms mesh is not initialized. Pass randoms_positions to the backend constructor.")
+                raise ValueError(
+                    "Randoms mesh is not initialized. Pass randoms_positions to the backend constructor."
+                )
             self.randoms_mesh.assign_cic(pos, weights, wrap=wrap)
             self._size_randoms += len(pos)
         else:
