@@ -192,7 +192,6 @@ class WaveletScatteringTransform(BaseEstimator):
         import torch  # noqa: PLC0415
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
         self._S.to(device)
         dc_torch = torch.from_numpy(density_contrast, dtype=torch.float32).to(device)
 

@@ -16,7 +16,9 @@ class CountsInCells(BaseEstimator):
     """Class to compute counts in cells."""
 
     def compute(
-        self, query_positions: np.ndarray | None = None, **kwargs
+        self,
+        query_positions: np.ndarray | None = None,
+        **kwargs,
     ) -> LsstypeObject:
         """
         Get the Counts in Cells (CIC) by querying the backend for the density contrast at specified positions.
