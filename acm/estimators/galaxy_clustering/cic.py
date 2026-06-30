@@ -17,7 +17,7 @@ class CountsInCells(BaseEstimator):
 
     def compute(self, query_positions: np.ndarray | None = None, **kwargs) -> LsstypeObject:
         """
-        Get the density contrast field from the backend, using CIC resampling.
+        Get the Counts in Cells (CIC) by querying the backend for the density contrast at specified positions.
 
         Parameters
         ----------
@@ -73,7 +73,7 @@ class CountsInCells(BaseEstimator):
         Parameters
         ----------
         obj: LsstypeObject
-            The Count2Correlation or Count2CorrelationPoles object to plot.
+            The CountsInCells result to plot.
         fig: plt.Figure, optional
             The matplotlib figure to plot on. If None, a new figure will be created. Defaults to None.
         ax: plt.Axes, optional
