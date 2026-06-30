@@ -233,7 +233,6 @@ class DensitySplit(BaseEstimator):
 
         # FIXME: handle survey-mode geometry with FKPField for data mesh
         # using randoms ? What about weights ? How to handle cross-correlation with randoms ?
-        # FIXME: Compute shotnoise on cross too ?
         data_mesh = self.backend.data_field.paint(out="real", **kwargs)
         data_mesh = data_mesh - data_mesh.mean()
 
@@ -301,11 +300,13 @@ class DensitySplit(BaseEstimator):
 
         quantiles = list(range(len(self._quantiles)))
         attrs = dict(  # FIXME: Choose which attributes to keep !
+            name=self.__class__.__name__,
+            data_type=data_type,
+            cross=cross,
             query_method=self._query_method,
             boxsize=list(self.backend.boxsize),
             meshsize=list(self.backend.meshsize),
             nquantiles=len(self._quantiles),
-            data_type=data_type,
         )
         tree = ObservableTree(leaves, quantiles=quantiles, attrs=attrs)
         return tree
@@ -339,10 +340,12 @@ class DensitySplit(BaseEstimator):
     @staticmethod
     def plot(
         obj: LsstypeObject,
+        fig: plt.Figure | None = None,
+        ax: plt.Axes | None = None,
         quantiles: list[int] = [0, 1, 3, 4],
         ell: int = 0,
         **kwargs,
-    ) -> tuple:
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the density split results.
 
@@ -350,6 +353,10 @@ class DensitySplit(BaseEstimator):
         ----------
         obj: LsstypeObject
             The density split results to plot.
+        fig: plt.Figure, optional
+            The matplotlib figure to plot on. If None, a new figure will be created. Defaults to None.
+        ax: plt.Axes, optional
+            The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         quantiles: list[int], optional
             The quantiles to plot. Defaults to [0, 1, 3, 4].
         ell: int, optional
@@ -362,7 +369,7 @@ class DensitySplit(BaseEstimator):
 
         Returns
         -------
-        fig, ax: tuple
+        fig, ax: tuple[plt.Figure, plt.Axes]
             The matplotlib figure and axes objects containing the plot.
         """
         data_type = obj.attrs.get("data_type")
@@ -380,8 +387,6 @@ class DensitySplit(BaseEstimator):
         ylabel = r"$P(k)$ [(Mpc/h)$^3$]" if is_power else r"$s^2 \xi(s)$ [Mpc/h]$^2$"
         last_dim = "k" if is_power else "s"
 
-        fig = kwargs.pop("fig", None)
-        ax = kwargs.pop("ax", None)
         figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
             fig, ax = plt.subplots(figsize=figsize)

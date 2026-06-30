@@ -116,9 +116,11 @@ class PowerSpectrumMultipoles(BaseEstimator):
     @staticmethod
     def plot(
         obj: LsstypeObject,
+        fig: plt.Figure | None = None,
+        ax: plt.Axes | None = None,
         ells: tuple[int, ...] | list[int] = (0, 2, 4),
         **kwargs,
-    ) -> tuple:
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the Power Spectrum Multipoles from a :class:`~lsstypes.Mesh2SpectrumPoles` object.
 
@@ -126,6 +128,10 @@ class PowerSpectrumMultipoles(BaseEstimator):
         ----------
         obj: LsstypeObject
             The :class:`~lsstypes.Mesh2SpectrumPoles` object to plot.
+        fig: plt.Figure, optional
+            The matplotlib figure to plot on. If None, a new figure will be created. Defaults to None.
+        ax: plt.Axes, optional
+            The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         ells: tuple[int, ...] | list[int], optional
             List of multipoles to plot. Default is (0, 2, 4).
         **kwargs
@@ -136,11 +142,9 @@ class PowerSpectrumMultipoles(BaseEstimator):
 
         Returns
         -------
-        fig, ax: tuple
+        fig, ax: tuple[plt.Figure, plt.Axes]
             The matplotlib figure and axes objects containing the plot.
         """
-        fig = kwargs.pop("fig", None)
-        ax = kwargs.pop("ax", None)
         figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
             fig, ax = plt.subplots(figsize=figsize)

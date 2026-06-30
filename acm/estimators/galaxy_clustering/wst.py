@@ -1,7 +1,6 @@
 import logging
 import time
 from pathlib import Path
-from typing import Any
 
 import lsstypes
 import matplotlib.pyplot as plt
@@ -30,8 +29,9 @@ class WaveletScatteringTransform(BaseEstimator):
         J: int = 4,  # noqa: N803
         L: int = 4,  # noqa: N803
         sigma: float = 0.8,
-        frontend: str = "torch",  # FIXME: is this the backend of frontend ? Docs imply frontend but TBC w/ Georgios
-        kymatio_object: Any | None = None,  # noqa: ANN401
+        integral_powers: tuple[float, ...] = (0.8,),
+        frontend: str = "torch",
+        kymatio_object: HarmonicScattering3D | None = None,
         **kwargs,
     ) -> None:
         """
@@ -57,7 +57,7 @@ class WaveletScatteringTransform(BaseEstimator):
             Standard deviation of the Gaussian window for the scattering transform. Default is 0.8.
         frontend: str, optional
             The frontend to use for the scattering transform. Default is "torch".
-        kymatio_object: Any, optional
+        kymatio_object: HarmonicScattering3D, optional
             Pre-loaded Kymatio HarmonicScattering3D object. If provided, it will be used instead of initializing a new one. Default is None.
         **kwargs
             Additional keyword arguments for the backend initialization.
@@ -71,6 +71,11 @@ class WaveletScatteringTransform(BaseEstimator):
             **kwargs,
         )
 
+        if len(integral_powers) > 1:
+            raise ValueError(
+                "WaveletScatteringTransform currently supports only a single integral power for now."
+            )
+
         if kymatio_object is not None:
             logger.info("Using pre-loaded Kymatio object.")
             S = kymatio_object
@@ -81,12 +86,12 @@ class WaveletScatteringTransform(BaseEstimator):
                 L=L,
                 sigma_0=sigma,
                 shape=self.backend.meshsize,
-                frontend=frontend,  # NOTE: dynamic frontend/backend selection
-                # FIXME: do we want to pass extra kwargs to kymatio here ? e.g., max_order, rotation_covariant, etc. They need to be explicit.
+                integral_powers=integral_powers,
+                frontend=frontend,
             )
 
         logger.info(
-            f"Initialized HarmonicScattering3D ({S.backend}) with J={S.J}, L={S.L}, sigma_0={S.sigma_0}, max_order={S.max_order}."
+            f"Initialized HarmonicScattering3D ({S.backend}) with J={S.J}, L={S.L}, sigma_0={S.sigma_0}, max_order={S.max_order}, integral_powers={S.integral_powers}."
         )
 
         # Register private attributes
@@ -127,7 +132,6 @@ class WaveletScatteringTransform(BaseEstimator):
 
     def compute(
         self,
-        q: float = 0.8,
         method: str = "lattice",
         resampler: str = 'cic',
         **kwargs,
@@ -137,8 +141,6 @@ class WaveletScatteringTransform(BaseEstimator):
 
         Parameters
         ----------
-        q: float, optional
-            The exponent for the L^q norm. Default is 0.8.
         method: str, optional
             The method for querying positions. Default is "lattice".
         resampler: str, optional
@@ -162,16 +164,15 @@ class WaveletScatteringTransform(BaseEstimator):
         if not hasattr(self, f"_{self._S.backend}"):
             raise ValueError(f"Unsupported Kymatio backend: {self._S.backend}")
         _callable = getattr(self, f"_{self._S.backend}")
-        smatavg: np.ndarray = _callable(density_contrast, q)
+        smatavg: np.ndarray = _callable(density_contrast)
         logger.info(f"Computed WST coefficients in {time.time() - t0:.2f} s.")
 
         attrs = dict(  # FIXME: Choose which attributes to keep !
             J=self._S.J,
             L=self._S.L,
             sigma_0=self._S.sigma_0,
-            max_order=self._S.max_order,
+            integral_powers=self._S.integral_powers,
             frontend=self._S.backend,  # frontend usually matches backend in kymatio
-            q=q,
             boxsize=list(self.backend.boxsize),
             boxcenter=list(self.backend.boxcenter),
             meshsize=list(self.backend.meshsize),
@@ -184,7 +185,7 @@ class WaveletScatteringTransform(BaseEstimator):
         )
         return leaf
 
-    def _torch(self, density_contrast: np.ndarray, q: float) -> np.ndarray:
+    def _torch(self, density_contrast: np.ndarray) -> np.ndarray:
         """Run the wavelet scattering transform with Torch backend."""
         import torch  # noqa: PLC0415
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -192,18 +193,18 @@ class WaveletScatteringTransform(BaseEstimator):
         self._S.to(device)
         dc_torch = torch.from_numpy(density_contrast, dtype=torch.float32).to(device)
 
-        s0 = torch.sum(torch.abs(dc_torch) ** q)
+        s0 = torch.sum(torch.abs(dc_torch) ** self._S.integral_powers[0])
         smat_orders_12 = self._S(dc_torch)
         smat = torch.abs(smat_orders_12[:, :, 0]).flatten()
         smatavg = torch.cat([s0.unsqueeze(0), smat])
         smatavg /= np.prod(self.backend.meshsize)
         return smatavg.cpu().numpy()
 
-    def _jax(self, density_contrast: np.ndarray, q: float) -> np.ndarray:
+    def _jax(self, density_contrast: np.ndarray) -> np.ndarray:
         """Run the wavelet scattering transform with JAX backend."""
         import jax.numpy as jnp  # noqa: PLC0415
 
-        s0 = jnp.sum(jnp.abs(density_contrast) ** q)
+        s0 = jnp.sum(jnp.abs(density_contrast) ** self._S.integral_powers[0])
         smat_orders_12 = self._S(density_contrast)
         smat = jnp.abs(smat_orders_12[:, :, 0]).flatten()
         smatavg = jnp.concatenate([jnp.array([s0]), smat])
@@ -217,7 +218,12 @@ class WaveletScatteringTransform(BaseEstimator):
         return obj
 
     @staticmethod
-    def plot(obj: LsstypeObject, **kwargs) -> tuple:
+    def plot(
+        obj: LsstypeObject,
+        fig: plt.Figure | None = None,
+        ax: plt.Axes | None = None,
+        **kwargs,
+    ) -> tuple[plt.Figure, plt.Axes]:
         """
         Plot the wavelet scattering transform coefficients from a :class:`~lsstypes.ObservableLeaf` object.
 
@@ -225,16 +231,18 @@ class WaveletScatteringTransform(BaseEstimator):
         ----------
         obj: lsstypes.ObservableLeaf
             The :class:`~lsstypes.ObservableLeaf` object containing the WST coefficients to plot.
+        fig: plt.Figure, optional
+            The matplotlib figure to plot on. If None, a new figure will be created. Defaults to None.
+        ax: plt.Axes, optional
+            The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         **kwargs
             Additional keyword arguments for the plot. See :func:`matplotlib.pyplot.subplots` for details.
 
         Returns
         -------
-        tuple
+        fig, ax: tuple[plt.Figure, plt.Axes]
             A tuple containing the figure and axes objects of the plot.
         """
-        fig = kwargs.pop("fig", None)
-        ax = kwargs.pop("ax", None)
         figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
             fig, ax = plt.subplots(figsize=figsize, **kwargs)

@@ -2,6 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from acm.estimators.galaxy_clustering.backends import EstimatorBackend, load_backend
@@ -118,6 +119,10 @@ class BaseEstimator(ABC):
 
     @staticmethod
     @abstractmethod
-    def plot(obj: LsstypeObject) -> tuple:
+    def plot(
+        obj: LsstypeObject,
+        fig: plt.Figure | None = None,
+        ax: plt.Axes | None = None,
+    ) -> tuple[plt.Figure, plt.Axes]:
         """Plot the provided estimator result. Return figure and ax."""
         ...
