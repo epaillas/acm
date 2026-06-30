@@ -89,6 +89,45 @@ class PyreconBackend(EstimatorBackend):
         """Physical size of each mesh cell."""
         return self._boxsize / self._meshsize
 
+    def paint(
+        self,
+        pos: np.ndarray,
+        weights: np.ndarray | None = None,
+        mesh_type: str = "data",
+        wrap: bool = True,
+    ) -> None:
+        """
+        Paint extra points onto the mesh. This is useful for adding additional data or randoms to the existing mesh.
+
+        Parameters
+        ----------
+        pos : np.ndarray
+            Positions of the points to paint.
+        weights : np.ndarray, optional
+            Weights of the points to paint. If None, all points are assigned a weight of 1.
+        mesh_type : str, optional
+            Type of mesh to paint onto. Must be either 'data' or 'randoms'. Default is 'data'.
+        wrap : bool, optional
+            Whether to wrap positions around the box. Default is True.
+
+        Raises
+        ------
+        ValueError
+            If mesh_type is not 'data' or 'randoms'.
+        ValueError
+            If randoms mesh is not initialized when trying to paint onto it.
+        """
+        if mesh_type == "data":
+            self.data_mesh.assign_cic(pos, weights, wrap=wrap)
+            self._size_data += len(pos)
+        elif mesh_type == "randoms":
+            if self.randoms_mesh is None or self._size_randoms is None:
+                raise ValueError("Randoms mesh is not initialized. Pass randoms_positions to the backend constructor.")
+            self.randoms_mesh.assign_cic(pos, weights, wrap=wrap)
+            self._size_randoms += len(pos)
+        else:
+            raise ValueError("mesh_type must be either 'data' or 'randoms'.")
+
     def set_density_contrast(
         self,
         smoothing_radius: float | None = None,

@@ -133,6 +133,7 @@ class RealMesh:
     def __setitem__(self, key, value): self.value[key] = value
     def __getitem__(self, key): return self.value[key]
 
+RealMesh.assign_cic = MagicMock()
 RealMesh.smooth_gaussian = MagicMock()
 pyrecon_mock = MagicMock()
 pyrecon_mock.RealMesh = RealMesh

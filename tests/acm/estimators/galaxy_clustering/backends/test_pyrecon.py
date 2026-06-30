@@ -5,7 +5,7 @@ import pytest
 
 from acm.estimators.galaxy_clustering.backends.pyrecon import PyreconBackend
 
-# ruff: noqa: ANN001, ANN201, ARG001, D101, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, D101, D102, D103, INP001, S101
 
 
 #%% Fixtures
@@ -87,6 +87,47 @@ class TestPyreconBackendProperties:
 
     def test_cellsize(self, backend):
         np.testing.assert_array_almost_equal(backend.cellsize, [BOXSIZE / MESHSIZE] * 3)
+
+class TestPaint:
+    def test_paint_data_calls_assign_cic(self, backend):
+        backend.data_mesh.assign_cic = MagicMock()
+        extra_pos = np.random.default_rng(2).uniform(0, BOXSIZE, (5, 3))
+        backend.paint(extra_pos, mesh_type="data")
+        backend.data_mesh.assign_cic.assert_called_once_with(extra_pos, None, wrap=True)
+
+    def test_paint_data_updates_size(self, backend):
+        extra_pos = np.random.default_rng(2).uniform(0, BOXSIZE, (5, 3))
+        backend.paint(extra_pos, mesh_type="data")
+        assert backend.size_data == N + 5
+
+    def test_paint_randoms_calls_assign_cic(self, backend_with_randoms):
+        backend_with_randoms.randoms_mesh.assign_cic = MagicMock()
+        extra_pos = np.random.default_rng(3).uniform(0, BOXSIZE, (5, 3))
+        backend_with_randoms.paint(extra_pos, mesh_type="randoms")
+        backend_with_randoms.randoms_mesh.assign_cic.assert_called_once_with(extra_pos, None, wrap=True)
+
+    def test_paint_randoms_updates_size(self, backend_with_randoms):
+        extra_pos = np.random.default_rng(3).uniform(0, BOXSIZE, (5, 3))
+        backend_with_randoms.paint(extra_pos, mesh_type="randoms")
+        assert backend_with_randoms.size_randoms == M + 5
+
+    def test_paint_randoms_without_randoms_mesh_raises(self, backend):
+        """Calling paint with mesh_type='randoms' on a backend with no randoms should raise."""
+        extra_pos = np.random.default_rng(3).uniform(0, BOXSIZE, (5, 3))
+        with pytest.raises(ValueError, match="Randoms mesh is not initialized"):
+            backend.paint(extra_pos, mesh_type="randoms")
+
+    def test_paint_invalid_mesh_type_raises(self, backend):
+        extra_pos = np.random.default_rng(2).uniform(0, BOXSIZE, (5, 3))
+        with pytest.raises(ValueError, match="mesh_type"):
+            backend.paint(extra_pos, mesh_type="invalid")
+
+    def test_paint_with_weights_forwarded(self, backend):
+        backend.data_mesh.assign_cic = MagicMock()
+        extra_pos = np.random.default_rng(2).uniform(0, BOXSIZE, (5, 3))
+        weights = np.ones(5)
+        backend.paint(extra_pos, weights=weights, mesh_type="data")
+        backend.data_mesh.assign_cic.assert_called_once_with(extra_pos, weights, wrap=True)
 
 class TestDensityContrast:
     def test_read_before_set_raises(self, backend, data_pos):

@@ -110,14 +110,14 @@ class BaseEstimator(ABC):
         """Compute the estimator."""
         ...
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def load(filename: str | Path) -> LsstypeObject:
         """Load an estimator result from file."""
         ...
 
-    @abstractmethod
     @staticmethod
+    @abstractmethod
     def plot(obj: LsstypeObject) -> tuple:
         """Plot the provided estimator result. Return figure and ax."""
         ...
