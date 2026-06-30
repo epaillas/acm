@@ -80,7 +80,7 @@ class BaseEstimator(ABC):
             )
         if save_fn.exists() and overwrite is False:
             logger.info(f"File {save_fn} exists and {overwrite=}. Skipping...")
-            # NOTE: Should this be at INFo or WARNING level ?
+            # NOTE: Should this be at INFO or WARNING level ?
             return
 
         save_fn.parent.mkdir(exist_ok=True, parents=True)

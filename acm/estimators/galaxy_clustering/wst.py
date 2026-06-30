@@ -35,6 +35,7 @@ class WaveletScatteringTransform(BaseEstimator):
         kymatio_object: Any | None = None,  # noqa: ANN401
         **kwargs,
     ) -> None:
+        # TODO: add docstring
         super().__init__(
             backend,
             data_positions,

@@ -355,7 +355,7 @@ class DensitySplit(BaseEstimator):
         ell: int, optional
             The multipole to plot for each quantile. Defaults to 0.
         **kwargs
-            Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.subplots` for details.
+            Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
             Can also include 'fig' and 'ax' to provide existing figure and axes for plotting,
             or 'figsize' to specify the size of the figure if new figure and axes are created.
             If 'fig' and 'ax' are provided, 'figsize' will be ignored.
@@ -384,7 +384,7 @@ class DensitySplit(BaseEstimator):
         ax = kwargs.pop("ax", None)
         figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
-            fig, ax = plt.subplots(figsize=figsize, **kwargs)
+            fig, ax = plt.subplots(figsize=figsize)
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
 
