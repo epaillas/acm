@@ -15,6 +15,7 @@ from .base import BaseEstimator
 from .src.pydive import get_void_catalog_cgal, get_void_catalog_full
 
 logger = logging.getLogger(__name__)
+logger.critical(f"{__name__} is out of date and needs to be updated to the new framework. Outputs might crash or be inconsistent.")
 
 
 def _default_sample_function(
