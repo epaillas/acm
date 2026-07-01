@@ -39,15 +39,18 @@ class CountsInCells(BaseEstimator):
         density_contrast = self.backend.read_density_contrast(
             query_positions, resampler="cic"
         )
+
+        # TODO:: Find a clever way to bin the contrast histogram and save that instead.
+
         leaf = lsstypes.ObservableLeaf(
-            coefficients=density_contrast,
+            density_contrast=density_contrast,
             index=np.arange(len(density_contrast)),
             coords=["index"],
         )
         return leaf
 
     @staticmethod
-    def load(filename: str | Path) -> LsstypeObject:
+    def load(filename: str | Path, to_hist: bool = False, **kwargs) -> LsstypeObject:
         """
         Load a CountsInCells object from file.
 
@@ -55,6 +58,10 @@ class CountsInCells(BaseEstimator):
         ----------
         filename: str | Path
             Path to the file containing the CountsInCells object.
+        to_hist: bool, optional
+            Whether to convert the loaded CountsInCells object to a histogram representation. Default is False.
+        **kwargs
+            Additional keyword arguments for the histogram conversion. See :func:`numpy.histogram` for details.
 
         Returns
         -------
@@ -62,6 +69,15 @@ class CountsInCells(BaseEstimator):
             The loaded CountsInCells object.
         """
         obj: lsstypes.ObservableLeaf = lsstypes.read(filename)
+        if to_hist:
+            # Convert the loaded object to a histogram representation
+            hist, bin_edges = np.histogram(obj.density_contrast, **kwargs)
+            hist_leaf = lsstypes.ObservableLeaf(
+                hist=hist,
+                bins=bin_edges[:-1],  # Use bin edges as indices
+                coords=["bins"],
+            )
+            return hist_leaf
         return obj
 
     @staticmethod
@@ -74,6 +90,8 @@ class CountsInCells(BaseEstimator):
         """
         Plot the Counts in Cells (CIC) from a :class:`~lsstypes.ObservableLeaf` object.
 
+        Can either plot the histogram if the object has a 'hist' attribute, or plot a histogram of the density contrast if it does not.
+
         Parameters
         ----------
         obj: LsstypeObject
@@ -83,9 +101,8 @@ class CountsInCells(BaseEstimator):
         ax: plt.Axes, optional
             The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         **kwargs
-            Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
-            Can also include 'fig' and 'ax' to provide existing figure and axes for plotting,
-            or 'figsize' to specify the size of the figure if new figure and axes are created.
+            Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.bar` or :meth:`matplotlib.pyplot.hist` for details.
+            Can also include 'figsize' to specify the size of the figure if new figure and axes are created.
             If 'fig' and 'ax' are provided, 'figsize' will be ignored.
 
         Returns
@@ -99,7 +116,11 @@ class CountsInCells(BaseEstimator):
             ax.set_xlabel(r"$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$")
             ax.set_ylabel("PDF")
 
-        kwargs.setdefault("bins", 200)
-        kwargs.setdefault("density", True)
-        ax.hist(obj.coefficients, **kwargs)
+        if hasattr(obj, "hist"):
+            # If the object has bins, plot a histogram using the provided bins
+            ax.bar(obj.bins, obj.hist, width=np.diff(obj.bins)[0], align="edge", **kwargs)
+        else:
+            kwargs.setdefault("bins", 200)
+            kwargs.setdefault("density", True)
+            ax.hist(obj.density_contrast, **kwargs)
         return fig, ax

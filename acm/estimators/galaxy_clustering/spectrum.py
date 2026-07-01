@@ -136,8 +136,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
             List of multipoles to plot. Default is (0, 2, 4).
         **kwargs
             Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
-            Can also include 'fig' and 'ax' to provide existing figure and axes for plotting,
-            or 'figsize' to specify the size of the figure if new figure and axes are created.
+            Can also include 'figsize' to specify the size of the figure if new figure and axes are created.
             If 'fig' and 'ax' are provided, 'figsize' will be ignored.
 
         Returns
