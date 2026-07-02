@@ -1,4 +1,4 @@
-"""Mocking all backends here to avoid imports of loaded packages by mistake."""
+"""Mock optional dependencies for estimator backends tests at the top level of the test module."""
 import sys
 from unittest.mock import MagicMock
 
@@ -6,17 +6,8 @@ import numpy as np
 
 # ruff: noqa: ANN001, ANN201, ANN202, ANN204, ARG002, D102, D103, D105, INP001
 
+#%% Jax-power: https://github.com/adematti/jax-power
 
-#%% Jax numpy methods used in JaxpowerBackend - mocked trough numpy
-jax_mock = MagicMock()
-jax_mock.numpy.where = np.where
-jax_mock.numpy.exp = np.exp
-jax_mock.numpy.sum = np.sum
-jax_mock.numpy.meshgrid = np.meshgrid
-jax_mock.numpy.vstack = np.vstack
-jax_mock.numpy.exp = np.exp
-
-#%% jaxpower mock
 class RealMeshField:
     """Minimal real mesh sentinel."""
 
@@ -72,7 +63,8 @@ jaxpower_mock.ParticleField = ParticleField
 jaxpower_mock.get_mesh_attrs = lambda *args, **kwargs: _make_mesh_attrs()  # noqa: ARG005
 jaxpower_mock.MeshAttrs = MagicMock
 
-#%% pypower mock
+#%% Pypower: https://github.com/cosmodesi/pypower
+
 class MeshField:
     """Minimal mesh field sentinel supporting the r2c/apply/c2r chain and arithmetic."""
 
@@ -111,7 +103,8 @@ class CatalogMesh:
 pypower_mock = MagicMock()
 pypower_mock.CatalogMesh = CatalogMesh
 
-#%% pyrecon mock
+#%% Pyrecon: https://github.com/cosmodesi/pyrecon
+
 class RealMesh:
     """Minimal RealMesh sentinel supporting arithmetic and masking."""
 
