@@ -35,7 +35,8 @@ class CountsInCells(BaseEstimator):
             raise ValueError(
                 "query_positions must be provided when working with a non-uniform geometry."
             )
-        query_positions = query_positions or self.backend.get_query_positions(**kwargs)
+        if query_positions is None:
+            query_positions = self.backend.get_query_positions(**kwargs)
         density_contrast = self.backend.read_density_contrast(
             query_positions, resampler="cic"
         )
