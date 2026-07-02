@@ -327,4 +327,4 @@ class JaxpowerBackend(EstimatorBackend):
             logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         else:
             raise ValueError("method must be one of ['lattice', 'randoms']")
-        return np.asarray(coords, dtype=np.float32)  # NOTE: float32 mandatory here ?
+        return np.asarray(coords)

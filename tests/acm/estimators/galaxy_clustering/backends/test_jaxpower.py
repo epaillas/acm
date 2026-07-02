@@ -149,10 +149,6 @@ class TestGetQueryPositions:
         with pytest.raises(ValueError, match="method"):
             backend.get_query_positions(method="invalid")
 
-    def test_output_dtype_float32(self, backend):
-        coords = backend.get_query_positions(method="randoms", nquery=10)
-        assert coords.dtype == np.float32
-
     def test_seed_reproducibility(self, backend):
         c1 = backend.get_query_positions(method="randoms", nquery=20, seed=7)
         c2 = backend.get_query_positions(method="randoms", nquery=20, seed=7)
