@@ -18,7 +18,7 @@ class BaseEstimator(ABC):
     Used to compute the result from the backend, and provides methods to load a similar result from file.
     """
 
-    save_ext = ("h5", "hdf5")
+    save_ext = (".h5", ".hdf5")
 
     def __init__(
         self,
