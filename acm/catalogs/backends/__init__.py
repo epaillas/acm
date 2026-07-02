@@ -8,6 +8,7 @@ A backend is responsible for two things:
 To implement a new backend, subclass SnapshotBackend or LightconeBackend
 and register it with @register_backend("<name>").
 """
+
 from .base import (
     DarkMatterBackend,
     SnapshotBackend,

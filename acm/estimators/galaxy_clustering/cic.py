@@ -119,7 +119,9 @@ class CountsInCells(BaseEstimator):
 
         if hasattr(obj, "hist"):
             # If the object has bins, plot a histogram using the provided bins
-            ax.bar(obj.bins, obj.hist, width=np.diff(obj.bins)[0], align="edge", **kwargs)
+            ax.bar(
+                obj.bins, obj.hist, width=np.diff(obj.bins)[0], align="edge", **kwargs
+            )
         else:
             kwargs.setdefault("bins", 200)
             kwargs.setdefault("density", True)
