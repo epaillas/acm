@@ -139,8 +139,6 @@ pyrecon_mock = MagicMock()
 pyrecon_mock.RealMesh = RealMesh
 
 def pytest_configure(config):  # noqa: ARG001
-    sys.modules["jax"] = jax_mock
-    sys.modules["jax.numpy"] = jax_mock.numpy
     sys.modules["jaxpower"] = jaxpower_mock
     sys.modules["pypower"] = pypower_mock
     sys.modules["pyrecon"] = pyrecon_mock

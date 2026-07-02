@@ -121,6 +121,7 @@ class TestGaussianKernel:
 class TestGetFieldThreshold:
     def test_noise_method(self):
         field = MagicMock()
+        field.weights = np.array([0.1, 0.2, 0.3]) # Dummy array to avoid jax error
         JaxpowerBackend._get_field_threshold(field, threshold=0.01, method="noise")
 
     def test_mean_method(self):
