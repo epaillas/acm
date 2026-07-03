@@ -305,7 +305,7 @@ class DensitySplit(BaseEstimator):
                 f"Unknown data type: {data_type}. Available types: 'correlation', 'power'."
             )
 
-        attrs = dict(  # FIXME: Choose which attributes to keep !
+        attrs = dict(
             name=self.__class__.__name__,
             data_type=data_type,
             cross=cross,

@@ -132,7 +132,6 @@ class WaveletScatteringTransform(BaseEstimator):
 
     def compute(
         self,
-        method: str = "lattice",
         resampler: str = "cic",
         **kwargs,
     ) -> lsstypes.ObservableLeaf:
@@ -141,20 +140,19 @@ class WaveletScatteringTransform(BaseEstimator):
 
         Parameters
         ----------
-        method: str, optional
-            The method for querying positions. Default is "lattice".
         resampler: str, optional
             The resampling method for reading density contrast. Default is 'cic'.
         **kwargs
             Additional keyword arguments for the density contrast computation.
-            See :func:`~acm.estimators.galaxy_clustering.backends.base.EstimatorBackend.read_density_contrast` for details.
+            Method is enforced to 'lattice' for the WST computation. 
+            See :func:`~acm.estimators.galaxy_clustering.backends.base.EstimatorBackend.get_query_positions` for details.
 
         Returns
         -------
         leaf: lsstypes.ObservableLeaf
             An :class:`~lsstypes.ObservableLeaf` object containing the WST coefficients and associated metadata.
         """
-        query_positions = self.backend.get_query_positions(method=method, **kwargs)
+        query_positions = self.backend.get_query_positions(method="lattice", **kwargs)
         density_contrast = self.backend.read_density_contrast(
             query_positions, resampler=resampler
         )
@@ -169,7 +167,7 @@ class WaveletScatteringTransform(BaseEstimator):
         smatavg: np.ndarray = _callable(density_contrast)
         logger.info(f"Computed WST coefficients in {time.time() - t0:.2f} s.")
 
-        attrs = dict(  # FIXME: Choose which attributes to keep !
+        attrs = dict(
             J=self._S.J,
             L=self._S.L,
             sigma_0=self._S.sigma_0,
@@ -187,7 +185,7 @@ class WaveletScatteringTransform(BaseEstimator):
         )
         return leaf
 
-    def _torch(self, density_contrast: np.ndarray) -> np.ndarray:
+    def _torch(self, density_contrast: np.ndarray) -> np.ndarray: # pragma: no cover
         """Run the wavelet scattering transform with Torch backend."""
         import torch  # noqa: PLC0415
 
@@ -202,7 +200,7 @@ class WaveletScatteringTransform(BaseEstimator):
         smatavg /= np.prod(self.backend.meshsize)
         return smatavg.cpu().numpy()
 
-    def _jax(self, density_contrast: np.ndarray) -> np.ndarray:
+    def _jax(self, density_contrast: np.ndarray) -> np.ndarray: # pragma: no cover
         """Run the wavelet scattering transform with JAX backend."""
         import jax.numpy as jnp  # noqa: PLC0415
 
@@ -238,7 +236,9 @@ class WaveletScatteringTransform(BaseEstimator):
         ax: plt.Axes, optional
             The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         **kwargs
-            Additional keyword arguments for the plot. See :func:`matplotlib.pyplot.subplots` for details.
+            Additional keyword arguments for the plot. See :func:`matplotlib.pyplot.plot` for details.
+            Can also include 'figsize' to specify the size of the figure if new figure and axes are created.
+            If 'fig' and 'ax' are provided, 'figsize' will be ignored.
 
         Returns
         -------
@@ -247,7 +247,7 @@ class WaveletScatteringTransform(BaseEstimator):
         """
         figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
-            fig, ax = plt.subplots(figsize=figsize, **kwargs)
+            fig, ax = plt.subplots(figsize=figsize)
             ax.set_xlabel("WST Coefficient index")
             ax.set_ylabel("WST Coefficient value")
         ax.plot(obj.index, obj.coefficients, **kwargs)
