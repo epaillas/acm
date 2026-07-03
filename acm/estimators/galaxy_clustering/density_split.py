@@ -45,7 +45,7 @@ class DensitySplit(BaseEstimator):
         **kwargs,
     ) -> None:
         """
-        Initialize the Density Split estimator.
+        Initialize the Density Split estimator. Sets quantiles if the density contrast is already set in the backend, otherwise logs a message.
 
         Parameters
         ----------
@@ -87,18 +87,21 @@ class DensitySplit(BaseEstimator):
             **kwargs,
         )
 
-        self._set_quantiles(
-            query_positions=query_positions,
-            nquantiles=nquantiles,
-            resampler=resampler,
-            method=method,
-            nquery=nquery,
-            # seed=42,
-        )
+        if self.backend._density_contrast is None:
+            logger.info("Density contrast not set, cannot set quantiles yet.")
+        else:
+            self.set_quantiles(
+                query_positions=query_positions,
+                nquantiles=nquantiles,
+                resampler=resampler,
+                method=method,
+                nquery=nquery,
+                # seed=42,
+            )
 
         self.jit_cm2s = jax.jit(cm2s, static_argnames=["los"], donate_argnums=[0])
 
-    def _set_quantiles(
+    def set_quantiles(
         self,
         query_positions: np.ndarray | None = None,
         nquantiles: int = 5,
@@ -106,7 +109,7 @@ class DensitySplit(BaseEstimator):
         **kwargs,
     ) -> None:
         """
-        Set the quantiles for the density split.
+        Set the quantiles for the density split. Requires the density contrast to be set in the backend.
 
         Parameters
         ----------
@@ -127,7 +130,8 @@ class DensitySplit(BaseEstimator):
             raise ValueError(
                 "query_positions must be provided when working with a non-uniform geometry."
             )
-        query_positions = query_positions or self.backend.get_query_positions(**kwargs)
+        if query_positions is None:
+            query_positions = self.backend.get_query_positions(**kwargs)
         density_contrast = self.backend.read_density_contrast(
             query_positions, resampler=resampler
         )
@@ -145,6 +149,8 @@ class DensitySplit(BaseEstimator):
     @property
     def nquantiles(self) -> int:
         """Return the number of quantiles."""
+        if not hasattr(self, "_quantiles"):
+            raise AttributeError("Quantiles have not been set yet.")
         return len(self._quantiles)
 
     def _correlation(self, cross: bool, **kwargs) -> list[lsstypes.Count2Correlation]:
@@ -289,6 +295,7 @@ class DensitySplit(BaseEstimator):
         LsstypeObject
             The computed estimator result, either as an ObservableTree of quantiles.
         """
+        nquantiles = self.nquantiles # Will raise an error if quantiles are not set.
         if data_type == "correlation":
             leaves = self._correlation(cross, **kwargs)
         elif data_type == "power":
@@ -298,7 +305,6 @@ class DensitySplit(BaseEstimator):
                 f"Unknown data type: {data_type}. Available types: 'correlation', 'power'."
             )
 
-        quantiles = list(range(len(self._quantiles)))
         attrs = dict(  # FIXME: Choose which attributes to keep !
             name=self.__class__.__name__,
             data_type=data_type,
@@ -306,8 +312,9 @@ class DensitySplit(BaseEstimator):
             query_method=self._query_method,
             boxsize=list(self.backend.boxsize),
             meshsize=list(self.backend.meshsize),
-            nquantiles=len(self._quantiles),
+            nquantiles=nquantiles,
         )
+        quantiles = list(range(nquantiles))
         tree = ObservableTree(leaves, quantiles=quantiles, attrs=attrs)
         return tree
 
