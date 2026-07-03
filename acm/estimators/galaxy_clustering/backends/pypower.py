@@ -263,4 +263,4 @@ class PypowerBackend(EstimatorBackend):
             logger.info(f"Generated random query points in {time.time() - t0:.2f} s.")
         else:
             raise ValueError("method must be one of ['lattice', 'randoms']")
-        return np.asarray(coords, dtype=np.float32)
+        return np.asarray(coords)

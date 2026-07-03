@@ -138,9 +138,6 @@ class TestGetQueryPositions:
         assert coords.ndim == 2
         assert coords.shape[1] == 3
 
-    def test_output_dtype_float32(self, backend):
-        assert backend.get_query_positions(method="randoms", nquery=10).dtype == np.float32
-
     def test_seed_reproducibility(self, backend):
         c1 = backend.get_query_positions(method="randoms", nquery=20, seed=7)
         c2 = backend.get_query_positions(method="randoms", nquery=20, seed=7)
