@@ -185,7 +185,7 @@ class WaveletScatteringTransform(BaseEstimator):
         )
         return leaf
 
-    def _torch(self, density_contrast: np.ndarray) -> np.ndarray: # pragma: no cover
+    def _torch(self, density_contrast: np.ndarray) -> np.ndarray:  # pragma: no cover
         """Run the wavelet scattering transform with Torch backend."""
         import torch  # noqa: PLC0415
 
@@ -200,7 +200,7 @@ class WaveletScatteringTransform(BaseEstimator):
         smatavg /= np.prod(self.backend.meshsize)
         return smatavg.cpu().numpy()
 
-    def _jax(self, density_contrast: np.ndarray) -> np.ndarray: # pragma: no cover
+    def _jax(self, density_contrast: np.ndarray) -> np.ndarray:  # pragma: no cover
         """Run the wavelet scattering transform with JAX backend."""
         import jax.numpy as jnp  # noqa: PLC0415
 

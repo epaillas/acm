@@ -295,7 +295,7 @@ class DensitySplit(BaseEstimator):
         LsstypeObject
             The computed estimator result, either as an ObservableTree of quantiles.
         """
-        nquantiles = self.nquantiles # Will raise an error if quantiles are not set.
+        nquantiles = self.nquantiles  # Will raise an error if quantiles are not set.
         if data_type == "correlation":
             leaves = self._correlation(cross, **kwargs)
         elif data_type == "power":
