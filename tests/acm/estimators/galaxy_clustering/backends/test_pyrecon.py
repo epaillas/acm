@@ -166,8 +166,7 @@ class TestGetQueryPositions:
 
     def test_lattice_shape(self, backend):
         coords = backend.get_query_positions(method="lattice")
-        assert coords.ndim == 2
-        assert coords.shape[1] == 3
+        assert coords.shape == (np.prod(backend.meshsize), 3)
 
     def test_output_dtype_float32(self, backend):
         assert backend.get_query_positions(method="randoms", nquery=10).dtype == np.float32
