@@ -1,5 +1,5 @@
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
@@ -35,12 +35,20 @@ class DummyBackend(EstimatorBackend):
         self._density_contrast = np.zeros(self.meshsize)
 
     def read_density_contrast(self, positions, resampler="cic"):
-        return np.zeros(len(positions))
+        rng = np.random.default_rng(42)
+        return rng.uniform(0, 1, size=len(positions))
 
     def get_query_positions(self, method="randoms", nquery=None, seed=42):
         rng = np.random.default_rng(seed)
-        n = nquery or 100
-        return rng.uniform(0, 100, size=(n, 3))
+        if method == "randoms":
+            n = nquery or 100
+            cout =  rng.uniform(0, 100, size=(n, 3))
+        elif method == "lattice":
+            n = np.prod(self.meshsize)
+            cout = rng.uniform(0, 100, size=(n, 3))
+        else:
+            raise ValueError("method must be one of ['lattice', 'randoms']")
+        return cout
 
 @pytest.fixture
 def dummy_backend(data_positions, randoms_positions):
@@ -77,3 +85,4 @@ def make_estimator(data_positions, randoms_positions):
 #%% Mock estimator dependencies modules - more detailled mocks can be added in the test files themselves if needed
 def pytest_configure(config):
     sys.modules["pycorr"] = MagicMock()
+    sys.modules["kymatio"] = MagicMock()
