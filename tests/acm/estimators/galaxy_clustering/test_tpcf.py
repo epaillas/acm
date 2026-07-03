@@ -42,63 +42,66 @@ def mock_poles():
 
 class TestCompute:
 
-    def test_call_tpcf_with_correct_args(self, estimator, mock_tpcf_result, mock_count2corr):
-        with (
-            patch(f"{MODULE}.TwoPointCorrelationFunction", return_value=mock_tpcf_result) as mock_tpcf,
-            patch(f"{MODULE}.from_pycorr", return_value=mock_count2corr),
-        ):
-            estimator.compute(mode="s")
-            mock_tpcf.assert_called_once_with(
-                data_positions1=estimator.data_positions,
-                randoms_positions1=estimator.randoms_positions,
-                data_weights1=estimator.data_weights,
-                randoms_weights1=estimator.randoms_weights,
-                boxsize=estimator.backend.boxsize,
-                position_type="pos",
-                mode="s",
-            )
+    @patch(f"{MODULE}.TwoPointCorrelationFunction")
+    @patch(f"{MODULE}.from_pycorr")
+    def test_call_tpcf_with_correct_args(self, mock_from_pycorr, mock_tpcf, estimator, mock_tpcf_result, mock_count2corr):
+        mock_from_pycorr.return_value = mock_count2corr
+        mock_tpcf.return_value = mock_tpcf_result
+        estimator.compute(mode="s")
+        mock_tpcf.assert_called_once_with(
+            data_positions1=estimator.data_positions,
+            randoms_positions1=estimator.randoms_positions,
+            data_weights1=estimator.data_weights,
+            randoms_weights1=estimator.randoms_weights,
+            boxsize=estimator.backend.boxsize,
+            position_type="pos",
+            mode="s",
+        )
 
-    def test_return_count2correlation(self, estimator, mock_tpcf_result, mock_count2corr):
-        with (
-            patch(f"{MODULE}.TwoPointCorrelationFunction", return_value=mock_tpcf_result),
-            patch(f"{MODULE}.from_pycorr", return_value=mock_count2corr),
-        ):
-            result = estimator.compute()
+    @patch(f"{MODULE}.TwoPointCorrelationFunction")
+    @patch(f"{MODULE}.from_pycorr")
+    def test_return_count2correlation(self, mock_from_pycorr, mock_tpcf, estimator, mock_tpcf_result, mock_count2corr):
+        mock_from_pycorr.return_value = mock_count2corr
+        mock_tpcf.return_value = mock_tpcf_result
+        result = estimator.compute()
         assert result is mock_count2corr
 
-    def test_pass_pycorr_result_to_from_pycorr(self, estimator, mock_tpcf_result, mock_count2corr):
-        with (
-            patch(f"{MODULE}.TwoPointCorrelationFunction", return_value=mock_tpcf_result),
-            patch(f"{MODULE}.from_pycorr", return_value=mock_count2corr) as mock_converter,
-        ):
-            estimator.compute()
-            mock_converter.assert_called_once_with(mock_tpcf_result)
+    @patch(f"{MODULE}.TwoPointCorrelationFunction")
+    @patch(f"{MODULE}.from_pycorr")
+    def test_pass_pycorr_result_to_from_pycorr(self, mock_from_pycorr, mock_tpcf, estimator, mock_tpcf_result, mock_count2corr):
+        mock_from_pycorr.return_value = mock_count2corr
+        mock_tpcf.return_value = mock_tpcf_result
+        estimator.compute()
+        mock_from_pycorr.assert_called_once_with(mock_tpcf_result)
 
 
 class TestLoad:
 
-    def test_return_lsstypes_object(self, tmp_path):
+    @patch(f"{MODULE}.lsstypes.read")
+    def test_load_calls_lsstypes_read(self, mock_read, tmp_path):
         mock_obj = MagicMock(spec=lsstypes.Count2Correlation)
-        with patch(f"{MODULE}.lsstypes.read", return_value=mock_obj) as mock_read:
-            result = TwoPointCorrelationFunctionEstimator.load(tmp_path / "result.h5")
-            mock_read.assert_called_once()
+        mock_read.return_value = mock_obj
+        result = TwoPointCorrelationFunctionEstimator.load(tmp_path / "result.h5")
+        mock_read.assert_called_once()
         assert result is mock_obj
 
-    def test_load_with_project_calls_project(self, tmp_path):
+    @patch(f"{MODULE}.lsstypes.read")
+    def test_load_with_project_calls_project(self, mock_read, tmp_path):
         mock_obj = MagicMock(spec=lsstypes.Count2Correlation)
         projected = MagicMock()
         mock_obj.project.return_value = projected
-        with patch(f"{MODULE}.lsstypes.read", return_value=mock_obj):
-            result = TwoPointCorrelationFunctionEstimator.load(
-                tmp_path / "result.h5", project=True, ells=(0, 2)
-            )
+        mock_read.return_value = mock_obj
+        result = TwoPointCorrelationFunctionEstimator.load(
+            tmp_path / "result.h5", project=True, ells=(0, 2)
+        )
         mock_obj.project.assert_called_once_with(ells=(0, 2))
         assert result is projected
 
-    def test_load_without_project_skips_projection(self, tmp_path):
+    @patch(f"{MODULE}.lsstypes.read")
+    def test_load_without_project_skips_projection(self, mock_read, tmp_path):
         mock_obj = MagicMock(spec=lsstypes.Count2Correlation)
-        with patch(f"{MODULE}.lsstypes.read", return_value=mock_obj):
-            TwoPointCorrelationFunctionEstimator.load(tmp_path / "result.h5", project=False)
+        mock_read.return_value = mock_obj
+        TwoPointCorrelationFunctionEstimator.load(tmp_path / "result.h5", project=False)
         mock_obj.project.assert_not_called()
 
 
