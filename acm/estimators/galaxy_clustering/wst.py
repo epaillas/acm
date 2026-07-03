@@ -144,7 +144,7 @@ class WaveletScatteringTransform(BaseEstimator):
             The resampling method for reading density contrast. Default is 'cic'.
         **kwargs
             Additional keyword arguments for the density contrast computation.
-            Method is enforced to 'lattice' for the WST computation. 
+            Method is enforced to 'lattice' for the WST computation.
             See :func:`~acm.estimators.galaxy_clustering.backends.base.EstimatorBackend.get_query_positions` for details.
 
         Returns
