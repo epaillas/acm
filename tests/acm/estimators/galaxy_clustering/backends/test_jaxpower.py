@@ -143,7 +143,7 @@ class TestGetQueryPositions:
 
     def test_lattice_method(self, backend):
         coords = backend.get_query_positions(method="lattice")
-        assert coords is not None
+        assert coords.shape == (np.prod(backend.meshsize), 3)
 
     def test_invalid_method_raises(self, backend):
         with pytest.raises(ValueError, match="method"):
