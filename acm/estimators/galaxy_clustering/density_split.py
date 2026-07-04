@@ -146,7 +146,7 @@ class DensitySplit(BaseEstimator):
         self._quantiles_idx = quantiles_idx
         self._query_method = kwargs.get("method", "randoms")
         # Should only be used for plotting the quantiles, not for any other purpose.
-        self._density_contrast_query = density_contrast 
+        self._density_contrast_query = density_contrast
 
     @property
     def nquantiles(self) -> int:
@@ -445,12 +445,12 @@ class DensitySplit(BaseEstimator):
         """
         cmap = plt.get_cmap(colormap)
         colors = cmap(np.linspace(0, 1, nquantiles))
-        
+
         if fig is None or ax is None:
             fig, ax = plt.subplots(figsize=(4, 4))
             ax.set_xlabel(r"$\Delta \left(R_s \, h^{-1}{\rm Mpc}\right)$")
             ax.set_ylabel("PDF")
-        
+
         _, bins, bar_container = ax.hist(
             delta_query,
             color="grey",
