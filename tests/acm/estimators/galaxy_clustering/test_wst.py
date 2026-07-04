@@ -148,7 +148,3 @@ class TestPlot:
         assert len(ax.lines) == 1
         plt.close(fig)
 
-    def test_custom_figsize(self, mock_leaf):
-        fig, _ = WaveletScatteringTransform.plot(mock_leaf, figsize=(10, 3))
-        assert tuple(fig.get_size_inches()) == (10.0, 3.0)
-        plt.close(fig)

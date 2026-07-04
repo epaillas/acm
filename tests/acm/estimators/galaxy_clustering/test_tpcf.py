@@ -135,12 +135,6 @@ class TestPlot:
         mock_poles.project.assert_not_called()
         plt.close("all")
 
-    def test_create_fig_with_custom_figsize(self, mock_poles):
-        fig, _ = TwoPointCorrelationFunctionEstimator.plot(mock_poles, figsize=(12, 4))
-        w, h = fig.get_size_inches()
-        assert (w, h) == (12, 4)
-        plt.close(fig)
-
     def test_draw_one_line_per_multipole(self, mock_poles):
         fig, ax = TwoPointCorrelationFunctionEstimator.plot(mock_poles, ells=(0, 2, 4))
         assert len(ax.lines) == 3

@@ -80,17 +80,14 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
             List of multipoles to plot. Default is (0, 2, 4).
         **kwargs
             Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
-            Can also include 'figsize' to specify the size of the figure if new figure and axes are created.
-            If 'fig' and 'ax' are provided, 'figsize' will be ignored.
 
         Returns
         -------
         fig, ax: tuple[plt.Figure, plt.Axes]
             The matplotlib figure and axes objects containing the plot.
         """
-        figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
-            fig, ax = plt.subplots(figsize=figsize)
+            fig, ax = plt.subplots(figsize=(8, 6))
             ax.set_xlabel(r"$s$ [Mpc/h]")
             ax.set_ylabel(r"$s^2 \xi(s)$ [Mpc/h]$^2$")
 

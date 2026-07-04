@@ -146,7 +146,3 @@ class TestPlot:
         assert len(ax.lines) == 3
         plt.close(fig)
 
-    def test_custom_figsize(self, mock_spectrum):
-        fig, _ = PowerSpectrumMultipoles.plot(mock_spectrum, figsize=(10, 3))
-        assert tuple(fig.get_size_inches()) == (10.0, 3.0)
-        plt.close(fig)

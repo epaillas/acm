@@ -205,7 +205,6 @@ class TestCompute:
             result = power_estimator.compute(data_type=data_type, cross=cross)
         assert result.attrs["name"] == "DensitySplit"
         assert result.attrs["data_type"] == data_type
-        assert result.attrs["nquantiles"] == NQUANTILES
         assert result.attrs["cross"] is cross
 
 
@@ -285,7 +284,56 @@ class TestPlot:
         assert len(ax.lines) == 3
         plt.close("all")
 
-    def test_custom_figsize(self, mock_spectrum):
-        fig, _ = DensitySplit.plot(mock_spectrum, figsize=(10, 3))
-        assert tuple(fig.get_size_inches()) == (10.0, 3.0)
+class TestPlotQuantiles:
+    
+    @pytest.fixture
+    def quantile_data(self):
+        rng = np.random.default_rng(0)
+        nquantiles = 5
+        delta_query = rng.uniform(-1, 5, size=200)
+        quantiles_idx = np.repeat(np.arange(nquantiles), 40)
+        return nquantiles, delta_query, quantiles_idx
+
+    def test_creates_fig_and_ax_when_none_provided(self, quantile_data):
+        fig, ax = DensitySplit.plot_quantiles(*quantile_data)
+        assert isinstance(fig, plt.Figure) and isinstance(ax, plt.Axes)
+        plt.close(fig)
+    
+    def test_uses_provided_fig_and_ax(self, quantile_data):
+        fig_in, ax_in = plt.subplots()
+        fig_out, ax_out = DensitySplit.plot_quantiles(*quantile_data, fig=fig_in, ax=ax_in)
+        assert fig_out is fig_in and ax_out is ax_in
+        plt.close(fig_in)
+
+    def test_draws_one_patch_per_quantile(self):
+        nquantiles, delta_query, quantiles_idx = self.quantile_data
+        fig, ax = DensitySplit.plot_quantiles(nquantiles, delta_query, quantiles_idx)
+        assert len(ax.patches) == nquantiles
+        plt.close(fig)
+
+    def test_custom_colormap_is_applied(self, quantile_data):
+        """Patches with 'viridis' must differ from the default 'coolwarm' coloring."""
+        fig1, ax1 = DensitySplit.plot_quantiles(*quantile_data, bins=30, colormap="coolwarm")
+        fig2, ax2 = DensitySplit.plot_quantiles(*quantile_data, bins=30, colormap="viridis")
+        colors1 = [p.get_facecolor() for p in ax1.patches]
+        colors2 = [p.get_facecolor() for p in ax2.patches]
+        assert colors1 != colors2
+        plt.close("all")
+    
+    def test_legend_has_one_handle_per_quantile(self, quantile_data):
+        nquantiles, *rest = quantile_data
+        fig, ax = DensitySplit.plot_quantiles(nquantiles, *rest)
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.legend_handles) == nquantiles
+        plt.close(fig)
+    
+    def test_single_quantile(self):
+        """Edge case: nquantiles=1 must produce a valid plot without errors."""
+        delta = np.linspace(-1, 1, 50)
+        idx = np.zeros(50, dtype=int)
+        fig, ax = DensitySplit.plot_quantiles(1, delta, idx)
+        legend = ax.get_legend()
+        assert legend is not None
+        assert len(legend.legend_handles) == 1
         plt.close(fig)

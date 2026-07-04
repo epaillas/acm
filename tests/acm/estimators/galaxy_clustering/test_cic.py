@@ -135,9 +135,3 @@ class TestPlot:
         fig, ax = CountsInCells.plot(compute_result)
         assert len(ax.patches) > 0  # hist() also produces patches
         plt.close(fig)
-
-    def test_custom_figsize(self, compute_result):
-        fig, _ = CountsInCells.plot(compute_result, figsize=(10, 3))
-        w, h = fig.get_size_inches()
-        assert (w, h) == (10, 3)
-        plt.close(fig)

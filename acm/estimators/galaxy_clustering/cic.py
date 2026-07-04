@@ -103,18 +103,15 @@ class CountsInCells(BaseEstimator):
             The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         **kwargs
             Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.bar` or :meth:`matplotlib.pyplot.hist` for details.
-            Can also include 'figsize' to specify the size of the figure if new figure and axes are created.
-            If 'fig' and 'ax' are provided, 'figsize' will be ignored.
 
         Returns
         -------
         fig, ax: tuple[plt.Figure, plt.Axes]
             The matplotlib figure and axes objects containing the plot.
         """
-        figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
-            fig, ax = plt.subplots(figsize=figsize, **kwargs)
-            ax.set_xlabel(r"$\Delta \left(R_s = 10\, h^{-1}{\rm Mpc}\right)$")
+            fig, ax = plt.subplots(figsize=(8, 6))
+            ax.set_xlabel(r"$\Delta \left(R_s \, h^{-1}{\rm Mpc}\right)$")
             ax.set_ylabel("PDF")
 
         if hasattr(obj, "hist"):

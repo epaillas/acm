@@ -237,17 +237,14 @@ class WaveletScatteringTransform(BaseEstimator):
             The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         **kwargs
             Additional keyword arguments for the plot. See :func:`matplotlib.pyplot.plot` for details.
-            Can also include 'figsize' to specify the size of the figure if new figure and axes are created.
-            If 'fig' and 'ax' are provided, 'figsize' will be ignored.
 
         Returns
         -------
         fig, ax: tuple[plt.Figure, plt.Axes]
             A tuple containing the figure and axes objects of the plot.
         """
-        figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
-            fig, ax = plt.subplots(figsize=figsize)
+            fig, ax = plt.subplots(figsize=(8, 6))
             ax.set_xlabel("WST Coefficient index")
             ax.set_ylabel("WST Coefficient value")
         ax.plot(obj.index, obj.coefficients, **kwargs)

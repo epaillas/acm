@@ -15,6 +15,7 @@ from jaxpower import (
 from jaxpower import compute_mesh2_spectrum as cm2s
 from lsstypes.base import ObservableTree
 from lsstypes.external import from_pycorr
+from matplotlib.patches import Patch
 from pandas import qcut
 from pycorr import TwoPointCorrelationFunction
 
@@ -144,7 +145,8 @@ class DensitySplit(BaseEstimator):
         self._quantiles = quantiles
         self._quantiles_idx = quantiles_idx
         self._query_method = kwargs.get("method", "randoms")
-        # NOTE: store delta query/density contrast ?
+        # Should only be used for plotting the quantiles, not for any other purpose.
+        self._density_contrast_query = density_contrast 
 
     @property
     def nquantiles(self) -> int:
@@ -312,7 +314,6 @@ class DensitySplit(BaseEstimator):
             query_method=self._query_method,
             boxsize=list(self.backend.boxsize),
             meshsize=list(self.backend.meshsize),
-            nquantiles=nquantiles,
         )
         quantiles = list(range(nquantiles))
         tree = ObservableTree(leaves, quantiles=quantiles, attrs=attrs)
@@ -371,7 +372,6 @@ class DensitySplit(BaseEstimator):
         **kwargs
             Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
             Can also include 'figsize' to specify the size of the figure if new figure and axes are created.
-            If 'fig' and 'ax' are provided, 'figsize' will be ignored.
 
         Returns
         -------
@@ -393,9 +393,8 @@ class DensitySplit(BaseEstimator):
         ylabel = r"$P(k)$ [(Mpc/h)$^3$]" if is_power else r"$s^2 \xi(s)$ [Mpc/h]$^2$"
         last_dim = "k" if is_power else "s"
 
-        figsize = kwargs.pop("figsize", (8, 6))
         if fig is None or ax is None:
-            fig, ax = plt.subplots(figsize=figsize)
+            fig, ax = plt.subplots(figsize=(8, 6))
             ax.set_xlabel(xlabel)
             ax.set_ylabel(ylabel)
 
@@ -409,4 +408,64 @@ class DensitySplit(BaseEstimator):
             ax.plot(ld, pole * ld**2, label=rf"${{\rm Q}}_{q}$", c=f"C{i}", **kwargs)
         return fig, ax
 
-    # TODO: add back plot_quantiles
+    @staticmethod
+    def plot_quantiles(
+        nquantiles: int,
+        delta_query: np.ndarray,
+        quantiles_idx: np.ndarray,
+        fig: plt.Figure | None = None,
+        ax: plt.Axes | None = None,
+        colormap: str = "coolwarm",
+        **kwargs,
+    ) -> tuple[plt.Figure, plt.Axes]:
+        """
+        Plot the quantiles of the density contrast.
+
+        Parameters
+        ----------
+        nquantiles: int
+            The number of quantiles.
+        delta_query: np.ndarray
+            The density contrast query.
+        quantiles_idx: np.ndarray
+            The indices of the quantiles.
+        fig: plt.Figure, optional
+            The matplotlib figure to plot on. If None, a new figure will be created. Defaults to None.
+        ax: plt.Axes, optional
+            The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
+        colormap: str, optional
+            The colormap to use for the plot. Defaults to "coolwarm".
+        **kwargs
+            Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
+
+        Returns
+        -------
+        fig, ax: tuple[plt.Figure, plt.Axes]
+            The matplotlib figure and axes objects containing the plot.
+        """
+        cmap = plt.get_cmap(colormap)
+        colors = cmap(np.linspace(0, 1, nquantiles))
+        
+        if fig is None or ax is None:
+            fig, ax = plt.subplots(figsize=(4, 4))
+            ax.set_xlabel(r"$\Delta \left(R_s \, h^{-1}{\rm Mpc}\right)$")
+            ax.set_ylabel("PDF")
+        
+        _, bins, bar_container = ax.hist(
+            delta_query,
+            color="grey",
+            **kwargs,
+        )
+        patches = getattr(bar_container, "patches", [])
+
+        imin = 0
+        handles = []
+        for i in range(nquantiles):
+            dmax = delta_query[quantiles_idx == i].max()
+            imax = np.digitize(dmax, bins)[0] - 1
+            for patch in patches[imin:imax]:
+                patch.set_facecolor(colors[i])
+            imin = imax
+            handles.append(Patch(color=colors[i], label=rf"${{\rm Q}}_{i}$"))
+        ax.legend(handlelength=1.0, handles=handles)
+        return fig, ax
