@@ -32,39 +32,27 @@ class EstimatorBackend(ABC):
             Weights for randoms, of shape (M,).
         """
         # Shape checks
-        if data_positions.ndim != 2 or data_positions.shape[1] != 3:
-            raise ValueError("data_positions must be of shape (N, 3).")
-
-        if (randoms_positions is not None) and (
-            randoms_positions.ndim != 2 or randoms_positions.shape[1] != 3
-        ):
-            raise ValueError("randoms_positions must be of shape (M, 3).")
-
-        if (data_weights is not None) and (
-            data_weights.ndim != 1 or data_weights.shape[0] != data_positions.shape[0]
-        ):
-            raise ValueError(
-                "data_weights must be 1D and have the same length as data_positions."
-            )
-
-        if randoms_weights is not None:
-            if randoms_positions is None:
-                raise ValueError("randoms_weights requires randoms_positions.")
-            if (
-                randoms_weights.ndim != 1
-                or randoms_weights.shape[0] != randoms_positions.shape[0]
-            ):
-                raise ValueError(
-                    "randoms_weights must be 1D and have the same length as randoms_positions."
-                )
+        size_data = self._get_size(data_positions, data_weights)
+        if randoms_positions is not None:
+            size_randoms = self._get_size(randoms_positions, randoms_weights)
+        else:
+            size_randoms = None
 
         # Assign internal attributes
-        self._size_data = len(data_positions)
-        self._size_randoms = (
-            len(randoms_positions) if randoms_positions is not None else None
-        )
+        self._size_data = size_data
+        self._size_randoms = size_randoms
 
         self._density_contrast = None  # Initialized here for access in estimators
+
+    @staticmethod
+    def _get_size(positions: np.ndarray, weights: np.ndarray | None) -> int:
+        """Get the size of the positions and weights arrays, and perform shape checks."""
+        size_pos = positions.shape[0]
+        if positions.ndim != 2 or positions.shape[1] != 3:
+            raise ValueError("Positions must be of shape (N, 3).")
+        if weights is not None and (weights.ndim != 1 or weights.shape[0] != size_pos):
+            raise ValueError("Weights must be 1D and have the same length as positions.")
+        return size_pos
 
     @property
     def size_data(self) -> int:
