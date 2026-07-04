@@ -51,7 +51,9 @@ class EstimatorBackend(ABC):
         if positions.ndim != 2 or positions.shape[1] != 3:
             raise ValueError("Positions must be of shape (N, 3).")
         if weights is not None and (weights.ndim != 1 or weights.shape[0] != size_pos):
-            raise ValueError("Weights must be 1D and have the same length as positions.")
+            raise ValueError(
+                "Weights must be 1D and have the same length as positions."
+            )
         return size_pos
 
     @property
