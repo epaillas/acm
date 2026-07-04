@@ -206,8 +206,9 @@ class PypowerBackend(EstimatorBackend):
                 "Density contrast has not been set, run set_density_contrast first."
             )
         t0 = time.time()
-        # offset = self.boxcenter - self.boxsize / 2.0
-        # positions = positions - offset
+        # NOTE: to_mesh applies this wrapping, but not readout, so we add it by hand.
+        offset = self.boxcenter - self.boxsize / 2.0
+        positions = positions - offset
         delta = self._density_contrast.readout(positions, resampler=resampler)
         logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
         return delta
