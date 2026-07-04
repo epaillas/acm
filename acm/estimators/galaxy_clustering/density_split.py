@@ -462,7 +462,7 @@ class DensitySplit(BaseEstimator):
         handles = []
         for i in range(nquantiles):
             dmax = delta_query[quantiles_idx == i].max()
-            imax = np.digitize(dmax, bins)[0] - 1
+            imax = np.digitize([dmax], bins)[0] - 1
             for patch in patches[imin:imax]:
                 patch.set_facecolor(colors[i])
             imin = imax
