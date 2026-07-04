@@ -37,6 +37,9 @@ class EstimatorBackend(ABC):
             size_randoms = self._get_size(randoms_positions, randoms_weights)
         else:
             size_randoms = None
+        
+        if randoms_weights is not None and randoms_positions is None:
+            raise ValueError("randoms_weights requires randoms_positions to be set.")
 
         # Assign internal attributes
         self._size_data = size_data
@@ -50,10 +53,11 @@ class EstimatorBackend(ABC):
         size_pos = positions.shape[0]
         if positions.ndim != 2 or positions.shape[1] != 3:
             raise ValueError("Positions must be of shape (N, 3).")
-        if weights is not None and (weights.ndim != 1 or weights.shape[0] != size_pos):
-            raise ValueError(
-                "Weights must be 1D and have the same length as positions."
-            )
+        if weights is not None:
+            if weights.ndim != 1:
+                raise ValueError("Weights must be 1D.")
+            if weights.shape[0] != size_pos:
+                raise ValueError("Weights must have the same length as positions.")
         return size_pos
 
     @property
