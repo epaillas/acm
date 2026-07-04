@@ -37,7 +37,7 @@ class EstimatorBackend(ABC):
             size_randoms = self._get_size(randoms_positions, randoms_weights)
         else:
             size_randoms = None
-        
+
         if randoms_weights is not None and randoms_positions is None:
             raise ValueError("randoms_weights requires randoms_positions to be set.")
 
