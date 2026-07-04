@@ -45,11 +45,11 @@ def backend_with_randoms(data_pos, rand_pos, data_w, rand_w):
 
 class TestEstimatorBackendValidation:
     def test_invalid_data_positions_shape(self):
-        with pytest.raises(ValueError, match=r"Positions must be of shape (N, 3)"):
+        with pytest.raises(ValueError, match="Positions must be of shape"):
             PypowerBackend(np.ones((10, 2)))
 
     def test_invalid_randoms_positions_shape(self, data_pos):
-        with pytest.raises(ValueError, match=r"Positions must be of shape (N, 3)"):
+        with pytest.raises(ValueError, match="Positions must be of shape"):
             PypowerBackend(data_pos, randoms_positions=np.ones((10, 2)))
     
     def test_invalid_data_weight_shape(self, data_pos):
@@ -108,7 +108,9 @@ class TestDensityContrast:
         backend.set_density_contrast()
         backend._density_contrast = MagicMock()
         backend.read_density_contrast(data_pos, resampler="cic")
-        backend._density_contrast.readout.assert_called_once_with(data_pos, resampler="cic")
+        offset = backend.boxcenter - backend.boxsize / 2
+        pos_offset = data_pos - offset
+        backend._density_contrast.readout.assert_called_once_with(pos_offset, resampler="cic")
 
     def test_set_with_randoms(self, backend_with_randoms):
         backend_with_randoms.set_density_contrast()

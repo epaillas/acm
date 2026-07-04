@@ -43,11 +43,11 @@ def backend_with_randoms(data_pos, rand_pos, data_w, rand_w):
 
 class TestEstimatorBackendValidation:
     def test_invalid_data_positions_shape(self):
-        with pytest.raises(ValueError, match=r"Positions must be of shape (N, 3)"):
+        with pytest.raises(ValueError, match="Positions must be of shape"):
             JaxpowerBackend(np.ones((10, 2)))
 
     def test_invalid_randoms_positions_shape(self, data_pos):
-        with pytest.raises(ValueError, match=r"Positions must be of shape (N, 3)"):
+        with pytest.raises(ValueError, match="Positions must be of shape"):
             JaxpowerBackend(data_pos, randoms_positions=np.ones((10, 2)))
     
     def test_invalid_data_weight_shape(self, data_pos):
