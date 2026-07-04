@@ -51,7 +51,7 @@ class TestEstimatorBackendValidation:
     def test_invalid_randoms_positions_shape(self, data_pos):
         with pytest.raises(ValueError, match="Positions must be of shape"):
             PypowerBackend(data_pos, randoms_positions=np.ones((10, 2)))
-    
+
     def test_invalid_data_weight_shape(self, data_pos):
         with pytest.raises(ValueError, match="Weights must be 1D"):
             PypowerBackend(data_pos, data_weights=np.ones((N, 1)))
@@ -63,7 +63,7 @@ class TestEstimatorBackendValidation:
     def test_randoms_weights_without_randoms_raises(self, data_pos, rand_w):
         with pytest.raises(ValueError, match="randoms_weights requires"):
             PypowerBackend(data_pos, randoms_weights=rand_w)
-    
+
     def test_invalid_randoms_weights_shape(self, data_pos, rand_pos):
         with pytest.raises(ValueError, match="Weights must be 1D"):
             PypowerBackend(data_pos, rand_pos, randoms_weights=np.ones((M, 1)))
@@ -108,9 +108,13 @@ class TestDensityContrast:
         backend.set_density_contrast()
         backend._density_contrast = MagicMock()
         backend.read_density_contrast(data_pos, resampler="cic")
-        offset = backend.boxcenter - backend.boxsize / 2
+
+        offset = backend.boxcenter - backend.boxsize / 2.0
         pos_offset = data_pos - offset
-        backend._density_contrast.readout.assert_called_once_with(pos_offset, resampler="cic")
+        backend._density_contrast.readout.assert_called_once()
+        args, kwargs = backend._density_contrast.readout.call_args
+        np.testing.assert_allclose(args[0], pos_offset)
+        assert kwargs == {"resampler": "cic"}
 
     def test_set_with_randoms(self, backend_with_randoms):
         backend_with_randoms.set_density_contrast()
