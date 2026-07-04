@@ -285,7 +285,7 @@ class TestPlot:
         plt.close("all")
 
 class TestPlotQuantiles:
-    
+
     @pytest.fixture
     def quantile_data(self):
         rng = np.random.default_rng(0)
@@ -298,16 +298,18 @@ class TestPlotQuantiles:
         fig, ax = DensitySplit.plot_quantiles(*quantile_data)
         assert isinstance(fig, plt.Figure) and isinstance(ax, plt.Axes)
         plt.close(fig)
-    
+
     def test_uses_provided_fig_and_ax(self, quantile_data):
         fig_in, ax_in = plt.subplots()
         fig_out, ax_out = DensitySplit.plot_quantiles(*quantile_data, fig=fig_in, ax=ax_in)
         assert fig_out is fig_in and ax_out is ax_in
         plt.close(fig_in)
 
-    def test_draws_one_patch_per_quantile(self, quantile_data):
+    def test_one_color_per_quantile(self, quantile_data):
         fig, ax = DensitySplit.plot_quantiles(*quantile_data)
-        assert len(ax.patches) == quantile_data[0]
+        colors = [p.get_facecolor() for p in ax.patches]
+        unique_colors = {tuple(c) for c in colors}
+        assert len(unique_colors) == quantile_data[0]  # nquantiles
         plt.close(fig)
 
     def test_custom_colormap_is_applied(self, quantile_data):
@@ -318,7 +320,7 @@ class TestPlotQuantiles:
         colors2 = [p.get_facecolor() for p in ax2.patches]
         assert colors1 != colors2
         plt.close("all")
-    
+
     def test_legend_has_one_handle_per_quantile(self, quantile_data):
         nquantiles, *rest = quantile_data
         fig, ax = DensitySplit.plot_quantiles(nquantiles, *rest)
@@ -326,7 +328,7 @@ class TestPlotQuantiles:
         assert legend is not None
         assert len(legend.legend_handles) == nquantiles
         plt.close(fig)
-    
+
     def test_single_quantile(self):
         """Edge case: nquantiles=1 must produce a valid plot without errors."""
         delta = np.linspace(-1, 1, 50)
