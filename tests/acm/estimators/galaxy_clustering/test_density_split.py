@@ -290,7 +290,7 @@ class TestPlotQuantiles:
     def quantile_data(self):
         rng = np.random.default_rng(0)
         nquantiles = 5
-        delta_query = rng.uniform(-1, 5, size=200)
+        delta_query = np.sort(rng.uniform(-1, 5, size=200)) # sort fix quantile assignment
         quantiles_idx = np.repeat(np.arange(nquantiles), 40)
         return nquantiles, delta_query, quantiles_idx
 
