@@ -305,10 +305,9 @@ class TestPlotQuantiles:
         assert fig_out is fig_in and ax_out is ax_in
         plt.close(fig_in)
 
-    def test_draws_one_patch_per_quantile(self):
-        nquantiles, delta_query, quantiles_idx = self.quantile_data
-        fig, ax = DensitySplit.plot_quantiles(nquantiles, delta_query, quantiles_idx)
-        assert len(ax.patches) == nquantiles
+    def test_draws_one_patch_per_quantile(self, quantile_data):
+        fig, ax = DensitySplit.plot_quantiles(*quantile_data)
+        assert len(ax.patches) == quantile_data[0]
         plt.close(fig)
 
     def test_custom_colormap_is_applied(self, quantile_data):
