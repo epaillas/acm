@@ -20,15 +20,20 @@ MODULE = "acm.estimators.galaxy_clustering.density_split"
 NQUANTILES = 5
 
 @pytest.fixture
-def corr_estimator(make_estimator):
+def query_positions():
+    rng = np.random.default_rng(42)
+    return rng.uniform(0, 100, size=(100, 3))
+
+@pytest.fixture
+def corr_estimator(make_estimator, query_positions):
     """Fixture for a DensitySplit estimator with a dummy backend."""
     est = make_estimator(DensitySplit)
     est.backend.set_density_contrast()
-    est.set_quantiles(nquantiles=NQUANTILES)
+    est.set_quantiles(query_positions=query_positions, nquantiles=NQUANTILES)
     return est
 
 @pytest.fixture
-def power_estimator(data_positions, randoms_positions):
+def power_estimator(data_positions, randoms_positions, query_positions):
     """Fixture for a DensitySplit estimator with a JaxpowerBackend."""
     backend = JaxpowerBackend(data_positions, randoms_positions)
     # Patch a value to the mocked jaxpower output of JaxpowerBackend
@@ -40,6 +45,7 @@ def power_estimator(data_positions, randoms_positions):
         backend=backend,
         data_positions=data_positions,
         randoms_positions=randoms_positions,
+        query_positions=query_positions,
     )
 
 def _make_plot_obj(data_type):
@@ -78,10 +84,10 @@ class TestInit:
 
 class TestSetQuantiles:
 
-    def test_raises_when_no_query_positions_and_no_randoms(self, dummy_backend_no_randoms, data_positions):
-        dummy_backend_no_randoms.set_density_contrast() # Set quantiles at initialization
+    def test_raises_when_no_query_positions_and_randoms(self, dummy_backend, data_positions, randoms_positions):
+        dummy_backend.set_density_contrast() # Set quantiles at initialization
         with pytest.raises(ValueError, match="non-uniform geometry"):
-            DensitySplit(backend=dummy_backend_no_randoms, data_positions=data_positions, randoms_positions=None)
+            DensitySplit(backend=dummy_backend, data_positions=data_positions, randoms_positions=randoms_positions)
 
     @patch(f"{MODULE}.qcut", wraps=pd.qcut)
     def test_uses_provided_query_positions(self, mock_qcut, dummy_backend, data_positions, randoms_positions):
@@ -93,11 +99,11 @@ class TestSetQuantiles:
         mock_qcut.assert_called_once()
         assert np.array_equal(mock_qcut.call_args[0][0], dummy_backend.read_density_contrast(query))
 
-    def test_fall_back_to_backend_query_positions(self, dummy_backend, data_positions, randoms_positions):
+    def test_fall_back_to_backend_query_positions(self, dummy_backend_no_randoms, data_positions):
         """If no query positions are provided, the backend's get_query_positions should be used."""
-        dummy_backend.set_density_contrast() # Set quantiles at initialization
-        with patch.object(dummy_backend, "get_query_positions", wraps=dummy_backend.get_query_positions) as mock_get_query:
-            DensitySplit(backend=dummy_backend, data_positions=data_positions, randoms_positions=randoms_positions)
+        dummy_backend_no_randoms.set_density_contrast() # Set quantiles at initialization
+        with patch.object(dummy_backend_no_randoms, "get_query_positions", wraps=dummy_backend_no_randoms.get_query_positions) as mock_get_query:
+            DensitySplit(backend=dummy_backend_no_randoms, data_positions=data_positions)
             mock_get_query.assert_called_once()
 
 def test_nquantiles_property(corr_estimator):

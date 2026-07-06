@@ -127,7 +127,7 @@ class DensitySplit(BaseEstimator):
             Additional keyword arguments for :meth:`~acm.estimators.galaxy_clustering.backends.base.EstimatorBackend.get_query_positions` method.
         """
         t0 = time.time()
-        if query_positions is None and self.randoms_positions is None:
+        if query_positions is None and self.randoms_positions is not None:
             raise ValueError(
                 "query_positions must be provided when working with a non-uniform geometry."
             )
