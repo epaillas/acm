@@ -10,6 +10,7 @@ import logging
 from gc import collect
 from pathlib import Path
 
+from acm.utils.catalogs import check_catalog
 import numpy as np
 import pandas as pd
 import yaml
@@ -226,6 +227,7 @@ if __name__ == "__main__":
                         catalog.downsample(tracer.name, nbar=target_density, seed=42)
 
                 positions = catalog.positions().to_numpy()
+                check_catalog(positions, catalog.boxsize, center_at_zero=True)
                 logger.debug(f'Positions shape: {positions.shape}')
                 logger.info(f'Box size: {catalog.boxsize}')
 
@@ -239,7 +241,7 @@ if __name__ == "__main__":
                     update_dict_with_keys(
                         estimator_kwargs,
                         boxsize = catalog.boxsize,
-                        boxcenter = catalog.boxsize / 2,
+                        boxcenter = 0,
                         los = los,
                         gpu = is_gpu,
                         nthreads = nthreads,
