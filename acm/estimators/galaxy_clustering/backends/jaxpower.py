@@ -218,7 +218,7 @@ class JaxpowerBackend(EstimatorBackend):
             Gaussian kernel in Fourier space.
         """
         coords = mattrs.kcoords(sparse=True)
-        return jax.numpy.exp(-0.5 * sum((kc * smoothing_radius)**2 for kc in coords))
+        return jax.numpy.exp(-0.5 * sum((kc * smoothing_radius) ** 2 for kc in coords))
 
     @staticmethod
     def _get_field_threshold(
