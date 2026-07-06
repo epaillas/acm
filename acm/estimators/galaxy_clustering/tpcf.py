@@ -98,5 +98,5 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         s = obj.flatten(level=None)[0].coords("s")
         for ell in ells:
             pole = obj.get(ells=ell).value()
-            ax.plot(s, pole * s**2, label=rf"\ell={ell}", **kwargs)
+            ax.plot(s, pole * s**2, label=rf"$\ell={ell}$", **kwargs)
         return fig, ax
