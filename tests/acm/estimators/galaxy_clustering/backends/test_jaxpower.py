@@ -123,7 +123,7 @@ class TestGaussianKernel:
         s = 5.0
         x = np.linspace(0, 10, 10)
         kernel = JaxpowerBackend.gaussian_kernel(backend.mattrs, smoothing_radius=s)
-        result = np.exp(-0.5 * sum(x * s**2))
+        result = np.exp(-0.5 * sum((x * s)**2))
         assert kernel == result
 
 class TestGetFieldThreshold:
