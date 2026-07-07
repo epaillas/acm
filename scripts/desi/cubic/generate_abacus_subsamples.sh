@@ -254,7 +254,6 @@ TEMP_CONFIG=
 
 if [[ $DRY_RUN -eq 0 ]]; then
     source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
-    export PYTHONPATH="/global/cfs/cdirs/desicollab/users/epaillas/code/abacusutils:${PYTHONPATH:-}"
 fi
 
 if [[ -n $OUTPUT_DIR ]]; then
