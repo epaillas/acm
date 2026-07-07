@@ -1,0 +1,48 @@
+tpcf:
+  initialization:
+  compute:
+    edges: 
+      - !np.arange [0, 151, 1]
+      - !np.linspace [-1, 1, 120]
+    mode: smu
+    compute_sepsavg: False
+
+spectrum:
+  initialization:
+  compute:
+    edges:
+      step: 0.001
+    ells: [0, 2, 4]
+
+bispectrum:
+  initialization:
+    cellsize: 5.0
+  compute:
+    edges:
+      min: 0.02
+      max: 0.20
+      step: 0.02
+    buffer_size: 30
+    resampler: tsc
+    interlacing: 3
+    compensate: true
+
+ds_xiqg:
+  initialization:
+    cellsize: 5.0
+    smoothing_radius: 10.0
+    nquantiles: 5
+  compute:
+    edges:
+      - !np.arange [0, 151, 1]
+      - !np.linspace [-1, 1, 120]
+  
+ds_xiqq:
+  initialization:
+    cellsize: 5.0
+    smoothing_radius: 10.0
+    nquantiles: 5
+  compute:
+    edges:
+      - !np.arange [0, 151, 1]
+      - !np.linspace [-1, 1, 120]
