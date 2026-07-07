@@ -439,7 +439,7 @@ class DensitySplit(BaseEstimator):
         colormap: str, optional
             The colormap to use for the plot. Defaults to "coolwarm".
         **kwargs
-            Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
+            Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.hist` for details.
 
         Returns
         -------
