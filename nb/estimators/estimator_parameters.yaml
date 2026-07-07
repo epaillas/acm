@@ -1,5 +1,4 @@
 tpcf:
-  initialization:
   compute:
     edges: 
       - !np.arange [0, 151, 1]
@@ -8,7 +7,6 @@ tpcf:
     compute_sepsavg: False
 
 spectrum:
-  initialization:
   compute:
     edges:
       step: 0.001
