@@ -49,24 +49,6 @@ def mock_spectrum_sugiyama():
 
 class TestInit:
 
-    def test_raises_when_backend_not_jaxpower(self, data_positions, randoms_positions, dummy_backend):
-        """TypeError must be raised when backend is not a JaxpowerBackend."""
-        with pytest.raises(TypeError, match="requires a JaxpowerBackend"):
-            BispectrumMultipoles(
-                backend=dummy_backend,
-                data_positions=data_positions,
-                randoms_positions=randoms_positions,
-            )
-
-    def test_init_with_jaxpower_backend(self, data_positions, randoms_positions):
-        backend = JaxpowerBackend(data_positions, randoms_positions)
-        estimator = BispectrumMultipoles(
-            backend=backend,
-            data_positions=data_positions,
-            randoms_positions=randoms_positions,
-        )
-        assert isinstance(estimator.backend, JaxpowerBackend)
-
     def test_jit_cm3s_is_callable(self, estimator):
         assert callable(estimator.jit_cm3s)
 

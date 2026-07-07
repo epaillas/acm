@@ -35,10 +35,6 @@ class BispectrumMultipoles(BaseEstimator):
         randoms_weights: np.ndarray | None = None,
         **kwargs,
     ) -> None:
-        if not isinstance(backend, JaxpowerBackend):
-            raise TypeError(
-                f"BispectrumMultipoles requires a JaxpowerBackend, got {type(backend)}"
-            )
         super().__init__(
             backend,
             data_positions,

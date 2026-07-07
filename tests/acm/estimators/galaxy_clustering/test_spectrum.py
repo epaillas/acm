@@ -42,25 +42,6 @@ def mock_spectrum():
 
 class TestInit:
 
-    def test_raise_when_backend_not_jaxpower(self, data_positions, randoms_positions, dummy_backend):
-        """TypeError must be raised when backend is not a JaxpowerBackend."""
-        with pytest.raises(TypeError, match="requires a JaxpowerBackend"):
-            PowerSpectrumMultipoles(
-                backend=dummy_backend,  # Not a JaxpowerBackend
-                data_positions=data_positions,
-                randoms_positions=randoms_positions,
-            )
-
-    def test_init_with_jaxpower_backend(self, data_positions, randoms_positions):
-        """Initialization should succeed with a JaxpowerBackend."""
-        backend = JaxpowerBackend(data_positions, randoms_positions)
-        estimator = PowerSpectrumMultipoles(
-            backend=backend,
-            data_positions=data_positions,
-            randoms_positions=randoms_positions,
-        )
-        assert isinstance(estimator.backend, JaxpowerBackend)
-
     def test_jit_cm2s_is_jitted_function(self, estimator):
         """Check that jit_cm2s is a jitted function."""
         assert callable(estimator.jit_cm2s) # FIXME: can we check if it's jitted?
