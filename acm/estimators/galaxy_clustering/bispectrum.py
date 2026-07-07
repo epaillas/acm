@@ -199,7 +199,8 @@ class BispectrumMultipoles(BaseEstimator):
             raise ValueError(f"Plot method is not defined for basis {basis}.")
         return fig, ax
 
-#%% Internal plot functions for bispectrum multipoles
+
+# %% Internal plot functions for bispectrum multipoles
 def _plot_sugiyama(
     obj: lsstypes.Mesh3SpectrumPoles,
     fig: plt.Figure | None,
@@ -246,13 +247,13 @@ def _plot_sugiyama(
     weights = 1.0
     xlabel = "bin index"
     ylabel = r"$B_\ell(k)$"
-    if k.ndim == 1: # 1D-k case
+    if k.ndim == 1:  # 1D-k case
         x = k
         xlabel = r"$k$ [$h/\mathrm{Mpc}$]"
-        if weight_by_kprod: # Add 1D weights
+        if weight_by_kprod:  # Add 1D weights
             weights = k**2
             ylabel = r"$k^2 B_\ell(k, k)$"
-    elif weight_by_kprod: # Add 2D weights
+    elif weight_by_kprod:  # Add 2D weights
         weights = np.prod(k[..., :2], axis=-1)
         ylabel = r"$k_1 k_2 B_\ell(k_1, k_2)$"
 
@@ -269,6 +270,7 @@ def _plot_sugiyama(
         pole = obj.get(ells=ell).value().real
         ax.plot(x, weights * pole, label=rf"$\ell={ell}$", **kwargs)
     return fig, ax
+
 
 def _plot_scoccimarro(
     obj: lsstypes.Mesh3SpectrumPoles,
@@ -315,7 +317,7 @@ def _plot_scoccimarro(
     weights = 1.0
     xlabel = "bin index"
     ylabel = r"$B_\ell(k)$"
-    if weight_by_kprod: # Add 3D weights
+    if weight_by_kprod:  # Add 3D weights
         weights = np.prod(k, axis=-1) if k.ndim > 1 else k**3
         ylabel = r"$k_1 k_2 k_3 B_\ell(k_1, k_2, k_3)$"
 
