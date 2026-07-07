@@ -296,7 +296,7 @@ def _plot_scoccimarro(
         ``k1 * k2 * k3 * B`` for Scoccimarro bases. Default is True.
     **kwargs
         Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
-    
+
     Returns
     -------
     fig, ax: tuple[plt.Figure, plt.Axes]
