@@ -76,37 +76,39 @@ class BispectrumMultipoles(BaseEstimator):
             Multipoles to compute. Defaults to (0, 2) for the Scoccimarro basis
             and [(0, 0, 0), (0, 0, 2)] for Sugiyama bases.
         los: str, optional
-            The line-of-sight convention to use. See
-            :func:`jaxpower.compute_mesh3_spectrum` for details. Default is "z".
+            The line-of-sight convention to use.
+            See :func:`jaxpower.compute_mesh3_spectrum` for details. Default is "z".
         basis: str, optional
             Basis for the bispectrum computation. Default is "scoccimarro".
         buffer_size: int, optional
-            Number of meshes that can be kept in memory by the jaxpower binning
-            operator. Default is 30.
+            Number of meshes that can be kept in memory by the jaxpower binning operator.
+            Default is 30.
         mask_edges: str | list[str] | tuple[str, ...], optional
-            Edge mask expression(s) passed directly to
-            :class:`jaxpower.BinMesh3SpectrumPoles`.
+            Edge mask expression(s) passed directly to :class:`jaxpower.BinMesh3SpectrumPoles`.
         **kwargs
-            Additional keyword arguments passed to the backend's paint method and
-            to :func:`jaxpower.compute_fkp3_shotnoise`. See
-            :meth:`jaxpower.ParticleField.paint` for details.
+            Additional keyword arguments passed to the backend's paint method and to :func:`jaxpower.compute_fkp3_shotnoise`.
+            See :meth:`jaxpower.ParticleField.paint` for details.
 
         Returns
         -------
         spectrum: lsstypes.Mesh3SpectrumPoles
-            The computed bispectrum multipoles as a
-            :class:`~lsstypes.Mesh3SpectrumPoles` object.
+            The computed bispectrum multipoles as a :class:`~lsstypes.Mesh3SpectrumPoles` object.
+
+        Note
+        ----
+        If no kwargs are passed, :meth:`jaxpower.ParticleField.paint` and :func:`jaxpower.compute_fkp3_shotnoise` kwargs
+        will be set to their default values in jaxpower. The default compensation for the mass assignment scheme differs in these two methods.
         """
         t0 = time.time()
         if ells is None:
-            ells = self._default_ells(basis)
+            ells = [(0, 0, 0), (0, 0, 2)] if "sugiyama" in basis else (0, 2)
 
         mattrs = self.backend.mattrs
         bin_mesh = BinMesh3SpectrumPoles(
             mattrs,
             edges=edges,
-            basis=basis,
             ells=ells,
+            basis=basis,
             buffer_size=buffer_size,
             mask_edges=mask_edges,
         )
@@ -142,15 +144,6 @@ class BispectrumMultipoles(BaseEstimator):
         return spectrum
 
     @staticmethod
-    def _default_ells(
-        basis: str,
-    ) -> tuple[int, ...] | list[tuple[int, int, int]]:
-        """Return ACM defaults for the requested bispectrum basis."""
-        if "sugiyama" in basis:
-            return [(0, 0, 0), (0, 0, 2)]
-        return (0, 2)
-
-    @staticmethod
     def load(filename: str | Path) -> lsstypes.Mesh3SpectrumPoles:
         """Load a :class:`~lsstypes.Mesh3SpectrumPoles` object from file."""
         obj: lsstypes.Mesh3SpectrumPoles = lsstypes.read(filename)
@@ -161,7 +154,7 @@ class BispectrumMultipoles(BaseEstimator):
         obj: LsstypeObject,
         fig: plt.Figure | None = None,
         ax: plt.Axes | None = None,
-        ells: int | tuple[int, ...] | list[int] | list[tuple[int, int, int]] = (0, 2),
+        ells: tuple[int, ...] | list[int] | list[tuple[int, int, int]] = (0, 2),
         weight_by_kprod: bool = True,
         **kwargs,
     ) -> tuple[plt.Figure, plt.Axes]:
@@ -178,120 +171,159 @@ class BispectrumMultipoles(BaseEstimator):
         ax: plt.Axes, optional
             The matplotlib axes to plot on. If None, a new axes is created.
             Defaults to None.
-        ells: int | tuple[int, ...] | list[int] | list[tuple[int, int, int]], optional
+        ells: tuple[int, ...] | list[int] | list[tuple[int, int, int]], optional
             List of multipoles to plot. Default is (0, 2).
         weight_by_kprod: bool, optional
             If True, plot the conventional coordinate-weighted bispectrum:
             ``k1 * k2 * k3 * B`` for Scoccimarro bases and ``k1 * k2 * B``
             for Sugiyama bases. Default is True.
         **kwargs
-            Additional keyword arguments for the plot. See
-            :meth:`matplotlib.pyplot.plot` for details.
+            Additional keyword arguments for the plot.
+            See :meth:`matplotlib.pyplot.plot` for details.
 
         Returns
         -------
         fig, ax: tuple[plt.Figure, plt.Axes]
             The matplotlib figure and axes objects containing the plot.
         """
-        if fig is None or ax is None:
-            fig, ax = plt.subplots(figsize=(8, 6))
-
-        xlabel = ylabel = None
-        for ell in BispectrumMultipoles._iter_ells_for_plot(obj, ells):
-            pole = obj.get(ell)
-            x, weights, xlabel, ylabel = BispectrumMultipoles._plot_coordinates(
-                pole,
-                weight_by_kprod=weight_by_kprod,
-            )
-            value = np.asarray(pole.value().real)
-            ax.plot(x, weights * value, label=rf"$\ell={ell}$", **kwargs)
-
-        if xlabel is not None:
-            ax.set_xlabel(xlabel)
-        if ylabel is not None:
-            if not weight_by_kprod:
-                ylabel = r"$B_\ell(k)$"
-            ax.set_ylabel(ylabel)
+        # Handle object type here to not break LSP in typing
+        if not isinstance(obj, lsstypes.Mesh3SpectrumPoles):
+            raise TypeError(f"Expected a Mesh3SpectrumPoles object, got {type(obj)}")
+        basis = str(obj.basis).lower()
+        args = (obj, fig, ax, ells, weight_by_kprod)
+        if "sugiyama" in basis:
+            fig, ax = _plot_sugiyama(*args, **kwargs)  # ty:ignore[invalid-argument-type]
+        elif "scoccimarro" in basis:
+            fig, ax = _plot_scoccimarro(*args, **kwargs)  # ty:ignore[invalid-argument-type]
+        else:
+            raise ValueError(f"Plot method is not defined for basis {basis}.")
         return fig, ax
 
-    @staticmethod
-    def _plot_coordinates(
-        pole: lsstypes.Mesh3SpectrumPole,
-        weight_by_kprod: bool = True,
-    ) -> tuple[np.ndarray, np.ndarray | float, str, str]:
-        """Return basis-aware plotting coordinates, weights, and axis labels."""
-        k = np.asarray(pole.coords("k"))
-        basis = str(getattr(pole, "basis", "")).lower()
-        if "sugiyama" in basis:
-            return BispectrumMultipoles._sugiyama_plot_coordinates(
-                k,
-                weight_by_kprod=weight_by_kprod,
-            )
-        return BispectrumMultipoles._scoccimarro_plot_coordinates(
-            k,
-            weight_by_kprod=weight_by_kprod,
-        )
+#%% Internal plot functions for bispectrum multipoles
+def _plot_sugiyama(
+    obj: lsstypes.Mesh3SpectrumPoles,
+    fig: plt.Figure | None,
+    ax: plt.Axes | None,
+    ells: list[tuple[int, int, int]],
+    weight_by_kprod: bool = True,
+    **kwargs,
+) -> tuple[plt.Figure, plt.Axes]:
+    """
+    Plot function for the Sugiyama basis bispectrum multipoles.
 
-    @staticmethod
-    def _scoccimarro_plot_coordinates(
-        k: np.ndarray,
-        weight_by_kprod: bool = True,
-    ) -> tuple[np.ndarray, np.ndarray | float, str, str]:
-        """Return Scoccimarro-style triangle-index plotting arrays."""
-        x = np.arange(len(k))
-        weights = 1.0
-        if weight_by_kprod:
-            weights = np.prod(k, axis=-1) if k.ndim > 1 else k**3
-        return (
-            x,
-            weights,
-            "bin index",
-            r"$k_1 k_2 k_3 B_\ell(k_1, k_2, k_3)$",
-        )
+    Parameters
+    ----------
+    obj: lsstypes.Mesh3SpectrumPoles
+        The :class:`~lsstypes.Mesh3SpectrumPoles` object to plot.
+    fig: plt.Figure | None
+        The matplotlib figure to plot on. If None, a new figure will be created.
+    ax: plt.Axes | None
+        The matplotlib axes to plot on. If None, a new axes will be created.
+    ells: list[tuple[int, int, int]]
+        List of multipoles to plot. Expects a list of 3-tuples for Sugiyama basis multipoles.
+    weight_by_kprod: bool, optional
+        If True, plot the conventional coordinate-weighted bispectrum:
+        ``k1 * k2 * B`` for Sugiyama bases. Default is True.
+    **kwargs
+        Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
 
-    @staticmethod
-    def _sugiyama_plot_coordinates(
-        k: np.ndarray,
-        weight_by_kprod: bool = True,
-    ) -> tuple[np.ndarray, np.ndarray | float, str, str]:
-        """Return Sugiyama-style plotting arrays, using k on diagonal samples."""
-        if k.ndim == 1:
-            weights = k**2 if weight_by_kprod else 1.0
-            return (
-                k,
-                weights,
-                r"$k$ [$h/\mathrm{Mpc}$]",
-                r"$k^2 B_\ell(k, k)$",
-            )
+    Returns
+    -------
+    fig, ax: tuple[plt.Figure, plt.Axes]
+        The matplotlib figure and axes objects containing the plot.
 
-        diagonal = k.shape[-1] >= 2 and np.allclose(k[..., 1], k[..., 0])
-        weights = np.prod(k[..., :2], axis=-1) if weight_by_kprod else 1.0
-        if diagonal:
-            return (
-                k[..., 0],
-                weights,
-                r"$k$ [$h/\mathrm{Mpc}$]",
-                r"$k^2 B_\ell(k, k)$",
-            )
-        return (
-            np.arange(len(k)),
-            weights,
-            "bin index",
-            r"$k_1 k_2 B_\ell(k_1, k_2)$",
-        )
+    Note
+    ----
+    This function infers 3 cases depending on the shape of the k-coordinates in the :class:`~lsstypes.Mesh3SpectrumPoles` object:
+    - 1D-k case: k is a 1D array, and the x-axis will be k with optional k^2 weighting.
+    - 2D-k case: k is a 2D array with shape (n, >2), and the x-axis will be k1 with optional k1*k2 weighting.
+    - Diagonal case: k1 == k2 on the diagonal, and the x-axis will be k1 with optional k1*k2 weighting.
+    """
+    k = np.atleast_1d(obj.flatten(level=None)[0].coords("k"))
 
-    @staticmethod
-    def _iter_ells_for_plot(
-        obj: LsstypeObject,
-        ells: int | tuple[int, ...] | list[int] | list[tuple[int, int, int]],
-    ) -> list[int | tuple[int, int, int]]:
-        """Return a list of multipoles, accepting a single Sugiyama tuple."""
-        if isinstance(ells, int):
-            return [ells]
+    # Default values: no weights
+    x = np.arange(len(k))
+    weights = 1.0
+    xlabel = "bin index"
+    ylabel = r"$B_\ell(k)$"
+    if k.ndim == 1: # 1D-k case
+        x = k
+        xlabel = r"$k$ [$h/\mathrm{Mpc}$]"
+        if weight_by_kprod: # Add 1D weights
+            weights = k**2
+            ylabel = r"$k^2 B_\ell(k, k)$"
+    elif weight_by_kprod: # Add 2D weights
+        weights = np.prod(k[..., :2], axis=-1)
+        ylabel = r"$k_1 k_2 B_\ell(k_1, k_2)$"
 
-        if isinstance(ells, tuple) and all(isinstance(ell, int) for ell in ells):
-            obj_ells = getattr(obj, "ells", ())
-            if ells in obj_ells:
-                return [ells]
+    # Diagonal case: k1 = k2
+    if k.shape[-1] >= 2 and np.allclose(k[..., 1], k[..., 0]):
+        x = k[..., 0]
+        xlabel = r"$k$ [$h/\mathrm{Mpc}$]"
 
-        return list(ells)
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+    for ell in ells:
+        pole = obj.get(ells=ell).value().real
+        ax.plot(x, weights * pole, label=rf"$\ell={ell}$", **kwargs)
+    return fig, ax
+
+def _plot_scoccimarro(
+    obj: lsstypes.Mesh3SpectrumPoles,
+    fig: plt.Figure | None,
+    ax: plt.Axes | None,
+    ells: list[int] | tuple[int, ...],
+    weight_by_kprod: bool = True,
+    **kwargs,
+) -> tuple[plt.Figure, plt.Axes]:
+    """
+    Plot function for the Scoccimarro basis bispectrum multipoles.
+
+    Parameters
+    ----------
+    obj: lsstypes.Mesh3SpectrumPoles
+        The :class:`~lsstypes.Mesh3SpectrumPoles` object to plot.
+    fig: plt.Figure | None
+        The matplotlib figure to plot on. If None, a new figure will be created.
+    ax: plt.Axes | None
+        The matplotlib axes to plot on. If None, a new axes will be created.
+    ells: list[int] | tuple[int, ...]
+        List of multipoles to plot. Expects a list of integers for Scoccimarro basis multipoles.
+    weight_by_kprod: bool, optional
+        If True, plot the conventional coordinate-weighted bispectrum:
+        ``k1 * k2 * k3 * B`` for Scoccimarro bases. Default is True.
+    **kwargs
+        Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
+    
+    Returns
+    -------
+    fig, ax: tuple[plt.Figure, plt.Axes]
+        The matplotlib figure and axes objects containing the plot.
+
+    Note
+    ----
+    This function infers 2 cases depending on the shape of the k-coordinates in the :class:`~lsstypes.Mesh3SpectrumPoles` object:
+    - 1D-k case: k is a 1D array, and the x-axis will be k with optional k^3 weighting.
+    - 2D-k case: k is a 2D array with shape (n, 3), and the x-axis will be k1 with optional k1*k2*k3 weighting.
+    """
+    k = np.atleast_1d(obj.flatten(level=None)[0].coords("k"))
+
+    # Default values: no weights
+    x = np.arange(len(k))
+    weights = 1.0
+    xlabel = "bin index"
+    ylabel = r"$B_\ell(k)$"
+    if weight_by_kprod: # Add 3D weights
+        weights = np.prod(k, axis=-1) if k.ndim > 1 else k**3
+        ylabel = r"$k_1 k_2 k_3 B_\ell(k_1, k_2, k_3)$"
+
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+    for ell in ells:
+        pole = obj.get(ells=ell).value().real
+        ax.plot(x, weights * pole, label=rf"$\ell={ell}$", **kwargs)
+    return fig, ax
