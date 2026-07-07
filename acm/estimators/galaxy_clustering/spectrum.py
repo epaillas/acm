@@ -140,10 +140,10 @@ class PowerSpectrumMultipoles(BaseEstimator):
         if fig is None or ax is None:
             fig, ax = plt.subplots(figsize=(8, 6))
             ax.set_xlabel(r"$k$ [h/Mpc]")
-            ax.set_ylabel(r"$P(k)$ [(Mpc/h)$^3$]")
+            ax.set_ylabel(r"$k P(k)$ [(Mpc/h)$^3$]")
 
         k = obj.flatten(level=None)[0].coords("k")
         for ell in ells:
             pole = obj.get(ells=ell).value()
-            ax.plot(k, pole * k**2, label=rf"$\ell={ell}$", **kwargs)
+            ax.plot(k, pole * k, label=rf"$\ell={ell}$", **kwargs)
         return fig, ax
