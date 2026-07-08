@@ -1,14 +1,16 @@
-import pytest
 import logging
+from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
-from unittest.mock import MagicMock, patch
+import pytest
 
 from acm.catalogs.backends.base import DarkMatterBackend
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.factories.snapshot import SnapshotCatalogFactory
 from acm.catalogs.products.snapshot import SnapshotCatalog
+
+# ruff: noqa: ANN001, ANN201, ARG001, ARG002, ARG005, D102, D103, INP001, S101
 
 logger = logging.getLogger(__name__)
 
@@ -16,23 +18,25 @@ logger = logging.getLogger(__name__)
 
 def make_tracer_data(n: int = 100) -> pd.DataFrame:
     """Generate minimal valid tracer data."""
+    rng = np.random.default_rng(42)
     return pd.DataFrame({
-        "x": np.random.uniform(0, 500, n),
-        "y": np.random.uniform(0, 500, n),
-        "z": np.random.uniform(0, 500, n),
-        "vx": np.random.normal(0, 1, n),
-        "vy": np.random.normal(0, 1, n),
-        "vz": np.random.normal(0, 1, n),
+        "x": rng.uniform(0, 500, n),
+        "y": rng.uniform(0, 500, n),
+        "z": rng.uniform(0, 500, n),
+        "vx": rng.normal(0, 1, n),
+        "vy": rng.normal(0, 1, n),
+        "vz": rng.normal(0, 1, n),
     })
-    
+
 class DummyBackend(DarkMatterBackend):
     """A minimal implementation of DarkMatterBackend for testing."""
+
     def load_dark_matter_catalog(self, redshift: float, **kwargs):
         return MagicMock()  # Return a dummy catalog object
 
-    def make_galaxy_catalog(self, dm_catalog, tracers: list[Tracer], **kwargs) -> None:
-        return {tracer: make_tracer_data() for tracer in tracers}
-    
+    def make_galaxy_catalog(self, dm_catalog, tracers: list[Tracer], **kwargs) -> None:  # ty:ignore[invalid-method-override]
+        return {tracer: make_tracer_data() for tracer in tracers}  # ty:ignore[invalid-return-type]
+
     @property
     def boxsize(self) -> float:
         return 500.0
@@ -66,12 +70,12 @@ def mock_backend():
 
 @pytest.fixture
 def magic_mock_factory():
-    """A factory using MagicMock to mimics SnapshotBackend with valid return values."""
+    """Use MagicMock to mimic SnapshotBackend with valid return values."""
     backend = MagicMock(spec=DarkMatterBackend)
     backend.load_dark_matter_catalog.return_value = MagicMock()
     backend.make_galaxy_catalog.side_effect = lambda dm_catalog, tracers, **kwargs: {t: make_tracer_data() for t in tracers}
     backend.boxsize = 500.0
-    
+
     factory = SnapshotCatalogFactory(
         backend=backend,
         catalog_class=SnapshotCatalog,
@@ -91,16 +95,15 @@ def factory(mock_backend, cosmo, cosmo_fid):
 
 @pytest.fixture
 def factory_with_catalogs(factory, mock_backend, tracer_foo):
-    """Factory with catalogs already loaded at two redshifts."""
+    """Catalogs already loaded at two redshifts."""
     factory.make_catalogs(redshifts=[0.5, 1.0], tracers=[tracer_foo])
     return factory
 
 
-#%% Test classes 
-
+#%% Test classes
 class TestSnapshotCatalogFactoryConstruction:
     """Tests for the constructor and basic properties of SnapshotCatalogFactory."""
-    
+
     def test_factory_stores_backend(self, factory, mock_backend):
         assert factory.backend is mock_backend
 
@@ -124,10 +127,10 @@ class TestSnapshotCatalogFactoryConstruction:
 
 class TestMakeCatalogs:
     """Tests for the make_catalogs method of SnapshotCatalogFactory."""
-    
+
     def test_make_catalogs_loads_all_redshifts(self, factory_with_catalogs):
         assert set(factory_with_catalogs.redshifts) == {0.5, 1.0}
-        
+
     def test_catalogs_property_returns_copy(self, factory_with_catalogs):
         """Modifying the returned dict should not affect internal state."""
         catalogs = factory_with_catalogs.catalogs
@@ -163,9 +166,9 @@ class TestMakeCatalogs:
         assert "FOO" in factory.get_catalog(0.5).tracers
         assert "BAR" in factory.get_catalog(1.0).tracers
         assert "FOO" not in factory.get_catalog(1.0).tracers
-    
+
     def test_make_catalogs_forwards_dark_matter_kwargs(self, magic_mock_factory, tracer_foo):
-        """Dark matter kwargs should be forwarded to the backend."""        
+        """Dark matter kwargs should be forwarded to the backend."""
         dark_matter_kwargs = {"seed": 42, "cosmology_variant": "base"}
         magic_mock_factory.make_catalogs(
             redshifts=[0.5],
@@ -178,7 +181,6 @@ class TestMakeCatalogs:
         assert call_kwargs["seed"] == 42
         assert call_kwargs["cosmology_variant"] == "base"
 
-    
     def test_make_catalogs_per_redshift_passes_correct_tracers_to_backend(self, magic_mock_factory, tracer_foo, tracer_bar):
         """Each redshift should pass the correct tracer list to the backend."""
         magic_mock_factory.make_catalogs(
@@ -211,7 +213,7 @@ class TestMakeCatalogs:
 
 class TestGetCatalog:
     """Tests for the get_catalog method of SnapshotCatalogFactory."""
-    
+
     def test_get_catalog_returns_correct_redshift(self, factory_with_catalogs):
         """Requesting a catalog by redshift should return a catalog with that redshift."""
         catalog = factory_with_catalogs.get_catalog(0.5)
@@ -219,12 +221,12 @@ class TestGetCatalog:
 
     def test_get_catalog_unknown_redshift_raises(self, factory_with_catalogs):
         """Requesting a redshift that wasn't made should raise a KeyError."""
-        with pytest.raises(KeyError, match="0.8"):
+        with pytest.raises(KeyError, match=r"0.8"):
             factory_with_catalogs.get_catalog(0.8)
 
     def test_get_catalog_error_lists_available_redshifts(self, factory_with_catalogs):
         """Error message should list available redshifts."""
-        with pytest.raises(KeyError, match="0.5"):
+        with pytest.raises(KeyError, match=r"0.5"):
             factory_with_catalogs.get_catalog(0.8)
 
 

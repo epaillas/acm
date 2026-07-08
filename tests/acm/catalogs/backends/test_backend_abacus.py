@@ -1,61 +1,12 @@
-import yaml
-import pytest
-from unittest.mock import MagicMock
-import sys
-import numpy as np
 import pandas as pd
-
-
-#%% Mock AbacusHOD at module level
-
-def make_hod_tracer_dict(n: int = 100, n_cent: int = 10) -> dict:
-    """Generate a minimal AbacusHOD-style tracer output dict."""
-    return {
-        "x":      np.random.uniform(0, 500, n).tolist(),
-        "y":      np.random.uniform(0, 500, n).tolist(),
-        "z":      np.random.uniform(0, 500, n).tolist(),
-        "vx":     np.random.normal(0, 100, n).tolist(),
-        "vy":     np.random.normal(0, 100, n).tolist(),
-        "vz":     np.random.normal(0, 100, n).tolist(),
-        "Ncent":  n_cent,
-    }
-
-class MockAbacusHOD:
-    """
-    Minimal mock of abacusnbody.hod.abacus_hod.AbacusHOD.
-    Mimics the interface used by AbacusHODBackend.
-    """
-    def __init__(self, sim_params: dict, hod_params: dict) -> None:
-        self.sim_params = sim_params
-        self.hod_params = hod_params
-        # Mirrors AbacusHOD.tracers: maps tracer name -> param dict
-        self.tracers = {
-            name: hod_params.get(f"{name}_params", {})
-            for name, active in hod_params.get("tracer_flags", {}).items()
-            if active
-        }
-        self.last_run_hod_tracers: dict | None = None  # captures last call for testing
-
-    def run_hod(
-        self,
-        tracers: dict,
-        want_rsd: bool = False,
-        reseed=None,
-        Nthread: int = 1,
-        **kwargs,
-    ) -> dict:
-        """Return a minimal galaxy dict for each requested tracer."""
-        self.last_run_hod_tracers = tracers  # store for inspection
-        return {name: make_hod_tracer_dict() for name in tracers}
-
-mock_abacus_module = MagicMock()
-mock_abacus_module.AbacusHOD = MockAbacusHOD
-sys.modules["abacusnbody"] = MagicMock()
-sys.modules["abacusnbody.hod"] = MagicMock()
-sys.modules["abacusnbody.hod.abacus_hod"] = mock_abacus_module
+import pytest
+import yaml
+from conftest import MockAbacusHOD, make_hod_tracer_dict
 
 from acm.catalogs.backends.abacus import AbacusHODBackend
 from acm.catalogs.dataclasses import Tracer
+
+# ruff: noqa: ANN001, ANN201, ARG002, D102, D103, INP001, S101
 
 
 #%% Fixtures
@@ -78,7 +29,7 @@ def config_dict():
 @pytest.fixture
 def config_file(tmp_path, config_dict):
     path = tmp_path / "config.yaml"
-    with open(path, "w") as f:
+    with open(path, "w") as f:  # noqa: PTH123
         yaml.dump(config_dict, f)
     return path
 
@@ -101,7 +52,7 @@ def tracer_bar():
 
 @pytest.fixture
 def dm_catalog(backend, tracer_foo):
-    """A loaded dark matter catalog for a single tracer."""
+    """Load dark matter catalog for a single tracer."""
     return backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
 
 
@@ -168,12 +119,12 @@ class TestLoadDarkMatterCatalog:
         b = AbacusHODBackend(config_file=path)
         with pytest.raises(ValueError, match="HOD parameters"):
             b.load_dark_matter_catalog(redshift=0.5, tracers=[Tracer(name="FOO")])
-            
+
     def test_cache_populated_after_first_load(self, backend, tracer_foo):
         """Cache should contain the redshift key after first load."""
         backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
         assert 0.5 in backend._cache
-        
+
     def test_cache_returns_same_instance(self, backend, tracer_foo):
         """Second call with same redshift should return the exact same object."""
         dm1 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
@@ -185,7 +136,7 @@ class TestLoadDarkMatterCatalog:
         dm1 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
         dm2 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo], no_cache=True)
         assert dm1 is not dm2
-        
+
     def test_different_redshifts_cached_separately(self, backend, tracer_foo):
         """Each redshift should get its own cache entry."""
         backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
@@ -221,7 +172,7 @@ class TestMakeGalaxyCatalog:
         """The is_cent column should be of boolean type."""
         result = backend.make_galaxy_catalog(dm_catalog, tracers=[tracer_foo])
         assert result[tracer_foo]["is_cent"].dtype == bool
-    
+
     def test_bgs_alone_accepted(self, backend):
         """BGS requested alone should not raise."""
         tracer = Tracer(name="LRG", params={"alpha": 1.0})
@@ -229,7 +180,7 @@ class TestMakeGalaxyCatalog:
         tracer = Tracer(name="BGS", params={})
         result = backend.make_galaxy_catalog(dm_catalog, tracers=[tracer])
         assert tracer in result
-    
+
     def test_bgs_without_lrg_raises(self, config_file, dm_catalog):
         """Requesting BGS without LRG should raise an error."""
         backend = AbacusHODBackend(sim_type="base", config_file=config_file, HOD_params={"tracer_flags": {"LRG": False}, "LRG_params": {"alpha": 1.0}})
@@ -248,7 +199,7 @@ class TestMakeGalaxyCatalog:
         tracer = Tracer(name="FOO", params={"invalid_key": 1.0})
         with pytest.raises(ValueError, match="invalid keys"):
             backend.make_galaxy_catalog(dm_catalog, tracers=[tracer])
-    
+
     def test_mapping_renames_params(self, backend, dm_catalog):
         """A mapping dict should rename tracer params before passing to AbacusHOD."""
         tracer = Tracer(name="FOO", params={"my_alpha": 1.5})
@@ -362,7 +313,7 @@ class TestUpdateDefaultTracers:
         """Calling with no tracers should not raise if flags are already set."""
         hod_params = {"tracer_flags": {"FOO": True}, "FOO_params": {"alpha": 1.0}}
         backend.update_default_tracers(hod_params)  # no tracers kwarg
-        
+
     def test_new_tracer_added_to_flags(self, backend):
         """A tracer not previously in tracer_flags should be added."""
         hod_params = {"tracer_flags": {}, "NEW_params": {"alpha": 1.0}}

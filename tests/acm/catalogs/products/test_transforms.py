@@ -1,15 +1,17 @@
-import pytest
-import numpy as np
-import pandas as pd
-
 from unittest.mock import MagicMock
 
+import numpy as np
+import pandas as pd
+import pytest
+
 from acm.catalogs.products.transforms import (
-    _apply_rsd,
+    _add_distance_column,
     _apply_ap,
     _apply_downsample,
-    _add_distance_column,
+    _apply_rsd,
 )
+
+# ruff: noqa: ANN001, ANN201, D101, D102, INP001, S101
 
 
 class TestApplyRsd:
@@ -31,14 +33,14 @@ class TestApplyRsd:
         data = pd.DataFrame({"x": [1.0], "z": [0.0], "vz": [100.0]})
         result = _apply_rsd(data, los="z", hubble=100.0, az=0.5)
         assert result["x"].iloc[0] == pytest.approx(1.0)
-    
+
     def test_wrap(self):
         """RSD transform should wrap positions correctly when wrap parameter is set."""
         data = pd.DataFrame({"z": [9.0], "vz": [200.0]})
         result = _apply_rsd(data, los="z", hubble=100.0, az=0.5, wrap=10.0)
         expected_z = (9.0 + 200.0 / (100.0 * 0.5)) % 10.0
         assert result["z"].iloc[0] == pytest.approx(expected_z)
-        
+
     def test_wrap_with_offset(self):
         """RSD transform should wrap positions correctly with an offset."""
         data = pd.DataFrame({"z": [9.0], "vz": [200.0]})
@@ -60,13 +62,13 @@ class TestApplyAp:
         result = _apply_ap(data, los="z", q_par=1.2, q_perp=0.9, pos_columns=("x", "y", "z"))
         assert result["x"].iloc[0] == pytest.approx(1.0)
         assert result["y"].iloc[0] == pytest.approx(1.0)
-        
+
     def test_qpar_equal_one_leaves_los_unchanged(self):
         """q_par=1 should leave the los column unchanged."""
         data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [3.0]})
         result = _apply_ap(data, los="z", q_par=1.0, q_perp=0.9, pos_columns=("x", "y", "z"))
         assert result["z"].iloc[0] == pytest.approx(3.0)
-        
+
     def test_qperp_equal_one_leaves_transverse_unchanged(self):
         """q_perp=1 should leave transverse columns unchanged."""
         data = pd.DataFrame({"x": [2.0], "y": [3.0], "z": [1.0]})
@@ -99,7 +101,7 @@ class TestApplyDownsample:
 
     def test_by_nbar(self, data):
         """Downsampling by nbar should reduce the number of galaxies to the target, using volume to compute current nbar."""
-        volume = lambda: np.prod([10., 10., 10.])
+        volume = lambda: np.prod([10., 10., 10.])  # noqa: E731
         target_nbar = 50 / 1000.0
         result = _apply_downsample(data, tracer="FOO", n_gal=None, f_gal=None, nbar=target_nbar, volume=volume)
         assert len(result) == 50
@@ -118,13 +120,13 @@ class TestApplyDownsample:
         """Downsampling should be skipped (returning unchanged data) if the target number density is greater than or equal to the current number density."""
         result = _apply_downsample(data, tracer="FOO", n_gal=200, f_gal=None, nbar=None)
         assert len(result) == 100
-        
+
     def test_random_seed_reproducibility(self, data):
         """Downsampling with a fixed random seed should produce the same result across multiple calls."""
         result1 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)
         result2 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)
         pd.testing.assert_frame_equal(result1.reset_index(drop=True), result2.reset_index(drop=True))
-        
+
     def test_random_seed_different_seeds(self, data):
         """Downsampling with different random seeds should produce different results."""
         result1 = _apply_downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)
