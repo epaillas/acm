@@ -9,11 +9,10 @@ import numpy as np
 import pandas as pd
 import xarray
 
+from acm.typing import LsstypeObject
 from acm.utils.xarray import dataset_to_dict, split_vars
 
 logger = logging.getLogger(__name__)
-
-type LsstypeObject = lsstypes.ObservableLeaf | lsstypes.ObservableTree
 
 
 # %% Readers and processors for different file formats
