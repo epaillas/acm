@@ -90,8 +90,9 @@ class WaveletScatteringTransform(BaseEstimator):
                 frontend=frontend,
             )
 
+        backend_name = getattr(S.backend, "name", None)
         logger.info(
-            f"Initialized HarmonicScattering3D ({S.backend}) with J={S.J}, L={S.L}, sigma_0={S.sigma_0}, max_order={S.max_order}, integral_powers={S.integral_powers}."
+            f"Initialized HarmonicScattering3D ({backend_name} backend) with J={S.J}, L={S.L}, sigma_0={S.sigma_0}, max_order={S.max_order}, integral_powers={S.integral_powers}."
         )
 
         # Register private attributes
@@ -161,9 +162,10 @@ class WaveletScatteringTransform(BaseEstimator):
 
         t0 = time.time()
         logger.info("Computing wavelet scattering transform.")
-        if not hasattr(self, f"_{self._S.backend}"):
-            raise ValueError(f"Unsupported Kymatio backend: {self._S.backend}")
-        _callable = getattr(self, f"_{self._S.backend}")
+        backend_name = getattr(self._S.backend, "name", None)
+        if not hasattr(self, f"_{backend_name}"):
+            raise ValueError(f"Unsupported Kymatio backend: {backend_name}")
+        _callable = getattr(self, f"_{backend_name}")
         smatavg: np.ndarray = _callable(density_contrast)
         logger.info(f"Computed WST coefficients in {time.time() - t0:.2f} s.")
 
@@ -191,7 +193,9 @@ class WaveletScatteringTransform(BaseEstimator):
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._S.to(device)
-        dc_torch = torch.from_numpy(density_contrast, dtype=torch.float32).to(device)
+        dc_torch = torch.from_numpy(
+            np.asarray(density_contrast, dtype=np.float32)
+        ).to(device)
 
         s0 = torch.sum(torch.abs(dc_torch) ** self._S.integral_powers[0])
         smat_orders_12 = self._S(dc_torch)
