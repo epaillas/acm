@@ -193,9 +193,9 @@ class WaveletScatteringTransform(BaseEstimator):
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._S.to(device)
-        dc_torch = torch.from_numpy(
-            np.asarray(density_contrast, dtype=np.float32)
-        ).to(device)
+        dc_torch = torch.from_numpy(np.asarray(density_contrast, dtype=np.float32)).to(
+            device
+        )
 
         s0 = torch.sum(torch.abs(dc_torch) ** self._S.integral_powers[0])
         smat_orders_12 = self._S(dc_torch)
