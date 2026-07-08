@@ -1,142 +1,128 @@
 import logging
-import time
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
 
-import lsstypes as types
+import matplotlib.pyplot as plt
 import numpy as np
-import xarray as xr
 
-from .backends.jaxpower import JaxpowerBackend
-from .backends.pypower import PypowerBackend
-from .backends.pyrecon import PyreconBackend
+from acm.estimators.galaxy_clustering.backends import EstimatorBackend, load_backend
+from acm.typing import LsstypeObject
 
 logger = logging.getLogger(__name__)
 
 
-class BaseEstimator:
-    """Base estimator class."""
+class BaseEstimator(ABC):
+    """
+    Abstract class for galaxy clustering estimators.
 
-    # TODO: use a registry to avoid hardcoding backend names and imports /
-    def __init__(self, backend: str = "jaxpower", **kwargs) -> None:
-        logger.info(f"Initializing {self.__class__.__name__}.")
-        # Lazy import of backend classes to avoid forcing installation of all backends
-        if backend == "jaxpower":
-            self.backend = JaxpowerBackend(**kwargs)
-        elif backend == "pypower":
-            self.backend = PypowerBackend(**kwargs)
-        elif backend == "pyrecon":
-            self.backend = PyreconBackend(**kwargs)
-        else:
+    Used to compute the result from the backend, and provides methods to load a similar result from file.
+    """
+
+    save_ext = (".h5", ".hdf5")
+
+    def __init__(
+        self,
+        backend: str | EstimatorBackend,
+        data_positions: np.ndarray,
+        randoms_positions: np.ndarray | None = None,
+        data_weights: np.ndarray | None = None,
+        randoms_weights: np.ndarray | None = None,
+        **kwargs,
+    ) -> None:
+        """Initialize the estimator with the specified backend."""
+        # NOTE: Backend provides tests for the position and weights shapes
+        self.backend = load_backend(
+            backend,
+            data_positions=data_positions,
+            randoms_positions=randoms_positions,
+            data_weights=data_weights,
+            randoms_weights=randoms_weights,
+            **kwargs,
+        )
+        # NOTE: no density contrast assignation because loaded bacend might already have it !
+        logger.info(
+            f"Initializing {self.__class__.__name__} with {self.backend.__class__.__name__}"
+        )
+
+        self.data_positions = data_positions
+        self.randoms_positions = randoms_positions
+        self.data_weights = data_weights
+        self.randoms_weights = randoms_weights
+
+    def __repr__(self) -> str:  # pragma: no cover
+        """Provide a string representation of the estimator, including backend."""
+        return f"{self.__class__.__name__}(backend={self.backend.__class__.__name__})"
+
+    def save(
+        self,
+        obj: LsstypeObject,
+        save_fn: str | Path,
+        overwrite: bool = False,
+        **kwargs,
+    ) -> None:
+        """
+        Save the provided estimator result to a .h5 file.
+
+        Parameters
+        ----------
+        obj: LsstypeObject
+            Estimator result to save.
+        save_fn: str | Path
+            Path to the file where the estimator result will be saved.
+        overwrite: bool, optional
+            Whether to overwrite the file if it already exists. Defaults to False.
+        **kwargs
+            Optional arguments for :class:`h5py.File`
+        """
+        save_fn = Path(save_fn)
+        if save_fn.suffix not in self.save_ext:
             raise ValueError(
-                f"Unknown backend '{backend}'. Available backends: 'jaxpower', 'pypower', 'pyrecon'"
+                f"{save_fn} must have one of the following extensions: {self.save_ext}"
             )
+        if save_fn.exists() and overwrite is False:
+            logger.info(f"File {save_fn} exists and {overwrite=}. Skipping...")
+            # NOTE: Should this be at INFO or WARNING level ?
+            return
 
-    def read_density_contrast(
-        self, positions: np.ndarray, resampler: str = "cic"
-    ) -> np.ndarray:
-        """
-        Get the density contrast at the input positions.
-
-        Parameters
-        ----------
-        positions : array_like
-            Input positions.
-        resampler : str, optional
-            Resampling scheme. Default is 'cic'.
-
-        Returns
-        -------
-        delta : array_like
-            Density contrast at the input positions.
-        """
-        t0 = time.time()
-        if self.backend.name == "jaxpower":
-            delta = self.backend.delta_mesh.read(positions, resampler=resampler)
-        elif self.backend.name == "pypower":
-            offset = self.boxcenter - self.boxsize / 2.0
-            delta = self.backend.delta_mesh.readout(
-                positions - offset, resampler=resampler
-            )
-        elif self.backend.name == "pyrecon":
-            if resampler != "cic":
-                raise NotImplementedError(
-                    "Pyrecon backend only supports CIC resampling."
-                )
-            delta = self.backend.delta_mesh.read_cic(positions)
-        logger.info(f"Read density contrast in {time.time() - t0:.2f} s.")
-        return delta
-
-    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
-        """
-        Delegate attribute access to the backend.
-
-        Parameters
-        ----------
-        name : str
-            Attribute name.
-
-        Returns
-        -------
-        attribute
-            Attribute from the backend.
-        """
-        return self.backend.__getattribute__(name)
+        save_fn.parent.mkdir(exist_ok=True, parents=True)
+        self._atomic_write(obj, save_fn, **kwargs)
+        logger.info(f"Writing {self.__class__.__name__} estimator to {save_fn}.")
 
     @staticmethod
-    def read(
-        filename: str | Path, **kwargs
-    ) -> types.ObservableLeaf | xr.DataArray | xr.Dataset | np.ndarray:
+    def _atomic_write(obj: LsstypeObject, filename: Path, **kwargs) -> None:
         """
-        Read estimator output from a file.
-
-        Format is automatically determined from file extension:
-        - .hdf5, .h5 -> lsstypes
-        - .nc -> xarray NetCDF
-        - .zarr -> xarray Zarr
-        - .npy -> numpy
+        Write data to a temporary file moved to the final file to avoid partial write issues.
 
         Parameters
         ----------
-        filename : str | Path
-            Path to the saved file.
+        obj: LsstypeObject
+            Object to write to file.
+        filename: Path
+            Path used to create the temporary file and make the final move.
         **kwargs
-            Additional keyword arguments for the specific file format reader.
-
-        Returns
-        -------
-        data : ObservableLeaf, xarray.DataArray, xarray.Dataset, or numpy.ndarray
-            The loaded data.
-            - lsstypes (.hdf5, .h5): ObservableLeaf object with .value() and .coords() methods
-            - xarray NetCDF (.nc): DataArray with .values and coordinate attributes
-            - xarray Zarr (.zarr): DataArray (if data_var specified) or Dataset
-            - numpy (.npy): plain ndarray
-
-        Examples
-        --------
-        >>> data = MyEstimator.read('output.hdf5')  # lsstypes format
-        >>> data = MyEstimator.read('output.nc')     # xarray NetCDF format
-        >>> data = MyEstimator.read('output.zarr', data_var='wst')  # xarray Zarr with specific variable
-        >>> coeffs = MyEstimator.read('output.npy')  # numpy array
-
-        Raises
-        ------
-        ValueError
-            If the file extension is not recognized.
+            Optional arguments for :class:`h5py.File`
         """
-        path = Path(filename)
+        tmp_fn = filename.with_name(filename.stem + ".tmp" + filename.suffix)
+        obj.write(tmp_fn, **kwargs)
+        tmp_fn.replace(filename)  # Atomic move to avoid partial writes
 
-        # Determine format from file extension
-        if path.suffix in [".hdf5", ".h5"]:
-            return types.read(filename)
-        if path.suffix == ".nc":
-            return xr.open_dataarray(filename, **kwargs)
-        if str(filename).endswith(".zarr"):
-            return xr.open_zarr(filename, **kwargs)
-        if path.suffix == ".npy":
-            return np.load(filename, **kwargs)
-        raise ValueError(
-            f"Unrecognized file extension '{path.suffix}' for file: {filename}. "
-            f"Supported extensions: .hdf5, .h5 (lsstypes), .nc (xarray NetCDF), "
-            f".zarr (xarray Zarr), .npy (numpy)."
-        )
+    @abstractmethod
+    def compute(self) -> LsstypeObject:
+        """Compute the estimator."""
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def load(filename: str | Path) -> LsstypeObject:
+        """Load an estimator result from file."""
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def plot(
+        obj: LsstypeObject,
+        fig: plt.Figure | None = None,
+        ax: plt.Axes | None = None,
+    ) -> tuple[plt.Figure, plt.Axes]:
+        """Plot the provided estimator result. Return figure and ax."""
+        ...
