@@ -174,7 +174,7 @@ class WaveletScatteringTransform(BaseEstimator):
             L=self._S.L,
             sigma_0=self._S.sigma_0,
             integral_powers=self._S.integral_powers,
-            frontend=self._S.backend,  # frontend usually matches backend in kymatio
+            frontend=self._S.backend.name,  # frontend usually matches backend in kymatio
             boxsize=list(self.backend.boxsize),
             boxcenter=list(self.backend.boxcenter),
             meshsize=list(self.backend.meshsize),

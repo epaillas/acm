@@ -15,7 +15,7 @@ MODULE = "acm.estimators.galaxy_clustering.wst"
 
 def _make_mock_kymatio_object(J=4, L=4, sigma_0=0.8, max_order=2, integral_powers=(0.8,)):  # noqa: N803
     S = MagicMock()
-    S.backend = "torch"
+    S.backend.name = "torch"
     S.J = J
     S.L = L
     S.sigma_0 = sigma_0
@@ -77,14 +77,14 @@ class TestCompute:
 
     def test_raises_for_unsupported_backend(self, estimator):
         """ValueError must be raised when _S.backend has no matching method."""
-        estimator._S.backend = "unsupported"
+        estimator._S.backend.name = "unsupported"
         with pytest.raises(ValueError, match="Unsupported Kymatio backend"):
             estimator.compute()
 
     @pytest.mark.parametrize("method", ["torch", "jax"])
     def test_dispatches_to_correct_backend_method(self, method, estimator):
         """compute() must call the method matching _S.backend."""
-        estimator._S.backend = method
+        estimator._S.backend.name = method
         coefficients = np.ones(10)
         with patch.object(estimator, f"_{method}", return_value=coefficients) as mock_method:
             estimator.compute()
@@ -106,7 +106,7 @@ class TestCompute:
         assert leaf.attrs["L"] == estimator._S.L
         assert leaf.attrs["sigma_0"] == estimator._S.sigma_0
         assert leaf.attrs["integral_powers"] == estimator._S.integral_powers
-        assert leaf.attrs["frontend"] == estimator._S.backend
+        assert leaf.attrs["frontend"] == estimator._S.backend.name
         assert leaf.attrs["boxsize"] == list(estimator.backend.boxsize)
         assert leaf.attrs["boxcenter"] == list(estimator.backend.boxcenter)
         assert leaf.attrs["meshsize"] == list(estimator.backend.meshsize)
