@@ -4,6 +4,8 @@ import pytest
 
 from acm.utils.modules import check_installed, get_class_from_module
 
+# ruff: noqa: ANN201, D101, D102, INP001, S101
+
 
 class TestGetClassFromModule:
 
@@ -44,7 +46,13 @@ class TestGetClassFromModule:
 
 class TestCheckInstalled:
     def test_installed_package(self):
-        assert check_installed("numpy") is True
+        assert check_installed("os") is True
 
     def test_missing_package(self):
         assert check_installed("definitely_not_a_real_package") is False
+
+    def test_several_packages(self):
+        assert check_installed("os", "math", "csv")
+
+    def test_missing_among_list(self):
+        assert check_installed("os", "iswearimapackage", 'csv') is False
