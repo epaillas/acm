@@ -1,3 +1,4 @@
+# type: ignore
 import logging
 import time
 
@@ -6,6 +7,9 @@ from PolyBin3D import BSpec, PolyBin3D, PSpec
 from .base import BaseDensityMeshEstimator
 
 logger = logging.getLogger(__name__)
+logger.critical(
+    f"{__name__} is out of date and needs to be updated to the new framework. Outputs might crash or be inconsistent."
+)
 
 
 class PolyBinEstimator(BaseDensityMeshEstimator):
