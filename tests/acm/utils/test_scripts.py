@@ -1,15 +1,11 @@
 import argparse
-import sys
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 import yaml
 
-sys.modules['jax'] = MagicMock()
-sys.modules['gc'] = MagicMock()
-
-from acm.utils.scripts import (  # noqa: E402
+from acm.utils.scripts import (
     NumpyLoader,
     apply_parser_default,
     detect_gpu,
@@ -18,6 +14,8 @@ from acm.utils.scripts import (  # noqa: E402
     load_parser_default,
     retry,
 )
+
+# ruff: noqa: ANN001, ANN201, ARG002, D101, D102, D103, INP001, S101
 
 #%% Fixtures
 
@@ -32,12 +30,6 @@ def make_parser_with_config(config_path=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=config_path)
     return parser
-
-@pytest.fixture(autouse=True)
-def reset_mocks():
-    """Reset shared module mocks before each test to avoid call count bleed-through."""
-    sys.modules["jax"].reset_mock()
-    sys.modules["gc"].reset_mock()
 
 #%% Test classes
 class TestDetectGpu:
@@ -60,7 +52,7 @@ class TestGetNThreads:
             assert get_nthreads(nthread_per_cpu=2) == 8
 
     def test_invalid_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be bigger than 1"):
             get_nthreads(nthread_per_cpu=0)
 
 
@@ -168,12 +160,16 @@ class TestRetry:
         retry(2, op, "a", "b", key="val")
         op.assert_called_once_with("a", "b", key="val")
 
-    def test_cache_cleared_on_failure(self, reset_mocks):
+    @patch("jax.clear_caches")
+    @patch("gc.collect")
+    def test_cache_cleared_on_failure(self, mock_gc, mock_jax_clear):
         """jax.clear_caches and gc.collect should each be called once per failure."""
-        op = MagicMock(side_effect=[Exception("fail"), None])
-        retry(3, op)
-        sys.modules["jax"].clear_caches.assert_called_once()
-        sys.modules["gc"].collect.assert_called_once()
+        op = MagicMock(side_effect=[Exception("fail"), Exception("fail"), None])
+        ntries = 3
+        failures = 2
+        retry(ntries, op)
+        assert mock_jax_clear.call_count == failures
+        assert mock_gc.call_count == failures
 
     def test_times_one_no_retry(self):
         """With times=1 a failing operation should be attempted exactly once with no retry."""
@@ -191,9 +187,9 @@ class TestRetry:
 
 class TestNumpyLoader:
     def test_arange(self):
-        data = yaml.load("values: !np.arange [0, 5, 1]", Loader=NumpyLoader)
+        data = yaml.load("values: !np.arange [0, 5, 1]", Loader=NumpyLoader)  # noqa: S506
         np.testing.assert_array_equal(data["values"], np.arange(0, 5, 1))
 
     def test_linspace(self):
-        data = yaml.load("values: !np.linspace [0, 1, 5]", Loader=NumpyLoader)
+        data = yaml.load("values: !np.linspace [0, 1, 5]", Loader=NumpyLoader)  # noqa: S506
         np.testing.assert_array_almost_equal(data["values"], np.linspace(0, 1, 5))
