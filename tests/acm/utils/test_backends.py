@@ -1,5 +1,10 @@
+import logging
+
 import pytest
+
 from acm.utils.backends import BackendRegistry
+
+# ruff: noqa: ANN001, ANN201, ANN204, ARG001, D101, D103, INP001, S101
 
 
 # Dummy base and concrete classes
@@ -15,7 +20,6 @@ class AnotherDummyBackend(DummyBase):
 
 class NotADummyBackend:
     """Does not inherit from DummyBase."""
-    pass
 
 
 @pytest.fixture
@@ -46,7 +50,6 @@ def test_register_invalid_backend_raises(registry):
         registry.register("invalid")(NotADummyBackend)
 
 def test_register_overwrite_warns(populated_registry, caplog):
-    import logging
     with caplog.at_level(logging.WARNING):
         populated_registry.register("dummy")(AnotherDummyBackend)
     assert "dummy" in caplog.text
@@ -97,7 +100,7 @@ def test_available_empty(registry):
     assert registry.available == []
 
 def test_available_lists_registered(registry):
-    """available should list all registered backend names."""
+    """Available should list all registered backend names."""
     registry.register("foo")(DummyBackend)
     registry.register("bar")(AnotherDummyBackend)
     assert set(registry.available) == {"foo", "bar"}

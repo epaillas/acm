@@ -17,11 +17,12 @@ from acm.utils.covariance import (
     orthogonal_gk_mad_covariance,
 )
 
+# ruff: noqa: ANN001, ANN201, D101, D102, INP001, S101
 
 #%% Fixtures
 @pytest.fixture
 def valid_cov():
-    """A well-conditioned, symmetric, positive-definite covariance matrix."""
+    """Create a well-conditioned, symmetric, positive-definite covariance matrix."""
     rng = np.random.default_rng(42)
     data = rng.standard_normal((100, 10))
     return np.cov(data, rowvar=False)
@@ -31,13 +32,14 @@ def gaussian_residuals():
     """Well-behaved Gaussian residuals: (200 samples, 10 bins)."""
     rng = np.random.default_rng(42)
     return rng.standard_normal((200, 10))
- 
- 
+
+
 @pytest.fixture
 def known_cov_residuals():
     """
     Residuals drawn from a known diagonal covariance diag(1, 4, 9, ...).
-    Large n so sample estimates are close to truth.
+
+    Using a large n so sample estimates are close to truth.
     """
     rng = np.random.default_rng(0)
     scales = np.arange(1, 6, dtype=float)        # std = [1, 2, 3, 4, 5]
@@ -46,18 +48,18 @@ def known_cov_residuals():
 
 #%% Tests
 class TestGetCovarianceCorrection:
- 
+
     def test_hartlap_value(self):
         """Test the Hartlap correction against its known closed-form expression."""
         # Known closed-form: (n_s - 1) / (n_s - n_d - 2)
         assert get_covariance_correction(100, 10, method="hartlap") == pytest.approx(99 / 88)
- 
+
     def test_percival_fisher_value(self):
         """Test the Percival-Fisher correction against its known closed-form expression."""
         # Known closed-form: (n_s - 1) / (n_s - n_d + n_theta - 1)
         result = get_covariance_correction(100, 10, n_theta=3, method="percival-fisher")
         assert result == pytest.approx(99 / 92)
- 
+
     def test_percival_value(self):
         """Test the Percival correction against its known closed-form expression for a specific case."""
         # Verify against manual calculation
@@ -66,7 +68,7 @@ class TestGetCovarianceCorrection:
         expected = (n_s - 1) * (1 + B * (n_d - n_theta)) / (n_s - n_d + n_theta - 1)
         result = get_covariance_correction(n_s, n_d, n_theta=n_theta, method="percival")
         assert result == pytest.approx(expected)
- 
+
     def test_correction_is_positive(self):
         """All correction factors should be positive to avoid unphysical negative variances after correction."""
         for method, kwargs in [
@@ -75,22 +77,22 @@ class TestGetCovarianceCorrection:
             ("percival",        {"n_theta": 3}),
         ]:
             assert get_covariance_correction(100, 10, method=method, **kwargs) > 0
-  
+
     def test_unknown_method_raises(self):
         """Test that providing an unknown method name raises a ValueError with an appropriate message."""
         with pytest.raises(ValueError, match="Unknown method"):
             get_covariance_correction(100, 10, method="unknown")
- 
+
     def test_percival_missing_n_theta_raises(self):
         """Test that providing the Percival method without n_theta raises a ValueError."""
         with pytest.raises(ValueError, match="requires n_theta"):
             get_covariance_correction(100, 10, method="percival")
- 
+
     def test_percival_fisher_missing_n_theta_raises(self):
         """Test that providing the Percival-Fisher method without n_theta raises a ValueError."""
         with pytest.raises(ValueError, match="requires n_theta"):
             get_covariance_correction(100, 10, method="percival-fisher")
- 
+
     def test_hartlap_ignores_n_theta(self):
         """Test that providing n_theta for the Hartlap method does not affect the result, since Hartlap does not depend on n_theta."""
         result = get_covariance_correction(100, 10, n_theta=5, method="hartlap")
@@ -99,20 +101,20 @@ class TestGetCovarianceCorrection:
 
 class TestMad1d:
     """Tests for the mad_1d function, which computes the median absolute deviation (MAD) as a robust estimator of variability."""
- 
+
     def test_gaussian_consistency(self):
         """Test that for large samples from a standard normal distribution, the MAD estimator recovers a value close to 1 (the true standard deviation)."""
         rng = np.random.default_rng(42)
         x = rng.standard_normal(100_000)
         assert mad_1d(x) == pytest.approx(1.0, rel=0.01)
- 
+
     def test_scale_equivariance(self):
         """Test that scaling the data by a constant factor scales the MAD by the same factor, confirming that MAD is a scale-equivariant estimator of variability."""
         # MAD(c * x) == |c| * MAD(x)
         rng = np.random.default_rng(1)
         x = rng.standard_normal(1_000)
         assert mad_1d(3.0 * x) == pytest.approx(3.0 * mad_1d(x), rel=1e-10)
- 
+
     def test_axis_columnwise(self):
         """Test that when computing MAD along axis=0 (column-wise), the result has the correct shape and each column of standard normal data yields a MAD close to 1."""
         # Along axis=0, result shape should match number of columns
@@ -122,17 +124,17 @@ class TestMad1d:
         assert result.shape == (5,)
         # Each column of N(0,1) data should be close to 1
         np.testing.assert_allclose(result, 1.0, atol=0.05)
- 
+
     def test_keepdims(self):
         """Test that when keepdims=True, the output shape retains the reduced dimension as size 1, allowing for broadcasting in subsequent operations."""
         rng = np.random.default_rng(3)
         X = rng.standard_normal((100, 4))
         result = mad_1d(X, axis=0, keepdims=True)
         assert result.shape == (1, 4)
- 
+
     def test_constant_array_is_zero(self):
         assert mad_1d(np.ones(50)) == pytest.approx(0.0)
- 
+
     def test_outlier_robustness(self):
         """Test that the MAD is robust to outliers."""
         # MAD should be unaffected by a single extreme outlier
@@ -143,34 +145,35 @@ class TestMad1d:
 
 
 class TestGkMadCovariance:
- 
+
     def test_output_shape(self, gaussian_residuals):
         """Test that the output covariance matrix has the correct shape (n_bins, n_bins) given input residuals of shape (n_samples, n_bins)."""
         C = gk_mad_covariance(gaussian_residuals)
         n = gaussian_residuals.shape[1]
         assert C.shape == (n, n)
- 
+
     def test_symmetric(self, gaussian_residuals):
         """Test that the covariance matrix returned is symmetric, as required for a valid covariance matrix."""
         C = gk_mad_covariance(gaussian_residuals)
         np.testing.assert_allclose(C, C.T, atol=1e-12)
- 
+
     def test_diagonal_recovers_variance(self, known_cov_residuals):
         """Test that the diagonal entries of the covariance matrix returned approximate the true variances of the input residuals."""
         C = gk_mad_covariance(known_cov_residuals)
         expected_vars = np.arange(1, 6, dtype=float) ** 2
         np.testing.assert_allclose(np.diag(C), expected_vars, rtol=0.05)
- 
+
     def test_uncorrelated_off_diagonal_near_zero(self, known_cov_residuals):
         """
         Test that GK covariance of independent columns yield near-zero off-diagonal entries.
+
         Checks that no pairwise covariance estimate exceeds 1.0 against true variances.
         """
         # Independent columns → off-diagonal entries should be near zero
         C = gk_mad_covariance(known_cov_residuals)
         off_diag = C[~np.eye(C.shape[0], dtype=bool)]
-        assert np.abs(off_diag).max() < 1.0  # loose: relative to diag ~ [1..25] 
- 
+        assert np.abs(off_diag).max() < 1.0  # loose: relative to diag ~ [1..25]
+
     def test_single_bin(self):
         """Test that gk_mad_covariance can handle the case of a single bin (n_bins=1) without error."""
         rng = np.random.default_rng(5)
@@ -181,41 +184,42 @@ class TestGkMadCovariance:
 
 
 class TestOrthogonalGkMadCovariance:
- 
+
     def test_output_shape(self, gaussian_residuals):
         """Test that the output covariance matrix has the correct shape (n_bins, n_bins) given input residuals of shape (n_samples, n_bins)."""
         C = orthogonal_gk_mad_covariance(gaussian_residuals)
         n = gaussian_residuals.shape[1]
         assert C.shape == (n, n)
- 
+
     def test_symmetric(self, gaussian_residuals):
         """Test that the covariance matrix returned is symmetric, as required for a valid covariance matrix."""
         C = orthogonal_gk_mad_covariance(gaussian_residuals)
         np.testing.assert_allclose(C, C.T, atol=1e-12)
- 
+
     def test_positive_definite(self, gaussian_residuals):
         """
-        Test that the covariance matrix returned is positive-definite, 
-        meaning all eigenvalues are positive, which is a requirement for a valid covariance matrix and ensures it can be inverted for likelihood analysis.
+        Test that the covariance matrix returned is positive-definite, meaning all eigenvalues are positive.
+
+        Which is a requirement for a valid covariance matrix and ensures it can be inverted for likelihood analysis.
         """
         C = orthogonal_gk_mad_covariance(gaussian_residuals)
         # All eigenvalues should be positive
         eigvals = np.linalg.eigvalsh(C)
         assert eigvals.min() > 0
- 
+
     def test_diagonal_recovers_variance(self, known_cov_residuals):
         """Test that the diagonal entries of the covariance matrix returned approximate the true variances of the input residuals."""
         C = orthogonal_gk_mad_covariance(known_cov_residuals)
         expected_vars = np.arange(1, 6, dtype=float) ** 2
         np.testing.assert_allclose(np.diag(C), expected_vars, rtol=0.05)
- 
+
     def test_better_conditioned_than_plain_gk(self, gaussian_residuals):
         """Test that the covariance matrix returned has a lower or equal condition number compared to the one returned by gk_mad_covariance."""
         # OGK should have a lower or equal condition number than plain GK
         C_gk  = gk_mad_covariance(gaussian_residuals)
         C_ogk = orthogonal_gk_mad_covariance(gaussian_residuals)
         assert np.linalg.cond(C_ogk) <= np.linalg.cond(C_gk) * 1.1  # 10 % margin
- 
+
     def test_single_bin(self):
         """Test that orthogonal_gk_mad_covariance can handle the case of a single bin (n_bins=1) without error."""
         rng = np.random.default_rng(6)
@@ -223,7 +227,7 @@ class TestOrthogonalGkMadCovariance:
         C = orthogonal_gk_mad_covariance(x)
         assert C.shape == (1, 1)
         assert C[0, 0] > 0
-        
+
 
 class TestCheckSymmetric:
 
@@ -333,10 +337,7 @@ class TestCheckCovarianceMatrix:
         assert "not positive-definite" in caplog.text
 
     def test_singular_short_circuits(self, caplog):
-        """
-        A singular matrix should return False and log a warning about singularity, 
-        without also logging about positive-definiteness (since the singularity is the root cause).
-        """
+        """A singular matrix should return False and log a warning about singularity, without also logging about positive-definiteness (since the singularity is the root cause)."""
         A = np.array([[1.0, 2.0], [2.0, 4.0]])
         with caplog.at_level(logging.WARNING):
             result = check_covariance_matrix(A)

@@ -8,10 +8,11 @@ def get_class_from_module(module_path: str, class_name: str) -> type:
     return cls
 
 
-def check_installed(name: str) -> bool:
+def check_installed(*names: str) -> bool:
     """Check if a package is installed on-fly."""
     try:
-        importlib.import_module(name)
+        for name in names:
+            importlib.import_module(name)
     except ImportError:
         return False
     else:

@@ -55,7 +55,7 @@ def _apply_ap(
     los: str,
     q_par: float,
     q_perp: float,
-    pos_columns: tuple[str],
+    pos_columns: tuple[str, ...],
 ) -> pd.DataFrame:
     """
     Apply AP scaling: q_par along los, q_perp along transverse axes.
