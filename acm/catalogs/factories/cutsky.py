@@ -3,16 +3,20 @@
 # TODO: remove noqa once implementation starts.
 
 import logging
-from typing import override
+from typing import override, Callable
 from abc import abstractmethod
+
+import numpy as np
+import pandas as pd
+from pathlib import Path
 
 from cosmoprimo import Cosmology
 
 from acm.catalogs.backends import SnapshotBackend
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.factories import BaseCatalogFactory, SnapshotCatalogFactory
-from acm.catalogs.products import CutskyCatalog
-
+from acm.catalogs.products import CutskyCatalog, SnapshotCatalog
+from acm.catalogs.geometry import minmax_xyz_desi
 
 
 logger = logging.getLogger(__name__)
@@ -84,6 +88,46 @@ class BaseCutskyFactory(BaseCatalogFactory):
         """
         ...
 
+    def save(self, path: str | Path) -> None:
+        """
+        Save all loaded catalogs to a directory, one HDF5 file per redshift.
+
+        Catalogs are saved with filenames like "catalog_z0.500.h5"
+        using the save method of the catalog class.
+
+        Parameters
+        ----------
+        path : str | Path
+            Output directory. Created if it does not exist.
+        """
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        for zranges, catalog in self._catalogs.items():
+            zlow, zhigh = zranges
+            catalog.save(path / f"catalog_z{zlow:.3f}_z{zhigh:.3f}.h5")
+        logger.info(f"Saved {len(self._catalogs)} catalog(s) to {path}")
+
+    def load_catalogs(self, path: str | Path) -> None:
+        """
+        Load all HDF5 catalogs from a directory into the factory.
+
+        Searches for files with names like "catalog_z0.500.h5"
+        and loads them using the load method of the catalog class.
+
+        Parameters
+        ----------
+        path : str | Path
+            Directory containing catalog HDF5 files.
+        """
+        path = Path(path)
+        files = sorted(path.glob("catalog_z*_z*.h5"))
+        if not files:
+            raise FileNotFoundError(f"No catalog files found in {path}")
+        for file in files:
+            catalog = self.catalog_class.load(file, self.cosmo, self.cosmo_fid)
+            self._catalogs[catalog.redshift_range] = catalog
+        logger.info(f"Loaded {len(files)} catalog(s) from {path}")
+
 
 class CutskyCatalogFactory(BaseCutskyFactory):
     """Factory for creating a single cutsky-based galaxy catalog spanning a redshift range."""
@@ -106,27 +150,29 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         region: str = 'NGC',
         release: str = 'Y1',
         program : str = 'dark',
+        mask_tracer : str = 'LRG',
         custom_healpix_mask : np.typing.NDArray | None = None,
-        transform: Callable[SnapshotCatalog] | None = None
+        #transform: Callable[SnapshotCatalog] | None = None, # TypeError: Callable must be used as Callable[[arg, ...], result].
         **kwargs,
     ) -> None:
 
+        # TODO: replace program, mask_tracer with something that iterates over tracers
+        
         # Populate snapshot catalogs with tracers through backend - return SnapshotCatalogs
         # self.backend is already initialized so load_backend will just return self.backend
-        snapshot_catalog_factory = SnapshotCatalogFactory(self.backend, self.catalog_class, sel.cosmo, self.cosmo_fid) 
+        snapshot_catalog_factory = SnapshotCatalogFactory(self.backend, self.catalog_class, self.cosmo, self.cosmo_fid) 
         snapshot_catalog_factory.make_catalogs(redshifts, tracers, **kwargs) 
-        boxsize = snapshot_catalog.boxsize 
+        boxsize = self.backend.boxsize 
         
         for i, (zsnap, zranges) in enumerate(
             zip(redshifts, redshift_ranges, strict=True)
         ):
 
             snapshot_catalog = snapshot_catalog_factory.get_catalog(zsnap) #these are all tracers in a class
-            snapshot_tracers = tracers if isinstance(tracers, list) else tracers[zsnap]
 
             # Apply user defined transformations to the galaxies
-            if transform is not None:
-                transform(snapshot_catalog)
+            #if transform is not None:
+            #    transform(snapshot_catalog)
 
             # replicate the box along each axis to cover more volume
             pos_min, pos_max = self.get_reference_borders(
@@ -135,6 +181,7 @@ class CutskyCatalogFactory(BaseCutskyFactory):
                 region=region,
                 release=release,
                 program = program,
+                tracer = mask_tracer,
                 custom_healpix_mask=custom_healpix_mask,
             )
             shifts = self.get_box_shifts(pos_min, pos_max, boxsize)
@@ -143,7 +190,6 @@ class CutskyCatalogFactory(BaseCutskyFactory):
                 snapshot_catalog,
                 pos_min,
                 pos_max,
-                target_nbar,
                 shifts=shifts
             )
 
@@ -158,7 +204,7 @@ class CutskyCatalogFactory(BaseCutskyFactory):
                 galaxy_catalog.set_tracer_data(tracer, data)
 
             # assemble cutsky catalogs into a single catalog spanning the full redshift range, store in self._catalogs with key zranges
-            self._catalogs[zranges] = cutsky_shell
+            self._catalogs[zranges] = galaxy_catalog
 
 
             # NOTE: do not match nbar, or apply masks at this step, those should be available in the galaxy catalog class instead :)
@@ -218,7 +264,6 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         vel: np.ndarray,
         pos_min: np.ndarray,
         pos_max: np.ndarray,
-        target_nbar: float
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Force the positions and velocities to be within the specified borders.
@@ -233,18 +278,12 @@ class CutskyCatalogFactory(BaseCutskyFactory):
             Minimum position in each dimension.
         pos_max : np.ndarray
             Maximum position in each dimension.
-        target_nbar : float
-            Target number density of the particles.
 
         Returns
         -------
         pos : np.ndarray
             Filtered positions of the particles within the specified borders.
         """
-        # target_ngal = int(target_nbar*self.boxsize**3)
-        # chosen = np.random.choice(len(pos),target_ngal,replace=False)
-        # pos = pos[chosen]
-        # vel = vel[chosen]
         for i in range(3):
             chosen = np.logical_and(pos[:,i] > pos_min[i], pos[:,i] < pos_max[i])
             pos = pos[chosen]
@@ -256,7 +295,6 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         snapshot_catalog : SnapshotCatalog,
         pos_min: np.ndarray,
         pos_max: np.ndarray,
-        target_nbar: float,
         shifts: list | None = None
     ) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -281,13 +319,12 @@ class CutskyCatalogFactory(BaseCutskyFactory):
             - new_vel: np.ndarray of velocities in the replicated boxes.
         """
         
-        tracers = list(snapshot_catalog.tracers.keys())
         replications = {}
         
-        for tracer in tracers:
-            data = snapshot_catalog.get_tracer_data(tracer, raw=raw)
-            position = data[list(self.pos_columns)].to_numpy()
-            velocity = data[list(self.vel_columns)].to_numpy()
+        for (tracer_name, tracer) in snapshot_catalog.tracers.items(): 
+            data = snapshot_catalog.get_tracer_data(tracer_name, raw=False)
+            position = data[list(snapshot_catalog.pos_columns)].to_numpy()
+            velocity = data[list(snapshot_catalog.vel_columns)].to_numpy()
             
             if shifts is None:
                 shifts = self.get_box_shifts()
@@ -299,14 +336,13 @@ class CutskyCatalogFactory(BaseCutskyFactory):
                     velocity,
                     pos_min,
                     pos_max,
-                    target_nbar
                 )
                 new_pos.append(temp_pos)
                 new_vel.append(temp_vel)
             new_pos = np.concatenate(new_pos)
             new_vel = np.concatenate(new_vel)
             tracer_replication = np.hstack((new_pos, new_vel))
-            tracer_replication = pd.DataFrame(tracer_replication, columns=list(self.pos_columns) + list(self.vel_columns))
+            tracer_replication = pd.DataFrame(tracer_replication, columns=list(snapshot_catalog.pos_columns) + list(snapshot_catalog.vel_columns))
             replications[tracer] = tracer_replication
         return replications
 
@@ -314,10 +350,11 @@ class CutskyCatalogFactory(BaseCutskyFactory):
     def get_reference_borders(
         self,
         zranges: list,
-        boxsize: float;
+        boxsize: float,
         region: str = 'NGC',
         release: str = 'Y1',
         program : str = 'dark',
+        tracer = 'LRG',
         custom_healpix_mask : np.typing.NDArray | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -347,14 +384,14 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         boxpad = self.boxpad
         if boxpad <= 0:
             raise ValueError(f"boxpad must be positive, got {boxpad}")
-            pos_min, pos_max = minmax_xyz_desi(
+        pos_min, pos_max = minmax_xyz_desi(
             zranges,
-            cosmo,
+            self.cosmo,
             region=region,
             release=release,
-            program=program
-            tracer=self.tracer,
-            custom_xyz_file=custom_xyz_file
+            program=program,
+            tracer=tracer,
+            custom_healpix_mask=custom_healpix_mask,
         ) 
         if boxpad > 1:
             return pos_min - boxpad, pos_max + boxpad
