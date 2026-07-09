@@ -7,7 +7,7 @@ from acm.catalogs.factories import BaseCatalogFactory, SnapshotCatalogFactory
 import desimodel.footprint
 import desimodel.io
 
-import mockfactory.make_survey import DistanceToRedshift
+from mockfactory.make_survey import DistanceToRedshift
 from mockfactory.desi import is_in_desi_footprint
 from mockfactory.utils import cartesian_to_sky, sky_to_cartesian
 from cosmoprimo import Cosmology
@@ -126,7 +126,9 @@ def minmax_xyz_desi(zrange: tuple,
                     program : str = 'dark', 
                     tracer : str ='LRG', 
                     num_fibonacci_samples : int =786432, 
-                    custom_healpix_mask : np.typing.NDArray | None = None):
+                    custom_healpix_mask : np.typing.NDArray | None = None,
+                    npasses: int | None = None,
+                   ):
     """
     Get the minimum and maximum cartesian coordinates of
     the DESI survey volume for a given region and release.
@@ -160,7 +162,7 @@ def minmax_xyz_desi(zrange: tuple,
     # Fibonacci method for populating RA DEC points on the sky
     generate_fibonacci = np.arange(0, num_fibonacci_samples, dtype=float) + 0.5
     mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
-    mask_dec = 180 / np.pi * phi - 90
+    mask_dec = 180 / np.pi * mask_dec - 90
     mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
 
     
