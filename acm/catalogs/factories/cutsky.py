@@ -169,6 +169,7 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         ):
 
             snapshot_catalog = snapshot_catalog_factory.get_catalog(zsnap) #these are all tracers in a class
+            distance_limits = self.cosmo.comoving_radial_distance(zranges)
 
             # Apply user defined transformations to the galaxies
             #if transform is not None:
@@ -190,7 +191,8 @@ class CutskyCatalogFactory(BaseCutskyFactory):
                 snapshot_catalog,
                 pos_min,
                 pos_max,
-                shifts=shifts
+                shifts=shifts,
+                distance_limits = (distance_limits[0], distance_limits[1]),
             )
 
             galaxy_catalog = self.catalog_class(
@@ -295,7 +297,8 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         snapshot_catalog : SnapshotCatalog,
         pos_min: np.ndarray,
         pos_max: np.ndarray,
-        shifts: list | None = None
+        shifts: list | None = None,
+        distance_limits: tuple[float, float] | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Get the positions, velocities, and box centers of the replications of the simulations,
@@ -337,10 +340,17 @@ class CutskyCatalogFactory(BaseCutskyFactory):
                     pos_min,
                     pos_max,
                 )
+                if distance_limits is not None:
+                    distance = np.linalg.norm(temp_pos, axis=1)
+                    dist_in_limits = (distance > distance_limits[0] - self.boxpad) * (distance < distance_limits[1] + self.boxpad)
+                    temp_pos = temp_pos[dist_in_limits]
+                    temp_vel = temp_vel[dist_in_limits]
+                    
                 new_pos.append(temp_pos)
                 new_vel.append(temp_vel)
             new_pos = np.concatenate(new_pos)
             new_vel = np.concatenate(new_vel)
+            
             tracer_replication = np.hstack((new_pos, new_vel))
             tracer_replication = pd.DataFrame(tracer_replication, columns=list(snapshot_catalog.pos_columns) + list(snapshot_catalog.vel_columns))
             replications[tracer] = tracer_replication
