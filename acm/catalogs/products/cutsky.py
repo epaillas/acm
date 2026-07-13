@@ -84,7 +84,9 @@ class CutskyCatalog(BaseGalaxyCatalog):
     Caches are automatically invalidated when transforms are added, removed, or reset.
     """
 
-    pos_columns = ("ra", "dec", "z")
+    #pos_columns = ("ra", "dec", "z")
+    pos_columns = ("x", "y", "z")
+    vel_columns = ("vx", "vy", "vz")
 
     def __init__(
         self,
