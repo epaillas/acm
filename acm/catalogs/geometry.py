@@ -1,9 +1,9 @@
 import numpy as np
+import pandas as pd
 import os
 import logging
 import healpy as hp
 
-from acm.catalogs.factories import BaseCatalogFactory, SnapshotCatalogFactory
 import desimodel.footprint
 import desimodel.io
 
@@ -164,7 +164,6 @@ def minmax_xyz_desi(zrange: tuple,
     mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
     mask_dec = 180 / np.pi * mask_dec - 90
     mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
-
     
     if custom_healpix_mask is not None:
         nside = hp.npix2nside(len(custom_healpix_mask))
@@ -203,27 +202,11 @@ def minmax_xyz_desi(zrange: tuple,
     pos_max = np.max(pos, axis=0)
     return pos_min, pos_max
 
-def box_to_cutsky(snapshot_catalog_factory: SnapshotCatalogFactory,
-                 cosmo: Cosmology,):
+def cartesian_to_spherical(data: pd.DataFrame):
     """
-    Convert a box catalog with cartesian positions and velocities to a cutsky catalog
-    with sky coordinates and redshifts.
-
-    Parameters
-    ----------
-    snapshot_catalog_factory : SnapshotCatalog
-        The box catalog containing positions and velocities.
-    zrsd : float, optional
-        Redshift at which to evaluate the cosmology to apply the RSD, by default None.
-
-    Returns
-    -------
-    cutsky : dict
-        Dictionary containing the cutsky catalog with keys 'Distance', 'RA', 'DEC', and 'Z'.
     """
-
-    cutsky = {}
-    d2r = mockfactory.DistanceToRedshift(distance=cosmo.comoving_radial_distance)
-    cutsky['Distance'], cutsky['RA'], cutsky['DEC'] = cartesian_to_sky(snapshot_catalog_factory.position)
-    cutsky['Z'] = d2r(cutsky['Distance'])
-    return cutsky
+    distance = np.sqrt(data['x']**2+data['y']**2+data['z']**2)
+    ra = np.arctan2(data['y'], data['x']) % (2. * np.pi)
+    dec = np.arcsin(data['z'] / distance)
+    return distance, ra * 180 / np.pi, dec * 180 / np.pi
+    
