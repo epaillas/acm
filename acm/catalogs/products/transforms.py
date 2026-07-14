@@ -4,6 +4,12 @@ from collections.abc import Callable
 import pandas as pd
 from cosmoprimo import Cosmology
 from numpy.random import RandomState
+import numpy as np
+import numpy.typing as npt
+from mockfactory.desi import is_in_desi_footprint
+from mockfactory.make_survey import DistanceToRedshift
+
+from acm.catalogs.geometry import is_in_photometric_region, cartesian_to_spherical
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +49,19 @@ def _apply_rsd(
         Transformed galaxy data with RSD applied.
     """
     data = data.copy()
-    v_col = f"v{los}"
-    data[los] = data[los] + data[v_col] / (hubble * az)
+    if los == 'los':
+        projection = (data["vx"]*data["x"] + data["vy"]*data["y"] + data["vz"]*data["z"])   / (data["x"]**2 + data["y"]**2 + data["z"]**2) 
+        projection /= hubble * az
+        data["x"] *= (1 + projection)
+        data["y"] *= (1 + projection)
+        data["z"] *= (1 + projection)
+    else:
+        v_col = f"v{los}"
+        data[los] = data[los] + data[v_col] / (hubble * az)
     if wrap > 0:
         data[los] = (data[los] + offset) % wrap - offset
     return data
-
-
+    
 def _apply_ap(
     data: pd.DataFrame,
     los: str,
@@ -162,3 +174,127 @@ def _add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
     df = df.copy()
     df["distance"] = cosmo.comoving_radial_distance(df["z"])
     return df
+
+
+def _apply_r_cut(
+    data: pd.DataFrame,
+    r_min: float,
+    r_max: float,
+) -> pd.DataFrame:
+    """
+    
+    """
+    data = data.copy()
+
+    distance = np.sqrt(data["x"]**2 + data["y"]**2 + data["z"]**2) 
+    in_r_lims = (distance > r_min) * (distance < r_max)
+    data = data[in_r_lims]
+
+    return data
+    
+
+def _apply_angular_mask(
+    data: pd.DataFrame,
+    tracer: str,
+    mask_fractions: dict,
+    region: str = 'N+SNGC',
+    release: str = 'Y1',
+    npasses: int | None = None,
+    program: str = 'dark',
+    custom_mask_path: str | None = None,
+    num_fibonacci_samples: int = 100000
+) -> None:
+    """
+    Applies the angular mask to the cutsky catalog based on the specified region.
+
+    Parameters
+    ----------
+    region : str
+        The region to apply the angular mask. Options include 'N', 'DN', 'DS', 'N+SNGC', 'SNGC', 'SSGC', 'DES', 'NGC', 'SGC'.
+    release : str
+        The release of the data, e.g., 'Y1'.
+    npasses : int, optional
+        The number of passes for the mask. If None, defaults to 1.
+    program : str
+        The program to use for the mask, e.g., 'dark'.
+    custom_mask_path : str
+        If not set to None, a custom mask file is read for applying the angular mask. The file should be in FITS format
+        and should include a column named IN_MASK that corresponds to a boolean healpix mask
+    num_fibonacci_samples : int
+        The number of points to evenly distribute on teh sky for calculating the survey mask sky fraction
+
+    Returns
+    -------
+    None
+        The cutsky catalog is modified in place.
+    """
+    data = data.copy()
+
+    _, ra, dec = cartesian_to_spherical(data)
+    
+    if custom_mask_path is None:
+        is_in_desi = is_in_desi_footprint(
+            ra,
+            dec,
+            release=release,
+            program=program,
+            npasses=npasses
+        )
+        _, is_in_photo = is_in_photometric_region(
+            ra,
+            dec,
+            region=region
+        )
+        data = data[is_in_desi & is_in_photo]
+
+        # ==============================================================
+        # Calculate survey mask sky fraction using Fibonacci method 
+        # for populating RA and dec. points on the sky
+        # ==============================================================
+        
+        # Fibonacci method 
+        generate_fibonacci = np.arange(0, num_fibonacci_samples, dtype=float) + 0.5
+        mask_dec = np.arccos(1 - 2 * generate_fibonacci / num_fibonacci_samples)
+        mask_dec = 180 / np.pi * mask_dec - 90
+        mask_ra = (4 * 180 * generate_fibonacci / (1 + np.sqrt(5))) % 360
+
+        # Sky fraction calculation
+        mask_in_desi = is_in_desi_footprint(
+            mask_ra,
+            mask_dec,
+            release=release,
+            program=program,
+            npasses=npasses
+        )
+        _, mask_in_photo = is_in_photometric_region(
+            mask_ra,
+            mask_dec,
+            region=region
+        )
+
+        in_mask = mask_in_desi & mask_in_photo
+
+        mask_fractions[tracer] = np.sum(in_mask) / len(in_mask)
+
+    else:
+        mask = fitsio.read(custom_mask_path)
+        nside = hp.npix2nside(len(mask['IN_MASK']))
+        phi = np.radians(ra)
+        theta = np.radians(90 - dec)
+        target_pixels = hp.ang2pix(nside, theta, phi)
+        is_in_mask = mask['IN_MASK'][target_pixels]
+        data = data[is_in_desi & is_in_photo]
+
+        mask_fractions[tracer] = np.sum(mask['IN_MASK']) / len(mask['IN_MASK'])
+
+    return data
+    
+def _apply_sky_coords(data: pd.DataFrame, redshift_to_distance: Callable[[npt.NDArray[np.floating]], npt.NDArray[np.floating]]):
+    """
+    """
+    data = data.copy()
+    distance, ra, dec = cartesian_to_spherical(data)
+    distance_to_redshift = DistanceToRedshift(redshift_to_distance)
+    redshift = distance_to_redshift(distance)
+    # return distance, ra, dec # TODO: need to setup pandas dataframe
+    

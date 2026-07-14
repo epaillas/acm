@@ -139,13 +139,16 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             if positions are centered around zero, or 0 if positions are in [0, boxsize].
             Default is 0.0.
         """
-        if los not in self.pos_columns:
+        if los not in self.pos_columns and los != 'los':
             raise ValueError(f"los must be one of {self.pos_columns}, got '{los}'.")
         if "ap" in self._transforms:
             logger.warning(
                 "AP transform exists: RSD transform will be registered with a distorted boxsize and may yield unexpected results. "
             )
-        L = self.boxsize[self.pos_columns.index(los)]  # For periodic wrapping
+        if los == 'los' or wrap:
+            L = 0
+        else:
+            L = self.boxsize[self.pos_columns.index(los)]  # For periodic wrapping
         self._add_transform(
             Transform(
                 name="rsd",
@@ -154,7 +157,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "los": los,
                     "hubble": self.hubble,
                     "az": self.az,
-                    "wrap": L if wrap else 0,
+                    "wrap": L,
                     "offset": offset,
                 },
             )

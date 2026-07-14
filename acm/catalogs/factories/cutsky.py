@@ -13,10 +13,12 @@ from pathlib import Path
 from cosmoprimo import Cosmology
 
 from acm.catalogs.backends import SnapshotBackend
-from acm.catalogs.dataclasses import Tracer
+from acm.catalogs.dataclasses import Tracer, Transform
 from acm.catalogs.factories import BaseCatalogFactory, SnapshotCatalogFactory
 from acm.catalogs.products import CutskyCatalog, SnapshotCatalog
 from acm.catalogs.geometry import minmax_xyz_desi
+from acm.catalogs.products.transforms import _apply_angular_mask, _apply_r_cut, _apply_sky_coords
+#_apply_fiber_assign, _apply_nz # TODO: implement
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +50,7 @@ class BaseCutskyFactory(BaseCatalogFactory):
             raise TypeError(error_message)
 
         self.boxpad = boxpad  # Mpc/h
+        self.mask_fractions = {}
 
     @abstractmethod
     def make_catalogs(
@@ -211,6 +214,83 @@ class CutskyCatalogFactory(BaseCutskyFactory):
 
             # NOTE: do not match nbar, or apply masks at this step, those should be available in the galaxy catalog class instead :)
 
+    def apply_mask(self, 
+                   region: str = 'N+SNGC',
+                   release: str = 'Y1',
+                   npasses: int | None = None,
+                   custom_mask_path: str | None = None,
+                   num_fibonacci_samples: int = 100000
+                  ):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            for tracer in galaxy_catalog.tracers:
+                if 'BGS' in tracer.upper():
+                    program = 'bright'
+                else:
+                    program = 'dark'
+                galaxy_catalog._add_transform(
+                    Transform(
+                        name=f"angular_mask_{tracer}",
+                        func=_apply_angular_mask,
+                        tracer=tracer,
+                        kwargs={
+                            "tracer": tracer,
+                            "mask_fractions": self.mask_fractions,
+                            "region": region,
+                            "release": release,
+                            "npasses": npasses,
+                            "custom_mask_path": custom_mask_path,
+                            "num_fibonacci_samples": num_fibonacci_samples, 
+                        },
+                    )
+                )
+
+    def apply_r_cut(self):
+        """
+        """
+        for zranges, galaxy_catalog in self._catalogs.items():
+            distance_limits = self.cosmo.comoving_radial_distance(zranges)
+            galaxy_catalog._add_transform(
+                Transform(
+                name="r_cut",
+                func=_apply_r_cut,
+                kwargs={
+                    "r_min": distance_limits[0],
+                    "r_max": distance_limits[1],
+                    },
+                )
+            )
+
+    def apply_rsd(self):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog.rsd(los = "los", wrap = False)
+
+    '''
+    def apply_fiber_assign(self, params):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog._add_transform(_apply_fiber_assign)
+    
+    
+    def apply_nz(self, params):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog._add_transform(_apply_nz)
+    '''
+
+    '''
+    def apply_sky_coords(self, params):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog._add_transform(_apply_sky_coords) 
+    '''
+        
     def get_catalog(self, redshift_range: tuple[float, float]) -> CutskyCatalog:
         """
         Retrieve the galaxy catalog at a given redshift range.
