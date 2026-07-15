@@ -17,9 +17,6 @@ from acm.catalogs.dataclasses import Tracer, Transform
 from acm.catalogs.factories import BaseCatalogFactory, SnapshotCatalogFactory
 from acm.catalogs.products import CutskyCatalog, SnapshotCatalog
 from acm.catalogs.geometry import minmax_xyz_desi
-from acm.catalogs.products.transforms import _apply_angular_mask, _apply_r_cut, _apply_sky_coords, _apply_radial_mask
-#_apply_fiber_assign, _apply_nz # TODO: implement
-
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +29,7 @@ class BaseCutskyFactory(BaseCatalogFactory):
     def __init__(
         self,
         backend: str | SnapshotBackend,
-        catalog_class: type[CutskyCatalog],
+        catalog_class: type[SnapshotCatalog],
         cosmo: Cosmology,
         cosmo_fid: Cosmology | None = None,
         boxpad : float = 1000,
@@ -41,8 +38,9 @@ class BaseCutskyFactory(BaseCatalogFactory):
         super().__init__(backend, catalog_class, cosmo, cosmo_fid, **kwargs)
         # Type hints
         self.backend: SnapshotBackend
-        self.catalog_class: type[CutskyCatalog]
-        self._catalogs: dict[tuple[float, float], CutskyCatalog]
+        self.catalog_class: type[SnapshotCatalog]
+        self._catalogs: dict[tuple[float, float], SnapshotCatalog]
+        self.cutsky_catalog_class : type[CutskyCatalog],
         # Type checks
         if not isinstance(self.backend, SnapshotBackend):
             backend_type = type(self.backend)
@@ -50,7 +48,6 @@ class BaseCutskyFactory(BaseCatalogFactory):
             raise TypeError(error_message)
 
         self.boxpad = boxpad  # Mpc/h
-        self.mask_fractions = {}
 
     @abstractmethod
     def make_catalogs(
@@ -214,109 +211,9 @@ class CutskyCatalogFactory(BaseCutskyFactory):
 
             # NOTE: do not match nbar, or apply masks at this step, those should be available in the galaxy catalog class instead :)
 
-    def apply_mask(self, 
-                   region: str = 'N+SNGC',
-                   release: str = 'Y1',
-                   npasses: int | None = None,
-                   custom_mask_path: str | None = None,
-                   num_fibonacci_samples: int = 100000
-                  ):
-        """
-        """
-        for galaxy_catalog in self._catalogs.values():
-            for tracer in galaxy_catalog.tracers:
-                if 'BGS' in tracer.upper():
-                    program = 'bright'
-                else:
-                    program = 'dark'
-                galaxy_catalog._add_transform(
-                    Transform(
-                        name=f"angular_mask_{tracer}",
-                        func=_apply_angular_mask,
-                        tracer=tracer,
-                        kwargs={
-                            "tracer": tracer,
-                            "mask_fractions": self.mask_fractions,
-                            "region": region,
-                            "release": release,
-                            "npasses": npasses,
-                            "custom_mask_path": custom_mask_path,
-                            "num_fibonacci_samples": num_fibonacci_samples, 
-                        },
-                    )
-                )
 
-    def apply_r_cut(self):
-        """
-        """
-        for zranges, galaxy_catalog in self._catalogs.items():
-            distance_limits = self.cosmo.comoving_radial_distance(zranges)
-            galaxy_catalog._add_transform(
-                Transform(
-                name="r_cut",
-                func=_apply_r_cut,
-                kwargs={
-                    "r_min": distance_limits[0],
-                    "r_max": distance_limits[1],
-                    },
-                )
-            )
 
-    def apply_rsd(self):
-        """
-        """
-        for galaxy_catalog in self._catalogs.values():
-            galaxy_catalog.rsd(los = "los", wrap = False)
-
-    '''
-    def apply_fiber_assign(self, params):
-        """
-        """
-        for galaxy_catalog in self._catalogs.values():
-            galaxy_catalog._add_transform(_apply_fiber_assign)
-    
-    '''
-
-    def apply_sky_coords(self):
-        """
-        """
-        for galaxy_catalog in self._catalogs.values():
-            galaxy_catalog._add_transform(
-                Transform(
-                    name="sky_coords",
-                    func=_apply_sky_coords,
-                    kwargs = {
-                        "cosmo":self.cosmo,
-                    }
-                )
-            )
-
-    def apply_radial_mask(self,
-                         nz_filename: str, 
-                         shape_only: bool = False, 
-                         dz_new: float = 0.002
-                         ):
-        """
-        """
-        for galaxy_catalog in self._catalogs.values():
-            for tracer in galaxy_catalog.tracers:
-                galaxy_catalog._add_transform(
-                    Transform(
-                        name=f"radial_mask_{tracer}",
-                        func=_apply_radial_mask,
-                        kwargs={
-                            "tracer": tracer,
-                            "mask_fractions": self.mask_fractions,
-                            "cosmo":self.cosmo,
-                            "nz_filename":nz_filename,
-                            "shape_only":shape_only,
-                            "dz_new":dz_new,
-                        },
-                    )
-                )
-
-        
-    def get_catalog(self, redshift_range: tuple[float, float]) -> CutskyCatalog:
+    def get_catalog(self, redshift_range: tuple[float, float] | None = None) -> CutskyCatalog:
         """
         Retrieve the galaxy catalog at a given redshift range.
 
@@ -325,14 +222,21 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         redshift_range : tuple[float, float]
             The redshift range of the desired catalog.
         """
-        if redshift_range not in self._catalogs:
+        cutsky_catalog = self.cutsky_catalog_class(
+                cosmo=self.cosmo,
+                cosmo_fid=self.cosmo_fid,
+                hp_res = 256,
+            )
+        if redshift_range  is None:
+            cutsky_catalog.set_snapshot_catalogs(self._catalogs)
+            return cutsky_catalog
+        elif redshift_range not in self._catalogs:
             raise KeyError(
                 f"No catalog loaded at z={redshift_range}. "
                 f"Available redshifts: {list(self._catalogs.keys())}"
             )
-        return self._catalogs[redshift_range]
-
-
+        cutsky_catalog.set_snapshot_catalogs({redshift_range: self._catalogs[redshift_range]})
+        return cutsky_catalog
 
     def get_box_shifts(
         self,
