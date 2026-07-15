@@ -196,8 +196,7 @@ def _apply_r_cut(
 
 def _apply_angular_mask(
     data: pd.DataFrame,
-    tracer: str,
-    mask_fractions: dict,
+    #mask_fractions: dict,
     region: str = 'N+SNGC',
     release: str = 'Y1',
     npasses: int | None = None,
@@ -275,7 +274,7 @@ def _apply_angular_mask(
 
         in_mask = mask_in_desi & mask_in_photo
 
-        mask_fractions[tracer] = np.sum(in_mask) / len(in_mask)
+        #mask_fractions[tracer] = np.sum(in_mask) / len(in_mask)
 
     else:
         mask = fitsio.read(custom_mask_path)
@@ -286,7 +285,7 @@ def _apply_angular_mask(
         is_in_mask = mask['IN_MASK'][target_pixels]
         data = data[is_in_desi & is_in_photo]
 
-        mask_fractions[tracer] = np.sum(mask['IN_MASK']) / len(mask['IN_MASK'])
+        #mask_fractions[tracer] = np.sum(mask['IN_MASK']) / len(mask['IN_MASK'])
 
     return data
     
@@ -305,9 +304,19 @@ def _apply_sky_coords(data: pd.DataFrame, cosmo: Cosmology):
     return data
 
 
+'''
+# %% Transforms between box and cutsky geometries
+
+def _apply_box_coords(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[empty-body]
+    """Convert a cutsky geometry to a box geometry."""
+    # Input: CutskyCatalog (positions, cosmology & redshift range), observer position, boxsize
+    # Depends on cosmology for distance-redshift conversion.
+    # Depends on redshift range & observer position for angle values and eventual periodic wrapping.
+
+'''
+
 def _apply_radial_mask(data: pd.DataFrame, 
-                       tracer: str, 
-                       mask_fractions: dict, 
+                       sky_fraction: float, 
                        cosmo: Cosmology, 
                        nz_filename: str, 
                        shape_only: bool = False, 
@@ -372,7 +381,7 @@ def _apply_radial_mask(data: pd.DataFrame,
     zedges = np.insert(zbin_max, 0, zbin_min[0])
     dbin_max = cosmo.comoving_radial_distance(zbin_max)
     dedges =  np.insert(dbin_max, 0, cosmo.comoving_radial_distance(zbin_min[0]))
-    volume = mask_fractions[tracer] * 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
+    volume = sky_fraction * 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
 
     # calculate downsampling ratio
     data_nz = np.histogram(data['redshift'], bins=zedges)[0] / volume
