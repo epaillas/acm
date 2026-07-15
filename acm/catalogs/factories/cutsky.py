@@ -17,7 +17,7 @@ from acm.catalogs.dataclasses import Tracer, Transform
 from acm.catalogs.factories import BaseCatalogFactory, SnapshotCatalogFactory
 from acm.catalogs.products import CutskyCatalog, SnapshotCatalog
 from acm.catalogs.geometry import minmax_xyz_desi
-from acm.catalogs.products.transforms import _apply_angular_mask, _apply_r_cut, _apply_sky_coords
+from acm.catalogs.products.transforms import _apply_angular_mask, _apply_r_cut, _apply_sky_coords, _apply_radial_mask
 #_apply_fiber_assign, _apply_nz # TODO: implement
 
 
@@ -275,21 +275,46 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         for galaxy_catalog in self._catalogs.values():
             galaxy_catalog._add_transform(_apply_fiber_assign)
     
-    
-    def apply_nz(self, params):
-        """
-        """
-        for galaxy_catalog in self._catalogs.values():
-            galaxy_catalog._add_transform(_apply_nz)
     '''
 
-    '''
-    def apply_sky_coords(self, params):
+    def apply_sky_coords(self):
         """
         """
         for galaxy_catalog in self._catalogs.values():
-            galaxy_catalog._add_transform(_apply_sky_coords) 
-    '''
+            galaxy_catalog._add_transform(
+                Transform(
+                    name="sky_coords",
+                    func=_apply_sky_coords,
+                    kwargs = {
+                        "cosmo":self.cosmo,
+                    }
+                )
+            )
+
+    def apply_radial_mask(self,
+                         nz_filename: str, 
+                         shape_only: bool = False, 
+                         dz_new: float = 0.002
+                         ):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            for tracer in galaxy_catalog.tracers:
+                galaxy_catalog._add_transform(
+                    Transform(
+                        name=f"radial_mask_{tracer}",
+                        func=_apply_radial_mask,
+                        kwargs={
+                            "tracer": tracer,
+                            "mask_fractions": self.mask_fractions,
+                            "cosmo":self.cosmo,
+                            "nz_filename":nz_filename,
+                            "shape_only":shape_only,
+                            "dz_new":dz_new,
+                        },
+                    )
+                )
+
         
     def get_catalog(self, redshift_range: tuple[float, float]) -> CutskyCatalog:
         """

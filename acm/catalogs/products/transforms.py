@@ -5,7 +5,8 @@ import pandas as pd
 from cosmoprimo import Cosmology
 from numpy.random import RandomState
 import numpy as np
-import numpy.typing as npt
+from scipy.interpolate import InterpolatedUnivariateSpline
+
 from mockfactory.desi import is_in_desi_footprint
 from mockfactory.make_survey import DistanceToRedshift
 
@@ -289,12 +290,105 @@ def _apply_angular_mask(
 
     return data
     
-def _apply_sky_coords(data: pd.DataFrame, redshift_to_distance: Callable[[npt.NDArray[np.floating]], npt.NDArray[np.floating]]):
+def _apply_sky_coords(data: pd.DataFrame, cosmo: Cosmology):
     """
     """
     data = data.copy()
     distance, ra, dec = cartesian_to_spherical(data)
-    distance_to_redshift = DistanceToRedshift(redshift_to_distance)
+    distance_to_redshift = DistanceToRedshift(cosmo.comoving_radial_distance)
     redshift = distance_to_redshift(distance)
-    # return distance, ra, dec # TODO: need to setup pandas dataframe
+    data = pd.DataFrame({
+        'ra': ra,
+        'dec': dec,
+        'redshift': redshift
+    })
+    return data
+
+
+def _apply_radial_mask(data: pd.DataFrame, 
+                       tracer: str, 
+                       mask_fractions: dict, 
+                       cosmo: Cosmology, 
+                       nz_filename: str, 
+                       shape_only: bool = False, 
+                       dz_new: float = 0.002
+                      ) -> None:
+    """
+    Applies the radial selection function to a cutsky catalog based on 
+    an input n(z) file (number desity as a function of redshift).
+
+    Parameters
+    ----------
+    nz_filename : str
+        Path to the n(z) file containing the target number density. Columns
+        (1, 2, 3) are zbin_min, zbin_max, and target_nz respectively.
+    shape_only : bool, optional
+        If True, match only the shape of the n(z), disregarding the amplitude.
+    dz_new : float
+        redshift interval used for redshift bin edges. Should be small compared to 
+        the expected fluctuations in the raw n(z)
+        
+    Returns
+    -------
+    None
+        The cutsky catalog is modified in place.
+    """
+    data = data.copy()
+
+    zmin_data = data['redshift'].min()
+    zmax_data = data['redshift'].max()
+
+    # read n(z) file
+    zbin_min, zbin_max, target_nz = np.genfromtxt(nz_filename, usecols=(1, 2, 3)).T
+    zbin_mid = 0.5 * (zbin_min + zbin_max)
+    if zbin_min[0] > zmin_data or zbin_max[-1] < zmax_data:
+        raise ValueError('Provided n(z) file does not cover redshift range of data')
+
+    # nz(z) interpolator (piecewise linear)
+    nz_spline = InterpolatedUnivariateSpline(zbin_mid, target_nz, k=1, ext=3)
+
+    # --- refine each coarse bin into dz=0.002 sub-bins ---
+    nsub = int(round((zbin_max[0] - zbin_min[0]) / dz_new))  # should be 5 for 0.01->0.002
+    if not np.allclose(zbin_max - zbin_min, nsub * dz_new, rtol=0, atol=1e-12):
+        raise ValueError("Your input bins are not an integer multiple of dz_new.")
     
+    # new bin edges per coarse bin: (Nbins, nsub+1)
+    edges = zbin_min[:, None] + dz_new * np.arange(nsub + 1)[None, :]
+    
+    # flatten into sub-bins
+    zbin_min = edges[:, :-1].ravel()
+    zbin_max = edges[:,  1:].ravel()
+    
+    #impose lightcone redshift limits on zbins
+    select_zbins = (zbin_max > zmin_data) * (zbin_min < zmax_data)
+    zbin_min = zbin_min[select_zbins]
+    zbin_max = zbin_max[select_zbins]
+    zbin_min[0] = zmin_data
+    zbin_max[-1] = zmax_data
+    zbin_mid = (zbin_min + zbin_max) / 2
+    target_nz = nz_spline(zbin_mid)
+    
+    #calculate volumes of shells
+    zedges = np.insert(zbin_max, 0, zbin_min[0])
+    dbin_max = cosmo.comoving_radial_distance(zbin_max)
+    dedges =  np.insert(dbin_max, 0, cosmo.comoving_radial_distance(zbin_min[0]))
+    volume = mask_fractions[tracer] * 4/3 * np.pi * (dedges[1:]**3 - dedges[:-1]**3) 
+
+    # calculate downsampling ratio
+    data_nz = np.histogram(data['redshift'], bins=zedges)[0] / volume
+    ratio = target_nz / data_nz
+    
+    if shape_only:
+        max_ratio = np.max(ratio[~np.isinf(ratio)])
+        ratio /= max_ratio
+    ratio_spline = InterpolatedUnivariateSpline(zbin_mid, ratio, k=1, ext=3)
+    # use the spline to get the number density at the redshift of every galaxy
+    # then assign a random number to each and compare it to the ratio to determine
+    # if the galaxy should be kept or not
+    data_nz = nz_spline(data['redshift'])
+    select_mask = np.random.uniform(size=len(data['redshift'])) < ratio_spline(data['redshift'])
+    data = data[select_mask]
+    data['NZ'] = data_nz[select_mask]
+    if shape_only:
+        data['NZ'] /= max_ratio
+    return data
