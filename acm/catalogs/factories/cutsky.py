@@ -29,7 +29,7 @@ class BaseCutskyFactory(BaseCatalogFactory):
     def __init__(
         self,
         backend: str | SnapshotBackend,
-        catalog_class: type[SnapshotCatalog],
+        catalog_class: type[CutskyCatalog],
         cosmo: Cosmology,
         cosmo_fid: Cosmology | None = None,
         boxpad : float = 1000,
@@ -38,9 +38,9 @@ class BaseCutskyFactory(BaseCatalogFactory):
         super().__init__(backend, catalog_class, cosmo, cosmo_fid, **kwargs)
         # Type hints
         self.backend: SnapshotBackend
-        self.catalog_class: type[SnapshotCatalog]
+        self.catalog_class: type[CutskyCatalog]
         self._catalogs: dict[tuple[float, float], SnapshotCatalog]
-        self.cutsky_catalog_class : type[CutskyCatalog],
+        self.box_catalog_class : type[SnapshotCatalog],
         # Type checks
         if not isinstance(self.backend, SnapshotBackend):
             backend_type = type(self.backend)
@@ -104,7 +104,7 @@ class BaseCutskyFactory(BaseCatalogFactory):
         path.mkdir(parents=True, exist_ok=True)
         for zranges, catalog in self._catalogs.items():
             zlow, zhigh = zranges
-            catalog.save(path / f"catalog_z{zlow:.3f}_z{zhigh:.3f}.h5")
+            catalog.save(path / f"catalog_z{zlow:.3f}-{zhigh:.3f}.h5")
         logger.info(f"Saved {len(self._catalogs)} catalog(s) to {path}")
 
     def load_catalogs(self, path: str | Path) -> None:
@@ -160,7 +160,7 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         
         # Populate snapshot catalogs with tracers through backend - return SnapshotCatalogs
         # self.backend is already initialized so load_backend will just return self.backend
-        snapshot_catalog_factory = SnapshotCatalogFactory(self.backend, self.catalog_class, self.cosmo, self.cosmo_fid) 
+        snapshot_catalog_factory = SnapshotCatalogFactory(self.backend, self.box_catalog_class, self.cosmo, self.cosmo_fid) 
         snapshot_catalog_factory.make_catalogs(redshifts, tracers, **kwargs) 
         boxsize = self.backend.boxsize 
         
@@ -196,10 +196,11 @@ class CutskyCatalogFactory(BaseCutskyFactory):
             )
 
             galaxy_catalog = self.catalog_class(
-                redshift=zsnap,
+                #redshift=zsnap,
                 cosmo=self.cosmo,
                 cosmo_fid=self.cosmo_fid,
-                boxsize=boxsize,
+                #boxsize=boxsize,
+                hp_res = 256,
             )
             
             for tracer, data in replications.items():
@@ -222,21 +223,16 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         redshift_range : tuple[float, float]
             The redshift range of the desired catalog.
         """
-        cutsky_catalog = self.cutsky_catalog_class(
+        if redshift_range  is None:
+            # TODO: fix this
+            cutsky_catalog = self.catalog_class(
                 cosmo=self.cosmo,
                 cosmo_fid=self.cosmo_fid,
                 hp_res = 256,
             )
-        if redshift_range  is None:
             cutsky_catalog.set_snapshot_catalogs(self._catalogs)
             return cutsky_catalog
-        elif redshift_range not in self._catalogs:
-            raise KeyError(
-                f"No catalog loaded at z={redshift_range}. "
-                f"Available redshifts: {list(self._catalogs.keys())}"
-            )
-        cutsky_catalog.set_snapshot_catalogs({redshift_range: self._catalogs[redshift_range]})
-        return cutsky_catalog
+        return self._catalogs[redshift_range]
 
     def get_box_shifts(
         self,
