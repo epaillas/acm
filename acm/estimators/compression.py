@@ -19,6 +19,7 @@ Example
         drop_single=True,
     )
 """
+
 import logging
 import re
 from collections.abc import Callable
@@ -36,8 +37,9 @@ from acm.utils.xarray import split_vars
 logger = logging.getLogger(__name__)
 
 PATTERNS = {
-    'cpsh': r"c{cosmo_idx}_p{phase_idx}/seed{seed}/hod{hod_idx}/",
+    "cpsh": r"c{cosmo_idx}_p{phase_idx}/seed{seed}/hod{hod_idx}/",
 }
+
 
 @dataclass
 class Pattern:
@@ -108,6 +110,7 @@ class IndexedObject:
         """Return the names of the indexes."""
         return list(self.indexes)
 
+
 @dataclass
 class ObjectGroup:
     """Store IndexedObject element with common names."""
@@ -143,8 +146,10 @@ class ObjectGroup:
 
     def get(self, **indexes) -> list[LsstypeObject]:
         """Get the data of objects matching the required indexes."""
+
         def _match_indexes(obj: IndexedObject, **idx) -> bool:
             return all(obj.indexes.get(k) == v for k, v in idx.items())
+
         return [o.data for o in self.objects if _match_indexes(o, **indexes)]
 
     def merge(
@@ -170,7 +175,7 @@ class ObjectGroup:
         """
         new = ObjectGroup()
         for o in self.objects:
-            if len(new.get(**o.indexes)) == 0: # Indexes not already used
+            if len(new.get(**o.indexes)) == 0:  # Indexes not already used
                 match = self.get(**o.indexes)
                 logger.debug(f"Found {len(match)} objects matching {o.indexes}")
                 new.append(IndexedObject(o.indexes, method(match, **kwargs)))
@@ -197,11 +202,13 @@ class ObjectGroup:
         -------
         >>> new_group = group.select(k_min=0.01, k_max=0.5)  # calls .select() on all data objects
         """
-        if name == "objects": # Safeguard for calls before __init__ is complete
+        if name == "objects":  # Safeguard for calls before __init__ is complete
             raise AttributeError(name)
 
         if not self.objects:
-            raise AttributeError(f"'ObjectGroup' has no attribute '{name}' because it is empty.")
+            raise AttributeError(
+                f"'ObjectGroup' has no attribute '{name}' because it is empty."
+            )
 
         if not hasattr(self.objects[0].data, name):
             raise AttributeError(f"'{name}' not found in data objects.")
@@ -317,7 +324,7 @@ class ObjectGroup:
             if name not in reindex:
                 continue
 
-            group_names = reindex[name] # Which indexes to group by for reindexing
+            group_names = reindex[name]  # Which indexes to group by for reindexing
             group_map: dict[tuple, dict] = {}
             new_values = []
 
@@ -418,13 +425,13 @@ class Compressor:
         order = order or []
         reindex = reindex or {}
 
-        data = data.orderby(*order) # Ensure ordering and uniqueness of indexes
-        index_lists = data.get_index_lists(**reindex) # ordered + reindexed
+        data = data.orderby(*order)  # Ensure ordering and uniqueness of indexes
+        index_lists = data.get_index_lists(**reindex)  # ordered + reindexed
         sample_coords = {idx: np.unique(values) for idx, values in index_lists.items()}
 
         # Get unflattened labels from the first data object,
         # assuming all objects have the same structure.
-        labels = data.objects[0].data.labels(return_type='unflatten', level=None)
+        labels = data.objects[0].data.labels(return_type="unflatten", level=None)
         features_coords = {k: np.unique(v) for k, v in labels.items()}
 
         coords = {**sample_coords, **features_coords}
@@ -457,6 +464,7 @@ class Compressor:
 
         return cout
 
+
 def downcast(array: np.ndarray) -> np.ndarray:
     """
     Downcast a numpy array to the smallest possible dtype without losing information.
@@ -465,10 +473,11 @@ def downcast(array: np.ndarray) -> np.ndarray:
     downcasting is not possible (ValueError raised).
     """
     try:
-        array = to_numeric(array, errors='raise')
+        array = to_numeric(array, errors="raise")
     except ValueError:
         pass
     return array
+
 
 def split_test_set(
     ds: xarray.Dataset,
