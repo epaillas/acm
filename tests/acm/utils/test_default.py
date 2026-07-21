@@ -10,8 +10,6 @@ from acm.utils.default import _make_array, cosmo_list, is_nersc
 
 # ruff: noqa: ANN201, D101, D102, D103, INP001, S101
 
-
-
 def test_cosmo_list():
     assert isinstance(cosmo_list, list)
     assert all(type(l) is int for l in cosmo_list)  # noqa: E741
