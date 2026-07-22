@@ -14,7 +14,10 @@ from acm.utils.xarray import dataset_to_dict, split_vars
 
 logger = logging.getLogger(__name__)
 
-logger.critical(f"DEPRECATED: {__name__} is deprecated and will be removed in acm 1.0.0. Please use the acm.estimators.compression module instead.")
+logger.critical(
+    f"DEPRECATED: {__name__} is deprecated and will be removed in acm 1.0.0. Please use the acm.estimators.compression module instead."
+)
+
 
 # %% Readers and processors for different file formats
 def lsstypes_reader(files: list[Path]) -> LsstypeObject:  # pragma: no cover
