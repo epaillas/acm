@@ -1,4 +1,5 @@
 import itertools
+import logging
 import re
 from pathlib import Path
 from unittest.mock import patch
@@ -19,9 +20,8 @@ from acm.estimators.compression import (
 
 # ruff: noqa: ANN001, ANN201, ARG002, D102, INP001, S101
 
-# FIXME: make this more general/dummy
 def make_lsstype_object() -> lsstypes.ObservableTree:
-    """Create a mock lsstypes.ObservableTree object for testing."""
+    """Create a mock lsstypes.ObservableTree object for testing. Borrowed from lsstypes notebook examples."""
     s = np.linspace(0., 200., 51)
     mu = np.linspace(-1., 1., 101)
     rng = np.random.RandomState(seed=42)
@@ -178,6 +178,15 @@ class TestObjectGroup:
         group = ObjectGroup(objects=[obj1, obj2])
         assert len(group) == 2
 
+    def test_getitem(self):
+        obj1 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
+        obj2 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
+        group = ObjectGroup(objects=[obj1, obj2])
+        assert group[0] == obj1
+        assert group[1] == obj2
+        with pytest.raises(IndexError):
+            _ = group[2]  # Out of bounds
+
     def test_get(self):
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 2, "j": 3}, data=make_lsstype_object())
@@ -217,6 +226,12 @@ class TestObjectGroup:
         result = group.get(i=1, j=2)
         assert len(result) == 1
         assert result == [obj1.data]
+
+    def test_get_unknown_key_returns_empty(self):
+        obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
+        group = ObjectGroup(objects=[obj1])
+        result = group.get(k=3)  # 'k' is not a valid index name
+        assert result == []
 
     def test_merge(self):
         """Test the merge method of ObjectGroup, including kwargs forwarding."""
@@ -391,7 +406,6 @@ class TestObjectGroup:
         with pytest.raises(ValueError, match="Multiple objects found"):
             group.orderby("i")
 
-    # FIXME: test get_index_lists
     def test_get_index_lists(self):
         """Test the get_index_lists method of ObjectGroup."""
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
@@ -466,6 +480,7 @@ class TestObjectGroup:
         assert index_lists == {"i": [0, 0, 0], "j": [0, 0, 0], "k": [0, 1, 0]}
 
 
+@patch("lsstypes.read", return_value=make_lsstype_object())
 class TestCompressor:
     """Test the Compressor class for compressing estimator measurements."""
 
@@ -473,37 +488,235 @@ class TestCompressor:
     def make_files(self, tmp_path):
         """Create a set of mock files in the temporary directory for testing."""
         # Create directories and files based on the pattern
-        for i, j, k in itertools.product(range(2), range(2), range(2)):
+        for i, j, k in itertools.product(range(2), range(2), range(1, 4)):
             dir_path = tmp_path / f"I{i}/J{j}_K{k}"
             dir_path.mkdir(parents=True, exist_ok=True)
             file_path = dir_path / "file.h5"
             file_path.touch()  # Create an empty file
+            other_path = dir_path / "other_file.txt"
+            other_path.touch()  # Create a non-matching file
 
-    def test_init_no_params(self):
+    @pytest.fixture
+    def compressor(self, make_files, tmp_path):
+        """Fixture to create a Compressor instance with the mock files."""
+        return Compressor(root=tmp_path, pattern="I{i}/J{j}_K{k}/file.h5")
+
+    def test_init_no_params(self, reader):
         """Test that the Compressor initializes with default root (cwd) and pattern (*.h5)."""
         compressor = Compressor()
         assert compressor._pattern.root == Path.cwd()
         assert compressor._pattern.pattern == "*.h5"
 
-    def test_init_with_params(self):
+    def test_init_with_params(self, reader):
         """Test that the Compressor initializes with specified root and pattern."""
         root_path = Path("/data")
-        compressor = Compressor(root=root_path, pattern="I{i}/J{j}/file.h5")
+        pattern = "I{i}/J{j}/file.h5"
+        compressor = Compressor(root=root_path, pattern=pattern)
         assert compressor._pattern.root == root_path
-        assert compressor._pattern.pattern == "I{i}/J{j}/file.h5"
+        assert compressor._pattern.pattern == pattern
 
-    def test_init_no_macthing_files(self, tmp_path):
+    def test_init_no_macthing_files(self, reader, tmp_path):
         """Test that the Compressor raises a ValueError when no files match the pattern."""
         compressor = Compressor(root=tmp_path, pattern="I{i}/J{j}/file.h5")
         assert compressor._files == []  # No files should match
 
-    def test_init_sorted_files(self, tmp_path, make_files):
+    def test_init_sorted_files(self, reader, compressor, tmp_path):
         """Test that the Compressor sorts the files based on the pattern."""
-        compressor = Compressor(root=tmp_path, pattern="I{i}/J{j}_K{k}/file.h5")
-        assert len(compressor._files) == 8  # Should find 8 files
-        # TODO: Check that the files are sorted correctly based on the pattern
+        expected_files = sorted(tmp_path.glob("I*/J*_K*/file.h5"))
+        assert compressor._files == expected_files
+        assert len(compressor._files) == 12  # 2*2*3 combinations of i, j, k
 
-    # TODO: add final tests for init and tests for read and compress
+    def test_read(self, reader, compressor):
+        result = compressor.read(reader=reader, arg='somearg')
+        # Should call lsstypes.read for each file
+        assert reader.call_count == len(compressor._files)
+        assert len(result) == len(compressor._files)
+
+    def test_read_forward_kwargs(self, reader, compressor):
+        """Test that read forwards kwargs to the reader function."""
+        _ = compressor.read(reader=reader, arg='somearg')
+        for call in reader.call_args_list:
+            assert call.kwargs.get('arg') == 'somearg'  # Check that 'arg' is forwarded
+
+    def test_read_does_not_handle_duplicates(self, reader, compressor):
+        """Test that read does not handle duplicate files."""
+        # add a duplicate file to the compressor's file list
+        duplicate_file = compressor._files[0]
+        compressor._files.append(duplicate_file)
+        result = compressor.read(reader=reader)
+        # Should call lsstypes.read for each file, including the duplicate
+        assert reader.call_count == len(compressor._files)
+        assert len(result) == len(compressor._files)
+        assert result[0] == result[-1]  # The first and last results should be the same due to the duplicate file
+        assert len(result.get(i="0", j="0", k="1")) == 2  # There should be two objects for the duplicate file indices
+
+    def test_read_raises_on_reader_error(self, reader, compressor):
+        """Test that read raises an error if the reader function raises an error."""
+        patch_read = patch("lsstypes.read", side_effect=ValueError("Test error"))
+        with patch_read as _reader, pytest.raises(ValueError, match="Test error"):
+            _ = compressor.read(reader=_reader)
+        assert _reader.call_count == 1  # Should only call the reader once before raising the error
+
+    def test_read_empty_file_list(self, reader):
+        """Test that read raises an error if the compressor has no files to read."""
+        compressor = Compressor(root=Path.cwd(), pattern="nonexistent_pattern")
+        result = compressor.read(reader=reader)
+        assert len(result) == 0  # Should return an empty list since there are no files to read
+
+    def test_read_ignore_index(self, reader, compressor):
+        """Test that read ignores specified index names when reading files."""
+        result = compressor.read(reader=reader, ignore_index=["j"])
+        # Should call lsstypes.read for each file
+        assert reader.call_count == len(compressor._files)
+        assert "j" not in result.names
+
+    def test_read_logs_on_unmatching_file(self, reader, compressor, caplog):
+        """Test that logs a warning if a file does not match the pattern."""
+        # Add a non-matching file to the compressor's file list
+        non_matching_file = compressor._pattern.root / "I0/J0_K0/other_file.txt"
+        compressor._files.append(non_matching_file)
+        with caplog.at_level(logging.WARNING):
+            _ = compressor.read(reader=reader)
+        # Check that a warning was logged for the non-matching file
+        n_warn = sum(1 for record in caplog.records if "does not match the pattern" in record.message)
+        assert n_warn == 1  # One file only should trigger one warning in this test
+
+    def test_compress(self, reader, compressor):
+        """Test that compress returns a DataArray with the correct number of objects."""
+        data = compressor.read(reader=reader)
+        result = compressor.compress(data=data)
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (2, 2, 3, 3, 51, 101)
+        assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
+        assert result.coords["k"].values.tolist() == [1, 2, 3] # This one should be as provided
+        assert result.attrs["sample"] == ["i", "j", "k"]
+        assert result.attrs["features"] == ["pairs", "s", "mu"]
+
+        # Check that the index types are correctly downcasted - in this case to int64
+        assert all(result.coords[dim].dtype == np.int64 for dim in ["i", "j", "k"])
+
+        # Check that the first object matches the compressed data
+        compressed_vals = result.sel(i=0, j=0, k=1).values
+        original_vals = np.stack(list(data.get(i="0", j="0", k="1")[0].flatten()))
+        assert np.array_equal(compressed_vals, original_vals)
+
+    def test_compress_raise_on_incorrect_reshaping(self, reader, compressor):
+        """Test that compress raises a ValueError if the data cannot be reshaped correctly."""
+        # Add a duplicate file to the compressor's file list
+        # this should give the data a bigger size than inferred from the coordinates
+        duplicate_file = compressor._files[0]
+        compressor._files.append(duplicate_file)
+        data = compressor.read(reader=reader)
+        with pytest.raises(ValueError, match="Cannot reshape array of size"):
+            _ = compressor.compress(data=data)
+
+    def test_compress_and_full_order(self, reader, compressor):
+        """Test that compress with full ordering returns a DataArray with ordered dimensions."""
+        data = compressor.read(reader=reader)
+        result = compressor.compress(data=data, order=["k", "j", "i"])
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (3, 2, 2, 3, 51, 101)
+        assert result.dims == ("k", "j", "i", "pairs", "s", "mu")
+        assert result.attrs["sample"] == ["k", "j", "i"]
+
+    def test_compress_and_partial_order(self, reader, compressor):
+        """Test that compress with partial ordering returns a DataArray with no reordered dimensions."""
+        data = compressor.read(reader=reader)
+        result = compressor.compress(data=data, order=["k", "i"])
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (2, 2, 3, 3, 51, 101)
+        assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
+        assert result.attrs["sample"] == ["i", "j", "k"]
+
+    def test_compress_and_reindex(self, reader, compressor):
+        """Test that compress with reindexing returns a DataArray with the specified index values."""
+        data = compressor.read(reader=reader)
+        result = compressor.compress(data=data, reindex={"k": ["i", "j"]})
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (2, 2, 3, 3, 51, 101)
+        assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
+        assert result.attrs["sample"] == ["i", "j", "k"]
+        assert result.coords["k"].values.tolist() == [0, 1, 2]  # Reindexed to the order of ["i", "j"]
+        # FIXME: maybe there is a test for a more exotic reindexing case?
+
+    def test_compress_forwards_order_and_reindex(self, reader, compressor):
+        """Test that compress forwards arguments to the underlying data object."""
+        data = compressor.read(reader=reader)
+        p1 = patch.object(data, "orderby", wraps=data.orderby)
+        p2 = patch.object(data, "get_index_lists", wraps=data.get_index_lists)
+
+        # Separate 2 cases because the p2 patch won't work as data is reassigned when ordering is applied.
+        with p1 as mock_orderby, p2 as mock_get_index_lists:
+            _ = compressor.compress(data=data, order=["k", "j", "i"])
+            mock_orderby.assert_called_once_with("k", "j", "i")
+            mock_orderby.reset_mock()  # Reset mock to avoid interference with the next test
+
+            _ = compressor.compress(data=data, reindex={"k": ["i", "j"]})
+            mock_orderby.assert_called_once_with()  # Should return self - allowing the next patch to work
+            mock_get_index_lists.assert_called_once_with(k=["i", "j"])  # Ensure reindexing was called with the correct arguments
+
+    def test_compress_and_order_and_reindex(self, reader, compressor):
+        """Test that compress with ordering and reindexing returns a DataArray with the specified order and index values."""
+        data = compressor.read(reader=reader)
+        result = compressor.compress(data=data, order=["k", "j", "i"], reindex={"k": ["i", "j"]})
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (3, 2, 2, 3, 51, 101)
+        assert result.dims == ("k", "j", "i", "pairs", "s", "mu")
+        assert result.attrs["sample"] == ["k", "j", "i"]
+        assert result.coords["k"].values.tolist() == [0, 1, 2]  # Reindexed to the order of ["i", "j"]
+
+    @pytest.fixture
+    def dummy_data(self):
+        """Create a dummy ObjectGroup with mixed index types for testing."""
+        obj1 = IndexedObject(indexes={"i": 1, "j": "a"}, data=make_lsstype_object())
+        obj2 = IndexedObject(indexes={"i": 1, "j": "b"}, data=make_lsstype_object())
+        obj3 = IndexedObject(indexes={"i": 1, "j": "c"}, data=make_lsstype_object())
+        return ObjectGroup(objects=[obj1, obj2, obj3])
+
+    def test_compress_mixed_index_types(self, reader, dummy_data):
+        """Test that compress can handle mixed index types (int and str) and correctly downcast."""
+        result = Compressor.compress(data=dummy_data, drop_single=False)
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (1, 3, 3, 51, 101)  # 1 unique 'i' value and 3 unique 'j' values
+        assert result.dims == ("i", "j", "pairs", "s", "mu")
+        assert result.attrs["sample"] == ["i", "j"]
+        assert result.attrs["features"] == ["pairs", "s", "mu"]
+        # Check that the index types are correctly downcasted
+        assert result.coords["i"].dtype == np.int64
+        assert result.coords["j"].dtype.type is np.str_
+
+
+    def test_compress_drop_single(self, reader, dummy_data):
+        """Test that compress with drop_single=True drops dimensions with a single unique value."""
+        result = Compressor.compress(data=dummy_data, drop_single=True)
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (3, 3, 51, 101)  # 'i' dimension dropped
+        assert "i" not in result.dims
+        assert "i" not in result.attrs["sample"]
+
+        result_no_drop = Compressor.compress(data=dummy_data, drop_single=False)
+        assert result_no_drop.shape == (1, 3, 3, 51, 101)  # 'i' dimension retained
+        assert "i" in result_no_drop.dims
+        assert "i" in result_no_drop.attrs["sample"]
+
+    def test_compress_drop_single_for_one_object(self, reader):
+        """Test that compress with drop_single=True works correctly for a single object in the group."""
+        obj = IndexedObject(indexes={"i": 1, "j": "a"}, data=make_lsstype_object())
+        group = ObjectGroup(objects=[obj])
+        result = Compressor.compress(data=group, drop_single=True)
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (3, 51, 101)  # Both 'i' and 'j' dimensions dropped
+        assert "i" not in result.dims
+        assert "j" not in result.dims
+        assert "i" not in result.attrs["sample"]
+        assert "j" not in result.attrs["sample"]
+
+    def test_compress_clashing_coords_raises(self, reader):
+        """Test that compress raises a ValueError when there are clashing coordinates (e.g. features and sample have a similar coordinate name)."""
+        obj1 = IndexedObject(indexes={"i": 1, "s": "a"}, data=make_lsstype_object())
+        group = ObjectGroup(objects=[obj1])
+        with pytest.raises(ValueError, match="Sample coordinates and feature coordinates have overlapping names"):
+            _ = Compressor.compress(data=group)
 
 
 class TestDowncast:
@@ -618,20 +831,37 @@ class TestSplitTestSet:
         assert np.array_equal(combined.values, simple_dataset["x"].values)
 
 
-# NOTE: Full black-box test to move somewhere else eventually ?
-# def test_full_chain():
-#     root = Path("/data")
-#     pattern = "I{i}/J{j}_K{k}/file_{l}.h5"
+#%% NOTE: Full black-box test to move somewhere else eventually ?
+@pytest.fixture
+def make_files(tmp_path):
+    """Create a set of mock files in the temporary directory for testing."""
+    # Create directories and files based on the pattern
+    for i, j, k in itertools.product(range(2), range(2), range(1, 4)):
+        dir_path = tmp_path / f"I{i}/J{j}_K{k}_LL"
+        dir_path.mkdir(parents=True, exist_ok=True)
+        file_path = dir_path / "file_M.h5"
+        file_path.touch()  # Create an empty file
 
-#     compressor = Compressor(root, pattern)
-#     group = compressor.read(reader=lsstypes.read, ignore_index=["l"])
-#     group = group.merge(method=lsstypes.mean)
-#     group.select(s=slice(0, 100, 1))
-#     data_array = Compressor.compress(
-#         data=group,
-#         order=["i", "j", "k"],
-#         reindex={"j": ["i"], "k": ["i", "j"]},
-#         drop_single=True,
-#     )
+@patch("lsstypes.read", return_value=make_lsstype_object())
+def test_full_chain(reader, tmp_path, make_files):  # noqa: ARG001
+    """Test the full chain of reading, merging, selecting, and compressing data using the Compressor class."""
+    pattern = "I{i}/J{j}_K{k}_L{l}/file_{m}.h5"
 
-#     # TODO: Add assertions to verify the correctness of the data_array structure and contents
+    compressor = Compressor(tmp_path, pattern)
+    group = compressor.read(reader=reader, ignore_index=["m"])
+    group = group.merge(method=lsstypes.mean)
+    group.select(s=slice(0, 100, 1))
+    result = Compressor.compress(
+        data=group,
+        order=["i", "j", "k"],
+        reindex={"j": ["i"], "k": ["i", "j"]},
+        drop_single=True,
+    )
+
+    assert isinstance(result, xarray.DataArray)
+    assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
+    assert result.shape == (2, 2, 3, 3, 51, 101) # droped 'l' dimension
+    assert result.attrs["sample"] == ["i", "j", "k"]
+    assert result.attrs["features"] == ["pairs", "s", "mu"]
+    assert result.coords["j"].values.tolist() == [0, 1]  # Reindexed to the order of ["i"]
+    assert result.coords["k"].values.tolist() == [0, 1, 2]  # Reindexed to the order of ["i", "j"]
