@@ -337,88 +337,88 @@ class TestObjectGroup:
             mock_select.assert_called_once()  # Ensure the method was called on the first object
             mock_match.assert_called_once()  # Ensure the method was called on the second object
 
-    def test_orderby(self, object_group):
-        """Test the orderby method."""
+    def test_sort(self, object_group):
+        """Test the sort method."""
         # Create a new ObjectGroup with known indexes
         obj1 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        ordered_group = group.orderby("i")
+        ordered_group = group.sort("i")
         assert ordered_group.objects[0].indexes["i"] == 1
         assert ordered_group.objects[1].indexes["i"] == 2
 
-    def test_orderby_no_names(self):
+    def test_sort_no_names(self):
         obj1 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        ordered_group = group.orderby()
+        ordered_group = group.sort()
         assert ordered_group == group  # Should return the same group if no names are provided
 
-    def test_orderby_multiple_keys(self):
-        """Test the orderby method with multiple keys."""
+    def test_sort_multiple_keys(self):
+        """Test the sort method with multiple keys."""
         obj1 = IndexedObject(indexes={"i": 2, "j": 1}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         obj3 = IndexedObject(indexes={"i": 1, "j": 1}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2, obj3])
-        ordered_group = group.orderby("i", "j")
+        ordered_group = group.sort("i", "j")
         assert ordered_group.objects[0].indexes == {"i": 1, "j": 1}
         assert ordered_group.objects[1].indexes == {"i": 1, "j": 2}
         assert ordered_group.objects[2].indexes == {"i": 2, "j": 1}
 
-        ordered_group_desc = group.orderby("j", "i")
+        ordered_group_desc = group.sort("j", "i")
         assert ordered_group_desc.objects[0].indexes == {"i": 1, "j": 1}
         assert ordered_group_desc.objects[1].indexes == {"i": 2, "j": 1}
         assert ordered_group_desc.objects[2].indexes == {"i": 1, "j": 2}
 
-    def test_orderby_cast_str_indexes(self):
-        """Test that orderby can internally cast index values from strings to integers for sorting."""
+    def test_sort_cast_str_indexes(self):
+        """Test that sort can internally cast index values from strings to integers for sorting."""
         obj1 = IndexedObject(indexes={"i": "10"}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": "2"}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        ordered_group = group.orderby("i")
+        ordered_group = group.sort("i")
         assert ordered_group.objects[0].indexes["i"] == "2"
         assert ordered_group.objects[1].indexes["i"] == "10"
 
-    def test_orderby_mixed_type_indexes(self):
-        """Test that orderby can handle mixed types (int and str) in index values."""
+    def test_sort_mixed_type_indexes(self):
+        """Test that sort can handle mixed types (int and str) in index values."""
         obj1 = IndexedObject(indexes={"i": 1, "j": "2"}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": "2", "j": 1}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        ordered_group = group.orderby("i", "j")
+        ordered_group = group.sort("i", "j")
         assert ordered_group.objects[0].indexes == {"i": 1, "j": "2"}
         assert ordered_group.objects[1].indexes == {"i": "2", "j": 1}
 
-    def test_orderby_empty_group(self):
-        """Test that orderby on an empty ObjectGroup returns an empty ObjectGroup."""
+    def test_sort_empty_group(self):
+        """Test that sort on an empty ObjectGroup returns an empty ObjectGroup."""
         group = ObjectGroup()
-        ordered_group = group.orderby("i")
+        ordered_group = group.sort("i")
         assert isinstance(ordered_group, ObjectGroup)
         assert len(ordered_group) == 0
 
-    def test_orderby_str_indexes(self):
-        """Test that orderby can handle actual string indexes."""
+    def test_sort_str_indexes(self):
+        """Test that sort can handle actual string indexes."""
         obj1 = IndexedObject(indexes={"i": "one"}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": "two"}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        ordered_group = group.orderby("i")
+        ordered_group = group.sort("i")
         assert ordered_group.objects[0].indexes["i"] == "one"
         assert ordered_group.objects[1].indexes["i"] == "two"
 
-    def test_orderby_with_nonexistent_key(self):
-        """Test that orderby silently ignores keys that do not exist in the indexes."""
+    def test_sort_with_nonexistent_key(self):
+        """Test that sort silently ignores keys that do not exist in the indexes."""
         obj1 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        ordered_group = group.orderby("nonexistent_key")
+        ordered_group = group.sort("nonexistent_key")
         assert ordered_group == group  # Should return the same group if the key is not found
 
-    def test_orderby_with_duplicate_indexes_raises(self):
-        """Test that orderby raises an error if there are duplicate index values for the sorting keys."""
+    def test_sort_with_duplicate_indexes_raises(self):
+        """Test that sort raises an error if there are duplicate index values for the sorting keys."""
         obj1 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
         with pytest.raises(ValueError, match="Multiple objects found"):
-            group.orderby("i")
+            group.sort("i")
 
     def test_get_index_lists(self):
         """Test the get_index_lists method of ObjectGroup."""
@@ -656,17 +656,17 @@ class TestCompressor:
     def test_compress_forwards_order_and_reindex(self, reader, compressor):
         """Test that compress forwards arguments to the underlying data object."""
         data = compressor.read(reader=reader)
-        p1 = patch.object(data, "orderby", wraps=data.orderby)
+        p1 = patch.object(data, "sort", wraps=data.sort)
         p2 = patch.object(data, "get_index_lists", wraps=data.get_index_lists)
 
         # Separate 2 cases because the p2 patch won't work as data is reassigned when ordering is applied.
-        with p1 as mock_orderby, p2 as mock_get_index_lists:
+        with p1 as mock_sort, p2 as mock_get_index_lists:
             _ = compressor.compress(data=data, order=["k", "j", "i"])
-            mock_orderby.assert_called_once_with("k", "j", "i")
-            mock_orderby.reset_mock()  # Reset mock to avoid interference with the next test
+            mock_sort.assert_called_once_with("k", "j", "i")
+            mock_sort.reset_mock()  # Reset mock to avoid interference with the next test
 
             _ = compressor.compress(data=data, reindex={"k": ["i", "j"]})
-            mock_orderby.assert_called_once_with()  # Should return self - allowing the next patch to work
+            mock_sort.assert_called_once_with()  # Should return self - allowing the next patch to work
             mock_get_index_lists.assert_called_once_with(k=["i", "j"])  # Ensure reindexing was called with the correct arguments
 
     def test_compress_and_order_and_reindex(self, reader, compressor):

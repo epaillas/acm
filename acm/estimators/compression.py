@@ -239,7 +239,7 @@ class ObjectGroup:
 
         return _apply
 
-    def orderby(self, *names: str) -> "ObjectGroup":
+    def sort(self, *names: str) -> "ObjectGroup":
         """
         Order the objects in the group based on the specified index names.
 
@@ -264,7 +264,7 @@ class ObjectGroup:
         -------
         >>> group = ObjectGroup(objects=[IndexedObject(indexes={'i': 1, 'j': 2}, data=data1),
         ...                              IndexedObject(indexes={'i': 0, 'j': 1}, data=data2)])
-        >>> ordered_group = group.orderby('i', 'j')  # Orders by 'i' first, then 'j'
+        >>> ordered_group = group.sort('i', 'j')  # Orders by 'i' first, then 'j'
         >>> print(ordered_group.objects)
         [IndexedObject(indexes={'i': 0, 'j': 1}, data=data2), IndexedObject(indexes={'i': 1, 'j': 2}, data=data1)]
         """
@@ -440,7 +440,7 @@ class Compressor:
         data: ObjectGroup
             The ObjectGroup instance to compress.
         order: list[str], optional
-            The order of the indexes to order by the objects.
+            The order of the indexes the objects should be sorted by.
             Changes the order of the dimensions in the resulting DataArray if all indexes are provided
             (otherwise, it is not possible to know the correct order of the dimensions).
             If None, the original order of the objects is preserved.
@@ -466,7 +466,7 @@ class Compressor:
         order = order or []
         reindex = reindex or {}
 
-        data = data.orderby(*order)  # Ensure ordering and uniqueness of indexes
+        data = data.sort(*order)  # Ensure ordering and uniqueness of indexes
         index_lists = data.get_index_lists(**reindex)  # ordered + reindexed
         if set(order) == set(data.names):
             index_lists = {k: index_lists[k] for k in order}  # Order indexes
