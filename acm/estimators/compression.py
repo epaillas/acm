@@ -123,6 +123,15 @@ class ObjectGroup:
             raise ValueError("No object stored, can't infer names.")
         return self.objects[0].names
 
+    def __repr__(self) -> str:
+        """Return a string representation of the ObjectGroup."""
+        r = "ObjectGroup("
+        if len(self.objects) > 0:
+            r += f"n_objects={len(self.objects)}"
+            r += f", names={self.names}"
+        r += ")"
+        return r
+
     def _match_names(self, other: IndexedObject) -> None:
         if len(self.objects) != 0 and self.names != other.names:
             raise ValueError(

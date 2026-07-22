@@ -146,6 +146,20 @@ class TestObjectGroup:
         with pytest.raises(ValueError, match="Expected matching indexes"):
             ObjectGroup(objects=[obj1, obj2])
 
+    def test_repr(self):
+        obj1 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
+        obj2 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
+        group = ObjectGroup(objects=[obj1, obj2])
+        repr_str = repr(group)
+        assert "ObjectGroup" in repr_str
+        assert str(group.names) in repr_str
+        assert str(len(group)) in repr_str
+
+    def test_repr_empty(self):
+        group = ObjectGroup()
+        repr_str = repr(group)
+        assert repr_str == "ObjectGroup()"
+
     def test_append(self):
         obj1 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
@@ -850,7 +864,7 @@ def test_full_chain(reader, tmp_path, make_files):  # noqa: ARG001
     compressor = Compressor(tmp_path, pattern)
     group = compressor.read(reader=reader, ignore_index=["m"])
     group = group.merge(method=lsstypes.mean)
-    group.select(s=slice(0, 100, 1))
+    group = group.select(s=(0, 50))
     result = Compressor.compress(
         data=group,
         order=["i", "j", "k"],
@@ -860,7 +874,7 @@ def test_full_chain(reader, tmp_path, make_files):  # noqa: ARG001
 
     assert isinstance(result, xarray.DataArray)
     assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
-    assert result.shape == (2, 2, 3, 3, 51, 101) # droped 'l' dimension
+    assert result.shape == (2, 2, 3, 3, 13, 101) # droped 'l' dimension + selected 13 s values
     assert result.attrs["sample"] == ["i", "j", "k"]
     assert result.attrs["features"] == ["pairs", "s", "mu"]
     assert result.coords["j"].values.tolist() == [0, 1]  # Reindexed to the order of ["i"]
