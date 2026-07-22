@@ -1,5 +1,6 @@
 from pathlib import Path  # noqa: INP001
 
+import lsstypes
 import numpy as np
 import yaml
 from cosmoprimo.fiducial import DESI
@@ -40,6 +41,25 @@ def make_lagrangian_mock(
         f = cosmo.growth_rate(redshift)
         mock.set_rsd(f=f, los=los)
     return np.asarray(mock.to_catalog()["Position"]), boxsize
+
+def make_dummy_lsstypes_object() -> lsstypes.ObservableTree:
+    """Return a dummy lsstypes.ObservableTree object."""
+    s = np.linspace(0, 50, 51)
+    mu = np.linspace(-1, 1, 101)
+    rng = np.random.RandomState(seed=42)
+    labels = ['DD', 'DR', 'RR']
+    leaves = []
+    for _label in labels:
+        counts = 1. + rng.uniform(size=(s.size, mu.size))
+        leaves.append(lsstypes.ObservableLeaf(
+            counts=counts,
+            s=s,
+            mu=mu,
+            coords=['s', 'mu'],
+            attrs=dict(los='x'),
+        ))
+    tree = lsstypes.ObservableTree(leaves, pairs=labels)
+    return tree
 
 def load_estimator_parameters(name: str | None = None) -> dict:
     """Load estimator parameters from a YAML file."""
