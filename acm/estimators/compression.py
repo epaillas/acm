@@ -12,7 +12,7 @@ Example
 >>> group = compressor.read(reader=lsstypes.read, ignore_index=['indice_l'])
 >>> group = group.merge(method=lsstypes.mean, **merge_kwargs)
 >>> group = group.select(**rebin).select(**select).get(**get)
->>> data_array = Compressor.compress(
+>>> result = Compressor.compress(
         data=group,
         order=['indice_i', 'indice_j', 'indice_k'],
         reindex={'indice_j': ['indice_i'], 'indice_k': ['indice_i', 'indice_j']},
