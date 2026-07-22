@@ -26,7 +26,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import lsstypes
 import numpy as np
 import xarray
 from pandas import to_numeric
@@ -139,6 +138,10 @@ class ObjectGroup:
         """Return the number of objects in the group."""
         return len(self.objects)
 
+    def __getitem__(self, index: int) -> IndexedObject:
+        """Get the IndexedObject at the specified index."""
+        return self.objects[index]
+
     def append(self, other: IndexedObject) -> None:
         """Append an instance of IndexedObject to the objects property if the index keys match the existing objects ones."""
         self._match_names(other)
@@ -154,7 +157,7 @@ class ObjectGroup:
 
     def merge(
         self,
-        method: Callable[[list[LsstypeObject]], LsstypeObject] = lsstypes.mean,
+        method: Callable[[list[LsstypeObject]], LsstypeObject],
         **kwargs,
     ) -> "ObjectGroup":
         """
@@ -164,7 +167,6 @@ class ObjectGroup:
         ----------
         method: Callable[[list[LsstypeObject]], LsstypeObject]
             Method to use to merge the different LsstypeObject with the same indices.
-            Defaults to :func:`lsstypes.merge`
         **kwargs
             Extra arguments to pass to `method`
 
@@ -421,18 +423,59 @@ class Compressor:
         reindex: dict[str, list[str]] | None = None,
         drop_single: bool = True,
     ) -> xarray.DataArray:
-        """Compress an ObjectGroup instance in a xarray DataArray."""
+        """
+        Compress an ObjectGroup instance in a xarray DataArray.
+
+        Parameters
+        ----------
+        data: ObjectGroup
+            The ObjectGroup instance to compress.
+        order: list[str], optional
+            The order of the indexes to order by the objects.
+            Changes the order of the dimensions in the resulting DataArray if all indexes are provided
+            (otherwise, it is not possible to know the correct order of the dimensions).
+            If None, the original order of the objects is preserved.
+        reindex: dict[str, list[str]], optional
+            A dictionary specifying how to reindex the indexes.
+            See :meth:`ObjectGroup.get_index_lists` for details.
+        drop_single: bool, optional
+            Whether to drop singleton dimensions in the resulting DataArray.
+
+        Returns
+        -------
+        xarray.DataArray
+            A DataArray containing the compressed data from the ObjectGroup.
+            The dimensions correspond to the unique values of the indexes and the features of the data objects.
+            The attributes "sample" and "features" are added to indicate which dimensions correspond to sample indexes and feature coordinates, respectively.
+
+        Raises
+        ------
+        ValueError
+            If sample coordinates and feature coordinates have overlapping names.
+            If the resulting array cannot be reshaped to the expected shape based on the provided coordinates.
+        """
         order = order or []
         reindex = reindex or {}
 
         data = data.orderby(*order)  # Ensure ordering and uniqueness of indexes
         index_lists = data.get_index_lists(**reindex)  # ordered + reindexed
+        if set(order) == set(data.names):
+            index_lists = {k: index_lists[k] for k in order}  # Order indexes
+            logger.info(f"Ordering indexes as specified: {order}")
         sample_coords = {idx: np.unique(values) for idx, values in index_lists.items()}
 
         # Get unflattened labels from the first data object,
         # assuming all objects have the same structure.
-        labels = data.objects[0].data.labels(return_type="unflatten", level=None)
-        features_coords = {k: np.unique(v) for k, v in labels.items()}
+        ls_labels = data.objects[0].data.labels(return_type="unflatten", level=None)
+        ls_coords = data.objects[0].data.flatten(level=None)[0].coords()
+        _tmp = {**ls_labels, **ls_coords}
+        features_coords = {k: np.unique(v) for k, v in _tmp.items()}
+
+        if set(sample_coords) & set(features_coords):
+            raise ValueError(
+                "Sample coordinates and feature coordinates have overlapping names."
+                f" Sample: {list(sample_coords)}, Features: {list(features_coords)}"
+            )
 
         coords = {**sample_coords, **features_coords}
         coords = {k: downcast(v) for k, v in coords.items()}
@@ -443,7 +486,6 @@ class Compressor:
         if result.size != np.prod(shape):
             raise ValueError(
                 f"Cannot reshape array of size {result.size} to shape {shape} based on provided coordinates."
-                "Indexing is either sparse or incorrectly reindexed."
             )
         logger.debug(f"Reshaping result array of size {result.size} to shape {shape}")
 
