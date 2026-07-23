@@ -10,7 +10,7 @@ from abacusnbody.hod.abacus_hod import AbacusHOD
 
 from acm.catalogs.backends.base import SnapshotBackend, register_backend
 from acm.catalogs.dataclasses import Tracer
-from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
+from acm.utils.abacus import BOXSIZES, get_simname, map_params
 from acm.utils.decorators import kwargs_alias
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class AbacusHODBackend(SnapshotBackend):
         sim_params.update(kwargs)
 
         # Build simname based on the provided parameters
-        sim_name = get_abacus_simname(sim_type, cosmo_idx, phase_idx)
+        sim_name = get_simname(sim_type, cosmo_idx, phase_idx)
         sim_params["sim_name"] = sim_name
 
         logger.debug(
