@@ -108,7 +108,8 @@ class AbacusHODBackend(SnapshotBackend):
         redshift : float
             Redshift at which to load the dark matter catalog.
         **kwargs
-            Extra parameters to pass to the loader.
+            Parameters to override the default HOD parameters for each tracer.
+            See :meth:`update_default_tracers` for details on how to provide tracer-specific HOD parameters.
         """
         sim_params = self.sim_params.copy()
         sim_params["z_mock"] = redshift
