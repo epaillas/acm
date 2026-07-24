@@ -239,9 +239,9 @@ class BaseGalaxyCatalog(ABC):
         with h5py.File(path, "r") as f:
             tracer_meta = json.loads(f.attrs["tracers"])
             catalog = cls._from_attrs(
-                attrs = dict(f.attrs),  # Extra attributes saved by the subclass,
-                cosmo = Cosmology.from_state(_h5_read_state(f["cosmo"])),
-                cosmo_fid = Cosmology.from_state(_h5_read_state(f["cosmo_fid"]))
+                attrs=dict(f.attrs),  # Extra attributes saved by the subclass,
+                cosmo=Cosmology.from_state(_h5_read_state(f["cosmo"])),
+                cosmo_fid=Cosmology.from_state(_h5_read_state(f["cosmo_fid"])),
             )  # subclass reconstruction
 
             for tracer_name, params in tracer_meta.items():
