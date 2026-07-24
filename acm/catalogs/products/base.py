@@ -205,10 +205,10 @@ class BaseGalaxyCatalog(ABC):
             self._save_attrs(f)  # subclass-specific attributes
 
             # Save cosmology objects as groups to preserve their state
-            g = f.create_group("cosmo")
-            _h5_write_state(g, self.cosmo.__getstate__())
-            g = f.create_group("cosmo_fid")
-            _h5_write_state(g, self.cosmo_fid.__getstate__())
+            grp = f.create_group("cosmo")
+            _h5_write_state(grp, self.cosmo.__getstate__())
+            grp = f.create_group("cosmo_fid")
+            _h5_write_state(grp, self.cosmo_fid.__getstate__())
 
             for tracer_name, data in self._data.items():
                 grp = f.create_group(tracer_name)
