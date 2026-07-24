@@ -121,7 +121,7 @@ class BaseSnapshotFactory(BaseCatalogFactory):
         if not files:
             raise FileNotFoundError(f"No catalog files found in {path}")
         for file in files:
-            catalog = self.catalog_class.load(file, self.cosmo, self.cosmo_fid)
+            catalog = self.catalog_class.load(file)
             self._catalogs[catalog.redshift] = catalog
         logger.info(f"Loaded {len(files)} catalog(s) from {path}")
 

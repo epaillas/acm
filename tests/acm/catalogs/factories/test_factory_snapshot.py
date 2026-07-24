@@ -10,7 +10,7 @@ from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.factories.snapshot import SnapshotCatalogFactory
 from acm.catalogs.products.snapshot import SnapshotCatalog
 
-# ruff: noqa: ANN001, ANN201, ARG001, ARG002, ARG005, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, ARG002, ARG005, D102, D103, INP001, S101
 
 logger = logging.getLogger(__name__)
 
@@ -45,20 +45,6 @@ class DummyBackend(DarkMatterBackend):
         return 500.0
 
 @pytest.fixture
-def cosmo():
-    m = MagicMock()
-    m.efunc.return_value = 1.0
-    m.angular_diameter_distance.return_value = 1000.0
-    return m
-
-@pytest.fixture
-def cosmo_fid():
-    m = MagicMock()
-    m.efunc.return_value = 1.0
-    m.angular_diameter_distance.return_value = 1000.0
-    return m
-
-@pytest.fixture
 def tracer_foo():
     return Tracer(name="FOO", params={"a": 1})
 
@@ -68,36 +54,26 @@ def tracer_bar():
 
 @pytest.fixture
 def mock_backend():
-    """Mock SnapshotBackend that returns minimal valid catalogs."""
-    return DummyBackend()
-
-@pytest.fixture
-def magic_mock_factory():
-    """Use MagicMock to mimic SnapshotBackend with valid return values."""
+    """Fixture for a dummy backend."""
     backend = MagicMock(spec=DarkMatterBackend)
     backend.get_dark_matter_catalog.return_value = MagicMock()
     backend.make_galaxy_catalog.side_effect = lambda dm_catalog, tracers, **kwargs: {t: make_tracer_data() for t in tracers}
     backend.boxsize = 500.0
+    return backend
 
+@pytest.fixture
+def factory(cosmo_mock1, cosmo_mock2, mock_backend):
+    """Use MagicMock to mimic SnapshotBackend with valid return values."""
     factory = SnapshotCatalogFactory(
-        backend=backend,
+        backend=mock_backend,
         catalog_class=SnapshotCatalog,
-        cosmo=MagicMock(),
-        cosmo_fid=MagicMock(),
+        cosmo=cosmo_mock1,
+        cosmo_fid=cosmo_mock2,
     )
     return factory
 
 @pytest.fixture
-def factory(mock_backend, cosmo, cosmo_fid):
-    return SnapshotCatalogFactory(
-        backend=mock_backend,
-        catalog_class=SnapshotCatalog,
-        cosmo=cosmo,
-        cosmo_fid=cosmo_fid,
-    )
-
-@pytest.fixture
-def factory_with_catalogs(factory, mock_backend, tracer_foo):
+def factory_with_catalogs(factory, tracer_foo):
     """Catalogs already loaded at two redshifts."""
     factory.make_catalogs(redshifts=[0.5, 1.0], tracers=[tracer_foo])
     return factory
@@ -113,11 +89,11 @@ class TestSnapshotCatalogFactoryConstruction:
     def test_factory_stores_catalog_class(self, factory):
         assert factory.catalog_class is SnapshotCatalog
 
-    def test_factory_stores_cosmo(self, factory, cosmo):
-        assert factory.cosmo is cosmo
+    def test_factory_stores_cosmo(self, factory, cosmo_mock1):
+        assert factory.cosmo is cosmo_mock1
 
-    def test_factory_stores_cosmo_fid(self, factory, cosmo_fid):
-        assert factory.cosmo_fid is cosmo_fid
+    def test_factory_stores_cosmo_fid(self, factory, cosmo_mock2):
+        assert factory.cosmo_fid is cosmo_mock2
 
     def test_factory_starts_empty(self, factory):
         assert factory.redshifts == []
@@ -150,10 +126,10 @@ class TestMakeCatalogs:
         for catalog in factory_with_catalogs.catalogs.values():
             np.testing.assert_array_equal(catalog._boxsize, [500., 500., 500.])
 
-    def test_make_catalogs_passes_cosmo(self, factory_with_catalogs, cosmo):
+    def test_make_catalogs_passes_cosmo(self, factory_with_catalogs, cosmo_mock1):
         """Cosmology object from the factory should be passed to the catalog."""
         for catalog in factory_with_catalogs.catalogs.values():
-            assert catalog.cosmo is cosmo
+            assert catalog.cosmo is cosmo_mock1
 
     def test_make_catalogs_sets_tracer_data(self, factory_with_catalogs):
         """Tracer data returned by the backend should be set in the catalog."""
@@ -170,29 +146,29 @@ class TestMakeCatalogs:
         assert "BAR" in factory.get_catalog(1.0).tracers
         assert "FOO" not in factory.get_catalog(1.0).tracers
 
-    def test_make_catalogs_per_redshift_passes_correct_tracers_to_backend(self, magic_mock_factory, tracer_foo, tracer_bar):
+    def test_make_catalogs_per_redshift_passes_correct_tracers_to_backend(self, factory, tracer_foo, tracer_bar):
         """Each redshift should pass the correct tracer list to the backend."""
-        magic_mock_factory.make_catalogs(
+        factory.make_catalogs(
             redshifts=[0.5, 1.0],
             tracers={0.5: [tracer_foo], 1.0: [tracer_bar]},
         )
-        first_call_tracers = magic_mock_factory.backend.make_galaxy_catalog.call_args_list[0][1]["tracers"]
-        second_call_tracers = magic_mock_factory.backend.make_galaxy_catalog.call_args_list[1][1]["tracers"]
-        assert magic_mock_factory.backend.make_galaxy_catalog.call_count == 2
+        first_call_tracers = factory.backend.make_galaxy_catalog.call_args_list[0][1]["tracers"]
+        second_call_tracers = factory.backend.make_galaxy_catalog.call_args_list[1][1]["tracers"]
+        assert factory.backend.make_galaxy_catalog.call_count == 2
         assert first_call_tracers == [tracer_foo] # First call (z=0.5) should have tracer_foo
         assert second_call_tracers == [tracer_bar] # Second call (z=1.0) should have tracer_bar
 
-    def test_make_catalogs_forwards_kwargs_to_make_galaxy_catalog(self, magic_mock_factory, tracer_foo):
+    def test_make_catalogs_forwards_kwargs_to_make_galaxy_catalog(self, factory, tracer_foo):
         """Additional kwargs should be forwarded to the backend's make_galaxy_catalog method."""
         extra_kwargs = {"hod_model": "zheng07", "scatter_type": "dexmag"}
-        magic_mock_factory.make_catalogs(
+        factory.make_catalogs(
             redshifts=[0.5],
             tracers=[tracer_foo],
             hod_model=extra_kwargs["hod_model"],
             scatter_type=extra_kwargs["scatter_type"],
         )
-        magic_mock_factory.backend.make_galaxy_catalog.assert_called_once()
-        call_kwargs = magic_mock_factory.backend.make_galaxy_catalog.call_args[1]
+        factory.backend.make_galaxy_catalog.assert_called_once()
+        call_kwargs = factory.backend.make_galaxy_catalog.call_args[1]
         assert call_kwargs["hod_model"] == "zheng07"
         assert call_kwargs["scatter_type"] == "dexmag"
         assert "dm_catalog" in call_kwargs
@@ -240,26 +216,26 @@ class TestSerialization:
         factory_with_catalogs.save(output)
         assert output.exists()
 
-    def test_load_catalogs_restores_redshifts(self, factory_with_catalogs, tmp_path, cosmo, cosmo_fid):
+    def test_load_catalogs_restores_redshifts(self, factory_with_catalogs, tmp_path, cosmo_mock1, cosmo_mock2):
         """Loading should restore the same redshifts that were saved."""
         factory_with_catalogs.save(tmp_path)
         new_factory = SnapshotCatalogFactory(
             backend=factory_with_catalogs.backend,
             catalog_class=SnapshotCatalog,
-            cosmo=cosmo,
-            cosmo_fid=cosmo_fid,
+            cosmo=cosmo_mock1,
+            cosmo_fid=cosmo_mock2,
         )
         new_factory.load_catalogs(tmp_path)
         assert set(new_factory.redshifts) == {0.5, 1.0}
 
-    def test_load_catalogs_restores_tracer_data(self, factory_with_catalogs, tmp_path, cosmo, cosmo_fid):
+    def test_load_catalogs_restores_tracer_data(self, factory_with_catalogs, tmp_path, cosmo_mock1, cosmo_mock2):
         """Loading should restore the same tracer data that was saved."""
         factory_with_catalogs.save(tmp_path)
         new_factory = SnapshotCatalogFactory(
             backend=factory_with_catalogs.backend,
             catalog_class=SnapshotCatalog,
-            cosmo=cosmo,
-            cosmo_fid=cosmo_fid,
+            cosmo=cosmo_mock1,
+            cosmo_fid=cosmo_mock2,
         )
         new_factory.load_catalogs(tmp_path)
         assert "FOO" in new_factory.get_catalog(0.5).tracers
@@ -269,15 +245,15 @@ class TestSerialization:
         with pytest.raises(FileNotFoundError):
             factory.load_catalogs(tmp_path)
 
-    def test_save_load_roundtrip_ngal(self, factory_with_catalogs, tmp_path, cosmo, cosmo_fid):
+    def test_save_load_roundtrip_ngal(self, factory_with_catalogs, tmp_path, cosmo_mock1, cosmo_mock2):
         """Saving and loading should preserve the number of galaxies in the catalog."""
         original_ngal = factory_with_catalogs.get_catalog(0.5).ngal
         factory_with_catalogs.save(tmp_path)
         new_factory = SnapshotCatalogFactory(
             backend=factory_with_catalogs.backend,
             catalog_class=SnapshotCatalog,
-            cosmo=cosmo,
-            cosmo_fid=cosmo_fid,
+            cosmo=cosmo_mock1,
+            cosmo_fid=cosmo_mock2,
         )
         new_factory.load_catalogs(tmp_path)
         assert new_factory.get_catalog(0.5).ngal == original_ngal

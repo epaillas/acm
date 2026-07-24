@@ -9,6 +9,7 @@ import pandas as pd
 from cosmoprimo import Cosmology
 
 from acm.catalogs.dataclasses import Tracer, Transform
+from acm.utils.h5 import _h5_read_state, _h5_write_state
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +204,12 @@ class BaseGalaxyCatalog(ABC):
             )
             self._save_attrs(f)  # subclass-specific attributes
 
+            # Save cosmology objects as groups to preserve their state
+            g = f.create_group("cosmo")
+            _h5_write_state(g, self.cosmo.__getstate__())
+            g = f.create_group("cosmo_fid")
+            _h5_write_state(g, self.cosmo_fid.__getstate__())
+
             for tracer_name, data in self._data.items():
                 grp = f.create_group(tracer_name)
                 cols = list(columns or data.columns)
@@ -213,7 +220,7 @@ class BaseGalaxyCatalog(ABC):
         logger.info(f"Saved {self.__class__.__name__} to {path}")
 
     @classmethod
-    def load(cls, path: str | Path, cosmo: Cosmology, cosmo_fid: Cosmology) -> Self:
+    def load(cls, path: str | Path) -> Self:
         """
         Load a catalog from an HDF5 file.
 
@@ -221,10 +228,6 @@ class BaseGalaxyCatalog(ABC):
         ----------
         path : str | Path
             Path to the HDF5 file.
-        cosmo : Cosmology
-            Simulation cosmology — not serialized, must be provided explicitly.
-        cosmo_fid : Cosmology
-            Fiducial cosmology — not serialized, must be provided explicitly.
 
         Returns
         -------
@@ -235,10 +238,10 @@ class BaseGalaxyCatalog(ABC):
 
         with h5py.File(path, "r") as f:
             tracer_meta = json.loads(f.attrs["tracers"])
-            extra_attrs = dict(f.attrs)  # Extra attributes saved by the subclass
-
             catalog = cls._from_attrs(
-                extra_attrs, cosmo, cosmo_fid
+                attrs = dict(f.attrs),  # Extra attributes saved by the subclass,
+                cosmo = Cosmology.from_state(_h5_read_state(f["cosmo"])),
+                cosmo_fid = Cosmology.from_state(_h5_read_state(f["cosmo_fid"]))
             )  # subclass reconstruction
 
             for tracer_name, params in tracer_meta.items():
