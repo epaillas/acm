@@ -95,19 +95,21 @@ class AbacusHODBackend(SnapshotBackend):
 
         self._cache: dict[float, AbacusHOD]
 
-    @override
     def load_dark_matter_catalog(
         self,
         redshift: float,
-        no_cache: bool = False,
         **kwargs,
-    ) -> AbacusHOD:
-        if redshift in self._cache and no_cache is False:
-            logger.debug(
-                f"Loaded dark matter catalog for redshift z={redshift:.3f} from cache."
-            )
-            return self._cache[redshift]
+    ) -> None:
+        """
+        Load the dark matter catalog from disk for the specified redshift and tracers.
 
+        Parameters
+        ----------
+        redshift : float
+            Redshift at which to load the dark matter catalog.
+        **kwargs
+            Extra parameters to pass to the loader.
+        """
         sim_params = self.sim_params.copy()
         sim_params["z_mock"] = redshift
 
@@ -120,7 +122,33 @@ class AbacusHODBackend(SnapshotBackend):
             f"Loaded dark matter catalog for redshift z={redshift:.3f} in {time.time() - t0:.2f} seconds."
         )
         self._cache[redshift] = dark_matter_catalog
-        return dark_matter_catalog
+
+    @override
+    def get_dark_matter_catalog(self, redshift: float) -> AbacusHOD:
+        """
+        Get the dark matter catalog from memory for the specified redshift.
+
+        Parameters
+        ----------
+        redshift : float
+            Redshift at which to retrieve the dark matter catalog.
+
+        Returns
+        -------
+        AbacusHOD
+            The dark matter catalog for the specified redshift.
+
+        Raises
+        ------
+        KeyError
+            If the dark matter catalog for the specified redshift has not been loaded yet.
+        """
+        if redshift not in self._cache:
+            raise KeyError(
+                f"Dark matter catalog for redshift z={redshift:.3f} has not been loaded yet. "
+                f"Please call load_dark_matter_catalog first."
+            )
+        return self._cache[redshift]
 
     @override
     @kwargs_alias(reseed="seed", Nthread="nthreads")

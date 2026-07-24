@@ -53,7 +53,8 @@ def tracer_bar():
 @pytest.fixture
 def dm_catalog(backend, tracer_foo):
     """Load dark matter catalog for a single tracer."""
-    return backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+    backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+    return backend.get_dark_matter_catalog(redshift=0.5)
 
 
 class TestInit:
@@ -85,24 +86,32 @@ class TestInit:
 class TestLoadDarkMatterCatalog:
     """Tests for AbacusHODBackend.load_dark_matter_catalog."""
 
-    def test_returns_mock_abacus_hod(self, backend, tracer_foo):
+    def test_returns_none(self, backend, tracer_foo):
         dm = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
-        assert isinstance(dm, MockAbacusHOD)
+        assert dm is None  # The method now returns None
+
+    def test_cache_result(self, backend, tracer_foo):
+        """The result should be cached after the first call."""
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        assert 0.5 in backend._cache
 
     def test_redshift_set_in_sim_params(self, backend, tracer_foo):
         """The redshift passed should be set in the sim_params of the returned AbacusHOD instance."""
-        dm = backend.load_dark_matter_catalog(redshift=0.8, tracers=[tracer_foo])
+        backend.load_dark_matter_catalog(redshift=0.8, tracers=[tracer_foo])
+        dm = backend._cache[0.8]  # Access the cached instance
         assert dm.sim_params["z_mock"] == 0.8
 
     def test_tracer_flag_enabled(self, backend, tracer_foo):
         """Requesting a tracer should set its flag to True in the returned AbacusHOD instance."""
-        dm = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        dm = backend._cache[0.5]  # Access the cached instance
         assert dm.hod_params["tracer_flags"]["FOO"] is True
 
     def test_tracer_params_overridden(self, backend):
         """Params passed in the tracer should override those in the config."""
         tracer = Tracer(name="FOO", params={"alpha": 99.0})
-        dm = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
+        dm = backend._cache[0.5]  # Access the cached instance
         assert dm.hod_params["FOO_params"]["alpha"] == 99.0
 
     def test_missing_tracer_params_raises(self, config_file, tmp_path):
@@ -120,29 +129,26 @@ class TestLoadDarkMatterCatalog:
         with pytest.raises(ValueError, match="HOD parameters"):
             b.load_dark_matter_catalog(redshift=0.5, tracers=[Tracer(name="FOO")])
 
-    def test_cache_populated_after_first_load(self, backend, tracer_foo):
-        """Cache should contain the redshift key after first load."""
-        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
-        assert 0.5 in backend._cache
-
-    def test_cache_returns_same_instance(self, backend, tracer_foo):
-        """Second call with same redshift should return the exact same object."""
-        dm1 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
-        dm2 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
-        assert dm1 is dm2
-
-    def test_no_cache_bypasses_cache(self, backend, tracer_foo):
-        """no_cache=True should return a new instance even if redshift is cached."""
-        dm1 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
-        dm2 = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo], no_cache=True)
-        assert dm1 is not dm2
-
-    def test_different_redshifts_cached_separately(self, backend, tracer_foo):
+    def test_different_redshifts_cached(self, backend, tracer_foo):
         """Each redshift should get its own cache entry."""
         backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
         backend.load_dark_matter_catalog(redshift=1.0, tracers=[tracer_foo])
         assert 0.5 in backend._cache
         assert 1.0 in backend._cache
+
+class TestGetDarkMatterCatalog:
+    """Tests for AbacusHODBackend.get_dark_matter_catalog."""
+
+    def test_returns_cached_instance(self, backend, tracer_foo):
+        """get_dark_matter_catalog should return the cached AbacusHOD instance."""
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        dm = backend.get_dark_matter_catalog(redshift=0.5)
+        assert isinstance(dm, MockAbacusHOD)
+
+    def test_missing_redshift_raises(self, backend):
+        """Requesting a redshift not in cache should raise a KeyError."""
+        with pytest.raises(KeyError, match="has not been loaded yet"):
+            backend.get_dark_matter_catalog(redshift=0.9)
 
 class TestMakeGalaxyCatalog:
     """Tests for AbacusHODBackend.make_galaxy_catalog."""
@@ -173,16 +179,17 @@ class TestMakeGalaxyCatalog:
         result = backend.make_galaxy_catalog(dm_catalog, tracers=[tracer_foo])
         assert result[tracer_foo]["is_cent"].dtype == bool
 
-    def test_bgs_alone_accepted(self, backend):
-        """BGS requested alone should not raise."""
+    def test_bgs_alone_accepted_with_lrg_defaults(self, backend):
+        """BGS tracer requested alone should not raise if default LRG parameters are available."""
         tracer = Tracer(name="LRG", params={"alpha": 1.0})
-        dm_catalog = backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
+        dm_catalog = backend.get_dark_matter_catalog(redshift=0.5)
         tracer = Tracer(name="BGS", params={})
         result = backend.make_galaxy_catalog(dm_catalog, tracers=[tracer])
         assert tracer in result
 
     def test_bgs_without_lrg_raises(self, config_file, dm_catalog):
-        """Requesting BGS without LRG should raise an error."""
+        """Requesting BGS without LRG default values should raise an error."""
         backend = AbacusHODBackend(sim_type="base", config_file=config_file, HOD_params={"tracer_flags": {"LRG": False}, "LRG_params": {"alpha": 1.0}})
         tracer = Tracer(name="BGS", params={})
         with pytest.raises(KeyError, match="BGS"):

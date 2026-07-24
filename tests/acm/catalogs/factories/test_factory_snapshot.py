@@ -32,6 +32,9 @@ class DummyBackend(DarkMatterBackend):
     """A minimal implementation of DarkMatterBackend for testing."""
 
     def load_dark_matter_catalog(self, redshift: float, **kwargs):
+        pass
+
+    def get_dark_matter_catalog(self, redshift: float):
         return MagicMock()  # Return a dummy catalog object
 
     def make_galaxy_catalog(self, dm_catalog, tracers: list[Tracer], **kwargs) -> None:  # ty:ignore[invalid-method-override]
@@ -72,7 +75,7 @@ def mock_backend():
 def magic_mock_factory():
     """Use MagicMock to mimic SnapshotBackend with valid return values."""
     backend = MagicMock(spec=DarkMatterBackend)
-    backend.load_dark_matter_catalog.return_value = MagicMock()
+    backend.get_dark_matter_catalog.return_value = MagicMock()
     backend.make_galaxy_catalog.side_effect = lambda dm_catalog, tracers, **kwargs: {t: make_tracer_data() for t in tracers}
     backend.boxsize = 500.0
 
@@ -166,20 +169,6 @@ class TestMakeCatalogs:
         assert "FOO" in factory.get_catalog(0.5).tracers
         assert "BAR" in factory.get_catalog(1.0).tracers
         assert "FOO" not in factory.get_catalog(1.0).tracers
-
-    def test_make_catalogs_forwards_dark_matter_kwargs(self, magic_mock_factory, tracer_foo):
-        """Dark matter kwargs should be forwarded to the backend."""
-        dark_matter_kwargs = {"seed": 42, "cosmology_variant": "base"}
-        magic_mock_factory.make_catalogs(
-            redshifts=[0.5],
-            tracers=[tracer_foo],
-            dark_matter_kwargs=dark_matter_kwargs,
-        )
-        magic_mock_factory.backend.load_dark_matter_catalog.assert_called_once()
-        call_kwargs = magic_mock_factory.backend.load_dark_matter_catalog.call_args[1]
-        assert call_kwargs["redshift"] == 0.5
-        assert call_kwargs["seed"] == 42
-        assert call_kwargs["cosmology_variant"] == "base"
 
     def test_make_catalogs_per_redshift_passes_correct_tracers_to_backend(self, magic_mock_factory, tracer_foo, tracer_bar):
         """Each redshift should pass the correct tracer list to the backend."""

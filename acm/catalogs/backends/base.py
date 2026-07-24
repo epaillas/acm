@@ -47,10 +47,14 @@ class DarkMatterBackend(ABC):
         ...
 
     @abstractmethod
-    def load_dark_matter_catalog(self, *args, **kwargs) -> object:
-        """Load the dark matter catalog, to be implemented by geometry-specific subclasses."""
+    def load_dark_matter_catalog(self, *args, **kwargs) -> None:
+        """Load the dark matter catalog from disk, to be implemented by geometry-specific subclasses."""
         ...
 
+    @abstractmethod
+    def get_dark_matter_catalog(self, *args, **kwargs) -> object:
+        """Get the dark matter catalog from memory, to be implemented by geometry-specific subclasses."""
+        ...
 
 class SnapshotBackend(DarkMatterBackend):
     """
@@ -67,11 +71,10 @@ class SnapshotBackend(DarkMatterBackend):
     def load_dark_matter_catalog(
         self,
         redshift: float,
-        no_cache: bool = False,
         **kwargs,
-    ) -> object:
+    ) -> None:
         """
-        Load the dark matter catalog for the specified redshift and tracers.
+        Load the dark matter catalog from disk for the specified redshift and tracers.
 
         Parameters
         ----------
@@ -79,11 +82,28 @@ class SnapshotBackend(DarkMatterBackend):
             Redshift at which to load the dark matter catalog.
         **kwargs
             Extra parameters to pass to the loader.
+        """
+        ...
+
+    @abstractmethod
+    def get_dark_matter_catalog(
+        self,
+        redshift: float,
+    ) -> object:
+        """
+        Get the dark matter catalog from memory for the specified redshift.
+
+        Parameters
+        ----------
+        redshift : float
+            Redshift at which to retrieve the dark matter catalog.
+        **kwargs
+            Extra parameters to pass to the getter.
 
         Returns
         -------
         object
-            The loaded dark matter catalog, in a format specific to the backend.
+            The dark matter catalog for the specified redshift.
         """
         ...
 
