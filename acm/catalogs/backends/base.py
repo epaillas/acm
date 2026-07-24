@@ -56,6 +56,7 @@ class DarkMatterBackend(ABC):
         """Get the dark matter catalog from memory, to be implemented by geometry-specific subclasses."""
         ...
 
+
 class SnapshotBackend(DarkMatterBackend):
     """
     Base for snapshot-based backends.

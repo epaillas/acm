@@ -372,7 +372,7 @@ class RandomSnapshotCatalog(SnapshotCatalog):
         raise NotImplementedError("RSD is not available for random catalogs.")
 
 
-#%% Helpers
+# %% Helpers
 def boundary_check(
     positions: np.ndarray,
     boxsize: np.ndarray | list[float] | float,
