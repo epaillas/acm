@@ -376,8 +376,8 @@ class RandomSnapshotCatalog(SnapshotCatalog):
 def boundary_check(
     positions: np.ndarray,
     boxsize: np.ndarray | list[float] | float,
-    check_in_float32: bool = True,
     center_at_zero: bool = False,
+    dtype: np.typing.DTypeLike = np.float64,
 ) -> None:
     """
     Check that all positions are within the specified box boundaries.
@@ -390,23 +390,20 @@ def boundary_check(
     boxsize : np.ndarray | list[float] | float
         Size of the periodic box.
         Can be a single float (same size for all dimensions) or an array of shape (3,).
-    check_in_float32 : bool, optional
-        If True, all checks are performed in single precision (float32).
-        Default is True.
     center_at_zero : bool, optional
         If True, positions are required to be in the range [-L_i/2, L_i/2) for each axis.
         If False, positions should be in [0, L_i). Default is False.
+    dtype : np.typing.DTypeLike, optional
+        Data type for the positions and boxsize. Default is np.float64.
 
     Raises
     ------
     ValueError
         If any of the positions fall outside the specified box boundaries.
     """
-    # Pick precision
-    _dtype = np.float32 if check_in_float32 else np.float64
-    positions = positions.astype(_dtype)
+    positions = positions.astype(dtype)
 
-    boxsize = np.atleast_1d(np.array(boxsize, dtype=_dtype))
+    boxsize = np.atleast_1d(np.array(boxsize, dtype=dtype))
     if len(boxsize) == 1:
         boxsize = np.repeat(boxsize, 3)
     elif len(boxsize) != 3:
@@ -416,22 +413,22 @@ def boundary_check(
 
     # Pick right and left edges for each dimension
     offset = boxsize / 2 if center_at_zero else 0.0
-    L = np.array([0.0, 0.0, 0.0], dtype=_dtype) - offset
-    R = boxsize - offset
+    left_bound = np.array([0.0, 0.0, 0.0], dtype=dtype) - offset
+    right_bound = boxsize - offset
 
     # Do checks
     for i in range(positions.shape[1]):
-        left_bound_check = np.all(positions[:, i] >= L[i])
-        right_bound_check = np.all(positions[:, i] < R[i])
+        in_left_bound = np.all(positions[:, i] >= left_bound[i])
+        in_right_bound = np.all(positions[:, i] < right_bound[i])
 
         min_left = np.min(positions[:, i])
         max_right = np.max(positions[:, i])
 
         # Build error message:
         em = ""
-        if not left_bound_check:
-            em += f"{min_left!r} falls out of the box on the left edge {L[i]!r} along the {i}-th axis. "
-        if not right_bound_check:
-            em += f"{max_right!r} falls out of the box on the right edge {R[i]!r} along the {i}-th axis."
+        if not in_left_bound:
+            em += f"{min_left!r} falls out of the box on the left edge {left_bound[i]!r} along the {i}-th axis. "
+        if not in_right_bound:
+            em += f"{max_right!r} falls out of the box on the right edge {right_bound[i]!r} along the {i}-th axis."
         if em:
             raise ValueError(em)

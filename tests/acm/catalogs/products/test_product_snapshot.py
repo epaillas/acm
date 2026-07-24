@@ -507,11 +507,11 @@ class TestBoundaryCheck:
         boxsize = 100.0
         boundary_check(positions, boxsize, center_at_zero=True)
 
-    def test_float64_precision(self):
-        """Test that checks can be performed in float64 precision."""
+    def test_float32_precision(self):
+        """Test that checks can be performed in float32 precision."""
         positions = make_positions(n=100, low=0.0, high=100.0)
         boxsize = 100.0
-        boundary_check(positions, boxsize, check_in_float32=False)
+        boundary_check(positions, boxsize, dtype=np.float32)
 
     def test_left_edge_inclusive(self):
         """Test that positions on the left edge are accepted."""
