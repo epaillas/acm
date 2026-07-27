@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,9 +6,10 @@ from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.products.snapshot import (
     RandomSnapshotCatalog,
     SnapshotCatalog,
+    boundary_check,
 )
 
-# ruff: noqa: ANN001, ANN201, ARG001, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, D103, INP001, S101
 
 #%% Fixtures
 
@@ -27,26 +26,12 @@ def make_tracer_data(n: int = 100) -> pd.DataFrame:
     })
 
 @pytest.fixture
-def cosmo():
-    m = MagicMock()
-    m.efunc.return_value = 1.0
-    m.angular_diameter_distance.return_value = 1000.0
-    return m
-
-@pytest.fixture
-def cosmo_fid():
-    m = MagicMock()
-    m.efunc.return_value = 1.0
-    m.angular_diameter_distance.return_value = 1000.0
-    return m
-
-@pytest.fixture
 def boxsize():
     return 500.0
 
 @pytest.fixture
-def catalog(cosmo, cosmo_fid, boxsize):
-    return SnapshotCatalog(redshift=0.5, cosmo=cosmo, cosmo_fid=cosmo_fid, boxsize=boxsize)
+def catalog(cosmo_mock1, cosmo_mock2, boxsize):
+    return SnapshotCatalog(redshift=0.5, cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2, boxsize=boxsize)
 
 @pytest.fixture
 def tracer():
@@ -72,15 +57,15 @@ def test_boxsize_scalar_broadcast(catalog):
     """Scalar boxsize should be broadcast to all three dimensions."""
     np.testing.assert_array_equal(catalog._boxsize, [500.0, 500.0, 500.0])
 
-def test_boxsize_array(cosmo, cosmo_fid):
+def test_boxsize_array(cosmo_mock1, cosmo_mock2):
     """Array boxsize should be stored as-is."""
-    cat = SnapshotCatalog(redshift=0.5, cosmo=cosmo, cosmo_fid=cosmo_fid, boxsize=[100., 200., 300.])
+    cat = SnapshotCatalog(redshift=0.5, cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2, boxsize=[100., 200., 300.])
     np.testing.assert_array_equal(cat._boxsize, [100., 200., 300.])
 
-def test_boxsize_invalid_shape_raises(cosmo, cosmo_fid):
+def test_boxsize_invalid_shape_raises(cosmo_mock1, cosmo_mock2):
     """Boxsize with invalid shape should raise an error."""
     with pytest.raises(ValueError, match="shape"):
-        SnapshotCatalog(redshift=0.5, cosmo=cosmo, cosmo_fid=cosmo_fid, boxsize=[1., 2.])
+        SnapshotCatalog(redshift=0.5, cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2, boxsize=[1., 2.])
 
 def test_repr(populated_catalog):
     """Repr should include class name, redshift, and tracer names."""
@@ -95,21 +80,21 @@ def test_repr(populated_catalog):
 def test_az(catalog):
     assert catalog.az == pytest.approx(1.0 / 1.5)
 
-def test_hubble(catalog, cosmo):
-    cosmo.efunc.return_value = 0.8
-    assert catalog.hubble == pytest.approx(80.0)
+def test_hubble(catalog):
+    assert catalog.hubble == pytest.approx(130.0)
 
-def test_hubble_fid(catalog, cosmo_fid):
-    cosmo_fid.efunc.return_value = 0.9
-    assert catalog.hubble_fid == pytest.approx(90.0)
+def test_hubble_fid(catalog):
+    assert catalog.hubble_fid == pytest.approx(150.0)
 
 def test_q_par(catalog):
     """q_par = hubble_fid / hubble; both cosmologies identical here so q_par = 1."""
-    assert catalog.q_par == pytest.approx(1.0)
+    assert catalog.q_par == pytest.approx(150/130)
 
-def test_q_perp(catalog):
+def test_q_perp(catalog, cosmo_mock1, cosmo_mock2):
     """q_perp = DA / DA_fid; both cosmologies identical here so q_perp = 1."""
-    assert catalog.q_perp == pytest.approx(1.0)
+    z = catalog.redshift
+    qperp = cosmo_mock1.angular_diameter_distance(z) / cosmo_mock2.angular_diameter_distance(z)
+    assert catalog.q_perp == pytest.approx(qperp)
 
 
 #%% boxsize with AP
@@ -118,12 +103,8 @@ def test_boxsize_without_ap(catalog):
     """Without AP transform, boxsize should be unchanged."""
     np.testing.assert_array_equal(catalog.boxsize, [500., 500., 500.])
 
-def test_boxsize_with_ap(populated_catalog, cosmo, cosmo_fid):
+def test_boxsize_with_ap(populated_catalog):
     """AP transform should scale boxsize by q_par along los and q_perp transversely."""
-    cosmo.efunc.return_value = 0.8
-    cosmo_fid.efunc.return_value = 1.0
-    cosmo.angular_diameter_distance.return_value = 800.0
-    cosmo_fid.angular_diameter_distance.return_value = 1000.0
     populated_catalog.ap(los="z")
     boxsize = populated_catalog.boxsize
     assert boxsize[2] == pytest.approx(500.0 / populated_catalog.q_par)
@@ -221,10 +202,8 @@ def test_ap_invalid_los_raises(populated_catalog):
     with pytest.raises(ValueError, match="los"):
         populated_catalog.ap(los="w")
 
-def test_ap_scales_positions(populated_catalog, cosmo, cosmo_fid):
+def test_ap_scales_positions(populated_catalog):
     """AP transform should scale positions by q_par along the los and q_perp transversely."""
-    cosmo.efunc.return_value = 0.8
-    cosmo_fid.efunc.return_value = 1.0
     raw = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.ap(los="z")
     result = populated_catalog.get_tracer_data("FOO")
@@ -265,10 +244,8 @@ def test_downsample_by_nbar(populated_catalog):
     populated_catalog.downsample("FOO", nbar=target_nbar)
     assert len(populated_catalog.get_tracer_data("FOO")) == 50
 
-def test_downsample_nbar_uses_ap_boxsize(populated_catalog, cosmo, cosmo_fid):
+def test_downsample_nbar_uses_ap_boxsize(populated_catalog):
     """Nbar downsampling should use AP-scaled boxsize when AP is in the pipeline."""
-    cosmo.efunc.return_value = 0.8
-    cosmo_fid.efunc.return_value = 1.0
     populated_catalog.ap(los="z")
     ap_volume = np.prod(populated_catalog.boxsize)
     target_nbar = 50 / ap_volume
@@ -310,42 +287,52 @@ def test_empty_catalog_raises(catalog):
 
 #%% Serialization
 
-def test_save_creates_file(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_save_creates_file(populated_catalog, tmp_path):
     path = tmp_path / "snapshot.h5"
     populated_catalog.save(path)
     assert path.exists()
 
-def test_save_load_roundtrip(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_save_load_roundtrip(populated_catalog, tmp_path):
     path = tmp_path / "snapshot.h5"
     populated_catalog.save(path)
-    loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
+    loaded = SnapshotCatalog.load(path)
     assert loaded.redshift == pytest.approx(0.5)
     np.testing.assert_array_equal(loaded._boxsize, populated_catalog._boxsize)
 
-def test_save_load_tracer_data(populated_catalog, tmp_path, cosmo, cosmo_fid, valid_data):
+def test_save_load_tracer_data(populated_catalog, tmp_path, valid_data):
     """Test that tracer data is preserved through a save/load roundtrip, including column order."""
     path = tmp_path / "snapshot.h5"
     populated_catalog.save(path)
-    loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
+    loaded = SnapshotCatalog.load(path)
     pd.testing.assert_frame_equal(
         loaded.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         valid_data.reset_index(drop=True),
     )
 
-def test_save_load_preserves_tracer_names(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_save_load_preserves_tracer_names(populated_catalog, tmp_path):
     """Tracer names should be preserved through a save/load roundtrip."""
     path = tmp_path / "snapshot.h5"
     populated_catalog.save(path)
-    loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
+    loaded = SnapshotCatalog.load(path)
     assert set(loaded.tracers.keys()) == set(populated_catalog.tracers.keys())
 
-def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_transforms_not_persisted(populated_catalog, tmp_path):
     """Transforms registered before saving should not be present after loading."""
     populated_catalog.ap(los="z")
     path = tmp_path / "snapshot.h5"
     populated_catalog.save(path)
-    loaded = SnapshotCatalog.load(path, cosmo, cosmo_fid)
+    loaded = SnapshotCatalog.load(path)
     assert "ap" not in loaded.transform_pipeline
+
+def test_save_load_preserves_cosmo(populated_catalog, tmp_path):
+    """Cosmology values should be preserved through a save/load roundtrip."""
+    path = tmp_path / "snapshot.h5"
+    populated_catalog.save(path)
+    loaded = SnapshotCatalog.load(path)
+    assert loaded.cosmo != populated_catalog.cosmo  # Different instances
+    assert loaded.cosmo.__class__ == populated_catalog.cosmo.__class__  # Same class
+    for attr in ("_efunc", "_add"): # Same attributes should be equal
+        assert getattr(loaded.cosmo, attr) == getattr(populated_catalog.cosmo, attr)
 
 
 #%% RandomSnapshotCatalog
@@ -434,10 +421,8 @@ def test_rsd_applies_to_all_tracers(multi_tracer_catalog):
     assert not np.allclose(multi_tracer_catalog.get_tracer_data("FOO")["z"].values, raw_foo.values)
     assert not np.allclose(multi_tracer_catalog.get_tracer_data("BAR")["z"].values, raw_bar.values)
 
-def test_ap_applies_to_all_tracers(multi_tracer_catalog, cosmo, cosmo_fid):
+def test_ap_applies_to_all_tracers(multi_tracer_catalog):
     """AP is a catalog-level transform and should affect all tracers."""
-    cosmo.efunc.return_value = 0.8
-    cosmo_fid.efunc.return_value = 1.0
     raw_foo = multi_tracer_catalog.get_tracer_data("FOO", raw=True)["z"].copy()
     raw_bar = multi_tracer_catalog.get_tracer_data("BAR", raw=True)["z"].copy()
     multi_tracer_catalog.ap(los="z")
@@ -487,3 +472,133 @@ def test_multi_tracer_positions_reset_index(multi_tracer_catalog):
     """Index should be reset after concatenation — no duplicate indices."""
     result = multi_tracer_catalog.positions()
     assert list(result.index) == list(range(len(result)))
+
+
+#%% Helpers
+def make_positions(n=10, low=0.0, high=100.0, seed=0):
+    """Create a random catalog of positions in a box."""
+    rng = np.random.default_rng(seed)
+    return rng.uniform(low, high, size=(n, 3)).astype(np.float64)
+
+class TestBoundaryCheck:
+    """Test the boundary_check function with various scenarios."""
+
+    def test_valid_catalog(self):
+        """Test that a valid catalog passes the checks."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        boxsize = 100.0
+        boundary_check(positions, boxsize)
+
+    def test_array_boxsize(self):
+        """Test that an array boxsize is accepted."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        boxsize = np.array([100.0, 100.0, 100.0])
+        boundary_check(positions, boxsize)
+
+    def test_list_boxsize(self):
+        """Test that a list boxsize is accepted."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        boxsize = [100.0, 100.0, 100.0]
+        boundary_check(positions, boxsize)
+
+    def test_center_at_zero(self):
+        """Test that positions centered at zero are accepted when center_at_zero is True."""
+        positions = make_positions(n=100, low=-50.0, high=50.0)
+        boxsize = 100.0
+        boundary_check(positions, boxsize, center_at_zero=True)
+
+    def test_float32_precision(self):
+        """Test that checks can be performed in float32 precision."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        boxsize = 100.0
+        boundary_check(positions, boxsize, dtype=np.float32)
+
+    def test_left_edge_inclusive(self):
+        """Test that positions on the left edge are accepted."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        positions[0, 0] = 0.0  # Set one position to the left edge
+        boxsize = 100.0
+        boundary_check(positions, boxsize)
+
+    def test_right_edge_exclusive(self):
+        """Test that positions on the right edge are rejected."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        positions[0, 0] = 100.0  # Set one position to the right edge
+        boxsize = 100.0
+        with pytest.raises(ValueError, match="right edge"):
+            boundary_check(positions, boxsize)
+
+    def test_invalid_boxsize_shape(self):
+        """Test that an invalid boxsize shape raises an error."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        boxsize = np.array([100.0, 100.0])  # Invalid shape
+        with pytest.raises(ValueError, match="boxsize"):
+            boundary_check(positions, boxsize)
+
+    def test_out_of_bounds_left(self):
+        """Test that positions outside the left boundary raise an error."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        positions[0, 0] = -1.0  # Set one position outside the left boundary
+        boxsize = 100.0
+        with pytest.raises(ValueError, match="left edge"):
+            boundary_check(positions, boxsize)
+
+    def test_out_of_bounds_right(self):
+        """Test that positions outside the right boundary raise an error."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        positions[0, 0] = 101.0  # Set one position outside the right boundary
+        boxsize = 100.0
+        with pytest.raises(ValueError, match="right edge"):
+            boundary_check(positions, boxsize)
+
+    def test_out_of_bounds_both_edges(self):
+        """Test that positions outside both boundaries raise an error."""
+        positions = make_positions(n=100, low=0.0, high=100.0)
+        positions[0, 0] = -1.0  # Set one position outside the left boundary
+        positions[1, 0] = 101.0  # Set another position outside the right boundary
+        boxsize = 100.0
+        with pytest.raises(ValueError) as exc_info:  # noqa: PT011
+            boundary_check(positions, boxsize)
+        assert "left edge" in str(exc_info.value)
+        assert "right edge" in str(exc_info.value)
+
+    def test_out_of_bounds_centered(self):
+        """Test that positions outside the boundaries raise an error when center_at_zero is True."""
+        positions = make_positions(n=100, low=-50.0, high=50.0)
+        positions[0, 0] = -51.0  # Set one position outside the left boundary
+        positions[1, 0] = 51.0   # Set another position outside the right boundary
+        boxsize = 100.0
+        with pytest.raises(ValueError) as exc_info:  # noqa: PT011
+            boundary_check(positions, boxsize, center_at_zero=True)
+        assert "left edge" in str(exc_info.value)
+        assert "right edge" in str(exc_info.value)
+
+    # Edge cases
+    def test_single_position(self):
+        """Test that a catalog with a single position is checked correctly."""
+        positions = np.array([[50.0, 50.0, 50.0]])
+        boxsize = 100.0
+        boundary_check(positions, boxsize)
+
+    def test_asymmetric_box(self):
+        """Test that an asymmetric box size is handled correctly."""
+        # Symmetric positions in the smallest box dimension
+        positions = make_positions(n=100, low=0.0, high=25.0)
+        boxsize = [100.0, 50.0, 25.0]
+        boundary_check(positions, boxsize)
+
+    def test_asymmetric_box_centered(self):
+        """Test that an asymmetric box size with centered positions is handled correctly."""
+        # Symmetric positions in the smallest box dimension
+        positions = make_positions(n=100, low=-12.5, high=12.5)
+        boxsize = [100.0, 50.0, 25.0]
+        boundary_check(positions, boxsize, center_at_zero=True)
+
+    def test_asymmetric_box_out_of_bounds(self):
+        """Test that positions outside the boundaries of an asymmetric box raise an error."""
+        # Symmetric positions in the smallest box dimension
+        positions = make_positions(n=100, low=0.0, high=25.0)
+        positions[0, 1] = 51.0  # Set one position outside the second dimension boundary
+        boxsize = [100.0, 50.0, 25.0]
+        with pytest.raises(ValueError, match="right edge"):
+            boundary_check(positions, boxsize)

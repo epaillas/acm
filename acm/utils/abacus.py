@@ -27,7 +27,7 @@ ABACUS_MAP = {
 }
 
 
-def get_abacus_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
+def get_simname(sim_type: str, cosmo_idx: int, phase_idx: int) -> str:
     """Build the Abacus simulation name based on the provided parameters."""
     if sim_type == "png":
         return f"Abacus_{sim_type}base_c{cosmo_idx:03d}_ph{phase_idx:03d}"
@@ -81,7 +81,7 @@ def map_params(
     return params
 
 
-def load_abacus_cosmologies(
+def load_cosmologies(
     filename: Path | str,
     cosmologies: list[int],
     parameters: list[str],
@@ -125,13 +125,13 @@ def load_abacus_cosmologies(
     return cosmo_params.to_dict(orient="index")
 
 
-def get_abacus_phases(
+def get_phases(
     phase_dir: str | Path,
     z: float,
     cosmo: int = 0,
 ) -> tuple[list[Path], list[int]]:
     """
-    Find the simulation phases for a given redshift.
+    Get the simulation phase indices available for a given redshift, from file names.
 
     Parameters
     ----------

@@ -10,7 +10,7 @@ from abacusnbody.hod.abacus_hod import AbacusHOD
 
 from acm.catalogs.backends.base import SnapshotBackend, register_backend
 from acm.catalogs.dataclasses import Tracer
-from acm.utils.abacus import BOXSIZES, get_abacus_simname, map_params
+from acm.utils.abacus import BOXSIZES, get_simname, map_params
 from acm.utils.decorators import kwargs_alias
 
 logger = logging.getLogger(__name__)
@@ -81,7 +81,7 @@ class AbacusHODBackend(SnapshotBackend):
         sim_params.update(kwargs)
 
         # Build simname based on the provided parameters
-        sim_name = get_abacus_simname(sim_type, cosmo_idx, phase_idx)
+        sim_name = get_simname(sim_type, cosmo_idx, phase_idx)
         sim_params["sim_name"] = sim_name
 
         logger.debug(
@@ -95,19 +95,22 @@ class AbacusHODBackend(SnapshotBackend):
 
         self._cache: dict[float, AbacusHOD]
 
-    @override
     def load_dark_matter_catalog(
         self,
         redshift: float,
-        no_cache: bool = False,
         **kwargs,
-    ) -> AbacusHOD:
-        if redshift in self._cache and no_cache is False:
-            logger.debug(
-                f"Loaded dark matter catalog for redshift z={redshift:.3f} from cache."
-            )
-            return self._cache[redshift]
+    ) -> None:
+        """
+        Load the dark matter catalog from disk for the specified redshift and tracers.
 
+        Parameters
+        ----------
+        redshift : float
+            Redshift at which to load the dark matter catalog.
+        **kwargs
+            Parameters to override the default HOD parameters for each tracer.
+            See :meth:`update_default_tracers` for details on how to provide tracer-specific HOD parameters.
+        """
         sim_params = self.sim_params.copy()
         sim_params["z_mock"] = redshift
 
@@ -120,7 +123,33 @@ class AbacusHODBackend(SnapshotBackend):
             f"Loaded dark matter catalog for redshift z={redshift:.3f} in {time.time() - t0:.2f} seconds."
         )
         self._cache[redshift] = dark_matter_catalog
-        return dark_matter_catalog
+
+    @override
+    def get_dark_matter_catalog(self, redshift: float) -> AbacusHOD:
+        """
+        Get the dark matter catalog from memory for the specified redshift.
+
+        Parameters
+        ----------
+        redshift : float
+            Redshift at which to retrieve the dark matter catalog.
+
+        Returns
+        -------
+        AbacusHOD
+            The dark matter catalog for the specified redshift.
+
+        Raises
+        ------
+        KeyError
+            If the dark matter catalog for the specified redshift has not been loaded yet.
+        """
+        if redshift not in self._cache:
+            raise KeyError(
+                f"Dark matter catalog for redshift z={redshift:.3f} has not been loaded yet. "
+                f"Please call load_dark_matter_catalog first."
+            )
+        return self._cache[redshift]
 
     @override
     @kwargs_alias(reseed="seed", Nthread="nthreads")

@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,7 +10,7 @@ from acm.catalogs.products.cutsky import (
     _shell_volume,
 )
 
-# ruff: noqa: ANN001, ANN201, ARG001, D101, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, D101, D102, D103, INP001, S101
 
 #%% Fixtures
 
@@ -26,20 +24,8 @@ def make_tracer_data(n: int = 200) -> pd.DataFrame:
     })
 
 @pytest.fixture
-def cosmo():
-    m = MagicMock()
-    m.comoving_radial_distance.side_effect = lambda z: 1000.0 * np.asarray(z)
-    return m
-
-@pytest.fixture
-def cosmo_fid():
-    m = MagicMock()
-    m.comoving_radial_distance.side_effect = lambda z: 1000.0 * np.asarray(z)
-    return m
-
-@pytest.fixture
-def catalog(cosmo, cosmo_fid):
-    return CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
+def catalog(cosmo_mock1, cosmo_mock2):
+    return CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2)
 
 @pytest.fixture
 def tracer():
@@ -85,30 +71,30 @@ class TestFsky:
 
 
 class TestShellVolume:
-    def test_output_shape(self, cosmo):
+    def test_output_shape(self, cosmo_mock1):
         """Output shape should be (n_bins,) for (n_bins+1,) input edges."""
         z = np.linspace(0.0, 1.0, 6)
-        result = _shell_volume(cosmo, z)
+        result = _shell_volume(cosmo_mock1, z)
         assert result.shape == (5,)
 
-    def test_positive_volumes(self, cosmo):
+    def test_positive_volumes(self, cosmo_mock1):
         """All shell volumes should be positive for increasing redshift edges."""
         z = np.linspace(0.1, 1.0, 5)
-        result = _shell_volume(cosmo, z)
+        result = _shell_volume(cosmo_mock1, z)
         assert np.all(result > 0)
 
-    def test_single_shell(self, cosmo):
+    def test_single_shell(self, cosmo_mock1):
         """A two-edge input should return a single shell volume."""
         z = np.array([0.0, 1.0])
-        result = _shell_volume(cosmo, z)
+        result = _shell_volume(cosmo_mock1, z)
         assert result.shape == (1,)
         expected = 4 / 3 * np.pi * (1000.0 ** 3 - 0.0 ** 3)
         assert result[0] == pytest.approx(expected)
 
-    def test_volumes_increase_with_redshift(self, cosmo):
+    def test_volumes_increase_with_redshift(self, cosmo_mock1):
         """Shells at higher redshift should have larger volume."""
         z = np.array([0.0, 0.5, 1.0, 1.5])
-        result = _shell_volume(cosmo, z)
+        result = _shell_volume(cosmo_mock1, z)
         assert result[1] > result[0]
         assert result[2] > result[1]
 
@@ -118,8 +104,8 @@ class TestShellVolume:
 def test_default_hp_res(catalog):
     assert catalog.hp_res == 256
 
-def test_custom_hp_res(cosmo, cosmo_fid):
-    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=128)
+def test_custom_hp_res(cosmo_mock1, cosmo_mock2):
+    cat = CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2, hp_res=128)
     assert cat.hp_res == 128
 
 def test_caches_initialised_empty(catalog):
@@ -160,10 +146,10 @@ def test_zrange_per_tracer(populated_catalog, valid_data):
 def test_zrange_none_equals_global(populated_catalog):
     assert populated_catalog._zrange() == populated_catalog.zrange
 
-def test_rarange_wrapping(cosmo, cosmo_fid):
+def test_rarange_wrapping(cosmo_mock1, cosmo_mock2):
     """RA values stored beyond 360 (e.g. from box periodicity) should produce a wrap-around range where ra_min > ra_max after mod."""
     tracer = Tracer(name="FOO", params={})
-    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
+    cat = CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2)
     rng = np.random.default_rng(0)
     # Simulate raw RA values that cross 360 without being wrapped first
     data = pd.DataFrame({
@@ -185,10 +171,10 @@ def test_fsky_no_tracers_raises(catalog):
 def test_fsky_in_unit_interval(populated_catalog):
     assert 0.0 < populated_catalog.fsky <= 1.0
 
-def test_fsky_fullsky_catalog(cosmo, cosmo_fid):
+def test_fsky_fullsky_catalog(cosmo_mock1, cosmo_mock2):
     """A full-sky catalog should return fsky close to 1."""
     tracer = Tracer(name="FOO", params={})
-    cat = CutskyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid, hp_res=32)
+    cat = CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2, hp_res=32)
     rng = np.random.default_rng(0)
     n = 100_000
     data = pd.DataFrame({
@@ -319,42 +305,51 @@ def test_downsample_does_not_mutate_raw(populated_catalog):
 
 #%% Serialization
 
-def test_save_creates_file(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_save_creates_file(populated_catalog, tmp_path):
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
     assert path.exists()
 
-def test_save_load_roundtrip(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_save_load_roundtrip(populated_catalog, tmp_path):
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
+    loaded = CutskyCatalog.load(path)
     assert isinstance(loaded, CutskyCatalog)
 
-def test_save_load_tracer_data(populated_catalog, tmp_path, cosmo, cosmo_fid, valid_data):
+def test_save_load_tracer_data(populated_catalog, tmp_path, valid_data):
     """Tracer data should be preserved exactly through a save/load roundtrip."""
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
+    loaded = CutskyCatalog.load(path)
     pd.testing.assert_frame_equal(
         loaded.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         valid_data.reset_index(drop=True),
     )
 
-def test_save_load_preserves_tracer_names(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_save_load_preserves_tracer_names(populated_catalog, tmp_path):
     """Tracer names should be preserved through a save/load roundtrip."""
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
+    loaded = CutskyCatalog.load(path)
     assert set(loaded.tracers.keys()) == set(populated_catalog.tracers.keys())
 
-def test_transforms_not_persisted(populated_catalog, tmp_path, cosmo, cosmo_fid):
+def test_transforms_not_persisted(populated_catalog, tmp_path):
     """Transforms registered before saving should not be present after loading."""
     populated_catalog.add_distance_column()
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
-    loaded = CutskyCatalog.load(path, cosmo, cosmo_fid)
+    loaded = CutskyCatalog.load(path)
     assert "add_distance" not in loaded.transform_pipeline
 
+def test_save_load_preserves_cosmo(populated_catalog, tmp_path):
+    """Cosmology values should be preserved through a save/load roundtrip."""
+    path = tmp_path / "cutsky.h5"
+    populated_catalog.save(path)
+    loaded = CutskyCatalog.load(path)
+    assert loaded.cosmo != populated_catalog.cosmo  # Different instances
+    assert loaded.cosmo.__class__ == populated_catalog.cosmo.__class__  # Same class
+    for attr in ("_efunc", "_add"): # Same attributes should be equal
+        assert getattr(loaded.cosmo, attr) == getattr(populated_catalog.cosmo, attr)
 
 #%% Multi-tracer
 

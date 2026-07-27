@@ -121,7 +121,7 @@ class BaseSnapshotFactory(BaseCatalogFactory):
         if not files:
             raise FileNotFoundError(f"No catalog files found in {path}")
         for file in files:
-            catalog = self.catalog_class.load(file, self.cosmo, self.cosmo_fid)
+            catalog = self.catalog_class.load(file)
             self._catalogs[catalog.redshift] = catalog
         logger.info(f"Loaded {len(files)} catalog(s) from {path}")
 
@@ -134,15 +134,13 @@ class SnapshotCatalogFactory(BaseSnapshotFactory):
         self,
         redshifts: list[float],
         tracers: list[Tracer] | dict[float, list[Tracer]],
-        dark_matter_kwargs: dict | None = None,
         **kwargs,
     ) -> None:
         for z in redshifts:
             snapshot_tracers = tracers if isinstance(tracers, list) else tracers[z]
 
             logger.info(f"Loading dark matter catalog at redshift z={z:.3f}")
-            dm_kwargs = dark_matter_kwargs or {}
-            dm_catalog = self.backend.load_dark_matter_catalog(redshift=z, **dm_kwargs)
+            dm_catalog = self.backend.get_dark_matter_catalog(redshift=z)
 
             logger.info(
                 f"Populating galaxy catalog at redshift z={z:.3f} for tracers {[t.name for t in snapshot_tracers]}"

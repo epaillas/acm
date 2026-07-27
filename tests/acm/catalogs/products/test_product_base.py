@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import h5py
 import pandas as pd
 import pytest
@@ -30,16 +28,8 @@ class DummyCatalog(BaseGalaxyCatalog):
 #%% Fixtures
 
 @pytest.fixture
-def cosmo():
-    return MagicMock()
-
-@pytest.fixture
-def cosmo_fid():
-    return MagicMock()
-
-@pytest.fixture
-def catalog(cosmo, cosmo_fid):
-    return DummyCatalog(cosmo=cosmo, cosmo_fid=cosmo_fid)
+def catalog(cosmo_mock1, cosmo_mock2):
+    return DummyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2)
 
 @pytest.fixture
 def tracer_foo():
@@ -278,19 +268,19 @@ class TestSaveLoad:
         populated_catalog.save(path)
         assert path.exists()
 
-    def test_save_load_roundtrip(self, populated_catalog, tmp_path, cosmo, cosmo_fid, valid_data):
+    def test_save_load_roundtrip(self, populated_catalog, tmp_path, valid_data):
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
-        loaded = DummyCatalog.load(path, cosmo, cosmo_fid)
+        loaded = DummyCatalog.load(path)
         pd.testing.assert_frame_equal(loaded.get_tracer_data("FOO", raw=True), valid_data)
 
-    def test_save_load_tracer_params(self, populated_catalog, tmp_path, cosmo, cosmo_fid):
+    def test_save_load_tracer_params(self, populated_catalog, tmp_path):
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
-        loaded = DummyCatalog.load(path, cosmo, cosmo_fid)
+        loaded = DummyCatalog.load(path)
         assert loaded.tracers["FOO"].params == {"a": 1}
 
-    def test_save_load_subclass_attrs(self, populated_catalog, tmp_path, cosmo, cosmo_fid):
+    def test_save_load_subclass_attrs(self, populated_catalog, tmp_path):
         """Subclass-specific attrs saved by _save_attrs should be present in the file."""
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
@@ -305,19 +295,29 @@ class TestSaveLoad:
             populated_catalog.save(path)
         assert "scale" in caplog.text
 
-    def test_load_transforms_not_restored(self, populated_catalog, tmp_path, cosmo, cosmo_fid):
+    def test_load_transforms_not_restored(self, populated_catalog, tmp_path):
         """Transforms should not be present after loading."""
         t = Transform(name="scale", func=lambda d, f: d * f, kwargs={"f": 2.0})
         populated_catalog._add_transform(t)
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
-        loaded = DummyCatalog.load(path, cosmo, cosmo_fid)
+        loaded = DummyCatalog.load(path)
         assert len(loaded._transforms) == 0
 
-    def test_save_load_multiple_tracers(self, catalog, tracer_foo, tracer_bar, valid_data, tmp_path, cosmo, cosmo_fid):
+    def test_save_load_multiple_tracers(self, catalog, tracer_foo, tracer_bar, valid_data, tmp_path):
         catalog.set_tracer_data(tracer_foo, valid_data)
         catalog.set_tracer_data(tracer_bar, valid_data)
         path = tmp_path / "catalog.h5"
         catalog.save(path)
-        loaded = DummyCatalog.load(path, cosmo, cosmo_fid)
+        loaded = DummyCatalog.load(path)
         assert set(loaded.tracers.keys()) == {"FOO", "BAR"}
+
+def test_save_load_preserves_cosmo(populated_catalog, tmp_path):
+    """Cosmology values should be preserved through a save/load roundtrip."""
+    path = tmp_path / "snapshot.h5"
+    populated_catalog.save(path)
+    loaded = DummyCatalog.load(path)
+    assert loaded.cosmo != populated_catalog.cosmo  # Different instances
+    assert loaded.cosmo.__class__ == populated_catalog.cosmo.__class__  # Same class
+    for attr in ("_efunc", "_add"): # Same attributes should be equal
+        assert getattr(loaded.cosmo, attr) == getattr(populated_catalog.cosmo, attr)
