@@ -1,9 +1,9 @@
-import argparse
+import argparse  # noqa: INP001
 
 from sunbird.inference.priors import Bouchard25
 
 from acm.hod.parameters import HODLatinHypercube
-from acm.utils.abacus import load_abacus_cosmologies
+from acm.utils.abacus import load_cosmologies
 from acm.utils.default import cosmo_list
 from acm.utils.logging import get_logger_for_script, setup_logging
 
@@ -33,7 +33,7 @@ save_dir = args.save_dir
 logger.info(f'Sampling {n} HODs for {len(cosmologies)} cosmologies from {filename} with parameters {parameters}')
 
 ranges = Bouchard25().ranges
-cosmo_params = load_abacus_cosmologies(
+cosmo_params = load_cosmologies(
     filename = filename,
     cosmologies = cosmologies,
     parameters = parameters,
