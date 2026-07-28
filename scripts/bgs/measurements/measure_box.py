@@ -7,12 +7,16 @@ Usage:
 import argparse
 import itertools
 import logging
+import pickle
 from gc import collect
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import scipy.special
 import yaml
+from acm.estimators.galaxy_clustering.bispectrum import BispectrumMultipoles
+from acm.estimators.galaxy_clustering.tpcf import TwoPointCorrelationFunctionEstimator
 from cosmoprimo.fiducial import AbacusSummit
 from jax import clear_caches
 
@@ -20,6 +24,11 @@ from acm.catalogs.backends.abacus import AbacusHODBackend  # noqa: F401
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.factories import SnapshotCatalogFactory
 from acm.catalogs.products.snapshot import SnapshotCatalog, boundary_check
+from acm.estimators.galaxy_clustering.backends.jaxpower import JaxpowerBackend
+from acm.estimators.galaxy_clustering.base import BaseEstimator
+from acm.estimators.galaxy_clustering.density_split import DensitySplit
+from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
+from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.paths import lookup_registry_path
 from acm.utils.scripts import (
@@ -32,9 +41,12 @@ from acm.utils.scripts import (
     retry,
 )
 
-from _estimators import get_estimator
-
 logger = get_logger_for_script(__file__)
+
+# Temporary namespace monkeypatch for kymatio's scipy 1.15 compatibility
+def sph_harm(m, n, theta, phi):  # noqa: ANN001, ANN201, D103
+    return scipy.special.sph_harm_y(n, m, phi, theta)
+scipy.special.sph_harm = sph_harm  # ty:ignore[unresolved-attribute]
 
 def get_hod_params(
     tracer_names: list[str],
@@ -108,6 +120,20 @@ def update_dict_with_keys(*d: dict, **kwargs) -> None:
         update_keys = {k: v for k, v in kwargs.items() if k in _d}
         _d.update(update_keys)
 
+def get_estimator(name: str) -> type[BaseEstimator]:
+    """Get the estimator class by alias name."""
+    if name == "tpcf":
+        return TwoPointCorrelationFunctionEstimator
+    if name == "spectrum":
+        return PowerSpectrumMultipoles
+    if name == "bispectrum":
+        return BispectrumMultipoles
+    if name.startswith("wst"):  # wst-j4, wst-j3, ...
+        return WaveletScatteringTransform
+    if name.startswith("ds_"): # ds_xiqq, ds_xiqg, ds_pkqq, ds_pkqg
+        return DensitySplit
+    raise ValueError(f"Unknown estimator name: {name}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate snapshot mocks and compute measurements on several statistics.")
     parser.add_argument("--config", type=str, help="Path to a YAML file to set default parameters. Command line arguments override config file settings.")
@@ -138,6 +164,7 @@ if __name__ == "__main__":
     parser.add_argument("--failures", type=int, default=3, help="Number of tries for each etsimator computation before skipping (solving memory issues).")
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level (e.g., DEBUG, INFO, WARNING, ERROR).")
     parser.add_argument("--log_file", type=str, help="File to save logs. If None, logs are printed to console.")
+    parser.add_argument("--kymatio_object", type=str, help="Path to a pickled kymatio object to bypass kymatio initialization.")
 
     apply_parser_default(parser, config_args)
     dump_config(parser)
@@ -151,6 +178,12 @@ if __name__ == "__main__":
 
     with Path(args.estimator_config).open() as f:
         estimator_config = yaml.load(f, Loader=NumpyLoader)  # noqa: S506
+
+    # Read pickled kymatio object from args
+    kymatio_object = None
+    if args.kymatio_object is not None:
+        with Path(args.kymatio_object).open('rb') as f:
+            kymatio_object = pickle.load(f)  # noqa: S301
 
     is_gpu = detect_gpu()
     nthreads = get_nthreads()
@@ -226,7 +259,8 @@ if __name__ == "__main__":
                     if nbar < target_density and not args.process_underdense:
                         logger.info(f"Density below target ({nbar:.4e}<{target_density:.4e}). Skipping...")
                         break # In theory, same density for all los on boxes
-                    for tracer in tracers: # FIXME (later): target density selection wrt tracers ?
+                    for tracer in tracers:
+                        # FIXME (later): target density selection wrt tracers ?
                         catalog.downsample(tracer.name, nbar=target_density, seed=42)
 
                 positions = catalog.positions().to_numpy()
@@ -234,24 +268,47 @@ if __name__ == "__main__":
                 logger.debug(f'Positions shape: {positions.shape}')
                 logger.info(f'Box size: {catalog.boxsize}')
 
+                backend_config = estimator_config.get("backend", {})
+                init_args = backend_config.get("initialization", {})
+                density_args = backend_config.get("density_contrast", {})
+                backend = JaxpowerBackend(
+                    data_positions = positions,
+                    boxsize = catalog.boxsize,
+                    boxcenter = 0,
+                    **init_args,
+                )
+                backend.set_density_contrast(**density_args)
+
                 for stat_name in args.measurements:
                     fn = mock_dir / f"{stat_name}_los-{los}.h5"
                     if fn.exists() and args.overwrite is False:
                         logger.info(f'File {fn} exists and {args.overwrite=}. Skipping...')
                         continue
 
-                    estimator_kwargs = estimator_config.get(stat_name, {}).copy()
-                    update_dict_with_keys(
-                        estimator_kwargs,
-                        boxsize = catalog.boxsize,
-                        boxcenter = 0,
+                    cls = get_estimator(stat_name)
+                    args = estimator_config.get(stat_name, {})
+                    init_args = args.get("initialization", {})
+                    compute_args = args.get("compute", {})
+                    update_dict_with_keys( # Update those if required
+                        init_args,
+                        compute_args,
                         los = los,
                         gpu = is_gpu,
                         nthreads = nthreads,
+                        kymatio_object = kymatio_object,
                     )
-                    # FIXME: use estimator classes when implemented
-                    func = get_estimator(stat_name)
-                    retry(args.failures, func, positions, fn, **estimator_kwargs)
+                    estimator = cls(
+                        backend = backend,
+                        data_positions = positions,
+                        **init_args,
+                    )
+                    result = retry(
+                        times = args.failures,
+                        operation = estimator.compute,
+                        **compute_args,
+                    )
+                    if result is not None: # Save object if computation was successful
+                        estimator.save(result, fn, overwrite=args.overwrite)
             else: # Only run if target_density does not break los loop
                 hod_count += 1
                 logger.debug(f"c{cosmo_idx:03d}_ph{phase_idx:03d}: Computed {hod_count}/{args.n_hod} mocks.")
