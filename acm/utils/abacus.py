@@ -51,9 +51,11 @@ def map_params(
     ----------
     params : dict | list[str]
         Dictionary or list of custom parameters.
-    mapping : dict[str, list[str]]
+    mapping : dict[str, list[str]], optional
         Mapping from custom parameter names to fixed parameter names.
         Keys are fixed parameter names, values are lists of custom parameter names that map to the fixed parameter name.
+        If set to None, the default mapping (ABACUS_MAP) will be used.
+        Default is None.
 
     Returns
     -------

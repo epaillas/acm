@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pandas as pd
 import pytest
 import yaml
@@ -101,11 +103,23 @@ class TestLoadDarkMatterCatalog:
         dm = backend._cache[0.8]  # Access the cached instance
         assert dm.sim_params["z_mock"] == 0.8
 
-    def test_tracer_flag_enabled(self, backend, tracer_foo):
-        """Requesting a tracer should set its flag to True in the returned AbacusHOD instance."""
+    def test_backend_params_unchanged(self, backend, tracer_foo):
+        """The backend's hod_params and sim_params should remain unchanged after loading a catalog."""
+        # Deepcopy because init changes config values for the sim_params (e.g. sim_name)
+        original_hod_params = deepcopy(backend.hod_params)
+        original_sim_params = deepcopy(backend.sim_params)
         backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_foo])
+        assert backend.hod_params == original_hod_params
+        assert backend.sim_params == original_sim_params
+
+    def test_tracer_flag_enabled(self, backend, tracer_bar):
+        """Requesting a tracer should set its flag to True in the returned AbacusHOD instance."""
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_bar])
         dm = backend._cache[0.5]  # Access the cached instance
+        assert "FOO" in dm.tracers # Not requested, but True in config
         assert dm.hod_params["tracer_flags"]["FOO"] is True
+        assert "BAR" in dm.tracers
+        assert dm.hod_params["tracer_flags"]["BAR"] is True
 
     def test_tracer_params_overridden(self, backend):
         """Params passed in the tracer should override those in the config."""
@@ -113,6 +127,16 @@ class TestLoadDarkMatterCatalog:
         backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
         dm = backend._cache[0.5]  # Access the cached instance
         assert dm.hod_params["FOO_params"]["alpha"] == 99.0
+
+    def test_tracer_name_only(self, backend):
+        """Passing a Tracer with only a name and no params should use the config params."""
+        tracer = Tracer(name="BAR") # Implicitly no params
+        backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
+        dm = backend._cache[0.5]  # Access the cached instance
+        assert "FOO" in dm.tracers # Not requested, but True in config
+        assert dm.hod_params["FOO_params"]["alpha"] == 1.0 # Default from config
+        assert "BAR" in dm.tracers
+        assert dm.hod_params["BAR_params"]["alpha"] == 0.8 # Default from config
 
     def test_missing_tracer_params_raises(self, config_file, tmp_path):
         """A tracer with no params in config and no params in tracer should raise."""
@@ -320,6 +344,8 @@ class TestUpdateDefaultTracers:
         """Calling with no tracers should not raise if flags are already set."""
         hod_params = {"tracer_flags": {"FOO": True}, "FOO_params": {"alpha": 1.0}}
         backend.update_default_tracers(hod_params)  # no tracers kwarg
+        assert hod_params["tracer_flags"]["FOO"] is True
+        assert hod_params["FOO_params"]["alpha"] == 1.0 # remains unchanged
 
     def test_new_tracer_added_to_flags(self, backend):
         """A tracer not previously in tracer_flags should be added."""
