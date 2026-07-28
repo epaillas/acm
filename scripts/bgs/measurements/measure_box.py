@@ -4,13 +4,12 @@ Script to measure clustering statistics from HOD catalogs generated with AbacusH
 Usage:
     python measure_box.py -h
 """  # noqa: INP001
-import argparse  # noqa: I001
+import argparse
 import itertools
 import logging
 from gc import collect
 from pathlib import Path
 
-from acm.utils.catalogs import check_catalog
 import numpy as np
 import pandas as pd
 import yaml
@@ -20,7 +19,7 @@ from jax import clear_caches
 from acm.catalogs.backends.abacus import AbacusHODBackend  # noqa: F401
 from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.factories import SnapshotCatalogFactory
-from acm.catalogs.products.snapshot import SnapshotCatalog
+from acm.catalogs.products.snapshot import SnapshotCatalog, boundary_check
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.paths import lookup_registry_path
 from acm.utils.scripts import (
@@ -183,6 +182,11 @@ if __name__ == "__main__":
         )
         logger.info(f'Loaded factory for c{cosmo_idx:03d}_ph{phase_idx:03d}')
 
+        factory.backend.load_dark_matter_catalog(
+            redshift = args.redshift,
+            tracers = [Tracer(name=k) for k in tracer_names] # Name only = default
+        )
+
         hod_fn = f"Bouchard25_c{cosmo_idx:03d}.csv" # NOTE: Hardcoded pattern
         hod_params = get_hod_params(tracer_names, args.hod_dir, pattern=hod_fn)
 
@@ -191,7 +195,6 @@ if __name__ == "__main__":
             factory.make_catalogs(
                 redshifts = [args.redshift],
                 tracers = tracers,
-                dark_matter_kwargs = {"tracers": tracers}, # Needed for AbacusHOD
                 use_logsigma = True,
                 seed = seed,
             )
@@ -227,7 +230,7 @@ if __name__ == "__main__":
                         catalog.downsample(tracer.name, nbar=target_density, seed=42)
 
                 positions = catalog.positions().to_numpy()
-                check_catalog(positions, catalog.boxsize, center_at_zero=True)
+                boundary_check(positions, catalog.boxsize, center_at_zero=True)
                 logger.debug(f'Positions shape: {positions.shape}')
                 logger.info(f'Box size: {catalog.boxsize}')
 
