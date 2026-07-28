@@ -1,89 +1,111 @@
+backend:
+  initialization:
+    meshsize: 512
+  density_contrast:
+    smoothing_radius: 10.0
+    resampler: tsc
+    interlacing: 3
+    compensate: True
 
 tpcf:
-  edges: # s and mu edges for the correlation functions
-    - !np.arange [0, 151, 1]
-    - !np.linspace [-1, 1, 120]
-  boxsize: 
-  los: z
-  mode: smu
-  position_type: pos
-  compute_sepsavg: False # Ensure consistency with different computations
-  nthreads: 1
-  gpu: False
+  compute:
+    edges: # s and mu edges for the correlation functions
+      - !np.arange [0, 151, 1]
+      - !np.linspace [-1, 1, 120]
+    mode: smu
+    compute_sepsavg: False # Ensure consistency with different computations
+    los: z
+    nthreads: 1
+    gpu: False
+  load:
+    project: True
+    ells: [0, 2]
 
 spectrum:
-  boxsize: 
-  boxcenter: 
-  edges:
-    step: 0.001
-  ells: [0, 2, 4]
-  los: z
+  compute:
+    edges:
+      step: 0.001
+    ells: [0, 2, 4]
+    resampler: tsc
+    interlacing: 3
+    compensate: True
+    los: z
+
+bispectrum:
+  compute:
+    basis: scoccimarro
+    edges:
+      min: 0.02
+      max: 0.20
+      step: 0.02
+    buffer_size: 30
+    resampler: tsc
+    interlacing: 3
+    compensate: True
+    los: z
 
 ds_xiqg:
-  ds_type: correlation
-  method: cross 
-  boxsize: 
-  boxcenter: 
-  cellsize: 5.0
-  smoothing_radius: 10.0
-  nquantiles: 5
-  edges:
-    - !np.arange [0, 31, 1]
-    - !np.linspace [-1, 1, 120]
-  los: z
-  compute_sepsavg: False
-  nthreads: 1
-  gpu: False
+  initialization:
+    nquantiles: 5
+  compute:
+    data_type: correlation
+    cross: True
+    edges:
+      - !np.arange [0, 31, 1]
+      - !np.linspace [-1, 1, 120]
+    mode: smu
+    compute_sepsavg: False
+    los: z
+    nthreads: 1
+    gpu: False
 
 ds_xiqq:
-  ds_type: correlation
-  method: auto 
-  boxsize: 
-  boxcenter: 
-  cellsize: 5.0
-  smoothing_radius: 10.0
-  nquantiles: 5
-  edges:
-    - !np.arange [0, 31, 1]
-    - !np.linspace [-1, 1, 120]
-  los: z
-  compute_sepsavg: False
-  nthreads: 1
-  gpu: False
+  initialization:
+    nquantiles: 5
+  compute:
+    data_type: correlation
+    cross: False
+    edges:
+      - !np.arange [0, 31, 1]
+      - !np.linspace [-1, 1, 120]
+    mode: smu
+    compute_sepsavg: False
+    los: z
+    nthreads: 1
+    gpu: False
 
 ds_pkqg:
-  ds_type: power
-  method: cross 
-  boxsize: 
-  boxcenter: 
-  cellsize: 5.0
-  smoothing_radius: 10.0
-  nquantiles: 5
-  edges:
-    step: 0.001
-  ells: [0, 2, 4]
-  los: z
+  initialization:
+    nquantiles: 5
+  compute:
+    data_type: power
+    cross: True
+    edges:
+      step: 0.001
+    ells: [0, 2, 4]
+    resampler: tsc
+    interlacing: 3
+    compensate: True
+    los: z
 
 ds_pkqq:
-  ds_type: power
-  method: auto 
-  boxsize: 
-  boxcenter: 
-  cellsize: 5.0
-  smoothing_radius: 10.0
-  nquantiles: 5
-  edges:
-    step: 0.001
-  ells: [0, 2, 4]
-  los: z
+  initialization:
+    nquantiles: 5
+  compute:
+    data_type: power
+    cross: False
+    edges:
+      step: 0.001
+    ells: [0, 2, 4]
+    resampler: tsc
+    interlacing: 3
+    compensate: True
+    los: z
 
 wst-j4:
-  J: 4
-  L: 4
-  q: 1
-  sigma: 0.8
-  kymatio_backend: torch
-  boxsize:
-  boxcenter:
-  meshsize: 360
-  init_fn: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-20/parameters/kymatio/eshsize-360_J4_L4_simga0.8.pkl
+  initialization:
+    J: 4
+    L: 4
+    sigma: 0.8
+    frontend: torch
+    kymatio_object: # Empty value defaults to None
