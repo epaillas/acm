@@ -748,6 +748,9 @@ class TestCompressor:
         assert "param1" in result.coords["parameters"].values
         assert "param2" in result.coords["parameters"].values
         assert "param3" not in result.coords["parameters"].values  # param3 should not be included
+        # Check that the values match the selected attributes from the original objects
+        attrs = np.array([list(obj.data.attrs.values()) for obj in dummy_data.objects])
+        assert np.array_equal(result.values, attrs[:, [0, 1]])  # The values should match the selected attributes
 
     def test_compress_with_attrs_preserve_order(self, reader, dummy_data):
         """Test that compress with attrs preserves the order of the specified attributes."""
