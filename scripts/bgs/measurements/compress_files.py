@@ -1,61 +1,90 @@
-"""
-Compress measurement files for BGS observables.
+import argparse  # noqa: INP001
+from pathlib import Path
 
-Usage:
-    python compress_files.py \
-    -md /pscratch/sd/s/sbouchar/acm/bgs-20/measurements \
-    -pd /pscratch/sd/s/sbouchar/acm/bgs-20/parameters/cosmo+hod_params \
-    --measurements tpcf ds_xiqq ds_xiqg \
-    -tf "{'cosmo_idx': [0, 1, 2, 3, 4, 13]}" \
-    --output /pscratch/sd/s/sbouchar/acm/bgs-20/input_data/ \
-    --add_covariance \
-    --compress_kwargs "{'hod_idx': 157}" \
-    --log_level info
-"""
-import logging
-import argparse
-from acm.utils.modules import get_class_from_module
-from acm.utils.logging import setup_logging
+import lsstypes
+import numpy as np
+import xarray
+import yaml
+from measure_box import get_estimator
+
+from acm.estimators.compression import Compressor, ObjectGroup, split_test_set
+from acm.utils.logging import get_logger_for_script, setup_logging
+from acm.utils.scripts import NumpyLoader
+from acm.utils.xarray import dataset_to_dict
+
+logger = get_logger_for_script(__file__)
+
+K_MIN = 2 * np.pi / 500  # lower limit fixed by small boxsize
+K_MAX = np.pi * 512 / 2200 # Higher limit fixed by Nyquist frequency of the largest boxsize*
+
+# Order of the parameters to select in the attributes of the read objects.
+parameters = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'nrun', 'N_ur', 'w0_fld', 'wa_fld', 'logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
+
+def select(stat_name: str, group: ObjectGroup) -> ObjectGroup:
+    """Select the relevant data from the ObjectGroup based on the statistic name."""
+    # FIXME (later): Replace hardcoded values ?
+    _get, _rebin, _select = {}, {}, {} # Empty by default
+    if stat_name == "tpcf" or "xi" in stat_name:
+        _get.update({"ells": [0, 2]})  # Get only monopole and quadrupole
+        _rebin.update({"s": slice(0, None, 3)})  # Rebin s by a factor of 3
+    if stat_name == "spectrum" or "pk" in stat_name:
+        _get.update({"ells": [0, 2]})
+        _rebin.update({"k": slice(0, None, 3)})
+        _select.update({"k": (K_MIN, K_MAX)})
+    if stat_name.startswith("ds"):
+        _get.update({"quantiles": [0, 1, 3, 4]})
+    group = group.get(**_get).select(**_rebin).select(**_select)
+    return group
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--module', type=str, default='acm.observables.bgs', help='Base module path for observables')
-    parser.add_argument('--measurements_dir', '-md', type=str, default=None, required=True, help='Directory containing measurement files')
-    parser.add_argument('--param_dir', '-pd', type=str, default=None, required=True, help='Directory containing HOD parameter files')
-    parser.add_argument('--test_filters', '-tf', type=str, default=None, help='Expression evaluated to define the test set (e.g., "{\'cosmo_idx\': 0}")')
-    parser.add_argument('--measurements', type=str, nargs='+', help='List of measurements to process')
-    parser.add_argument('--output', type=str, default=None, help='Output directory for compressed files')
-    parser.add_argument('--add_covariance', action='store_true', help='Whether to add covariance to the compressed files')
-    parser.add_argument('--log_level', type=str, default='warning', help='Set logging level (e.g., DEBUG, INFO)')
-    parser.add_argument('--compress_kwargs', '-ck', type=str, default=None, help='Additional keyword arguments for compression, evaluated as a dictionary (e.g., "{\'key\': value}")')
+    parser.add_argument("--root", type=str, required=True, help="Root directory containing the files to compress")
+    parser.add_argument("--measurement", type=str, required=True, help="Measurement to process")
+    parser.add_argument("--estimator_config", type=str, required=True, help="YAML file containing estimator parameters.")
+    parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the compressed files")
+    parser.add_argument("--n_hod", type=int, default=None, help="Number of HODs to keep (default: all)")
+    parser.add_argument("--test_cosmos", type=int, nargs="+", default=[], help="List of cosmo indices to use as test set")
+    parser.add_argument("--log_level", type=str, default='warning', help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
-    
-    logger = logging.getLogger(__file__.split('/')[-1])
-    setup_logging(level=args.log_level)
-    
-    paths = dict(
-        measurements_dir = args.measurements_dir,
-        param_dir = args.param_dir
-    )
-    
-    compress_kwargs = {}
-    if args.compress_kwargs:
-        compress_kwargs = eval(args.compress_kwargs)
-        if not isinstance(compress_kwargs, dict):
-            logger.error("compress_kwargs should be a dictionary. Please check the input.")
-            compress_kwargs = {}
-        else:
-            logger.info(f"Additional compression kwargs: {compress_kwargs}")
-            compress_kwargs.update(compress_kwargs)
-    
-    test_filters = None
-    if args.test_filters:
-        test_filters = eval(args.test_filters)
 
-    for stat_name in args.measurements:
-        try:
-            cls = get_class_from_module(args.module, stat_name)
-        except ImportError as e:
-            logger.error(f"Could not import class for measurement '{stat_name}': {e}")
-            continue
-        cls.compress_data(paths=paths, add_covariance=args.add_covariance, save_to=args.output, test_filters=test_filters, **compress_kwargs)
+    setup_logging(level=args.log_level)
+
+    with Path(args.estimator_config).open() as f:
+        estimator_config = yaml.load(f, Loader=NumpyLoader)  # noqa: S506
+
+    test_filter = {}
+    if args.test_cosmos:
+        logger.info(f"Using test cosmologies: {args.test_cosmos}")
+        test_filter["cosmo_idx"] = args.test_cosmos
+
+    stat_name = args.measurement
+    args = estimator_config.get(stat_name, {})
+    load_args = args.get("load", {})
+    reader = get_estimator(stat_name).load
+
+    # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
+    pattern = r"c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"
+    ignore_index = ["los"]
+    reindex = {"hod_idx": ["cosmo_idx", "phase_idx"]}
+
+    compressor = Compressor(root=Path(args.root) / "base", pattern=pattern)
+    group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
+    group = select(stat_name, group)
+    group = group.merge(method=lsstypes.mean)  # Merge identical indices
+    y = Compressor.compress(data=group, reindex=reindex)
+    x = Compressor.compress(data=group, reindex=reindex, attrs=parameters)
+
+    compressor = Compressor(root=Path(args.root) / "small", pattern=pattern)
+    group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
+    group = select(stat_name, group)
+    group = group.merge(method=lsstypes.mean)  # Merge identical indices
+    cov_y = Compressor.compress(data=group, reindex=reindex)
+
+    ds = xarray.Dataset({"x": x, "y": y, "cov_y": cov_y})
+    ds = split_test_set(ds, filters=test_filter)
+
+    Path(args.save_dir).mkdir(parents=True, exist_ok=True)
+    save_fn = Path(args.save_dir) / f"{stat_name}.npy"
+    payload = np.array(dataset_to_dict(ds), dtype=object)
+    np.save(save_fn, payload)
+    logger.info(f"Saving compressed data to {save_fn}")
