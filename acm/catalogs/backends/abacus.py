@@ -1,5 +1,6 @@
 import logging
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import override
 
@@ -111,10 +112,10 @@ class AbacusHODBackend(SnapshotBackend):
             Parameters to override the default HOD parameters for each tracer.
             See :meth:`update_default_tracers` for details on how to provide tracer-specific HOD parameters.
         """
-        sim_params = self.sim_params.copy()
+        sim_params = deepcopy(self.sim_params)
         sim_params["z_mock"] = redshift
 
-        hod_params = self.hod_params
+        hod_params = deepcopy(self.hod_params)
         self.update_default_tracers(hod_params, **kwargs)
 
         t0 = time.time()
@@ -262,8 +263,9 @@ class AbacusHODBackend(SnapshotBackend):
 
         return galaxy_catalogs
 
+    @classmethod
     def update_default_tracers(
-        self,
+        cls,
         hod_params: dict,
         tracers: list[Tracer] | None = None,
         mapping: dict[str, list[str]] | None = None,
@@ -289,12 +291,18 @@ class AbacusHODBackend(SnapshotBackend):
         ------
         ValueError
             If default HOD parameters for any tracer are missing after the update.
+
+        Note
+        ----
+        This method updates the input `hod_params` dictionary in-place and does not return a new dictionary.
+        It does not disable already existing tracers in `hod_params`; but ensures that any requested tracers are set to active (i.e. their flags are True).
+        To have a tracer optional, disable it at the initialization of the AbacusHODBackend, and only request it when needed.
         """
         tracers = tracers or []
         tracer_flags = hod_params.get("tracer_flags", {})
 
         for tracer in tracers:
-            tracer_name = self._resolve_tracer_name(tracer.name)
+            tracer_name = cls._resolve_tracer_name(tracer.name)
             tracer_key = f"{tracer_name}_params"
 
             # Get the tracer parameters from the tracer instance with mapping
@@ -361,7 +369,8 @@ class AbacusHODBackend(SnapshotBackend):
         is_central[:n_cent] = 1
         galaxy_dict[tracer_name]["is_cent"] = is_central
 
-    def _resolve_tracer_name(self, name: str) -> str:
+    @staticmethod
+    def _resolve_tracer_name(name: str) -> str:
         """
         Resolve a tracer name to the name expected by AbacusHOD, using the _TRACER_NAME_ALIASES mapping.
 
