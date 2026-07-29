@@ -206,50 +206,50 @@ class TestObjectGroup:
         with pytest.raises(IndexError):
             _ = group[2]  # Out of bounds
 
-    def test_get(self):
+    def test_get_idx(self):
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 2, "j": 3}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        result = group.get(i=1)
+        result = group.get_idx(i=1)
         assert len(result) == 1
         assert result == [obj1.data]
 
-    def test_get_no_args(self):
+    def test_get_idx_no_args(self):
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 2, "j": 3}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        result = group.get()
+        result = group.get_idx()
         assert result == [o.data for o in group.objects] # All objects data
 
-    def test_get_no_match_returns_empty(self):
+    def test_get_idx_no_match_returns_empty(self):
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 2, "j": 3}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        result = group.get(i=3)
+        result = group.get_idx(i=3)
         assert result == []
 
-    def test_get_multiple_matches(self):
+    def test_get_idx_multiple_matches(self):
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 1, "j": 3}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        result = group.get(i=1)
+        result = group.get_idx(i=1)
         assert len(result) == 2
         assert obj1.data in result
         assert obj2.data in result
 
-    def test_get_multiple_keys(self):
-        """Multiple keys in get should apply AND logic."""
+    def test_get_idx_multiple_keys(self):
+        """Multiple keys in get_idx should apply AND logic."""
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         obj2 = IndexedObject(indexes={"i": 1, "j": 3}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
-        result = group.get(i=1, j=2)
+        result = group.get_idx(i=1, j=2)
         assert len(result) == 1
         assert result == [obj1.data]
 
-    def test_get_unknown_key_returns_empty(self):
+    def test_get_idx_unknown_key_returns_empty(self):
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1])
-        result = group.get(k=3)  # 'k' is not a valid index name
+        result = group.get_idx(k=3)  # 'k' is not a valid index name
         assert result == []
 
     def test_merge(self):
@@ -567,7 +567,7 @@ class TestCompressor:
         assert reader.call_count == len(compressor._files)
         assert len(result) == len(compressor._files)
         assert result[0] == result[-1]  # The first and last results should be the same due to the duplicate file
-        assert len(result.get(i="0", j="0", k="1")) == 2  # There should be two objects for the duplicate file indices
+        assert len(result.get_idx(i="0", j="0", k="1")) == 2  # There should be two objects for the duplicate file indices
 
     def test_read_raises_on_reader_error(self, reader, compressor):
         """Test that read raises an error if the reader function raises an error."""
@@ -616,7 +616,7 @@ class TestCompressor:
 
         # Check that the first object matches the compressed data
         compressed_vals = result.sel(i=0, j=0, k=1).values
-        original_vals = np.stack(list(data.get(i="0", j="0", k="1")[0].flatten()))
+        original_vals = np.stack(list(data.get_idx(i="0", j="0", k="1")[0].flatten()))
         assert np.array_equal(compressed_vals, original_vals)
 
     def test_compress_raise_on_incorrect_reshaping(self, reader, compressor):
