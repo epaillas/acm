@@ -481,12 +481,14 @@ class Compressor:
 
         if attrs is not None:
             features_coords = {"parameters": np.array(attrs)}
-            result = np.asarray([o.data.attrs.get(attr) for o in data.objects for attr in attrs])
+            result = np.asarray(
+                [o.data.attrs.get(attr) for o in data.objects for attr in attrs]
+            )
         else:
             # Uunflattened labels from the first data object, assuming all objects have the same structure.
             ls_labels = data.objects[0].data.labels(return_type="unflatten", level=None)
             ls_coords = data.objects[0].data.flatten(level=None)[0].coords()
-            _tmp = {**ls_labels, **ls_coords} # lsstypes labels and coordinates
+            _tmp = {**ls_labels, **ls_coords}  # lsstypes labels and coordinates
             features_coords = {k: np.unique(v) for k, v in _tmp.items()}
             result = np.asarray([o.data for o in data.objects])
 
