@@ -249,7 +249,7 @@ if __name__ == "__main__":
                 catalog.save(mock_dir / 'catalog.h5')
 
             for los in ['x', 'y', 'z']:
-                logger.info(f'Computing measurements for HOD {hod_idx:03d}, seed {seed}, los {los}')
+                logger.info(f'Computing measurements for HOD {hod_idx:03d}, {seed=}, {los=}')
                 catalog.clear_transforms()
                 if args.add_rsd:
                     offset = catalog.boxsize[catalog.pos_columns.index(los)] / 2
@@ -264,7 +264,12 @@ if __name__ == "__main__":
                     density_file = mock_dir / 'density.h5'
                     if not density_file.exists() or args.overwrite:
                         mock_dir.mkdir(exist_ok=True, parents=True)
-                        leaf = lsstypes.ObservableLeaf(density=np.array([nbar]), attrs=parameters)
+                        leaf = lsstypes.ObservableLeaf(
+                            density = np.array([nbar]),
+                            index = np.array([0]),
+                            coords = ["index"],
+                            attrs = parameters,
+                        )
                         leaf.write(density_file) # NOTE: no atomic write !
 
                 if target_density is not None:
