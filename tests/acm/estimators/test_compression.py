@@ -749,6 +749,18 @@ class TestCompressor:
         assert "param2" in result.coords["parameters"].values
         assert "param3" not in result.coords["parameters"].values  # param3 should not be included
 
+    def test_compress_with_attrs_preserve_order(self, reader, dummy_data):
+        """Test that compress with attrs preserves the order of the specified attributes."""
+        result = Compressor.compress(data=dummy_data, attrs=["param2", "param1"])
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (3, 2)
+        assert result.dims == ("j", "parameters")
+        assert result.attrs["sample"] == ["j"]
+        assert result.attrs["features"] == ["parameters"]
+        # Check that the attributes are in the correct order
+        assert result.coords["parameters"].values[0] == "param2"
+        assert result.coords["parameters"].values[1] == "param1"
+
 class TestDowncast:
     """Test the downcast function for converting numpy arrays to lower precision types."""
 
