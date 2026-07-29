@@ -156,7 +156,7 @@ class ObjectGroup:
         self._match_names(other)
         self.objects.append(other)
 
-    def get(self, **indexes) -> list[LsstypeObject]:
+    def get_idx(self, **indexes) -> list[LsstypeObject]:
         """Get the data of objects matching the required indexes."""
 
         def _match_indexes(obj: IndexedObject, **idx) -> bool:
@@ -186,8 +186,8 @@ class ObjectGroup:
         """
         new = ObjectGroup()
         for o in self.objects:
-            if len(new.get(**o.indexes)) == 0:  # Indexes not already used
-                match = self.get(**o.indexes)
+            if len(new.get_idx(**o.indexes)) == 0:  # Indexes not already used
+                match = self.get_idx(**o.indexes)
                 logger.debug(f"Found {len(match)} objects matching {o.indexes}")
                 new.append(IndexedObject(o.indexes, method(match, **kwargs)))
         return new
@@ -274,7 +274,7 @@ class ObjectGroup:
         def _sort_key(obj: IndexedObject) -> tuple:
             """Generate a sorting key based on the specified index names."""
             _names = [name for name in names if name in obj.indexes]
-            if len(self.get(**obj.indexes)) > 1:
+            if len(self.get_idx(**obj.indexes)) > 1:
                 raise ValueError(
                     f"Multiple objects found for indexes {obj.indexes}."
                     "Cannot order by non-unique indexes."
