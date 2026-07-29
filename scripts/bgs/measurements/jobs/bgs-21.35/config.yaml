@@ -1,7 +1,7 @@
 cosmologies: [0]
 phases: [0]
 seeds: [0]
-hod_dir: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-21.35/parameters/hod_params
+param_dir: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-21.35/parameters
 save_dir: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-21.35/measurements
 estimator_config: estimator_parameters.yaml
 n_hod: 100
@@ -12,6 +12,6 @@ add_ap: true
 target_density: 1.20e-3
 process_underdense: false
 save_galaxies: false
-measurements: ['tpcf', 'density_split', 'power_spectrum', 'density_split_power']
+measurements: [spectrum, bispectrum, ds_pkqq, ds_pkqg]
 overwrite: false
 log_level: INFO
