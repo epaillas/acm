@@ -692,6 +692,20 @@ class TestCompressor:
         obj3 = IndexedObject(indexes={"i": 1, "j": "c"}, data=make_lsstype_object())
         return ObjectGroup(objects=[obj1, obj2, obj3])
 
+    def test_compress_leaves(self, reader, dummy_data):
+        """Test that compress with lsstype ObservableLeaf object works."""
+        leaves = make_lsstype_object().flatten(level=None) # List of ObservableLeaf objects
+        obj1 = IndexedObject(indexes={"i": 1, "j": "a"}, data=leaves[0])
+        obj2 = IndexedObject(indexes={"i": 1, "j": "b"}, data=leaves[1])
+        obj3 = IndexedObject(indexes={"i": 1, "j": "c"}, data=leaves[2])
+        group = ObjectGroup(objects=[obj1, obj2, obj3])
+        result = Compressor.compress(data=group, drop_single=False)
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (1, 3, 51, 101)  # 1 unique 'i' value and 3 unique 'j' values
+        assert result.dims == ("i", "j", "s", "mu") # coords are indexes + leaf coordinates
+        assert result.attrs["sample"] == ["i", "j"]
+        assert result.attrs["features"] == ["s", "mu"]
+
     def test_compress_mixed_index_types(self, reader, dummy_data):
         """Test that compress can handle mixed index types (int and str) and correctly downcast."""
         result = Compressor.compress(data=dummy_data, drop_single=False)
