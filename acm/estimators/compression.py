@@ -19,13 +19,13 @@ Example
         drop_single=True,
     )
 """
-
 import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import lsstypes
 import numpy as np
 import xarray
 from pandas import to_numeric
@@ -488,9 +488,14 @@ class Compressor:
             )
         else:
             # Unflattened labels from the first data object, assuming all objects have the same structure.
-            ls_labels = data.objects[0].data.labels(return_type="unflatten", level=None)
-            ls_coords = data.objects[0].data.flatten(level=None)[0].coords()
-            _tmp = {**ls_labels, **ls_coords}  # lsstypes labels and coordinates
+            object_data = data.objects[0].data
+            if isinstance(object_data, lsstypes.ObservableTree):
+                _tmp = {
+                    **object_data.labels(return_type="unflatten", level=None),
+                    **object_data.flatten(level=None)[0].coords(),
+                }  # extract labels and coordinates
+            else: # lsstypes.ObservableLeaf
+                _tmp = object_data.coords()  # access coordinates only
             features_coords = {k: np.unique(v) for k, v in _tmp.items()}
             result = np.asarray([o.data for o in data.objects])
 
