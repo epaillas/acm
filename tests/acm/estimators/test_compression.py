@@ -36,7 +36,12 @@ def make_lsstype_object() -> lsstypes.ObservableTree:
             coords=['s', 'mu'],
             attrs=dict(los='x'),
         ))
-    tree = lsstypes.ObservableTree(leaves, pairs=labels)
+    attrs = dict(
+        param1 = rng.uniform(size=1)[0],
+        param2 = rng.uniform(size=1)[0],
+        param3 = rng.uniform(size=1)[0],
+    )
+    tree = lsstypes.ObservableTree(leaves, pairs=labels, attrs=attrs)
     return tree
 
 @pytest.fixture
@@ -699,7 +704,6 @@ class TestCompressor:
         assert result.coords["i"].dtype == np.int64
         assert result.coords["j"].dtype.type is np.str_
 
-
     def test_compress_drop_single(self, reader, dummy_data):
         """Test that compress with drop_single=True drops dimensions with a single unique value."""
         result = Compressor.compress(data=dummy_data, drop_single=True)
@@ -732,6 +736,18 @@ class TestCompressor:
         with pytest.raises(ValueError, match="Sample coordinates and feature coordinates have overlapping names"):
             _ = Compressor.compress(data=group)
 
+    def test_compress_with_attrs(self, reader, dummy_data):
+        """Compressing with attrs should compress the object attributes instead of the data."""
+        result = Compressor.compress(data=dummy_data, attrs=["param1", "param2"])
+        assert isinstance(result, xarray.DataArray)
+        assert result.shape == (3, 2)  # 3 unique 'j' values and 2 parameters
+        assert result.dims == ("j", "parameters")
+        assert result.attrs["sample"] == ["j"] # dropped single 'i' dimension
+        assert result.attrs["features"] == ["parameters"]
+        # Only selected attributes should be present in the coordinates
+        assert "param1" in result.coords["parameters"].values
+        assert "param2" in result.coords["parameters"].values
+        assert "param3" not in result.coords["parameters"].values  # param3 should not be included
 
 class TestDowncast:
     """Test the downcast function for converting numpy arrays to lower precision types."""
