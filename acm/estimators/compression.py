@@ -430,10 +430,14 @@ class Compressor:
         data: ObjectGroup,
         order: list[str] | None = None,
         reindex: dict[str, list[str]] | None = None,
+        attrs: list[str] | None = None,
         drop_single: bool = True,
     ) -> xarray.DataArray:
         """
         Compress an ObjectGroup instance in a xarray DataArray.
+
+        If attrs is provided, it will extract the attributes from the data objects instead of the data itself.
+        The resulting feature dimension will be named "parameters" and will contain the provided attribute names.
 
         Parameters
         ----------
@@ -447,6 +451,8 @@ class Compressor:
         reindex: dict[str, list[str]], optional
             A dictionary specifying how to reindex the indexes.
             See :meth:`ObjectGroup.get_index_lists` for details.
+        attrs: list[str], optional
+            A list of attribute names to extract from the data objects.
         drop_single: bool, optional
             Whether to drop singleton dimensions in the resulting DataArray.
 
@@ -473,12 +479,16 @@ class Compressor:
             logger.info(f"Ordering indexes as specified: {order}")
         sample_coords = {idx: np.unique(values) for idx, values in index_lists.items()}
 
-        # Get unflattened labels from the first data object,
-        # assuming all objects have the same structure.
-        ls_labels = data.objects[0].data.labels(return_type="unflatten", level=None)
-        ls_coords = data.objects[0].data.flatten(level=None)[0].coords()
-        _tmp = {**ls_labels, **ls_coords}
-        features_coords = {k: np.unique(v) for k, v in _tmp.items()}
+        if attrs is not None:
+            features_coords = {"parameters": np.array(attrs)}
+            result = np.asarray([o.data.attrs.get(attr) for o in data.objects for attr in attrs])
+        else:
+            # Uunflattened labels from the first data object, assuming all objects have the same structure.
+            ls_labels = data.objects[0].data.labels(return_type="unflatten", level=None)
+            ls_coords = data.objects[0].data.flatten(level=None)[0].coords()
+            _tmp = {**ls_labels, **ls_coords} # lsstypes labels and coordinates
+            features_coords = {k: np.unique(v) for k, v in _tmp.items()}
+            result = np.asarray([o.data for o in data.objects])
 
         if set(sample_coords) & set(features_coords):
             raise ValueError(
@@ -490,7 +500,6 @@ class Compressor:
         coords = {k: downcast(v) for k, v in coords.items()}
         logger.debug(f"Coordinates for xarray DataArray: {coords}")
 
-        result = np.asarray([o.data for o in data.objects])
         shape = [len(v) for v in coords.values()]
         if result.size != np.prod(shape):
             raise ValueError(
