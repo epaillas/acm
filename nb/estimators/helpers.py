@@ -58,7 +58,12 @@ def make_dummy_lsstypes_object() -> lsstypes.ObservableTree:
             coords=['s', 'mu'],
             attrs=dict(los='x'),
         ))
-    tree = lsstypes.ObservableTree(leaves, pairs=labels)
+    attrs = dict(
+        param1 = rng.uniform(size=1)[0],
+        param2 = rng.uniform(size=1)[0],
+        param3 = rng.uniform(size=1)[0],
+    )
+    tree = lsstypes.ObservableTree(leaves, pairs=labels, attrs=attrs)
     return tree
 
 def load_estimator_parameters(name: str | None = None) -> dict:
