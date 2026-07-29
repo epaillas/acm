@@ -243,7 +243,7 @@ if __name__ == "__main__":
                 seed = seed,
             )
             catalog = factory.get_catalog(args.redshift)
-            mock_dir = Path(args.save_dir) / args.sim_type / f'c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}'
+            mock_dir = Path(args.save_dir) / str(args.sim_type) / f'c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}'
 
             if args.save_galaxies:
                 catalog.save(mock_dir / 'catalog.h5')
@@ -261,10 +261,11 @@ if __name__ == "__main__":
 
                 if los =='x':
                     logger.info(f"Density for hod {hod_idx:03d}: {nbar:.4e} h^3 Mpc^-3")
-                    density_file = mock_dir / 'density.npy'
+                    density_file = mock_dir / 'density.h5'
                     if not density_file.exists() or args.overwrite:
                         mock_dir.mkdir(exist_ok=True, parents=True)
-                        np.save(density_file, nbar) # TODO: save as lsstypes w/ parameters in attrs ?
+                        leaf = lsstypes.ObservableLeaf(density=np.array([nbar]), attrs=parameters)
+                        leaf.write(density_file) # NOTE: no atomic write !
 
                 if target_density is not None:
                     if nbar < target_density and not args.process_underdense:
