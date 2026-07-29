@@ -19,6 +19,7 @@ Example
         drop_single=True,
     )
 """
+
 import logging
 import re
 from collections.abc import Callable
@@ -494,7 +495,7 @@ class Compressor:
                     **object_data.labels(return_type="unflatten", level=None),
                     **object_data.flatten(level=None)[0].coords(),
                 }  # extract labels and coordinates
-            else: # lsstypes.ObservableLeaf
+            else:  # lsstypes.ObservableLeaf
                 _tmp = object_data.coords()  # access coordinates only
             features_coords = {k: np.unique(v) for k, v in _tmp.items()}
             result = np.asarray([o.data for o in data.objects])
