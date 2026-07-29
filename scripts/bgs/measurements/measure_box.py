@@ -11,12 +11,11 @@ import pickle
 from gc import collect
 from pathlib import Path
 
+import lsstypes
 import numpy as np
 import pandas as pd
 import scipy.special
 import yaml
-from acm.estimators.galaxy_clustering.bispectrum import BispectrumMultipoles
-from acm.estimators.galaxy_clustering.tpcf import TwoPointCorrelationFunctionEstimator
 from cosmoprimo.fiducial import AbacusSummit
 from jax import clear_caches
 
@@ -26,8 +25,10 @@ from acm.catalogs.factories import SnapshotCatalogFactory
 from acm.catalogs.products.snapshot import SnapshotCatalog, boundary_check
 from acm.estimators.galaxy_clustering.backends.jaxpower import JaxpowerBackend
 from acm.estimators.galaxy_clustering.base import BaseEstimator
+from acm.estimators.galaxy_clustering.bispectrum import BispectrumMultipoles
 from acm.estimators.galaxy_clustering.density_split import DensitySplit
 from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
+from acm.estimators.galaxy_clustering.tpcf import TwoPointCorrelationFunctionEstimator
 from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.paths import lookup_registry_path
@@ -48,9 +49,9 @@ def sph_harm(m, n, theta, phi):  # noqa: ANN001, ANN201, D103
     return scipy.special.sph_harm_y(n, m, phi, theta)
 scipy.special.sph_harm = sph_harm  # ty:ignore[unresolved-attribute]
 
-def get_hod_params(
+def get_params(
     tracer_names: list[str],
-    hod_dir: str | Path,
+    data_dir: str | Path,
     pattern: str,
 ) -> dict[str, list[dict]]:
     """
@@ -62,10 +63,10 @@ def get_hod_params(
     ----------
     tracer_names: list[str]
         List of tracer names to get the HOD parameters for.
-    hod_dir: str | Path
-        Dicrectory where to find the HOD parameter CSV files.
+    data_dir: str | Path
+        Directory where to find the parameter CSV files.
     pattern: str
-        Formatted string pattern to find the HOD parameter files in hod_dir.
+        Formatted string pattern to find the parameter files in data_dir.
         Will try to format it with a parameter `tracer` corresponding to the tracer name.
 
     Returns
@@ -83,14 +84,14 @@ def get_hod_params(
 
     Examples
     --------
-    >>> get_hod_params(['BGS'], '/some_dir/', pattern='{tracer}/myfile.csv')
+    >>> get_params(['BGS'], '/some_dir/', pattern='{tracer}/myfile.csv')
     {'BGS': [
         {'p0': 0, 'p1': 1},
         {'p0': 2, 'p1': 3},
         ...
     ]}
     """
-    fns = [Path(hod_dir)/pattern.format(tracer=t) for t in tracer_names]
+    fns = [Path(data_dir)/pattern.format(tracer=t) for t in tracer_names]
     fnf = [fn for fn in fns if not fn.exists()] # Files Not Found
     if any(fnf):
         raise FileNotFoundError(f"Some files were not found: {fnf}")
@@ -99,18 +100,18 @@ def get_hod_params(
 
     # Check that the number of columns is consistent
     shapes = np.array([df.shape for df in _params])
-    Nhod = np.unique(shapes[:, 0])
-    Nparams = np.unique(shapes[:, 1])
-    if len(Nparams) != 1:
-        raise ValueError(f"Found inconsitent number of parameters across HOD parameter files: {Nparams}")
+    Ns = np.unique(shapes[:, 0]) # Number of parameter combinations
+    Np = np.unique(shapes[:, 1]) # Number of parameters per combination
+    if len(Np) != 1:
+        raise ValueError(
+            f"Found inconsistent number of parameters across parameter files: {Np}"
+        )
 
-    _d = dict(zip(tracer_names, shapes, strict=True))
-    logger.debug(f"Found HOD parameter files of shapes: {_d}.")
-
-    if len(np.unique(Nhod)) != 1:
-        n_min = min(Nhod)
-        logger.warning(f"Found different lengths for HOD parameter files. Keeping only first {n_min} parameter combinations.")
-        _params = [df[:n_min] for df in _params]
+    if len(np.unique(Ns)) != 1:
+        logger.warning(
+            f"Found different lengths for parameter files. Keeping only first {min(Ns)} parameter combinations."
+        )
+        _params = [df[:min(Ns)] for df in _params]
 
     return {k: v.to_dict('records') for k, v in zip(tracer_names, _params, strict=True)}
 
@@ -144,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--cosmologies", type=int, nargs="+", required=True, help="List of cosmology indices to process.")
     parser.add_argument("-p", "--phases", type=int, nargs="+", required=True, help="List of phase indices to process.")
     parser.add_argument("-s", "--seeds", type=int, nargs="+", required=True, help="List of seeds to process.")
-    parser.add_argument("--hod_dir", type=str, required=True, help="Directory containing the HOD parameter files.")
+    parser.add_argument("--param_dir", type=str, required=True, help="Directory containing the parameter files.")
     parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the measurements.")
     parser.add_argument("--estimator_config", type=str, required=True, help="YAML file containing estimator parameters.")
     parser.add_argument("--hods", type=int, nargs="+", help="List of HOD indices to process. Disables start_hod and n_hod.")
@@ -220,10 +221,20 @@ if __name__ == "__main__":
             tracers = [Tracer(name=k) for k in tracer_names] # Name only = default
         )
 
-        hod_fn = f"Bouchard25_c{cosmo_idx:03d}.csv" # NOTE: Hardcoded pattern
-        hod_params = get_hod_params(tracer_names, args.hod_dir, pattern=hod_fn)
+        # NOTE: Hardcoded file patterns
+        hod_params = get_params( # Get only HOD parameters, without cosmology parameters
+            tracer_names,
+            args.param_dir,
+            pattern=f"hod_params/Bouchard25_c{cosmo_idx:03d}.csv",
+        )
+        all_params = get_params( # Same, but with cosmology parameters included
+            tracer_names,
+            args.param_dir,
+            pattern=f"cosmo+hod_params/AbacusSummit_c{cosmo_idx:03d}.csv",
+        )
 
         for _, _, seed, hod_idx in group:
+            parameters = all_params[tracer_names[0]][hod_idx] # FIXME (later): How to solve that for multi tracer ?
             tracers = [Tracer(name=k, params=v[hod_idx]) for k, v in hod_params.items()]
             factory.make_catalogs(
                 redshifts = [args.redshift],
@@ -253,7 +264,7 @@ if __name__ == "__main__":
                     density_file = mock_dir / 'density.npy'
                     if not density_file.exists() or args.overwrite:
                         mock_dir.mkdir(exist_ok=True, parents=True)
-                        np.save(density_file, nbar)
+                        np.save(density_file, nbar) # TODO: save as lsstypes w/ parameters in attrs ?
 
                 if target_density is not None:
                     if nbar < target_density and not args.process_underdense:
@@ -308,6 +319,8 @@ if __name__ == "__main__":
                         **compute_args,
                     )
                     if result is not None: # Save object if computation was successful
+                        # Update result attrs with cosmo+HOD parameters
+                        result.attrs.update(parameters)
                         estimator.save(result, fn, overwrite=args.overwrite)
             else: # Only run if target_density does not break los loop
                 hod_count += 1
