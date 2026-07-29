@@ -453,6 +453,8 @@ class Compressor:
             See :meth:`ObjectGroup.get_index_lists` for details.
         attrs: list[str], optional
             A list of attribute names to extract from the data objects.
+            The resulting DataArray will have a single feature dimension named "parameters"
+            containing these attributes in the provided order.
         drop_single: bool, optional
             Whether to drop singleton dimensions in the resulting DataArray.
 
@@ -485,7 +487,7 @@ class Compressor:
                 [o.data.attrs.get(attr) for o in data.objects for attr in attrs]
             )
         else:
-            # Uunflattened labels from the first data object, assuming all objects have the same structure.
+            # Unflattened labels from the first data object, assuming all objects have the same structure.
             ls_labels = data.objects[0].data.labels(return_type="unflatten", level=None)
             ls_coords = data.objects[0].data.flatten(level=None)[0].coords()
             _tmp = {**ls_labels, **ls_coords}  # lsstypes labels and coordinates
