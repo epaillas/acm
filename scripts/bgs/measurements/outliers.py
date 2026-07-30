@@ -80,6 +80,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_expected", type=int, required=True, help="Expected number of files")
     parser.add_argument("--save_dir", type=str, default=None, help="Directory to save the output files (corrupted and outlier indices)")
     parser.add_argument("--raw", action="store_true", help="If set, will use the raw data instead of the merged/selected data")
+    parser.add_argument("--sigma", type=float, default=3.0, help="Sigma threshold for outlier detection")
     parser.add_argument("--estimator_config", type=str, required=True, help="YAML file containing estimator parameters.")
     parser.add_argument("--log_level", type=str, default='warning', help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
@@ -113,7 +114,7 @@ if __name__ == "__main__":
     if not args.raw:
         group = select(stat_name, group)
         group = group.merge(method=lsstypes.mean)  # Merge identical indices
-    outlier_idx = check_outliers(group)
+    outlier_idx = check_outliers(group, sigma=args.sigma)
 
     if args.save_dir:
         Path(args.save_dir).mkdir(parents=True, exist_ok=True)
