@@ -1,6 +1,5 @@
 """
-Outdated script to train and optimize a model for given hyperparameters.
-Use optimize_model.py instead.
+Outdated script to train and optimize a model for given hyperparameters. Use optimize_model.py instead.
 
 Usage:
     python /global/homes/s/sbouchar/acm/scripts/bgs/training/train_model.py \
@@ -9,17 +8,16 @@ Usage:
     --transform arcsinh \
     --log_level info \
     --statistics tpcf
-"""
-
-import logging
+"""  # noqa: INP001
 import argparse
+import logging
 from pathlib import Path
 
 import torch
 from astropy.stats import sigma_clip
 from pytorch_lightning import seed_everything
+from sunbird.data.transforms_array import ArcsinhTransform, LogTransform
 from sunbird.emulators.train import train_fcn
-from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
 
 from acm.observables import Observable
 from acm.utils.logging import setup_logging
@@ -40,17 +38,17 @@ if __name__ == '__main__':
     parser.add_argument('--log_level', type=str, default='warning', help='Set logging level (e.g., DEBUG, INFO)')
     parser.add_argument('--sigma', type=float, default=6.0, help='Sigma threshold for clipping outliers from training data. Set to 0 to disable.')
     args = parser.parse_args()
-    
+
     logger = logging.getLogger(__file__.split('/')[-1])
     setup_logging(level=args.log_level)
-    
+
     seed_everything(args.seed, workers=True)
-    
+
     paths = dict(data_dir=args.compressed_dir)
     checkpoint_dir = Path(args.checkpoint_dir)
-        
+
     idx_train = slice(args.n_test, None)  # Assuming first n_test are test data
-    
+
     if args.transform == 'log':
         transform = LogTransform()
     elif args.transform == 'arcsinh':
@@ -59,28 +57,28 @@ if __name__ == '__main__':
         transform = None
     else:
         raise ValueError(f'Unknown transform: {args.transform}')
-    
+
     for stat_name in args.statistics:
         logger_fn = checkpoint_dir / f'{stat_name}.log'
-        setup_logging(filename=logger_fn, level=args.log_level)
-        
+        setup_logging(filename=str(logger_fn), level=args.log_level)
+
         logger.info(f'Starting training for {stat_name}')
         observable = Observable(stat_name=stat_name, paths=paths, numpy_output=True, flat_output_dims=2)
-        
+
         checkpoint_dir = checkpoint_dir / f'{stat_name}'
-        
+
         lhc_x = getattr(observable, 'x_train', observable.x[idx_train])
         lhc_y = getattr(observable, 'y_train', observable.y[idx_train])
         lhc_x_names = observable.x_names
         # covariance_matrix = observable.get_covariance_matrix() # Not used in mae loss
-        
+
         # sigma clipping
         if args.sigma > 0:
-            mask = sigma_clip(lhc_y, sigma=args.sigma, masked=True, axis=0).mask.any(axis=1)
+            mask = sigma_clip(lhc_y, sigma=args.sigma, masked=True, axis=0).mask.any(axis=1)  # ty:ignore[unresolved-attribute]
             lhc_x = lhc_x[~mask]
             lhc_y = lhc_y[~mask]
             logger.info(f'Removed {mask.sum()} outliers from training data using sigma={args.sigma} clipping')
-        
+
         val_loss = train_fcn(
             lhc_y=lhc_y,
             lhc_x=lhc_x,
