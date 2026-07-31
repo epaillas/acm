@@ -88,6 +88,8 @@ if __name__ == "__main__":
     group_exp = group_exp.merge(method=lsstypes.mean)  # Merge identical indices
     expected = np.asarray(group_exp[0].data) # Flattened array of expected data
     covariance = np.cov(np.array([obj.data for obj in group_exp]), rowvar=False)
+    if args.diag:
+        covariance = np.diag(np.diag(covariance))
 
     values = []
     for observed in data:
