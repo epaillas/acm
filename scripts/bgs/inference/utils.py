@@ -1,36 +1,40 @@
-import warnings
-from pathlib import Path
+import warnings  # noqa: INP001
 from copy import deepcopy
+from pathlib import Path
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+from sunbird.inference.pocomc import PocoMCSampler
 from sunbird.inference.samples import Chain
+
 from acm.observables import CombinedObservable
+from acm.observables.base import Observable
 from acm.utils.modules import get_class_from_module
+
 
 #%% Inference script utils
 def get_observable(
-    observable_names: list[str]|str, 
-    module: str = 'acm.observables.bgs', 
-    select_filters_map: dict[dict]|None = None,
-    slice_filters_map: dict[dict]|None = None,
-    kwargs_map: dict[dict]|None = None,
+    observable_names: list[str] | str,
+    module: str = 'acm.observables.bgs',
+    select_filters_map: dict | None = None,
+    slice_filters_map: dict | None = None,
+    kwargs_map: dict | None = None,
     **kwargs,
 ) -> CombinedObservable:
     """
     Get the observable class by name.
-    
+
     Parameters
     ----------
     observable_names : list[str] | str
         Name(s) of the observable class(es) to retrieve.
     module : str
         The base module path where the observable classes are located.
-    select_filters_map : dict[dict] | None
+    select_filters_map : dict | None
         A mapping from observable names to their select filters.
-    slice_filters_map : dict[dict] | None
+    slice_filters_map : dict | None
         A mapping from observable names to their slice filters.
-    kwargs_map : dict[dict] | None
+    kwargs_map : dict | None
         A mapping from observable names to their specific keyword arguments.
     **kwargs
         Additional keyword arguments to pass to the observable class constructors.
@@ -39,7 +43,7 @@ def get_observable(
     """
     if isinstance(observable_names, str):
         observable_names = [observable_names]
-        
+
     # Prevent crash in get call later
     if select_filters_map is None:
         select_filters_map = {}
@@ -47,13 +51,13 @@ def get_observable(
         slice_filters_map = {}
     if kwargs_map is None:
         kwargs_map = {}
-        
+
     observables = []
     _select_filters = kwargs.pop('select_filters', {})
     _slice_filters = kwargs.pop('slice_filters', {})
     for observable_name in observable_names:
         cls = get_class_from_module(module, observable_name)
-        
+
         # Prevent modifying the original kwargs
         select_filters = _select_filters.copy()
         slice_filters = _slice_filters.copy()
@@ -61,19 +65,19 @@ def get_observable(
         slice_filters.update(slice_filters_map.get(observable_name, {}))
         kwargs['select_filters'] = select_filters
         kwargs['slice_filters'] = slice_filters
-        
+
         kwargs.update(kwargs_map.get(observable_name, {})) # Update with specific kwargs for this observable if provided
-        
+
         obs = cls(**kwargs)
         observables.append(obs)
-    
+
     return CombinedObservable(observables)
 
 def save_and_plot(
-    sampler, 
-    observable, 
-    identifier: str = None,
-    save_dir: str = None
+    sampler: PocoMCSampler,
+    observable: Observable,
+    identifier: str | None = None,
+    save_dir: str | Path | None = None
 ) -> None:
     """
     Save sampler results and generate plots.
@@ -100,20 +104,20 @@ def save_and_plot(
 
     sampler.save_chain(save_fn = f'{handle}.npy', metadata={'markers': sampler.markers, 'zeff': 0.5})
     sampler.save_table(save_fn=f'{handle}_stats.txt')
-    
+
     chain = Chain.load(f'{handle}.npy')
     chain.plot_triangle(save_fn=f'{handle}_triangle.png', thin=128, markers=sampler.markers, title_limit=1)
     chain.plot_trace(save_fn=f'{handle}_trace.png', thin=128)
     observable.plot_observable(model_params=chain.bestfit, save_fn=f'{handle}_bestfit.pdf')
-    
+
 #%% Control plots utils
 def get_chain(
-    type_fit: str, 
-    cosmo_model: str, 
-    hod_model: str, 
-    stat_name: str, 
-    chain_dir: str,
-    identifier: str = None,
+    type_fit: str,
+    cosmo_model: str,
+    hod_model: str,
+    stat_name: str,
+    chain_dir: str | Path,
+    identifier: str | None = None,
 ) -> Chain:
     """Load a chain from disk trough the Chain class."""
     fn = stat_name
@@ -128,12 +132,12 @@ def get_chain(
     return chain
 
 def get_chains(
-    type_fit: str, 
-    cosmo_model: str, 
-    hod_model: str, 
-    chain_dir: str,
+    type_fit: str,
+    cosmo_model: str,
+    hod_model: str,
+    chain_dir: str | Path,
     stats: list[str] = ['tpcf', 'ds_xiqg+ds_xiqq', 'tpcf+ds_xiqg+ds_xiqq'],
-    identifier: str = None,
+    identifier: str | None = None,
 ) -> list[Chain]:
     """Get several chains corresponding to different statistics."""
     chains = []
@@ -146,7 +150,7 @@ def get_chains(
 def print_std_improvements(ref: Chain, comp: Chain, params: list[str]) -> dict:
     """
     Print the standard deviation improvements from a reference chain to a comparison chain.
-    
+
     Parameters
     ----------
     ref: Chain
@@ -155,50 +159,46 @@ def print_std_improvements(ref: Chain, comp: Chain, params: list[str]) -> dict:
         The comparison chain.
     params: list[str]
         The list of parameter names to consider.
-    
+
     Returns
     -------
     improvements: dict
         A dictionary with parameter names as keys and a list of tuples (mean, std, improvement) as values.
     """
-    
     improvements = {}
-    
     chains = [ref, comp]
     chains_mean = [chain.samples.mean(axis=0) for chain in chains]
     chains_std = [chain.samples.std(axis=0) for chain in chains]
     names = chains[0].names
-    
     for name in params:
         if name not in names:
             continue
-        
+
         improvements.setdefault(name, [])
-        for i, chain in enumerate(chains):
+        for i, _ in enumerate(chains):
             mean = chains_mean[i][names.index(name)]
             std = chains_std[i][names.index(name)]
-            
             if i == 0:
                 ref_std = std
             else:
                 improvement = (ref_std - std) / ref_std * 100
                 improvements[name].append((mean, std, improvement))
-                print(f'    {name}: {mean:.5f} ± {std:.5f} ({improvement:.2f}% std improvement)')
-    
+                print(f'    {name}: {mean:.5f} ± {std:.5f} ({improvement:.2f}% std improvement)')  # noqa: T201
     return improvements
 
 def add_model_errors_to_ax(
-    observable,
+    observable: Observable,
     chain: Chain,
     ax: plt.Axes,
     **kwargs,
-) -> None: 
+) -> None:
+    """Add model errors to an existing axis for a given observable and chain."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model_err = observable.get_emulator_error()
         mock_err = np.sqrt(np.diag(observable.get_covariance_matrix()))
         pred_err = np.sqrt(model_err**2 + mock_err**2)
-        
+
     if observable.stat_name == 'tpcf':
         s = observable.s.values
         ells = kwargs.get('ells', [0, 2])
@@ -217,14 +217,13 @@ def add_model_errors_to_ax(
 
 def plot_model_vs_truth(
     chain: Chain,
-    data_obs,
-    model_obs = None,
+    data_obs: Observable,
+    model_obs: Observable | None = None,
     add_model_errors: bool = True,
     **kwargs,
-) -> tuple[plt.Figure, plt.Axes, tuple]:
+) -> tuple[plt.Figure, plt.Axes]:
     """
-    Uses the plot_observable method from the BGS observables to plot 
-    the observable data vs the model prediction at the bestfit point of the chain.
+    Use the plot_observable method from the BGS observables to plot  the observable data vs the model prediction at the bestfit point of the chain.
 
     Parameters
     ----------
@@ -244,17 +243,12 @@ def plot_model_vs_truth(
         The figure object containing the plot.
     ax : plt.Axes
         The axes object containing the plot.
-    tuple :
-        A tuple containing the observable instance and the predicted errors.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         fig, ax = data_obs.plot_observable(chain.bestfit, show_legend=True, **kwargs)
-        
         if model_obs is None:
             model_obs = deepcopy(data_obs)
-            
         if add_model_errors:
             add_model_errors_to_ax(model_obs, chain, ax, **kwargs)
-            
     return fig, ax
