@@ -535,9 +535,9 @@ class Compressor:
         return cout
 
 
-def downcast(array: np.ndarray) -> np.ndarray:
+def downcast(array: np.ndarray[tuple[int]]) -> np.ndarray[tuple[int]]:
     """
-    Downcast a numpy array to the smallest possible dtype without losing information.
+    Downcast a 1D numpy array to the smallest possible dtype without losing information.
 
     Converts strings arrays and returns the original array if
     downcasting is not possible (ValueError raised).
