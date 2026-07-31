@@ -5,30 +5,31 @@ Usage:
     python inference_pocomc.py --config path/to/config.yaml [other options]
 
     python inference_pocomc.py --slice_map "{'tpcf': {'s': [1, 200]}, 'ds_xiqg': {'s': [1, 200]}, 'ds_xiqq': {'s': [1, 200]}}"
-"""
-
-import sys
-import yaml
-import logging
+"""  # noqa: INP001
 import argparse
+import logging
+import sys
 from pathlib import Path
 
 import numpy as np
+import yaml
+from bgs_mocks import get_mock_data
 from sunbird.inference.pocomc import PocoMCSampler
-from sunbird.inference.priors import get_priors, get_fixed_params, Bouchard25
+from sunbird.inference.priors import Bouchard25, get_fixed_params, get_priors
+from utils import get_observable, save_and_plot
 
 from acm import setup_logging
-from acm.utils.covariance import get_covariance_correction, check_covariance_matrix
-
-from utils import get_observable, save_and_plot
-from bgs_mocks import get_mock_data
+from acm.observables.base import Observable
+from acm.utils.covariance import check_covariance_matrix, get_covariance_correction
 
 logger = logging.getLogger(__file__.split('/')[-1])
+
+# ruff: noqa: T201
 
 # Define select filters map for different observables
 select_filters_map = {
     'tpcf': dict(
-        multipoles = [0, 2],    
+        multipoles = [0, 2],
     ),
     'ds_xiqg': dict(
         multipoles = [0, 2],
@@ -40,7 +41,7 @@ select_filters_map = {
     ),
 }
 
-def get_observable_model(observable) -> tuple:
+def get_observable_model(observable: Observable) -> tuple:
     """
     Load model for the given observable.
 
@@ -61,17 +62,16 @@ def get_observable_model(observable) -> tuple:
     return model, x_names
 
 def get_observable_covariance(
-    observable, 
+    observable: Observable,
     *args, # See PEP 3102
-    add_cov_emu: bool = False, 
-    cov_emu_method: str = 'median', 
-    cov_emu_diag: bool = False, 
-    cov_correction: str = 'percival', 
-    fixed_parameters: list[str] = None,
+    add_cov_emu: bool = False,
+    cov_emu_method: str = 'median',
+    cov_emu_diag: bool = False,
+    cov_correction: str = 'percival',
+    fixed_parameters: list[str] | None = None,
 ) -> np.ndarray:
     """
-    Load covariance matrix for the given observable, adds emulator covariance if specified,
-    and applies covariance correction if specified.
+    Load covariance matrix for the given observable, adds emulator covariance if specified, and applies covariance correction if specified.
 
     Parameters
     ----------
@@ -97,32 +97,31 @@ def get_observable_covariance(
     """
     cov = observable.get_covariance_matrix(volume_factor=64)
     logger.info(f'Loaded covariance matrix with shape: {cov.shape}')
-    
+
     if add_cov_emu:
         cov_emu = observable.get_emulator_covariance_matrix(method=cov_emu_method, diag=cov_emu_diag)
         logger.info(f'Loaded emulator covariance matrix with shape: {cov_emu.shape}')
         cov += cov_emu
-    
-    if args: 
+
+    if args:
         for additional_cov in args:
             cov += additional_cov
-            
-    if cov_correction is not None:
+
+    if cov_correction is not None and fixed_parameters is not None:
         correction = get_covariance_correction(
-            method = cov_correction, 
+            method = cov_correction,
             n_s = len(observable.covariance_y),
             n_d = len(cov),
             n_theta = len(observable.x_names) - len(fixed_parameters),
         )
         logger.info(f'Applying covariance correction: {correction}')
         cov *= correction
-    
-    logger.info(f'Final covariance matrix tests (warnings will follow if any fail):')
+
+    logger.info('Final covariance matrix tests (warnings will follow if any fail):')
     check_covariance_matrix(cov, name='Total covariance matrix')
-    
     return cov
 
-def get_observable_data(observable) -> tuple: 
+def get_observable_data(observable: Observable) -> tuple:
     """
     Load observable data (x, y) from the given observable.
 
@@ -145,10 +144,10 @@ def get_observable_data(observable) -> tuple:
     return x, y
 
 def fit_pocomc(
-    observable, 
-    priors: dict, 
-    ranges: dict, 
-    labels: dict, 
+    observable: Observable,
+    priors: dict,
+    ranges: dict,
+    labels: dict,
     fixed_param_names: list[str],
     fit_type: str = 'validation',
     add_cov_emu: bool = False,
@@ -159,7 +158,7 @@ def fit_pocomc(
 ) -> PocoMCSampler:
     """
     Fit PocoMC sampler to the given observable data and model.
-    
+
     Parameters
     ----------
     observable : CombinedObservable
@@ -182,14 +181,14 @@ def fit_pocomc(
         Whether to use only the diagonal of the emulator covariance. Defaults to False.
     cov_correction : str, optional
         Covariance correction method to use. Defaults to 'percival'.
-    
+
     Returns
     -------
     sampler : PocoMCSampler
         The configured PocoMCSampler instance after sampling.
     """
     theory_model, x_names = get_observable_model(observable)
-    
+
     covariances = []
     if fit_type == 'validation':
         x, observation = get_observable_data(observable)
@@ -202,42 +201,41 @@ def fit_pocomc(
         # covariances.append(extra_cov)
     else:
         raise ValueError(f'Unknown fit_type: {fit_type}')
-    
+
     cov = get_observable_covariance(
-        observable, 
+        observable,
         *covariances,
-        add_cov_emu=add_cov_emu, 
-        cov_emu_method=cov_emu_method, 
+        add_cov_emu=add_cov_emu,
+        cov_emu_method=cov_emu_method,
         cov_emu_diag=cov_emu_diag,
         cov_correction=cov_correction,
         fixed_parameters=fixed_param_names,
     )
-    
+
     # Ensure prior keys are in the same order as data_names
     priors = {key: priors[key] for key in x_names} # FIXME: unordered objects should not require ordering
     fixed_parameters = {key: x[x_names.index(key)] for key in fixed_param_names}
     markers = {key: x[x_names.index(key)] for key in x_names if key not in fixed_param_names} # True value markers
-    
+
     precision_matrix = np.linalg.inv(cov)
-    
+
     sampler = PocoMCSampler(
         observation = observation,
         precision_matrix = precision_matrix,
         theory_model = theory_model,
         fixed_parameters = fixed_parameters,
-        priors = priors, # prior keys order must match x_names order 
+        priors = priors, # prior keys order must match x_names order
         ranges = ranges, # ranges and labels order is not important
         labels = labels,
         ellipsoid = True,
         markers = markers,
     )
     sampler(vectorize=True, n_total=4096)
-    
+
     return sampler
 
 
 if __name__ == '__main__':
-    
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default=None, help='Path to a configuration file (YAML format). Command line arguments override config file settings.')
     parser.add_argument('--dump_config', action='store_true', help='Dump the current configuration and exit.')
@@ -259,11 +257,11 @@ if __name__ == '__main__':
     parser.add_argument('--hod_idx', type=int, default=0, help='Index of the HOD to fit, if fit_type is validation.')
     parser.add_argument('--obs_kwargs', type=str, default=None, help='Mapping of additional keyword arguments to pass at observable load. Will override all other passed arguments if provided')
     parser.add_argument('--fit_kwargs', type=str, default=None, help='Mapping of additional keyword arguments to pass at fit_pocomc.')
-    
+
     args = parser.parse_args()
-    
+
     if args.config is not None:
-        with open(args.config, 'r') as f:
+        with Path(args.config).open('r') as f:
             config_args = yaml.safe_load(f)
             parser.set_defaults(**config_args)
         args = parser.parse_args() # Re-parse arguments with config defaults
@@ -277,9 +275,9 @@ if __name__ == '__main__':
         for arg in tmp_args:
             print(f"{arg}: {getattr(args, arg)}")
         sys.exit(-1)
-        
+
     setup_logging()
-    
+
     module = args.module
     statistics = args.statistics
     cosmo_model = args.cosmo_model
@@ -287,47 +285,47 @@ if __name__ == '__main__':
     identifier = args.identifier
     fit_type = args.fit_type
     fit_kwargs = args.fit_kwargs
-    
+
     # Observable paths
     paths = dict(
         data_dir = args.data_dir,
         model_dir = args.model_dir,
     )
-    
+
     logger.info(f'Running inference for cosmo model: {cosmo_model}, hod model: {hod_model}')
-    
+
     if args.slice_map is not None:
         slice_filters_map = eval(args.slice_map)
         logger.info(f'Using slice_filters_map: {slice_filters_map}')
     else:
         slice_filters_map = None
-    
+
     if args.obs_kwargs is not None:
         kwargs_map = eval(args.obs_kwargs)
         logger.info(f'Using kwargs_map for observables: {kwargs_map}')
     else:
         kwargs_map = None
-    
+
     priors, ranges, labels = get_priors(hod_class=Bouchard25)
     fixed_param_names = get_fixed_params(cosmo_model, hod_model, priors)
-    
+
     observable = get_observable(
-        statistics, 
-        module=module, 
+        statistics,
+        module=module,
         select_filters_map=select_filters_map,
         slice_filters_map=slice_filters_map,
         kwargs_map=kwargs_map,
         paths=paths,
-        numpy_output=True, 
+        numpy_output=True,
         squeeze_output=True,
         select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx},
     )
-    
+
     sampler = fit_pocomc(
-        observable, 
-        priors, 
-        ranges, 
-        labels, 
+        observable,  # ty:ignore[invalid-argument-type]
+        priors,
+        ranges,
+        labels,
         fixed_param_names,
         fit_type=fit_type,
         add_cov_emu=args.add_cov_emu,
@@ -336,15 +334,15 @@ if __name__ == '__main__':
         cov_correction=args.cov_correction,
         **fit_kwargs
     )
-    
+
     if fit_type == 'validation':
         save_dir = Path(args.save_dir) / fit_type / f'c{args.cosmo_idx:03d}_hod{args.hod_idx:03d}' / f'cosmo-{cosmo_model}_hod-{hod_model}'
     else:
         save_dir = Path(args.save_dir) / fit_type / f'cosmo-{cosmo_model}_hod-{hod_model}' # No indices for usual mocks fits
-    
+
     save_and_plot(
-        sampler, 
-        observable, 
+        sampler,
+        observable,  # ty:ignore[invalid-argument-type]
         identifier=identifier,
         save_dir=save_dir,
     )

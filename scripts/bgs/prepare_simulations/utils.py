@@ -1,62 +1,69 @@
-from pathlib import Path
+from pathlib import Path  # noqa: INP001
+
 
 #%% Phase index utilities
-def list_to_sequence(l: list[int]) -> list[tuple[int, int] | int]:
+def list_to_sequence(val: list[int]) -> list[tuple[int, int] | int]:
     """
-    Converts a list of integers into a list of tuples representing consecutive sequences.
+    Convert a list of integers into a list of tuples representing consecutive sequences.
 
     Parameters
     ----------
-    l : list[int]
+    val : list[int]
         A list of integers.
-    
+
     Returns
     -------
     list[tuple[int, int] | int]
-        A list of tuples and integers, where each tuple contains the start and end of a consecutive sequence, and standalone integers are included as is.
+        A list of tuples and integers, where each tuple contains the start and end
+        of a consecutive sequence, and standalone integers are included as is.
     """
-    l = sorted(set(l)) # Remove duplicates and sort
+    val = sorted(set(val)) # Remove duplicates and sort
     sequences = []
     i = 0
-    while i < len(l): # Iterate through the list
+    while i < len(val): # Iterate through the list
         j = 0
-        while l[i + j] == l[i] + j: # Check for consecutive numbers
+        while val[i + j] == val[i] + j: # Check for consecutive numbers
             j += 1
-            if i + j >= len(l): # Prevent index out of range
+            if i + j >= len(val): # Prevent index out of range
                 break
         if j > 1: # Add the sequence as a tuple if sequence found (more than 1 consecutive number)
-            sequences.append((l[i], l[i + j - 1])) 
+            sequences.append((val[i], val[i + j - 1]))
         else: # Add the single number if no sequence found
-            sequences.append(l[i]) 
+            sequences.append(val[i])
         i += j # Move to the next number
     return sequences
 
 #%% Control plots utilities
-def find_mocks(dir: str|Path, pattern: str) -> list[str]:
+def find_mocks(directory: str|Path, pattern: str) -> list[str]:
     """
-    Finds mock files in a given directory matching a specified pattern.
-    
+    Find mock files in a given directory matching a specified pattern.
+
     Parameters
     ----------
-    dir : str | Path
+    directory : str | Path
         Directory to search for mock files.
     pattern : str
         Pattern to match mock files.
-    
+
     Returns
     -------
     list[str]
         A sorted list of file paths matching the pattern.
     """
-    dir = Path(dir)
-    files = sorted(dir.glob(pattern))
+    directory = Path(directory)
+    files = sorted(directory.glob(pattern))
     files = [str(f) for f in files]
 
     return files
 
-def get_file_count(files: list[str], z: float, indexes: list[int] = None) -> tuple[dict[int, int], dict[int, int]]:
+def get_file_count(
+    files: list[str],
+    z: float,
+    indexes: list[int] | None = None,
+) -> tuple[dict[int, int], dict[int, int]]:
     """
-    Counts the number of halo and particle files for each mock at a given redshift.
+    Count the number of halo and particle files for each mock at a given redshift.
+
     Files should follow the naming convention from prepare_sim:
     - halos_xcom_*_seed600_abacushod_oldfenv_new.h5
     - particles_xcom_*_seed600_abacushod_oldfenv_withranks_new.h5
@@ -79,15 +86,12 @@ def get_file_count(files: list[str], z: float, indexes: list[int] = None) -> tup
     """
     halo_counts = {}
     particle_counts = {}
-    
-    if indexes is None:
-        indexes = range(len(files))
+    indexes = indexes or list(range(len(files)))
 
-    for f, i in zip(files, indexes):
-        f = Path(f)
+    for f, i in zip(files, indexes, strict=True):
+        f = Path(f)  # noqa: PLW2901
         hc = len(list(f.glob(f'z{z:.03f}/halos_xcom_*_seed600_abacushod_oldfenv_new.h5')))
         pc = len(list(f.glob(f'z{z:.03f}/particles_xcom_*_seed600_abacushod_oldfenv_withranks_new.h5')))
         halo_counts[i] = hc
         particle_counts[i] = pc
-        
     return halo_counts, particle_counts
