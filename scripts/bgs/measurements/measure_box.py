@@ -303,9 +303,9 @@ if __name__ == "__main__":
                         continue
 
                     cls = get_estimator(stat_name)
-                    args = estimator_config.get(stat_name, {})
-                    init_args = args.get("initialization", {})
-                    compute_args = args.get("compute", {})
+                    confargs = estimator_config.get(stat_name, {})
+                    init_args = confargs.get("initialization", {})
+                    compute_args = confargs.get("compute", {})
                     update_dict_with_keys( # Update those if required
                         init_args,
                         compute_args,

@@ -58,8 +58,8 @@ if __name__ == "__main__":
         test_filter["cosmo_idx"] = args.test_cosmos
 
     stat_name = args.measurement
-    args = estimator_config.get(stat_name, {})
-    load_args = args.get("load", {})
+    confargs = estimator_config.get(stat_name, {})
+    load_args = confargs.get("load", {})
     reader = get_estimator(stat_name).load
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
