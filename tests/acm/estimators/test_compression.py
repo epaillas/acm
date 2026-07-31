@@ -823,6 +823,12 @@ class TestDowncast:
         downcasted = downcast(arr)
         assert np.array_equal(downcasted, arr)  # Should remain unchanged
 
+    def test_2d_raises(self):
+        """Test that downcast raises a TypeError for non-1D arrays (from pandas)."""
+        arr = np.array([[1, 2], [3, 4]])
+        with pytest.raises(TypeError):
+            downcast(arr)
+
 
 @pytest.fixture
 def simple_dataset():
