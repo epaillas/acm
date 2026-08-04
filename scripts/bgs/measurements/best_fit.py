@@ -96,15 +96,16 @@ if __name__ == "__main__":
         dof = len(observed) - args.ndof if args.ndof else 1
         chi2_value = chi2(observed, expected, covariance, dof=dof)
         logger.info(f"Chi-squared value: {chi2_value}")
+        values.append(chi2_value)
 
-    idx = np.argmin(values)
+    idx = int(np.argmin(values))
     str_idx = ", ".join([f"{k}={v}" for k, v in group_obs[idx].indexes.items()])
     logger.info(f"Best-fit found for {str_idx} ({idx=}) with chi-squared value: {values[idx]}")
 
     if args.plot:
         plotter = get_estimator(stat_name).plot
-        fig, ax = plotter(group_obs[idx], ls='-')
-        fig, ax = plotter(group_exp[0], ls='--', fig=fig, ax=ax)
+        fig, ax = plotter(group_obs[idx].data, ls='-')
+        fig, ax = plotter(group_exp[0].data, ls='--', fig=fig, ax=ax)
         handles = [
             plt.Line2D([0], [0], lw=2, ls='-', label='Observed'),
             plt.Line2D([0], [0], lw=2, ls='--', label='Expected')
