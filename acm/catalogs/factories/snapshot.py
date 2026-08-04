@@ -139,7 +139,7 @@ class SnapshotCatalogFactory(BaseSnapshotFactory):
         for z in redshifts:
             snapshot_tracers = tracers if isinstance(tracers, list) else tracers[z]
 
-            logger.info(f"Loading dark matter catalog at redshift z={z:.3f}")
+            logger.info(f"Getting dark matter catalog at redshift z={z:.3f}")
             dm_catalog = self.backend.get_dark_matter_catalog(redshift=z)
 
             logger.info(
