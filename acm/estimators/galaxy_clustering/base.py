@@ -123,6 +123,7 @@ class BaseEstimator(ABC):
         obj: LsstypeObject,
         fig: plt.Figure | None = None,
         ax: plt.Axes | None = None,
+        **kwargs,
     ) -> tuple[plt.Figure, plt.Axes]:
         """Plot the provided estimator result. Return figure and ax."""
         ...
