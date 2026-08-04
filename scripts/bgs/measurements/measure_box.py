@@ -121,6 +121,12 @@ def update_dict_with_keys(*d: dict, **kwargs) -> None:
         update_keys = {k: v for k, v in kwargs.items() if k in _d}
         _d.update(update_keys)
 
+def _memory_cleanup() -> None:
+    """Clear caches and collect garbage."""
+    logger.debug("Cleaning up memory")
+    clear_caches()
+    collect()
+
 def get_estimator(name: str) -> type[BaseEstimator]:
     """Get the estimator class by alias name."""
     if name == "tpcf":
@@ -280,7 +286,9 @@ if __name__ == "__main__":
                         # FIXME (later): target density selection wrt tracers ?
                         catalog.downsample(tracer.name, nbar=target_density, seed=42)
 
-                positions = catalog.positions().to_numpy()
+                positions = (
+                    catalog.positions().to_numpy() + catalog.boxsize/2
+                ) % catalog.boxsize - catalog.boxsize/2 # Periodic wrapping
                 boundary_check(positions, catalog.boxsize, center_at_zero=True)
                 logger.debug(f'Positions shape: {positions.shape}')
                 logger.info(f'Box size: {catalog.boxsize}')
@@ -328,11 +336,14 @@ if __name__ == "__main__":
                         # Update result attrs with cosmo+HOD parameters
                         result.attrs.update(parameters)
                         estimator.save(result, fn, overwrite=args.overwrite)
+                del backend
+                _memory_cleanup()
             else: # Only run if target_density does not break los loop
                 hod_count += 1
                 logger.debug(f"c{cosmo_idx:03d}_ph{phase_idx:03d}: Computed {hod_count}/{args.n_hod} mocks.")
+            del catalog
+            _memory_cleanup()
             if hod_count >= args.n_hod:
                 break # break inner loop
         del factory
-        clear_caches()
-        collect()
+        _memory_cleanup()
