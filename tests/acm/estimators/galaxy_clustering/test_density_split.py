@@ -53,9 +53,14 @@ def _make_plot_obj(data_type):
     obj.attrs = {"data_type": data_type}
     coords = np.linspace(0.01, 0.5, 30)
     obj.flatten.return_value = (MagicMock(coords=MagicMock(return_value=coords)),)
-    leaf = obj.get.return_value # quantiles
+
+    leaf = MagicMock()
     leaf.get.return_value.value.return_value = np.ones(30)
-    leaf.project.return_value.value.return_value = np.ones(30)
+    obj.get.return_value = leaf
+    if data_type == "correlation":
+        quantile = MagicMock(spec=lsstypes.Count2Correlation)
+        quantile.project.return_value = leaf
+        obj.get.return_value = quantile
     return obj
 
 @pytest.fixture
@@ -279,9 +284,14 @@ class TestPlot:
         mock_spectrum.get.return_value.get.assert_called_once()
         plt.close("all")
 
-    def test_correlation_uses_project(self, mock_correlation):
+    def test_correlation_count_uses_project(self, mock_correlation):
         DensitySplit.plot(mock_correlation, quantiles=[0], ell=0)
-        mock_correlation.get.return_value.project.assert_called_once()
+        mock_correlation.get.return_value.project.assert_called_once_with(ells=0)
+        plt.close("all")
+
+    def test_power_path_skips_projection(self, mock_spectrum):
+        DensitySplit.plot(mock_spectrum, quantiles=[0], ell=0)
+        mock_spectrum.get.return_value.project.assert_not_called()
         plt.close("all")
 
     def test_one_line_per_quantile(self, mock_spectrum):
