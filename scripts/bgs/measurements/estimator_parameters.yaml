@@ -58,6 +58,9 @@ ds_xiqg:
     los: z
     nthreads: 1
     gpu: False
+  load:
+    project: True
+    ells: [0, 2]
 
 ds_xiqq:
   initialization:
@@ -73,6 +76,9 @@ ds_xiqq:
     los: z
     nthreads: 1
     gpu: False
+  load:
+    project: True
+    ells: [0, 2]
 
 ds_pkqg:
   initialization:
