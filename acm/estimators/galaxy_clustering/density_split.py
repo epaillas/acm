@@ -404,13 +404,13 @@ class DensitySplit(BaseEstimator):
             ax.set_ylabel(ylabel)
 
         ld = obj.flatten(level=None)[0].coords(last_dim)
-        for i, q in enumerate(quantiles):
+        for q in quantiles:
             quantile = obj.get(quantiles=q)
             if isinstance(quantile, lsstypes.Count2Correlation):
                 logger.debug(f"Got pair counts, projecting to multipole: {ell}")
                 quantile = quantile.project(ells=ell)
             pole = quantile.get(ells=ell).value()
-            ax.plot(ld, pole * ld**2, label=rf"${{\rm Q}}_{q}$", c=f"C{i}", **kwargs)
+            ax.plot(ld, pole * ld**2, label=rf"${{\rm Q}}_{q}$", **kwargs)
         return fig, ax
 
     @staticmethod
