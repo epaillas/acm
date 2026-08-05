@@ -494,6 +494,177 @@ class DensitySplit(BaseEstimator):
             self.save(self._quantile_power, save_fn, data_type="power")
         return self._quantile_power
 
+    def quantile_pair_power(
+        self,
+        pairs: list[tuple[int, int]] | tuple[tuple[int, int], ...] | None = None,
+        edges: dict = {"step": 0.001},
+        ells: tuple | list = (0, 2, 4),
+        los: str = "z",
+        resampler: str = "tsc",
+        interlacing: int = 0,
+        compensate: bool = True,
+        save_fn: str | Path | None = None,
+    ) -> ObservableTree:
+        """Compute power spectra for unique pairs of density-field quantiles.
+
+        This estimator currently supports periodic boxes only. Pair indices are
+        zero-based and canonicalized to ``(min(i, j), max(i, j))``. By default,
+        every upper-triangular pair, including the diagonal, is measured.
+
+        Diagonal values follow :meth:`quantile_power` and have the Poisson
+        estimate subtracted. Off-diagonal values are raw cross-spectra with
+        zero estimator shot noise. For every branch, the corresponding total
+        spectrum can be reconstructed as ``value + shotnoise``.
+
+        Parameters
+        ----------
+        pairs : sequence of tuple, optional
+            Quantile pairs to measure. Duplicate and reversed pairs are
+            canonicalized and removed.
+        edges : dict, optional
+            Bin edges for the power spectrum.
+        ells : tuple or list, optional
+            Multipole moments to compute.
+        los : str, optional
+            Fixed line-of-sight direction.
+        resampler : str, optional
+            Resampling scheme for mesh painting.
+        interlacing : int, optional
+            Interlacing factor for mesh painting.
+        compensate : bool, optional
+            Whether to compensate for the mass-assignment scheme.
+        save_fn : str or path-like, optional
+            If provided, atomically save the pair-labeled tree.
+
+        Returns
+        -------
+        ObservableTree
+            Pair spectra labeled by ``quantiles1`` and ``quantiles2``.
+        """
+        if self.has_randoms:
+            raise NotImplementedError(
+                "quantile-pair power spectra currently support periodic boxes only"
+            )
+        if not hasattr(self, "quantiles"):
+            raise RuntimeError("set_quantiles must be called before measuring power")
+
+        if pairs is None:
+            canonical_pairs = [
+                (quantile1, quantile2)
+                for quantile1 in range(self.nquantiles)
+                for quantile2 in range(quantile1, self.nquantiles)
+            ]
+        else:
+            canonical_pairs = []
+            for pair in pairs:
+                if len(pair) != 2:
+                    raise ValueError("each quantile pair must contain two indices")
+                quantile1, quantile2 = (int(index) for index in pair)
+                if not (
+                    0 <= quantile1 < self.nquantiles
+                    and 0 <= quantile2 < self.nquantiles
+                ):
+                    raise ValueError(
+                        f"quantile pair {pair} is outside [0, {self.nquantiles})"
+                    )
+                canonical_pairs.append(
+                    (min(quantile1, quantile2), max(quantile1, quantile2))
+                )
+            canonical_pairs = sorted(set(canonical_pairs))
+            if not canonical_pairs:
+                raise ValueError("at least one quantile pair is required")
+
+        bin_mesh = BinMesh2SpectrumPoles(self.mattrs, edges=edges, ells=ells)
+        paint_kwargs = {
+            "resampler": resampler,
+            "compensate": compensate,
+            "interlacing": interlacing,
+        }
+        required_quantiles = sorted(
+            {quantile for pair in canonical_pairs for quantile in pair}
+        )
+        particles = {}
+        meshes = {}
+        for quantile in required_quantiles:
+            particle = ParticleField(
+                self.quantiles[quantile],
+                attrs=self.mattrs,
+                exchange=True,
+                backend="jax",
+            )
+            mesh = particle.paint(**paint_kwargs, out="real")
+            particles[quantile] = particle
+            meshes[quantile] = mesh - mesh.mean()
+
+        # Pair meshes are reused, so buffer donation must remain disabled here.
+        jitted_compute_mesh2_spectrum = jax.jit(
+            compute_mesh2_spectrum, static_argnames=["los"]
+        )
+        spectra = []
+        for quantile1, quantile2 in canonical_pairs:
+            t0 = time.time()
+            particle1, particle2 = particles[quantile1], particles[quantile2]
+            if quantile1 == quantile2:
+                norm = compute_box2_normalization(particle1, bin=bin_mesh)
+                num_shotnoise = compute_fkp2_shotnoise(particle1, bin=bin_mesh)
+                spectrum = jitted_compute_mesh2_spectrum(
+                    meshes[quantile1], bin=bin_mesh, los=los
+                )
+                spectrum = spectrum.clone(
+                    norm=norm, num_shotnoise=num_shotnoise
+                )
+            else:
+                norm = compute_box2_normalization(
+                    particle1, particle2, bin=bin_mesh
+                )
+                spectrum = jitted_compute_mesh2_spectrum(
+                    meshes[quantile1],
+                    meshes[quantile2],
+                    bin=bin_mesh,
+                    los=los,
+                )
+                spectrum = spectrum.clone(norm=norm)
+            spectra.append(spectrum)
+            logger.info(
+                "Q%d-Q%d spectrum calculated in %.2f s.",
+                quantile1,
+                quantile2,
+                time.time() - t0,
+            )
+
+        quantile_counts = np.asarray(
+            [len(quantile) for quantile in self.quantiles], dtype=np.int64
+        )
+        query_count = int(quantile_counts.sum())
+        attrs = {
+            "nquantiles": self.nquantiles,
+            "query_method": self.query_method,
+            "query_count": query_count,
+            "quantile_counts": quantile_counts,
+            "quantile_fractions": quantile_counts / query_count,
+            "boxsize": self.boxsize,
+            "meshsize": self.meshsize,
+            "pair_convention": "upper_triangle_including_diagonal",
+            "value_convention": (
+                "diagonal Poisson-subtracted; off-diagonal raw cross-spectrum"
+            ),
+            "total_convention": "value + shotnoise",
+        }
+        tree = ObservableTree(
+            spectra,
+            quantiles1=[pair[0] for pair in canonical_pairs],
+            quantiles2=[pair[1] for pair in canonical_pairs],
+            attrs=attrs,
+        )
+        self._quantile_pair_power = tree
+        if save_fn is not None and jax.process_index() == 0:
+            path = Path(save_fn)
+            logger.info("Saving to %s", path)
+            temporary = path.with_name(path.stem + ".tmp" + path.suffix)
+            tree.write(temporary)
+            temporary.replace(path)
+        return tree
+
     @set_plot_style
     def plot_quantiles(self, save_fn: str | Path | None = None) -> plt.Figure:
         """Plot the quantiles of the overdensity field."""
