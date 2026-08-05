@@ -52,7 +52,8 @@ if __name__ == "__main__":
     parser.add_argument("--measurement", type=str, required=True, help="Measurement to process")
     parser.add_argument("--estimator_config", type=str, required=True, help="YAML file containing estimator parameters.")
     parser.add_argument('--Mr', type=float, default=-20, help='Magnitude threshold for the measurements (default: -20)')
-    parser.add_argument('--cosmo_idx', type=int, default=0, help='Cosmology index to use (default: 0)')
+    parser.add_argument('--cosmo_idx', type=int, default=0, help='SecondGen Cosmology index to use (default: 0)')
+    parser.add_argument("--phase_idx", type=int, default=0, help='SecondGen Phase index to use (default: 0)')
     parser.add_argument('--ndof', type=int, help='Calculate chi-squared per degree of freedom')
     parser.add_argument('--diag', action='store_true', help='Use diagonal covariance matrix only')
     parser.add_argument('--plot', action='store_true', help='Plot the best-fit comparison')
@@ -70,8 +71,8 @@ if __name__ == "__main__":
     reader = get_estimator(stat_name).load
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
-    pattern_obs = f"c{args.cosmo_idx}" + r"_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"
-    pattern_exp = f"AbacusSummit_base_c{args.cosmo_idx}" + r"_ph{phase_idx}/measurements/" + f"Mr{args.Mr}/{stat_name}" + r"_los-{los}.h5"
+    pattern_obs = f"c{args.cosmo_idx:03d}" + r"_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"
+    pattern_exp = f"AbacusSummit_base_c{args.cosmo_idx:03d}_ph{args.phase_idx:03d}/measurements/" + f"Mr{args.Mr:.4g}/{stat_name}" + r"_los-{los}.h5"
     ignore_index = ["los"]
 
     # Compress measurements
