@@ -66,8 +66,25 @@ The outliers are identified in `find_outliers.py`.
 > The `outliers.py` scripts can save the outlier indexes in a `.npy` file, that can be read to re-run only those outliers.
 > In particular, this is useful for the `base` boxes, where each cosmology can have different outliers. 
 > In practice, this can be run by hand using the `--hods` argument of `measure_box.py`, but for all 85 cosmologies it can be quite tedious.
-> I've added a variation of `measure_box.py` called `measure_box_outliers.py` that reads the outlier indexes from the outliers.py outputs (hardcoded name at the moment) and re-runs only those HODs for all cosmologies.
-> **This script is not documented nor generalized at the moment, but can be used as a quick fix to re-run only the outliers.**
+> Instead, you can use the `--parameters_override` argument to provide a `.npy` file that will loop over the cosmologies, phases, seeds and HODs provided in the file.
+> Not that this is only efficient for a low number of outliers: I recommend choosing the highest possible value of sigma in `find_outliers.py` to limit the number of outliers to the actual outliers, as some high-amplitude statistics can also be clipped as outliers.
+
+> [!TIP]
+> The `visual_tools.py` file contains some plotting functions to visualize the measurements and outliers.
+
+### Training
+The training and optimization of the emulator are done in `optimize_model.py`, using the `sunbird` package. The training is done for each statistic independently, keeping the first 6 cosmologies as a test set and the rest as a training set.
+
+> [!NOTE]
+> The `train_model.py` script is an older version of the training script for a non-optimized emulator, and is not used in the current pipeline. It is kept in the repository for reference, but it is not recommended to use it for training the emulator. 
+
+### Inference
+The inference is done in `inference_pocomc.py`, using the `pocomc` package to sample the posterior distribution of the cosmological parameters given the measurements and the emulator predictions.
+
+The `bgs_mocks.py` and `utils.py` files contain some functions to handle the BGS mocks and utilities for the inference and output visualization.
+
+> [!NOTE]
+> The `jobs/` folder contains sub-folder with config files and submission scripts for the inference, for several cases (here different magnitude cuts). The config files are used to define the input parameters for the inference script. The submission scripts are used to submit the inference jobs on the cluster using `SLURM`. A similar folder is available for the measurements.
 
 ## Data
 
