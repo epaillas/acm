@@ -256,10 +256,12 @@ class DensitySplit(BaseEstimator):
             quantile_mesh = quantile_field.paint(out="real", **kwargs)
             quantile_mesh = quantile_mesh - quantile_mesh.mean()
             if cross:
+                logger.info("Running cross-power spectrum.")
                 fields = (quantile_field, self.backend.data_field)
                 meshes = (quantile_mesh, data_mesh)
                 ckwargs = {}  # kwargs for clone, e.g. num_shotnoise
             else:
+                logger.info("Running auto-power spectrum.")
                 fields = (quantile_field,)
                 meshes = (quantile_mesh,)
                 num_shotnoise = compute_fkp2_shotnoise(quantile_field, bin=bin_mesh)
@@ -272,7 +274,7 @@ class DensitySplit(BaseEstimator):
             )  # FIXME: revert ckwargs to explicit arguments if lsstypes allows None args in the future
 
             spectrum_list.append(spectrum)
-            logger.info(f"Q{i}-galaxy spectrum calculated in {time.time() - t0:.2f} s.")
+            logger.info(f"Q{i} spectrum calculated in {time.time() - t0:.2f} s.")
         return spectrum_list
 
     def compute(
