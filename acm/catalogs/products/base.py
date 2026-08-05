@@ -119,6 +119,9 @@ class BaseGalaxyCatalog(ABC):
             if not raw:
                 for transform in self._transforms.values():
                     if transform.tracer is None or transform.tracer == tracer:
+                        logger.debug(
+                            f"Applying transform '{transform.name}' to tracer '{tracer}'"
+                        )
                         data = transform.apply(data)
             tracers_data.append(data)
         return pd.concat(tracers_data, ignore_index=True)
