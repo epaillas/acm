@@ -14,7 +14,7 @@ from acm.estimators.compression import Compressor, ObjectGroup, downcast
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.scripts import NumpyLoader
 
-logger = get_logger_for_script(__name__)
+logger = get_logger_for_script(__file__)
 
 def check_corrupted_files(
     compressor: Compressor,
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, default=None, help="Directory to save the output files (corrupted and outlier indices)")
     parser.add_argument("--raw", action="store_true", help="If set, will use the raw data instead of the merged/selected data")
     parser.add_argument("--sigma", type=float, default=3.0, help="Sigma threshold for outlier detection")
-    parser.add_argument("--log_level", type=str, default='warning', help="Set logging level (e.g., DEBUG, INFO)")
+    parser.add_argument("--log_level", type=str, default='info', help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
 
     setup_logging(level=args.log_level)
@@ -117,6 +117,11 @@ if __name__ == "__main__":
     outlier_idx = check_outliers(group, sigma=args.sigma)
 
     if args.save_dir:
-        Path(args.save_dir).mkdir(parents=True, exist_ok=True)
-        np.save(Path(args.save_dir) / f"{stat_name}_corrupted_idx.npy", corrupted_idx)
-        np.save(Path(args.save_dir) / f"{stat_name}_outlier_idx.npy", outlier_idx)
+        save_dir = Path(args.save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        if len(corrupted_idx) > 0:
+            logger.info(f"Saving {len(corrupted_idx)} corrupted indices")
+            np.save(save_dir / f"{stat_name}_corrupted_idx.npy", corrupted_idx)
+        if len(outlier_idx) > 0:
+            logger.info(f"Saving {len(outlier_idx)} outlier indices")
+            np.save(save_dir / f"{stat_name}_outlier_idx.npy", outlier_idx)
