@@ -44,7 +44,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the compressed files")
     parser.add_argument("--n_hod", type=int, default=None, help="Number of HODs to keep (default: all)")
     parser.add_argument("--test_cosmos", type=int, nargs="+", default=[], help="List of cosmo indices to use as test set")
-    parser.add_argument("--log_level", type=str, default='warning', help="Set logging level (e.g., DEBUG, INFO)")
+    parser.add_argument("--log_level", type=str, default='info', help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
 
     setup_logging(level=args.log_level)
@@ -81,7 +81,8 @@ if __name__ == "__main__":
     cov_y = Compressor.compress(data=group, reindex=reindex)
 
     ds = xarray.Dataset({"x": x, "y": y, "cov_y": cov_y})
-    ds = split_test_set(ds, filters=test_filter)
+    if test_filter: # Only split if test_filter is not empty
+        ds = split_test_set(ds, filters=test_filter)
 
     Path(args.save_dir).mkdir(parents=True, exist_ok=True)
     save_fn = Path(args.save_dir) / f"{stat_name}.npy"
