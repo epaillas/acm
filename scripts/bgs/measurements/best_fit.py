@@ -57,7 +57,7 @@ if __name__ == "__main__":
     parser.add_argument('--ndof', type=int, help='Calculate chi-squared per degree of freedom')
     parser.add_argument('--diag', action='store_true', help='Use diagonal covariance matrix only')
     parser.add_argument('--plot', action='store_true', help='Plot the best-fit comparison')
-    parser.add_argument("--log_level", type=str, default='warning', help="Set logging level (e.g., DEBUG, INFO)")
+    parser.add_argument("--log_level", type=str, default='info', help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
 
     setup_logging(level=args.log_level)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
     pattern_obs = f"c{args.cosmo_idx:03d}" + r"_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"
-    pattern_exp = f"AbacusSummit_base_c{args.cosmo_idx:03d}_ph{args.phase_idx:03d}/measurements/" + f"Mr{args.Mr:.4g}/{stat_name}" + r"_los-{los}.h5"
+    pattern_exp = f"AbacusSummit_base_c{args.cosmo_idx:03d}" + r"_ph{phase_idx}/measurements/" + f"Mr{args.Mr}/{stat_name}" + r"_los-{los}.h5"
     ignore_index = ["los"]
 
     # Compress measurements
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         fig, ax = plotter(group_exp[0].data, ls='--', fig=fig, ax=ax)
         handles = [
             plt.Line2D([0], [0], lw=2, ls='-', label='Observed'),
-            plt.Line2D([0], [0], lw=2, ls='--', label='Expected')
+            plt.Line2D([0], [0], lw=2, ls='--', label='Expected'),
         ]
         ax.legend(handles=handles)
         ax.set_title(f'Best-fit comparison for {stat_name} ({str_idx})')
