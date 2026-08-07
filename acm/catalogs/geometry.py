@@ -209,4 +209,5 @@ def cartesian_to_spherical(data: pd.DataFrame):
     ra = np.arctan2(data['y'], data['x']) % (2. * np.pi)
     dec = np.arcsin(data['z'] / distance)
     return distance, ra * 180 / np.pi, dec * 180 / np.pi
-    
+
+
