@@ -35,6 +35,11 @@ class BaseSnapshotFactory(BaseCatalogFactory):
         self.backend: SnapshotBackend
         self.catalog_class: type[SnapshotCatalog]
         self._catalogs: dict[float, SnapshotCatalog]
+        # Type checks
+        if not isinstance(self.backend, SnapshotBackend):
+            backend_type = type(self.backend)
+            error_message = f'The provided backend must be an instance of SnapshotBackend. The received type was {backend_type}'
+            raise TypeError(error_message)
 
     def __repr__(self) -> str:
         """Provide a string representation of the factory, including backend, catalog class, and loaded redshifts."""

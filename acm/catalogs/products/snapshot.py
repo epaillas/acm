@@ -10,6 +10,7 @@ from numpy.random import RandomState
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products import BaseGalaxyCatalog
 from acm.catalogs.products.transforms import _apply_ap, _apply_downsample, _apply_rsd
+from acm.catalogs.geometry import minmax_xyz_desi
 
 logger = logging.getLogger(__name__)
 
@@ -139,13 +140,16 @@ class SnapshotCatalog(BaseGalaxyCatalog):
             if positions are centered around zero, or 0 if positions are in [0, boxsize].
             Default is 0.0.
         """
-        if los not in self.pos_columns:
+        if los not in self.pos_columns and los != 'los':
             raise ValueError(f"los must be one of {self.pos_columns}, got '{los}'.")
         if "ap" in self._transforms:
             logger.warning(
                 "AP transform exists: RSD transform will be registered with a distorted boxsize and may yield unexpected results. "
             )
-        L = self.boxsize[self.pos_columns.index(los)]  # For periodic wrapping
+        if los == 'los' or wrap:
+            L = 0
+        else:
+            L = self.boxsize[self.pos_columns.index(los)]  # For periodic wrapping
         self._add_transform(
             Transform(
                 name="rsd",
@@ -154,7 +158,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                     "los": los,
                     "hubble": self.hubble,
                     "az": self.az,
-                    "wrap": L if wrap else 0,
+                    "wrap": L,
                     "offset": offset,
                 },
             )
@@ -432,3 +436,183 @@ def boundary_check(
             em += f"{max_right!r} falls out of the box on the right edge {right_bound[i]!r} along the {i}-th axis."
         if em:
             raise ValueError(em)
+
+
+def get_box_shifts(
+    pos_min: np.ndarray,
+    pos_max: np.ndarray,
+    boxsize : float,
+    boxpad : float,
+) -> list:
+    """
+    Get the shifts that need to be applied to replicate the box along
+    one or more axes of the simulation.
+    Parameters
+    ----------
+    pos_min : np.ndarray
+        1-d array, the minimum position from the reference mock.
+    pos_max : np.ndarray
+        1-d array, the maximum position from the reference mock.
+
+    Returns
+    -------
+    list
+        List of shifts to be applied to the box positions.
+    """
+    mappings_max = np.int32(np.ceil((pos_max - boxpad)/boxsize))
+    mappings_min = np.int32(np.floor((pos_min + boxpad)/boxsize))
+    shifts = []
+    mappings = [np.arange(mappings_min[i],mappings_max[i]+1) for i in range(3)]
+    for i in mappings[0]:
+        for j in mappings[1]:
+            for k in mappings[2]:
+                shifts.append([boxsize * np.array([i, j, k])])
+    return shifts
+
+def get_pos_within_borders(
+        pos: np.ndarray,
+        vel: np.ndarray,
+        pos_min: np.ndarray,
+        pos_max: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Force the positions and velocities to be within the specified borders.
+
+    Parameters
+    ----------
+    pos : np.ndarray
+        Positions of the particles.
+    vel : np.ndarray
+        Velocities of the particles.
+    pos_min : np.ndarray
+        Minimum position in each dimension.
+    pos_max : np.ndarray
+        Maximum position in each dimension.
+
+    Returns
+    -------
+    pos : np.ndarray
+        Filtered positions of the particles within the specified borders.
+    """
+    for i in range(3):
+        chosen = np.logical_and(pos[:,i] > pos_min[i], pos[:,i] < pos_max[i])
+        pos = pos[chosen]
+        vel = vel[chosen]
+    return pos,vel
+        
+def get_box_replications(
+        snapshot_catalog : SnapshotCatalog,
+        pos_min: np.ndarray,
+        pos_max: np.ndarray,
+        boxsize : float,
+        boxpad : float,
+        shifts: list | None = None,
+        distance_limits: tuple[float, float] | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Get the positions, velocities, and box centers of the replications of the simulations,
+    obtained by applying the input shift values.
+
+    Parameters
+    ----------
+    snapshot_catalog : SnapshotCatalog
+        The box catalog object
+    boxcenter : np.ndarray
+        Center of the original box.
+    shifts : list, optional
+        List of shifts to apply to the box positions, by default None.
+        If None, the default shifts are used, which replicate the box along all axes.
+
+    Returns
+    -------
+    tuple
+        Tuple containing:
+        - new_pos: np.ndarray of positions in the replicated boxes.
+        - new_vel: np.ndarray of velocities in the replicated boxes.
+    """
+    
+    replications = {}
+    
+    for (tracer_name, tracer) in snapshot_catalog.tracers.items(): 
+        data = snapshot_catalog.get_tracer_data(tracer_name, raw=False)
+        position = data[list(snapshot_catalog.pos_columns)].to_numpy()
+        velocity = data[list(snapshot_catalog.vel_columns)].to_numpy()
+        
+        if shifts is None:
+            shifts = get_box_shifts(pos_min, pos_max, boxsize, boxpad)
+        new_pos = []
+        new_vel = []
+        for shift in shifts:
+            temp_pos, temp_vel = get_pos_within_borders(
+                position + shift,
+                velocity,
+                pos_min,
+                pos_max,
+            )
+            if distance_limits is not None:
+                distance = np.linalg.norm(temp_pos, axis=1)
+                dist_in_limits = (distance > distance_limits[0] - boxpad) * (distance < distance_limits[1] + boxpad)
+                temp_pos = temp_pos[dist_in_limits]
+                temp_vel = temp_vel[dist_in_limits]
+                
+            new_pos.append(temp_pos)
+            new_vel.append(temp_vel)
+        new_pos = np.concatenate(new_pos)
+        new_vel = np.concatenate(new_vel)
+        
+        tracer_replication = np.hstack((new_pos, new_vel))
+        tracer_replication = pd.DataFrame(tracer_replication, columns=list(snapshot_catalog.pos_columns) + list(snapshot_catalog.vel_columns))
+        replications[tracer] = tracer_replication
+    return replications
+
+
+def get_reference_borders(
+        zranges : list,
+        boxsize : float,
+        boxpad : float,
+        cosmo : Cosmology,
+        region : str = 'NGC',
+        release : str = 'Y1',
+        program : str = 'dark',
+        tracer = 'LRG',
+        custom_healpix_mask : np.typing.NDArray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Get the minimum and maximum cartesian coordinates from a reference galaxy catalog
+    to restrict the volume spanned by the replicated HOD boxes. This avoids wasting
+    memory by keeping particles that fall outside of the survey volume.
+
+    Parameters
+    ----------
+    zranges : list
+        List of redshift ranges for which to get the borders.
+    region : str, optional
+        The DESI photometric region, e.g., 'NGC', by default 'NGC'.
+    release : str, optional
+        The DESI data release, e.g., 'Y1', by default 'Y1'.
+    custom_xyz_file : str
+        If not None, a custom file is read for the positions of the tracers that define
+        the survey volume bounds
+
+    Returns
+    -------
+    tuple
+        A tuple containing the minimum and maximum positions in each dimension (x, y, z).
+        If boxpad > 1, add a padding value in Mpc/h. If boxpad <= 1, add it as a fracton
+        of the base box size.
+    """
+    if boxpad <= 0:
+        raise ValueError(f"boxpad must be positive, got {boxpad}")
+    pos_min, pos_max = minmax_xyz_desi(
+        zranges,
+        cosmo,
+        region=region,
+        release=release,
+        program=program,
+        tracer=tracer,
+        custom_healpix_mask=custom_healpix_mask,
+    ) 
+    if boxpad > 1:
+        return pos_min - boxpad, pos_max + boxpad
+    else:
+        return pos_min - boxpad * boxsize, pos_max + boxpad * boxsize

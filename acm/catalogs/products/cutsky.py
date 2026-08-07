@@ -12,7 +12,9 @@ from scipy.interpolate import interp1d
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products.base import BaseGalaxyCatalog
-from acm.catalogs.products.transforms import _add_distance_column, _apply_downsample
+from acm.catalogs.products.snapshot import SnapshotCatalog
+from acm.catalogs.products.transforms import _add_distance_column, _apply_downsample, _apply_angular_mask, _apply_r_cut, _apply_sky_coords, _apply_radial_mask
+#_apply_fiber_assign, _apply_nz # TODO: implement
 
 logger = logging.getLogger(__name__)
 
@@ -83,8 +85,10 @@ class CutskyCatalog(BaseGalaxyCatalog):
     set of transforms to avoid redundant calculations when applying multiple transforms sequentially.
     Caches are automatically invalidated when transforms are added, removed, or reset.
     """
-
-    pos_columns = ("ra", "dec", "z")
+    #TODO: need to overwrite indexng to take elements from self._catalogs?
+    sky_columns = ("ra", "dec", "redshift")
+    pos_columns = ("x", "y", "z")
+    vel_columns = ("vx", "vy", "vz")
 
     def __init__(
         self,
@@ -111,6 +115,12 @@ class CutskyCatalog(BaseGalaxyCatalog):
         # Caches for expensive computations keyed by transform state
         self._fsky_cache: dict[tuple, float] = {}
         self._interpolate_nz_cache: dict[tuple, Callable[[float], float]] = {}
+        self._catalogs = {}
+
+    def set_snapshot_catalogs(self, catalogs: dict[tuple, SnapshotCatalog]):
+        """
+        """
+        self._catalogs = catalogs
 
     def _check_data_columns(self, data: pd.DataFrame) -> bool:
         """
@@ -153,7 +163,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         Parameters
         ----------
         coord : str
-            Coordinate to compute the range for (e.g., "ra", "dec", "z").
+            Coordinate to compute the range for (e.g., "ra", "dec", "redshift").
         *tracers : str
             Specific tracer names to compute the range for. If no tracers are specified, computes the range across all tracers.
         periodic_wrap : float | None
@@ -171,7 +181,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
 
     def _zrange(self, *tracers: str) -> tuple[float, float]:
         """Return the redshift range of specified tracers, or the full catalog if tracer is None."""
-        return self._range("z", *tracers)
+        return self._range("redshift", *tracers)
 
     @property
     def zrange(self) -> tuple[float, float]:
@@ -359,6 +369,106 @@ class CutskyCatalog(BaseGalaxyCatalog):
             hp_res=int(attrs.get("hp_res", 256)),
         )
 
+    def angular_mask(self, 
+                   region: str = 'N+SNGC',
+                   release: str = 'Y1',
+                   npasses: int | None = None,
+                   custom_mask_path: str | None = None,
+                   num_fibonacci_samples: int = 100000
+                  ):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            for tracer in galaxy_catalog.tracers:
+                if 'BGS' in tracer.upper():
+                    program = 'bright'
+                else:
+                    program = 'dark'
+                galaxy_catalog._add_transform(
+                    Transform(
+                        name=f"angular_mask_{tracer}",
+                        func=_apply_angular_mask,
+                        tracer=tracer,
+                        kwargs={
+                            "region": region,
+                            "release": release,
+                            "npasses": npasses,
+                            "custom_mask_path": custom_mask_path,
+                            "num_fibonacci_samples": num_fibonacci_samples, 
+                        },
+                    )
+                )
+    def r_cut(self):
+        """
+        """
+        for zranges, galaxy_catalog in self._catalogs.items():
+            distance_limits = self.cosmo.comoving_radial_distance(zranges)
+            galaxy_catalog._add_transform(
+                Transform(
+                name="r_cut",
+                func=_apply_r_cut,
+                kwargs={
+                    "r_min": distance_limits[0],
+                    "r_max": distance_limits[1],
+                    },
+                )
+            )
+
+    def rsd(self):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog.rsd(los = "los", wrap = False)
+
+    '''
+    def apply_fiber_assign(self, params):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog._add_transform(_apply_fiber_assign)
+    
+    '''
+
+    def sky_coords(self):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog._add_transform(
+                Transform(
+                    name="sky_coords",
+                    func=_apply_sky_coords,
+                    kwargs = {
+                        "cosmo":self.cosmo,
+                    }
+                )
+            )
+
+    def radial_mask(self,
+                         nz_filename: str, 
+                         shape_only: bool = False, 
+                         dz_new: float = 0.002
+                         ):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            for tracer in galaxy_catalog.tracers:
+                sky_fraction = ... # TODO: calcualte sky_fraction using _fsky?
+                galaxy_catalog._add_transform(
+                    Transform(
+                        name=f"radial_mask_{tracer}",
+                        func=_apply_radial_mask,
+                        kwargs={
+                            "sky_fraction": sky_fraction,
+                            "cosmo":self.cosmo,
+                            "nz_filename":nz_filename,
+                            "shape_only":shape_only,
+                            "dz_new":dz_new,
+                        },
+                    )
+                )
+
+        
+
 
 class RandomCutskyCatalog(CutskyCatalog):
     """A random catalog with cutsky geometry and redshift evolution."""
@@ -442,18 +552,3 @@ class RandomCutskyCatalog(CutskyCatalog):
         return pd.DataFrame({"ra": ra, "dec": dec, "z": z})
 
 
-# %% Transforms between box and cutsky geometries
-
-
-def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[empty-body]
-    """Convert a box geometry to a cutsky geometry."""
-    # Input: SnapshotCatalog (positions, cosmology & boxsize), observer position, redshift range
-    # Depends on cosmology for distance-redshift conversion.
-    # Depends on boxsize & observer position for angle values and eventual periodic wrapping.
-
-
-def cutsky_to_box(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[empty-body]
-    """Convert a cutsky geometry to a box geometry."""
-    # Input: CutskyCatalog (positions, cosmology & redshift range), observer position, boxsize
-    # Depends on cosmology for distance-redshift conversion.
-    # Depends on redshift range & observer position for angle values and eventual periodic wrapping.
