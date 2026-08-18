@@ -126,7 +126,7 @@ class CombinedObservable[R, T](ObservableList[BaseObservable[R, T]]):
         Returns
         -------
         np.ndarray
-            The combined covariance matrix, matching the filtered dataset.
+            The combined covariance matrix, matching the selected filtering.
         """
         factor = prefactor / volume_factor
         cov_y: list[np.ndarray] = []

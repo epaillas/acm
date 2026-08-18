@@ -32,7 +32,7 @@ class Formatter[R, T](ABC): # NOTE: splitting interface for clarity
         ----------
         numpy : bool, optional
             If True, the output will be a NumPy array.
-            If False, the output will be an xarray Dataset. Defaults to False.
+            If False, the output will match the data type. Defaults to False.
         squeeze : bool, optional
             If True, the output will be squeezed to remove single-dimensional entries.
             Defaults to True.
@@ -174,11 +174,11 @@ class BaseObservable[R, T](Formatter[R, T], ABC):
         self.model = model # Public attribute
 
     def __copy__(self) -> Self:
-        """Create a shallow copy of the XarrayObservable instance."""
+        """Create a shallow copy of the class instance."""
         return self._copy(deep=False)
 
     def __deepcopy__(self, **kwargs) -> Self:
-        """Create a deep copy of the XarrayObservable instance."""
+        """Create a deep copy of the class instance."""
         return self._copy(deep=True, **kwargs)
 
     # def __repr__(self) -> str:
@@ -223,7 +223,7 @@ class BaseObservable[R, T](Formatter[R, T], ABC):
         Returns
         -------
         np.ndarray
-            The covariance matrix, matching the filtered dataset.
+            The covariance matrix, matching the selected filtering.
 
         Notes
         -----
