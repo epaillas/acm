@@ -1,348 +1,171 @@
-import logging
 from collections.abc import Iterator
-from contextlib import nullcontext
-from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.backends.backend_pdf import PdfPages
 from scipy import linalg
 
-from acm.utils.covariance import check_covariance_matrix
-
-from .base import Observable
-
-logger = logging.getLogger(__name__)
+from .base import BaseObservable
 
 
-class CombinedModel:
-    """Class for the combination of theory models."""
+class ObservableList[S]:
+    """Class to handle a list of observables, with ordering and access by name or index."""
 
-    def __init__(self, observables: list[Observable]) -> None:
-        """
-        Initialize the CombinedModel with a list of observables.
+    def __init__(self, **observables: S) -> None:
+        """Initialize the ObservableList with a dictionary of observables."""
+        types = {type(obs) for obs in observables.values()}
+        if len(types) > 1:
+            raise ValueError(f"All observables must be of the same type, got {types}.")
+        self._observables = observables
+        self._order = list(observables)
 
-        Parameters
-        ----------
-        observables : list[Observable]
-            List of observables to be combined, initialized with their respective filters.
-        """
-        self.observables = observables
-        self.models = [obs.model for obs in self.observables]
+    @property
+    def order(self) -> list[str]:
+        """Return the order of the observables."""
+        return self._order
 
-    def get_prediction(self, x: np.ndarray | dict) -> np.ndarray:
-        """
-        Get the prediction from the model.
+    @order.setter
+    def order(self, new: list[str]) -> None:
+        """Set a new order for the observables."""
+        if set(new) != set(self._observables):
+            raise ValueError("New order must match the registered observable names.")
+        self._order = new
 
-        Parameters
-        ----------
-        x : array_like
-            Input features.
-
-        Returns
-        -------
-        array_like
-            Model prediction, with respective filters applied to each observable.
-        """
-        return np.concatenate(
-            [obs.get_model_prediction(x) for obs in self.observables], axis=-1
-        )
-
-
-class CombinedObservable:
-    """
-    Class for the combination of observables.
-
-    It has list properties, that allow to access easily self.observables for readibility.
-    """
-
-    def __init__(self, observables: list[Observable]) -> None:
-        """
-        Initialize the CombinedObservable with a list of observables.
-
-        Parameters
-        ----------
-        observables : list[Observable]
-            List of observables to be combined, initialized with their respective filters.
-        """
-        self.observables = observables
-        self.slice_filters = [obs.slice_filters for obs in self.observables]
-        self.select_filters = [obs.select_filters for obs in self.observables]
-
-        is_reshaped = [obs.flat_output_dims == 2 for obs in self.observables]
-        if not all(is_reshaped):
-            logger.warning(
-                "Not all observables have flat_output_dims=2. Some outputs might not be properly reshaped, which might cause concatenation issues."
-            )
-
-    def __str__(self) -> str:
-        """Return a string representation of the object (statistic names and slice filters)."""
-        return str(self.get_save_handle())
-
-    def __getitem__(self, item: int | str) -> Observable:
-        """Access the observables by their statistic name or their index."""
-        if isinstance(item, int):
-            return self.observables[item]
-        if isinstance(item, str):
-            try:
-                idx = self.stat_name.index(item)
-                return self.observables[idx]
-            except (
-                ValueError
-            ) as ve:  # If the item is not found in the list, raise an error
-                raise KeyError(f"Observable with name {item} not found.") from ve
-        else:
-            raise TypeError(f"Item must be an int or str, not {type(item)}.")
-
-    def __setitem__(self, item: int, value: Observable) -> None:
-        """Set the observable at the given index."""
-        if not isinstance(value, Observable):
-            raise TypeError(f"Value must be a Observable, not {type(value)}.")
-        if not isinstance(item, int):
-            raise TypeError(f"Item must be an int, not {type(item)}.")
-        self.observables[item] = value
+    def __getitem__(self, key: str | int) -> S:
+        """Get an observable by name or index."""
+        if isinstance(key, int):
+            key = self._order[key]
+        return self._observables[key]
 
     def __len__(self) -> int:
-        """Return the number of observables in the combination."""
-        return len(self.observables)
+        """Return the number of observables."""
+        return len(self._observables)
 
-    def __iter__(self) -> Iterator:
-        """Return an iterator over the observables in the combination."""
-        return iter(self.observables)
+    def __iter__(self) -> Iterator[S]:
+        """Iterate over the observables in the order specified."""
+        for name in self._order:
+            yield self._observables[name]
 
-    def __contains__(self, item: str) -> bool:
-        """Check if the observable with the given statistic name is in the combination."""
-        return item in self.stat_name
+    def __contains__(self, key: str | int) -> bool:
+        """Check if an observable is in the combined observable by name or index."""
+        if isinstance(key, int):
+            return 0 <= key < len(self._observables)
+        return key in self._observables
 
-    def __reversed__(self) -> Iterator[Observable]:
-        """Return a reversed iterator over the observables in the combination."""
-        return reversed(self.observables)
+    def __reversed__(self) -> Iterator[S]:
+        """Iterate over the observables in reverse order."""
+        for name in reversed(self._order):
+            yield self._observables[name]
 
-    def __add__(self, other: "CombinedObservable | Observable") -> "CombinedObservable":
-        """Add two CombinedObservable objects together or to add a new observable to the existing Observable."""
-        if isinstance(other, CombinedObservable):
-            return CombinedObservable(self.observables + other.observables)
-        if isinstance(other, Observable):
-            return CombinedObservable([*self.observables, other])
-        raise TypeError(f"Cannot add {type(other)} to CombinedObservable.")
+    def __add__(self, other: "ObservableList[S]") -> "ObservableList[S]":
+        """Combine two ObservableLists into a new ObservableList."""
+        combined_observables = {**self._observables, **other._observables}
+        return ObservableList(**combined_observables)
 
-    def __getattr__(self, name: str) -> Observable | np.ndarray:
-        """Access the observables by their statistic name as an attribute, or the concatenated output of their attributes."""
-        if name in self.stat_name:
-            idx = self.stat_name.index(name)
-            return self.observables[idx]
-        try:
-            return np.concatenate(
-                [getattr(obs, name) for obs in self.observables], axis=-1
-            )
-        except AttributeError as ae:
-            raise AttributeError(
-                f"'CombinedObservable' object has no attribute '{name}'"
-            ) from ae
+class CombinedObservable[R, T](ObservableList[BaseObservable[R, T]]):
+    """Combine multiple observables into a single observable, that returns a combined output."""
 
-    @property
-    def stat_name(self) -> list:
-        """Name of the statistic."""
-        return [obs.stat_name for obs in self.observables]
+    def __init__(self, **observables: BaseObservable) -> None:
+        if not all(obs._output_flatten == 2 for obs in observables.values()):
+            raise ValueError("All observables must have 2D outputs.")
+        super().__init__(**observables)
+
+    # def __repr__
+
+    # def get_handle
 
     @property
-    def x(self) -> np.ndarray:
-        """
-        Input features (samples).
-
-        Note: We assume all observable have the same input features, so we just
-        return the first from the list.
-        """
-        return next(obs.x for obs in self.observables)
+    def x_names(self) -> list[str]:
+        """Parameter names from the first observable."""
+        return self[0].x_names
 
     @property
-    def x_names(self) -> list:
-        """
-        Names of the input features.
+    def x(self) -> T:
+        """Parameter values from the first observable."""
+        return self[0].get_data("x")
 
-        Note: We assume all observable have the same input features, so we just
-        return the first from the list.
-        """
-        return next(obs.x_names for obs in self.observables)
+    def _to_numpy(self, data: list[R]) -> list[np.ndarray]:
+        """Cast a list of observable data to numpy arrays."""
+        return [self[0]._to_numpy(d) for d in data]
 
-    @property
-    def model(self) -> CombinedModel:
-        """
-        Theory model of the combination of observables.
+    def _transfer_call(self, name: str, *args, **kwargs) -> np.ndarray:
+        """Call a method on all observables and combine the results."""
+        results = [getattr(obs, name)(*args, **kwargs) for obs in self]
+        results = self._to_numpy(results)
+        return np.concatenate(results, axis=-1)
 
-        `model.get_prediction(x)` returns the prediction of the combination of observables,
-        with the respective filters applied to each observable.
-        """
-        return CombinedModel(self.observables)
+    def get_data(self, name: str) -> np.ndarray:
+        """Get the combined data for a given name from all observables."""
+        return self._transfer_call("get_data", name)
 
-    def get_model_prediction(self, x: np.ndarray | dict) -> np.ndarray:
-        """
-        Get the prediction from the model.
+    def get_prediction(self, x: T) -> np.ndarray:
+        """Get the combined prediction from all observables."""
+        return self._transfer_call("get_prediction", x)
 
-        Parameters
-        ----------
-        x : array_like
-            Input features.
-
-        Returns
-        -------
-        array_like
-            Model prediction.
-        """
-        return np.concatenate(
-            [obs.get_model_prediction(x) for obs in self.observables], axis=-1
-        )
+    def get_model_error(self, method: str, **kwargs) -> np.ndarray:
+        """Get the combined model error from all observables."""
+        return self._transfer_call("get_model_error", method, **kwargs)
 
     def get_covariance_matrix(
         self,
         volume_factor: float = 64,
-        prefactor: float = 1,
-        **kwargs,
+        prefactor: float = 1.0,
+        block: bool = True,
     ) -> np.ndarray:
         """
-        Covariance matrix for the statistic.
+        Get the combined covariance matrix from all observables.
 
         Parameters
         ----------
-        volume_factor : float
-            Volume correction factor for the boxes. Default is 64.
+        volume_factor : float, optional
+            The volume factor to scale the covariance matrix. Defaults to 64.
         prefactor : float
             Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival).
-        **kwargs : dict
-            Additional arguments for the covariance matrix checker.
+            Defaults to 1.0.
+        block : bool, optional
+            If True, compute the covariance matrix in block diagonal form. Defaults to True.
 
         Returns
         -------
         np.ndarray
-            The combined data covariance matrix.
+            The combined covariance matrix, matching the filtered dataset.
         """
-        cov_y = np.asarray(self.covariance_y)  # Ensure covariance_y is a numpy array
-        prefactor = prefactor / volume_factor
-
-        cov = prefactor * np.cov(
-            cov_y, rowvar=False
-        )  # rowvar=False : each column is a variable and each row is an observation
-
-        check_covariance_matrix(cov, name="combined data covariance", **kwargs)
-
+        factor = prefactor / volume_factor
+        cov_y: list[np.ndarray] = []
+        for obs in self:
+            cy = obs.get_data("covariance_y", raw=True)
+            cy = obs._apply_filters(cy)
+            cy = obs._apply_selection(cy)
+            cy = obs._flatten(cy, ndim=2)
+            cy = obs._to_numpy(cy)
+            cov_y.append(cy)
+        if block:
+            blocks = [factor * np.cov(cy, rowvar=False) for cy in cov_y]
+            cov = linalg.block_diag(*blocks)
+        else:
+            cov_array = np.concatenate(cov_y, axis=-1)
+            cov = factor * np.cov(cov_array, rowvar=False)
         return cov
 
-    def get_emulator_covariance_matrix(
+    def get_model_covariance(
         self,
-        prefactor: float = 1,
-        method: str = "median",
-        diag: bool = False,
+        block: bool = True,
         **kwargs,
     ) -> np.ndarray:
         """
-        Covariance matrix of the emulator residuals for a combination of multiple summary statistics.
-
-        The matrix is block-diagonal, with each block corresponding to the covariance matrix of each
-        individual observable.
+        Get the combined model covariance from all observables.
 
         Parameters
         ----------
-        prefactor : float
-            Prefactor to apply to the covariance matrix (e.g. Hartlap or Percival). Defaults to 1.
-        method : str
-            Method to compute the covariance matrix from the emulator residuals.
-            Options include the mean absolute deviation ('mean'), median absolute deviation ('median'),
-            or standard deviation ('stdev'). Defaults to 'median'.
-        diag : bool
-            If True, only the diagonal of the covariance matrix is computed. Defaults to False.
+        block : bool, optional
+            If True, compute the covariance matrix in block diagonal form. Defaults to True.
         **kwargs : dict
-            Additional arguments for the covariance matrix checker.
+            Additional keyword arguments to pass to each observable's get_model_covariance method.
 
         Returns
         -------
         np.ndarray
-            The emulator covariance matrix.
+            The combined model covariance matrix.
         """
-        covs = []
-        for observable in self.observables:
-            cov_y = observable.get_emulator_covariance_matrix(
-                prefactor=prefactor, method=method, diag=diag
-            )
-            covs.append(cov_y)
-
-        cov = linalg.block_diag(*covs)
-
-        # Perform sanity checks on the covariance matrix
-        check_covariance_matrix(cov, name="combined emulator covariance", **kwargs)
-
-        return cov
-
-    def get_save_handle(self, save_dir: str | Path | None = None) -> str | Path:
-        """
-        Create a handle that combines the handles of the observables, separated by a '+'.
-
-        They contain the statistic name and the filters used.
-        This can be used to save anything related to this observable.
-
-        Parameters
-        ----------
-        save_dir : str | Path | None
-            Directory where the results will be saved.
-            If provided, the directory is created if it does not exist.
-            If None, the handle is returned as a string.
-            Default is None.
-
-        Returns
-        -------
-        str|Path
-            The handle for saving the results, to be completed with the file extension.
-            Returned as a Path instance if save_dir is provided as a Path.
-        """
-        statistic_handles = [
-            observable.get_save_handle() for observable in self.observables
-        ]
-        statistic_handle = "+".join(statistic_handles)
-
-        if save_dir is None:
-            return statistic_handle
-
-        # If save_path is provided, make sure it exists
-        Path(save_dir).mkdir(parents=True, exist_ok=True)
-        cout = Path(save_dir) / f"{statistic_handle}"
-
-        if isinstance(save_dir, str):
-            return cout.as_posix()  # Return as string if save_dir is a string
-        return Path(save_dir) / f"{statistic_handle}"
-
-    def plot_observable(
-        self,
-        model_params: dict,
-        save_fn: str | Path | None = None,
-    ) -> plt.Figure:
-        """
-        Plot a compilation of all summary statistics included at class instantiation.
-
-        Parameters
-        ----------
-        model_params : dict
-            Dictionary of model parameters to use for the prediction.
-        save_fn : str|Path|None
-            File name to save the plot. If None, the plot is not saved.
-            Default is None.
-
-        Returns
-        -------
-        fig : matplotlib.figure.Figure
-            The last figure plotted.
-        """
-        # check that save_fn has a .pdf extension
-        if save_fn is not None:
-            save_fn = Path(save_fn)
-            if save_fn.suffix != ".pdf":
-                raise ValueError(
-                    f"save_fn must have a .pdf extension, got {save_fn.suffix}"
-                )
-        with PdfPages(save_fn) if save_fn is not None else nullcontext() as pdf:
-            for observable in self.observables:
-                fig, _ = observable.plot_observable(model_params=model_params)
-                if pdf is not None:
-                    pdf.savefig(fig, bbox_inches="tight", pad_inches=0.2)
-                else:
-                    fig.show()
-        logger.info(f"Saving {save_fn}")
-        return fig
+        covariances = [obs.get_model_covariance(**kwargs) for obs in self]
+        if block:
+            return linalg.block_diag(*covariances)
+        raise NotImplementedError("Non-block combined covariance is not implemented.")
