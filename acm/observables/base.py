@@ -181,9 +181,9 @@ class BaseObservable[R, T](Formatter[R, T], ABC):
         """Create a deep copy of the class instance."""
         return self._copy(deep=True, **kwargs)
 
-    # def __repr__(self) -> str:
+    # def __repr__(self) -> str: # TODO
 
-    # def get_handle(self) -> str:
+    # def get_handle(self) -> str: # TODO
 
     @abstractmethod
     def _copy(self, deep: bool = False, **kwargs) -> Self:
