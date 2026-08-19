@@ -64,7 +64,7 @@ def _stack_on(new: str, da: xr.DataArray, *dims: str) -> xr.DataArray:
         return da
     if len(dims) == 0:
         return da.expand_dims(new)
-    return da.stack(**{new: dims})
+    return da.stack({new: dims})
 
 def format_like(da: xr.DataArray, arr: np.ndarray, new: str = "dim0") -> xr.DataArray:
     """
