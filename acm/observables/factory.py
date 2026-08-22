@@ -6,6 +6,7 @@ See https://realpython.com/factory-method-python/.
 from pathlib import Path
 
 from .base import BaseObservable
+from .lsstypes import LsstypesObservable
 from .xarray import XarrayObservable
 
 
@@ -37,6 +38,7 @@ class ObservableFactory[S: BaseObservable]:
 
 factory = ObservableFactory()
 factory.register_observable("xarray", XarrayObservable)
+factory.register_observable("lsstypes", LsstypesObservable)
 
 #%% Client components
 class Observable[S: BaseObservable]:
