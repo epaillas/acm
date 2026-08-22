@@ -2,7 +2,7 @@
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
-from typing import Any, Literal, overload
+from typing import Any, Literal, Self, overload
 
 import numpy as np
 import xarray as xr
@@ -96,15 +96,20 @@ def format_like(da: xr.DataArray, arr: np.ndarray, new: str = "dim0") -> xr.Data
     )
 
 
-class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
-    """TODO: docstring + file requirements."""
+class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
+    """
+    Implementation of the :class:`BaseObservable` interface for xarray datasets and data arrays.
+
+    Requires a dataset with at least two data variables: "x" for parameters and "y" for truth values.
+    Each data variable must have attributes "sample" and "features" that specify the dimensions to
+    stack on for flattening to 2D arrays.
+    """
 
     def __init__(
         self,
-        dataset: xr.Dataset,
+        data: xr.Dataset,
         model: ObservableModel | None = None,
         silent_load: bool = False,
-        **kwargs,
     ) -> None:
         """
         Initialize an XarrayObservable instance.
@@ -120,52 +125,36 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
         **kwargs
             Additional keyword arguments to set output format. See :meth:`set_output` for details.
         """
-        self._dataset = dataset
+        self._dataset = data
+        names = list(data.data_vars)
         with suppress_logging(enabled=silent_load):
-            logger.info(
-                f"Datasets loaded with the following variables: {list(self._dataset.data_vars)}"
-            )
-            super().__init__(model=model, **kwargs)
+            logger.info(f"Datasets loaded with the following variables: {names}")
+            super().__init__(model=model)
 
     @classmethod
-    def load(cls, filename: str | Path, **kwargs) -> "XarrayObservable":
+    def load(cls, filename: str | Path, **kwargs) -> Self:
         """Load a compressed XarrayObservable file and model."""
-        dataset = _load_dataset(filename)
-        if not _is_valid_dataset(dataset):
-            raise ValueError(f"Invalid dataset in file: {filename}")
-        return cls(dataset, **kwargs)
+        data = _load_dataset(filename)
+        if not _is_valid_dataset(data):
+            raise ValueError(f"Invalid Observable structure in file: {filename}")
+        return cls(data, **kwargs)
 
     @classmethod
     def can_load(cls, filename: str | Path) -> bool:
-        """
-        Check if the given filename can be loaded by this class.
-
-        Parameters
-        ----------
-        filename : str or Path
-            The filename to check.
-
-        Returns
-        -------
-        bool
-            True if the file can be loaded, False otherwise.
-        """
+        """Determine if the class can load the given file."""
         try:
-            dataset = _load_dataset(filename)
-            return _is_valid_dataset(dataset)
+            data = _load_dataset(filename)
+            return _is_valid_dataset(data)
         except Exception as e:  # noqa: BLE001
-            logger.debug(f"Failed to load dataset from {filename}: {e}")
+            logger.debug(f"Failed to load Observable from {filename}: {e}")
         return False
 
-    def _copy(self, deep: bool = True, **kwargs) -> "XarrayObservable":
-        method = deepcopy if deep else copy
-        new = self.__class__(
-            dataset = method(self._dataset, **kwargs),
-            silent_load = True, # Do not log during copy
-        )
+    def _copy(self, deep: bool = True, **kwargs) -> Self:
+        cp = deepcopy if deep else copy
+        new = self.__class__(data = cp(self._dataset, **kwargs), silent_load = True)
         cv = vars(self)
         for k, v in cv.items():
-            setattr(new, k, method(v, **kwargs))
+            setattr(new, k, cp(v, **kwargs))
         return new
 
     def get_coordinate_list(self, name: str) -> list:
@@ -252,114 +241,121 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
         logger.debug(f"Applying filters: {subset_filters}")
         return data.sel(**subset_filters)
 
-    def _apply_selection(self, data: xr.DataArray) -> xr.DataArray:
+    def _apply_selection(self, data: np.ndarray, name: str) -> np.ndarray:
         """
-        Select specific indices from the last dimension of the DataArray.
+        Select specific indices from the last dimension of the array.
 
-        Applicable only if the DataArray is 1D or 2D, and on the DataArrays
-        specified in the selection names (see :meth:`set_select`).
+        Applicable only if the array is 1D or 2D, and on the names
+        specified in the selection setup (see :meth:`set_select`).
 
-        Also accepts DataArrays with names prefixed by "like_" and accepted names
+        Also accepts objects with names prefixed by "like_" and accepted names
         (e.g., "like_y" if "y" is in the selection names).
 
         Parameters
         ----------
-        data : xr.DataArray
-            The DataArray to which the selection will be applied.
+        data : np.ndarray
+            The 2D NumPy array from which to select indices.
+        name : str
+            The name of the DataArray, used to determine if selection should be applied.
 
         Returns
         -------
-        xr.DataArray
-            The selected DataArray.
+        np.ndarray
+            The selected NumPy array.
 
         Raises
         ------
         ValueError
-            If the selection indices exceed the size of the last dimension of the DataArray.
+            If the selection indices exceed the size of the last dimension of the array.
         """
         like_names = ["like_" + name for name in self._select_names] # e.g. "like_y"
         ok_names = set(self._select_names + like_names)
-        if self._select is not None and data.ndims < 3 and data.name in ok_names:
-            if data.shape[-1] < max(self._select):
-                raise ValueError(
-                    f"Selection indices exceed the last dimension size {data.shape[-1]}."
-                )
-            return data.isel({data.dims[-1]: self._select})
-        logger.debug(f"No selection applied to DataArray '{data.name}'.")
+        if self._select is not None and data.ndim < 3 and name in ok_names:
+            ls = data.shape[-1]
+            if ls < max(self._select):
+                raise ValueError(f"Indices number exceed last dimension size {ls}.")
+            return data[self._select]
+        logger.debug(f"No selection applied to DataArray '{name}'.")
         return data
 
     @staticmethod
-    def _flatten(data: xr.DataArray, ndim: int) -> xr.DataArray:
+    def _to_numpy(data: xr.DataArray, nested: bool = False) -> np.ndarray:
         """
-        Flatten a DataArray on 1 or 2 dimensions.
+        Cast the provided DataArray to a NumPy array.
 
         Parameters
         ----------
         data: xr.DataArray
-            The DataArray to flatten. Must contain a "sample" and "feature" attribute for 2D flattening.
-        ndim: int
-            The number of dimensions to flatten on.
+            The object to cast on a numpy array.
+        nested: bool
+            If True, returns an unflattened array. Defaults to False (2D array)
 
         Returns
         -------
-        xr.DataArray
-            The flattened array, with a "dims" or ("sample", "features") stacked
-            MultiIndex dimensions for respectively 1D and 2D flattening.
+        np.ndarray
+            The data cast to a 2D NumPy array, unless nested=True.
         """
-        if ndim == 1:
-            return data.stack(dims=[...])
-        if ndim == 2:
-            # NOTE: requires "sample" and "features" to exist in attrs
+        if nested is False:
             data = _stack_on("sample", data, *data.attrs["sample"])
             data = _stack_on("features", data, *data.attrs["features"])
-            return data.transpose("sample", "features") # Ensure correct dim order
-        raise ValueError("Only 1D and 2D flattening are allowed.")
-
-    @staticmethod
-    def _squeeze(data: xr.DataArray) -> xr.DataArray:
-        """Wrap around :func:`~xarray.DataArray.squeeze`."""
-        return data.squeeze()
-
-    @staticmethod
-    def _to_numpy(data: xr.DataArray) -> np.ndarray:
-        """Cast to numpy array."""
+            data= data.transpose("sample", "features") # Ensure correct dim order
         return data.to_numpy()
 
-    def _format_data(self, data: xr.DataArray) -> _ArrayLike:
+    def _format_data(
+        self,
+        data: xr.DataArray,
+        name: str,
+        nested: bool = False,
+    ) -> np.ndarray :
         """
-        Format a DataArray according to the set filters, selection, and output format.
+        Format the provided DataArray by applying filters, casting to numpy and applying selection.
 
         Parameters
         ----------
-        da : xr.DataArray
+        data: xr.DataArray
             The DataArray to format.
+        name: str
+            The name of the DataArray, used for selection.
+        nested: bool, optional
+            If True, the data is nested and will not be flattened. Default is False.
 
         Returns
         -------
-        xr.DataArray or np.ndarray
-            The formatted DataArray, after applying filters, selection, and output formatting.
+        np.ndarray
+            The formatted data as a 2D NumPy array, unless nested=True.
         """
         out = self._drop_nan_dims(data)
-        out = super()._format_data(out)  # Apply filters, selection, flatten, squeeze
-        # TODO: postprocess option (e.g. phase correction) provided by the user
+        out = super()._format_data(out, name, nested)
         return out
 
     @overload
-    def get_data(self, name: str, raw: Literal[True]) -> xr.DataArray: ...
+    def get_data(
+        self,
+        name: str,
+        raw: Literal[True],
+        nested: bool = False,
+    ) -> xr.DataArray:
+        ...
     @overload
-    def get_data(self, name: str, raw: Literal[False] = False) -> _ArrayLike: ...
-
-    def get_data(self, name: str, raw: bool = False) -> _ArrayLike:
+    def get_data(self,
+        name: str,
+        raw: Literal[False] = False,
+        nested: bool = False,
+    ) -> np.ndarray:
+        ...
+    def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
-        Get the data variable from the dataset, with filters, selection, and output formatting applied.
+        Get the data variable from the dataset from the given name.
 
         Parameters
         ----------
         name : str
             The name of the data variable to retrieve.
         raw : bool, optional
-            If True, return the raw DataArray without applying filters, selection, or output formatting.
+            If True, return the raw DataArray without applying filters, selection, or numpy conversion.
             Defaults to False.
+        nested : bool, optional
+            If True, return the data in its original unflattened form. Default is False.
 
         Returns
         -------
@@ -376,32 +372,42 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
         da = self._dataset[name]
         if raw:
             return da
-        return self._format_data(da)
+        return self._format_data(da, name, nested)
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Get an attribute from the dataset, with filters applied."""
-        ds = self._dataset
-        if name in ds.data_vars:
+        data = self._dataset
+        if name in data.data_vars:
             return self.get_data(name)
-        return getattr(self._apply_filters(ds), name)
+        return getattr(self._apply_filters(data), name)
 
     @overload
-    def get_prediction(self, x: _ArrayLike, raw: Literal[True]) -> xr.DataArray: ...
-    @overload
-    def get_prediction(self, x: _ArrayLike, raw: Literal[False] = False) -> _ArrayLike:
+    def get_prediction(
+        self,
+        x: _ArrayLike,
+        raw: Literal[True],
+        nested: bool = False,
+    ) -> xr.DataArray:
         ...
-
-    def get_prediction(self, x: _ArrayLike, raw: bool = False) -> _ArrayLike:
+    @overload
+    def get_prediction(self,
+        x: _ArrayLike,
+        raw: Literal[False] = False,
+        nested: bool = False,
+    ) -> np.ndarray:
+        ...
+    def get_prediction(self, x: _ArrayLike, raw: bool = False, nested: bool = False):
         """
-        Get the prediction from the registered model for the given input x, with filters, selection, and output formatting applied.
+        Get the prediction for the given input x.
 
         Parameters
         ----------
         x : xr.DataArray or np.ndarray
-            The input data for which the model prediction is to be computed.
+            The input data for which to get the prediction.
         raw : bool, optional
-            If True, return the raw model prediction without applying filters, selection, or output formatting.
-            Defaults to False.
+            If True, return the raw unfiltered and unflattened prediction. Default is False.
+        nested : bool, optional
+            If True, return the data in its original unflattened form. Default is False.
 
         Returns
         -------
@@ -416,18 +422,15 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
         if self.model is None:
             raise AttributeError("No model has been registered.")
         pred = self.model.get_prediction(np.asarray(x)) # asarray = faster torch.Tensor
-        pred = format_like(
-            da = self.get_data("y", raw=True),
-            arr = pred,
-            new = "n_pred",
-        )
-        if not raw:
+        y = self.get_data("y", raw=True)
+        pred = format_like(da=y, arr=pred, new="n_pred")
+        if raw:
             return pred
-        return self._format_data(pred)
+        return self._format_data(pred, str(pred.name), nested)
 
     def get_test_set(self) -> tuple[np.ndarray, np.ndarray]:
         """
-        Get the test set from the Dataset.
+        Get the test (x_test, y_test) set from the Dataset.
 
         Returns
         -------
@@ -435,38 +438,50 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
             Parameters values, of shape (n_samples, n_params).
         truth: np.ndarray
             Truth values of selected values, of shape (n_samples, n_features).
+
+        Notes
+        -----
+        Assumes that `x_test` and `y_test` DataArrays are present in the dataset.
         """
         arrs: list[np.ndarray] = [] # x, truth
         for _name in ["x_test", "y_test"]:
             arr = self.get_data(_name, raw=True)
             arr = self._drop_nan_dims(arr) # nan_dims should exist by construction
-            arr = self._flatten(arr, ndim=2)
             arr = self._to_numpy(arr) # (n_samples, n_params/n_features)
             arrs.append(arr)
         x, truth = arrs
         return x, truth
 
     @overload
-    def get_model_error(self, method: str, raw: Literal[True], **kwargs) -> xr.DataArray: ...
-    @overload
-    def get_model_error(self, method: str, raw: Literal[False] = False, **kwargs) -> _ArrayLike: ...
-
     def get_model_error(
         self,
         method: str,
-        raw: bool = False,
+        raw: Literal[True],
+        nested: bool = False,
         **kwargs,
-    ) -> _ArrayLike:
+    ) -> xr.DataArray:
+        ...
+    @overload
+    def get_model_error(
+        self,
+        method: str,
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
+        **kwargs,
+    ) -> np.ndarray:
+        ...
+    def get_model_error(self, method, raw = False, nested = False, **kwargs):
         """
         Get the model error from the registered model, with filters, selection, and output formatting applied.
 
         Parameters
         ----------
         method : str
-            The method to use for computing the model error. See :meth:`ObservableModel.get_error` for allowed methods.
+            The method to use for the model error calculation. See :meth:`ObservableModel.get_error` for allowed methods.
         raw : bool, optional
-            If True, return the raw model error without applying filters, selection, or output formatting.
-            Defaults to False.
+            If True, return the raw unfiltered and unflattened error. Default is False.
+        nested : bool, optional
+            If True, return the error in its original unflattened form. Default is False.
         **kwargs
             Extra arguments to pass to :meth:`ObservableModel.get_error`.
 
@@ -480,9 +495,9 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
         AttributeError
             If no model has been registered.
 
-        Notes
-        -----
-        Assumes that `x_test` and `y_test` DataArrays are present in the dataset for computing the model error.
+        See Also
+        --------
+        get_test_set : For retrieving the test set used in the error calculation.
         """
         if self.model is None:
             raise AttributeError("No model has been registered.")
@@ -494,7 +509,7 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
         )
         if not raw:
             return error
-        return self._format_data(error)
+        return self._format_data(error, str(error.name), nested)
 
     def get_model_covariance(self, prefactor: float = 1, **kwargs) -> np.ndarray:
         """
@@ -522,7 +537,10 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
         -----
         The covariance matrix is computed from the difference between the true values and the model predictions,
         with filters and selections applied before flattening the result on 2D (sample, features).
-        Assumes that `x_test` and `y_test` DataArrays are present in the dataset for computing the model covariance.
+
+        See Also
+        --------
+        get_test_set : For retrieving the test set used in the covariance calculation.
         """
         if self.model is None:
             raise AttributeError("No model has been registered.")
@@ -534,7 +552,6 @@ class XarrayObservable(BaseObservable[xr.DataArray, _ArrayLike]):
             arr = diff,
         )
         diff = self._apply_filters(diff)
-        diff = self._flatten(diff, ndim=2)
-        diff = self._apply_selection(diff)
         diff = self._to_numpy(diff)
+        diff = self._apply_selection(diff, "y")
         return prefactor * self.model.make_covariance(diff, **kwargs)
