@@ -60,17 +60,15 @@ class ObservableList[S]:
         combined_observables = {**self._observables, **other._observables}
         return ObservableList(**combined_observables)
 
-class CombinedObservable[R, T](ObservableList[BaseObservable[R, T]]):
+class CombinedObservable(ObservableList[BaseObservable]):
     """Combine multiple observables into a single observable, that returns a combined output."""
 
     def __init__(self, **observables: BaseObservable) -> None:
-        if not all(obs._output_flatten == 2 for obs in observables.values()):
-            raise ValueError("All observables must have 2D outputs.")
         super().__init__(**observables)
 
-    # def __repr__
+    # def __repr__(self) -> str: # TODO
 
-    # def get_handle
+    # def get_handle(self) -> str: # TODO
 
     @property
     def x_names(self) -> list[str]:
@@ -78,11 +76,11 @@ class CombinedObservable[R, T](ObservableList[BaseObservable[R, T]]):
         return self[0].x_names
 
     @property
-    def x(self) -> T:
+    def x(self) -> np.ndarray:
         """Parameter values from the first observable."""
         return self[0].get_data("x")
 
-    def _to_numpy(self, data: list[R]) -> list[np.ndarray]:
+    def _to_numpy(self, data: list) -> list[np.ndarray]:
         """Cast a list of observable data to numpy arrays."""
         return [self[0]._to_numpy(d) for d in data]
 
@@ -96,7 +94,7 @@ class CombinedObservable[R, T](ObservableList[BaseObservable[R, T]]):
         """Get the combined data for a given name from all observables."""
         return self._transfer_call("get_data", name)
 
-    def get_prediction(self, x: T) -> np.ndarray:
+    def get_prediction(self, x: np.ndarray) -> np.ndarray:
         """Get the combined prediction from all observables."""
         return self._transfer_call("get_prediction", x)
 
@@ -133,9 +131,8 @@ class CombinedObservable[R, T](ObservableList[BaseObservable[R, T]]):
         for obs in self:
             cy = obs.get_data("covariance_y", raw=True)
             cy = obs._apply_filters(cy)
-            cy = obs._apply_selection(cy)
-            cy = obs._flatten(cy, ndim=2)
             cy = obs._to_numpy(cy)
+            cy = obs._apply_selection(cy, "y")
             cov_y.append(cy)
         if block:
             blocks = [factor * np.cov(cy, rowvar=False) for cy in cov_y]
