@@ -272,9 +272,9 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
         ok_names = set(self._select_names + like_names)
         if self._select is not None and data.ndim < 3 and name in ok_names:
             ls = data.shape[-1]
-            if ls < max(self._select):
+            if ls <= max(self._select):
                 raise ValueError(f"Indices number exceed last dimension size {ls}.")
-            return data[self._select]
+            return data[..., self._select]
         logger.debug(f"No selection applied to DataArray '{name}'.")
         return data
 
@@ -507,7 +507,7 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
             da = self.get_data("y", raw=True),
             arr = error,
         )
-        if not raw:
+        if raw:
             return error
         return self._format_data(error, str(error.name), nested)
 
