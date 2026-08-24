@@ -203,6 +203,11 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
             If True, return the raw unfiltered and unflattened data. Default is False.
         nested: bool, optional
             If True, return the data in its original unflattened form. Default is False.
+
+        Raises
+        ------
+        KeyError
+            If the specified name is not found in the data.
         """
 
     @overload
@@ -283,7 +288,18 @@ class BaseObservable[R, N](Formatter[R, N], ABC):
         """Create a deep copy of the class instance."""
         return self._copy(deep=True, **kwargs)
 
-    # def __repr__(self) -> str: # TODO
+    def __repr__(self) -> str:
+        """Return a string representation of the observable instance."""
+        shapes = {}
+        for name in ("x", "y", "covariance_y"):
+            try:
+                shapes[name] = self.get_data(name).shape
+            except KeyError:
+                continue
+        has_model = self.model is not None
+        shape_str = ", ".join(f"{k}={v}" for k, v in shapes.items())
+        sel = f", select={len(self._select)}" if self._select else ""
+        return f"{type(self).__name__}({shape_str}, filters={self.filters}{sel}, {has_model=})"
 
     @abstractmethod
     def _copy(self, deep: bool = False, **kwargs) -> Self:
