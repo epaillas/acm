@@ -10,7 +10,7 @@ import xarray as xr
 from acm.utils.logging import suppress_logging
 from acm.utils.xarray import dataset_from_dict
 
-from .base import BaseObservable
+from .base import Array2D, BaseObservable
 from .model import ObservableModel
 
 type _ArrayLike = xr.DataArray | np.ndarray
@@ -96,7 +96,7 @@ def format_like(da: xr.DataArray, arr: np.ndarray, new: str = "dim0") -> xr.Data
     )
 
 
-class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
+class XarrayObservable(BaseObservable[xr.DataArray]):
     """
     Implementation of the :class:`BaseObservable` interface for xarray datasets and data arrays.
 
@@ -241,7 +241,7 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
         logger.debug(f"Applying filters: {subset_filters}")
         return data.sel(**subset_filters)
 
-    def _apply_selection(self, data: np.ndarray, name: str) -> np.ndarray:
+    def _apply_selection(self, data: Array2D, name: str) -> Array2D:
         """
         Select specific indices from the last dimension of the array.
 
@@ -253,14 +253,14 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
 
         Parameters
         ----------
-        data : np.ndarray
+        data : np.ndarray[tuple[int, int]]
             The 2D NumPy array from which to select indices.
         name : str
             The name of the DataArray, used to determine if selection should be applied.
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[tuple[int, int]]
             The selected NumPy array.
 
         Raises
@@ -278,8 +278,14 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
         logger.debug(f"No selection applied to DataArray '{name}'.")
         return data
 
+    @overload
     @staticmethod
-    def _to_numpy(data: xr.DataArray, nested: bool = False) -> np.ndarray:
+    def _to_numpy(data: xr.DataArray, nested: Literal[True]) -> np.ndarray: ...
+    @overload
+    @staticmethod
+    def _to_numpy(data: xr.DataArray, nested: Literal[False] = False) -> Array2D: ...
+    @staticmethod
+    def _to_numpy(data: xr.DataArray, nested: bool = False):
         """
         Cast the provided DataArray to a NumPy array.
 
@@ -301,12 +307,23 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
             data= data.transpose("sample", "features") # Ensure correct dim order
         return data.to_numpy()
 
+    @overload
     def _format_data(
         self,
         data: xr.DataArray,
         name: str,
-        nested: bool = False,
-    ) -> np.ndarray :
+        nested: Literal[True],
+    ) -> np.ndarray:
+        ...
+    @overload
+    def _format_data(
+        self,
+        data: xr.DataArray,
+        name: str,
+        nested: Literal[False] = False,
+    ) -> Array2D:
+        ...
+    def _format_data(self, data: xr.DataArray, name: str, nested: bool = False):
         """
         Format the provided DataArray by applying filters, casting to numpy and applying selection.
 
@@ -337,11 +354,20 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
     ) -> xr.DataArray:
         ...
     @overload
-    def get_data(self,
+    def get_data(
+        self,
+        name: str,
+        raw: Literal[False],
+        nested: Literal[True],
+    ) -> np.ndarray:
+        ...
+    @overload
+    def get_data(
+        self,
         name: str,
         raw: Literal[False] = False,
-        nested: bool = False,
-    ) -> np.ndarray:
+        nested: Literal[False] = False,
+    ) -> Array2D:
         ...
     def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
@@ -392,9 +418,16 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
     @overload
     def get_prediction(self,
         x: _ArrayLike,
-        raw: Literal[False] = False,
-        nested: bool = False,
+        raw: Literal[False],
+        nested: Literal[True],
     ) -> np.ndarray:
+        ...
+    @overload
+    def get_prediction(self,
+        x: _ArrayLike,
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
+    ) -> Array2D:
         ...
     def get_prediction(self, x: _ArrayLike, raw: bool = False, nested: bool = False):
         """
@@ -428,22 +461,22 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
             return pred
         return self._format_data(pred, str(pred.name), nested)
 
-    def get_test_set(self) -> tuple[np.ndarray, np.ndarray]:
+    def get_test_set(self) -> tuple[Array2D, Array2D]:
         """
         Get the test (x_test, y_test) set from the Dataset.
 
         Returns
         -------
-        x: np.ndarray
+        x: np.ndarray[tuple[int, int]]
             Parameters values, of shape (n_samples, n_params).
-        truth: np.ndarray
+        truth: np.ndarray[tuple[int, int]]
             Truth values of selected values, of shape (n_samples, n_features).
 
         Notes
         -----
         Assumes that `x_test` and `y_test` DataArrays are present in the dataset.
         """
-        arrs: list[np.ndarray] = [] # x, truth
+        arrs: list[Array2D] = [] # x, truth
         for _name in ["x_test", "y_test"]:
             arr = self.get_data(_name, raw=True)
             arr = self._drop_nan_dims(arr) # nan_dims should exist by construction
@@ -465,10 +498,19 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
     def get_model_error(
         self,
         method: str,
+        raw: Literal[False],
+        nested: Literal[True],
+        **kwargs,
+    ) -> np.ndarray:
+        ...
+    @overload
+    def get_model_error(
+        self,
+        method: str,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Array2D:
         ...
     def get_model_error(self, method, raw = False, nested = False, **kwargs):
         """
@@ -511,7 +553,7 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
             return error
         return self._format_data(error, str(error.name), nested)
 
-    def get_model_covariance(self, prefactor: float = 1, **kwargs) -> np.ndarray:
+    def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """
         Get the model covariance matrix matching the filtered dataset.
 
@@ -525,7 +567,7 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[tuple[int, int]]
             The model covariance matrix, matching the filtered dataset.
 
         Raises

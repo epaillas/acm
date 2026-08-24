@@ -44,13 +44,11 @@ def make_handle(filters: dict, hlength: int | None = None) -> str:
         handle = short_hash(handle, length=hlength)
     return handle
 
-class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
+class Formatter[R](ABC): # NOTE: splitting interface for clarity
     """
     Class handling the output formatting of the Observable product interface.
 
-    Dynamic type parameters:
-    - R: Raw data type, with or without selections applied.
-    - N: 2D NumPy array type for the output.
+    R: Dynamic type parameter for raw data type, with or without selections applied.
     """
 
     def __init__(self) -> None:
@@ -136,12 +134,18 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
         """Apply the set filters to the provided data."""
 
     @abstractmethod
-    def _apply_selection(self, data: N, name: str) -> N:
+    def _apply_selection(self, data: Array2D, name: str) -> Array2D:
         """Select specified indices from a 2D NumPy array."""
 
+    @overload
+    @staticmethod
+    def _to_numpy(data: R, nested: Literal[True]) -> np.ndarray: ...
+    @overload
+    @staticmethod
+    def _to_numpy(data: R, nested: Literal[False] = False) -> Array2D: ...
     @staticmethod
     @abstractmethod
-    def _to_numpy(data: R, nested: bool = False) -> N:
+    def _to_numpy(data: R, nested: bool = False):
         """
         Cast the provided data to a NumPy array.
 
@@ -154,11 +158,22 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
 
         Returns
         -------
-        N
+        np.ndarray
             The data cast to a 2D NumPy array, unless nested=True.
         """
 
-    def _format_data(self, data: R, name: str, nested: bool = False) -> N:
+    @overload
+    def _format_data(self, data: R, name: str, nested: Literal[True]) -> np.ndarray:
+        ...
+    @overload
+    def _format_data(
+        self,
+        data: R,
+        name: str,
+        nested: Literal[False] = False,
+    ) -> Array2D:
+        ...
+    def _format_data(self, data: R, name: str, nested: bool = False):
         """
         Format the provided data by applying filters, casting to numpy and applying selection.
 
@@ -186,14 +201,22 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
     def get_data(self, name: str, raw: Literal[True], nested: bool = False) -> R:
         ...
     @overload
+    def get_data(
+        self,
+        name: str,
+        raw: Literal[False],
+        nested: Literal[True],
+    ) -> np.ndarray:
+        ...
+    @overload
     def get_data(self,
         name: str,
         raw: Literal[False] = False,
-        nested: bool = False,
-    ) -> N:
+        nested: Literal[False] = False,
+    ) -> Array2D:
         ...
     @abstractmethod
-    def get_data(self, name, raw = False, nested = False):
+    def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
         Get the data for the given name.
 
@@ -213,23 +236,35 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
         """
 
     @overload
-    def get_prediction(self, x: N, raw: Literal[True], nested: bool = False) -> R:
+    def get_prediction(
+        self,
+        x: np.ndarray,
+        raw: Literal[True],
+        nested: bool = False,
+    ) -> R:
         ...
     @overload
     def get_prediction(self,
-        x: N,
+        x: np.ndarray,
+        raw: Literal[False],
+        nested: Literal[True],
+    ) -> np.ndarray:
+        ...
+    @overload
+    def get_prediction(self,
+        x: np.ndarray,
         raw: Literal[False] = False,
-        nested: bool = False,
-    ) -> N:
+        nested: Literal[False] = False,
+    ) -> Array2D:
         ...
     @abstractmethod
-    def get_prediction(self, x: N, raw = False, nested = False):
+    def get_prediction(self, x: np.ndarray, raw: bool = False, nested: bool = False):
         """
         Get the prediction for the given input x.
 
         Parameters
         ----------
-        x: N
+        x: np.ndarray
             The input data for which to get the prediction.
         raw: bool, optional
             If True, return the raw unfiltered and unflattened prediction. Default is False.
@@ -250,10 +285,19 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
     def get_model_error(
         self,
         method: str,
+        raw: Literal[False],
+        nested: Literal[True],
+        **kwargs,
+    ) -> np.ndarray:
+        ...
+    @overload
+    def get_model_error(
+        self,
+        method: str,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> N:
+    ) -> Array2D:
         ...
     @abstractmethod
     def get_model_error(self, method, raw = False, nested = False, **kwargs):
@@ -274,7 +318,7 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
 
 
 #%% Product components
-class BaseObservable[R, N](Formatter[R, N], ABC):
+class BaseObservable[R](Formatter[R], ABC):
     """Base class defining the interface for all Observable classes."""
 
     def __init__(self, model: ObservableModel | None = None) -> None:
@@ -325,7 +369,7 @@ class BaseObservable[R, N](Formatter[R, N], ABC):
         self,
         volume_factor: float = 64,
         prefactor: float = 1.0,
-    ) -> np.ndarray:
+    ) -> Array2D:
         """
         Get the data covariance matrix, infered from the covariance_y data object.
 
@@ -339,7 +383,7 @@ class BaseObservable[R, N](Formatter[R, N], ABC):
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[tuple[int, int]]
             The covariance matrix, matching the selected filtering.
 
         Notes
@@ -355,5 +399,5 @@ class BaseObservable[R, N](Formatter[R, N], ABC):
         return cov
 
     @abstractmethod
-    def get_model_covariance(self, prefactor: float = 1, **kwargs) -> np.ndarray:
+    def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """Wrap around :meth:`ObservableModel.make_covariance` with formatting."""
