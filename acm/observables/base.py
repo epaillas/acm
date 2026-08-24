@@ -11,6 +11,8 @@ from acm.utils.default import short_hash
 
 from .model import ObservableModel
 
+type Array2D = np.ndarray[tuple[int, int]] # Short type alias for 2D NumPy arrays
+
 logger = logging.getLogger(__name__)
 
 def _format_filter_value(value) -> str:  # noqa: ANN001

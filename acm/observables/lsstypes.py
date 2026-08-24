@@ -167,9 +167,9 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
         ok_names = set(self._select_names + like_names)
         if self._select is not None and data.ndim < 3 and name in ok_names:
             ls = data.shape[-1]
-            if ls < max(self._select):
+            if ls <= max(self._select):
                 raise ValueError(f"Indices number exceed last dimension size {ls}.")
-            return data[self._select]
+            return data[..., self._select]
         logger.debug(f"No selection applied to tree '{name}'.")
         return data
 
@@ -191,6 +191,35 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
             The data cast to a 2D NumPy array, unless nested=True.
         """
         return np.array(data.value(concatenate=False, nested=nested))
+
+    def _format_2d_data(
+        self,
+        data: Array2D,
+        name: str,
+        nested: bool = False,
+    ) -> Array2D:
+        """
+        Format a 2D NumPy array to match the structure of the observable tree.
+
+        Parameters
+        ----------
+        data: np.ndarray[tuple[int, int]]
+            The 2D array to format.
+        name: str
+            The name of the variable in the tree.
+        nested: bool
+            If True, returns an unflattened array. Defaults to False (2D array)
+
+        Returns
+        -------
+        np.ndarray[tuple[int, int]]
+            The formatted 2D NumPy array.
+        """
+        if self._filters_idx is not None:
+            data = data[:, self._filters_idx] # Faster than making a tree
+        if not nested:
+            data = self._apply_selection(data, name)
+        return data
 
     @overload
     def get_data(
@@ -381,9 +410,7 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
         if raw:
             y = self.get_data("y", raw=True)
             return format_like(tree=y, arr=error, new="n_error")
-        if self._filters_idx is not None:
-            error = error[:, self._filters_idx] # Faster than making a tree
-        error = self._apply_selection(error, "y")
+        error = self._format_2d_data(error, name="y", nested=nested)
         y = self.get_data("y", nested=nested)
         return error.reshape(-1, *y.shape[1:]) # Replace first dim by prediction nb
 
@@ -423,6 +450,5 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
         x, truth = self.get_test_set()
         pred = self.model.get_prediction(x)
         diff = truth - pred
-        diff = diff[:, self._filters_idx] if self._filters_idx is not None else diff
-        diff = self._apply_selection(diff, "y")
+        diff = self._format_2d_data(diff, name="y", nested=False)
         return prefactor * self.model.make_covariance(diff, **kwargs)
