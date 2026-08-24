@@ -3,7 +3,7 @@ from collections.abc import Iterator
 import numpy as np
 from scipy import linalg
 
-from .base import BaseObservable
+from .base import Array2D, BaseObservable
 
 
 class ObservableList[S]:
@@ -93,38 +93,39 @@ class CombinedObservable(ObservableList[BaseObservable]):
         return self[0].x_names
 
     @property
-    def x(self) -> np.ndarray:
+    def x(self) -> Array2D:
         """Parameter values from the first observable."""
         return self[0].get_data("x")
 
-    def _to_numpy(self, data: list) -> list[np.ndarray]:
+    def _to_numpy(self, data: list) -> list[Array2D]:
         """Cast a list of observable data to numpy arrays."""
         return [self[0]._to_numpy(d) for d in data]
 
-    def _transfer_call(self, name: str, *args, **kwargs) -> np.ndarray:
+    def _transfer_call(self, name: str, *args, **kwargs) -> Array2D:
         """Call a method on all observables and combine the results."""
         results = [getattr(obs, name)(*args, **kwargs) for obs in self]
         results = self._to_numpy(results)
         return np.concatenate(results, axis=-1)
 
-    def get_data(self, name: str) -> np.ndarray:
+    def get_data(self, name: str) -> Array2D:
         """Get the combined data for a given name from all observables."""
         return self._transfer_call("get_data", name)
 
-    def get_prediction(self, x: np.ndarray) -> np.ndarray:
+    def get_prediction(self, x: Array2D) -> Array2D:
         """Get the combined prediction from all observables."""
         return self._transfer_call("get_prediction", x)
 
-    def get_model_error(self, method: str, **kwargs) -> np.ndarray:
+    def get_model_error(self, method: str, **kwargs) -> Array2D:
         """Get the combined model error from all observables."""
-        return self._transfer_call("get_model_error", method, **kwargs)
+        call = "get_model_error"
+        return self._transfer_call(call, method, raw=False, nested=False, **kwargs)
 
     def get_covariance_matrix(
         self,
         volume_factor: float = 64,
         prefactor: float = 1.0,
         block: bool = True,
-    ) -> np.ndarray:
+    ) -> Array2D:
         """
         Get the combined covariance matrix from all observables.
 
@@ -140,11 +141,11 @@ class CombinedObservable(ObservableList[BaseObservable]):
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[tuple[int, int]]
             The combined covariance matrix, matching the selected filtering.
         """
         factor = prefactor / volume_factor
-        cov_y: list[np.ndarray] = []
+        cov_y: list[Array2D] = []
         for obs in self:
             cy = obs.get_data("covariance_y", raw=True)
             cy = obs._apply_filters(cy)
@@ -163,7 +164,7 @@ class CombinedObservable(ObservableList[BaseObservable]):
         self,
         block: bool = True,
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Array2D:
         """
         Get the combined model covariance from all observables.
 
@@ -176,7 +177,7 @@ class CombinedObservable(ObservableList[BaseObservable]):
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[tuple[int, int]]
             The combined model covariance matrix.
         """
         covariances = [obs.get_model_covariance(**kwargs) for obs in self]

@@ -11,7 +11,7 @@ from lsstypes import ObservableTree
 
 from acm.utils.logging import suppress_logging
 
-from .base import BaseObservable
+from .base import Array2D, BaseObservable
 from .model import ObservableModel
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ def format_like(tree: ObservableTree, arr: np.ndarray, new: str) -> ObservableTr
     return ObservableTree(branches, **labels)
 
 
-class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
+class LsstypesObservable(BaseObservable[ObservableTree]):
     """
     Implementation of BaseObservable using lsstypes.ObservableTree for data storage and manipulation.
 
@@ -136,7 +136,7 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
         coordinate_filters = {k: v for k, v in filters.items() if k not in labels}
         return data.get(**label_filters).select(**coordinate_filters)
 
-    def _apply_selection(self, data: np.ndarray, name: str) -> np.ndarray:
+    def _apply_selection(self, data: Array2D, name: str) -> Array2D:
         """
         Select specific indices from the last dimension of the array.
 
@@ -148,14 +148,14 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
 
         Parameters
         ----------
-        data : np.ndarray
+        data : np.ndarray[tuple[int, int]]
             The 2D NumPy array from which to select indices.
         name : str
             The name of the tree, used to determine if selection should be applied.
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[tuple[int, int]]
             The selected NumPy array.
 
         Raises
@@ -173,8 +173,14 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
         logger.debug(f"No selection applied to tree '{name}'.")
         return data
 
+    @overload
     @staticmethod
-    def _to_numpy(data: ObservableTree, nested: bool = False) -> np.ndarray:
+    def _to_numpy(data: ObservableTree, nested: Literal[True]) -> np.ndarray: ...
+    @overload
+    @staticmethod
+    def _to_numpy(data: ObservableTree, nested: Literal[False] = False) -> Array2D: ...
+    @staticmethod
+    def _to_numpy(data: ObservableTree, nested: bool = False):
         """
         Cast the provided data to a NumPy array.
 
@@ -233,9 +239,16 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
     def get_data(
         self,
         name: str,
-        raw: Literal[False] = False,
-        nested: bool = False
+        raw: Literal[False],
+        nested: Literal[True],
     ) -> np.ndarray:
+        ...
+    @overload
+    def get_data(self,
+        name: str,
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
+    ) -> Array2D:
         ...
     def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
@@ -286,7 +299,6 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
             return self.get_data(name)
         return getattr(self._apply_filters(data), name)
 
-
     @overload
     def get_prediction(
         self,
@@ -296,12 +308,18 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
     ) -> ObservableTree:
         ...
     @overload
-    def get_prediction(
-        self,
+    def get_prediction(self,
+        x: np.ndarray,
+        raw: Literal[False],
+        nested: Literal[True],
+    ) -> np.ndarray:
+        ...
+    @overload
+    def get_prediction(self,
         x: np.ndarray,
         raw: Literal[False] = False,
-        nested: bool = False,
-    ) -> np.ndarray:
+        nested: Literal[False] = False,
+    ) -> Array2D:
         ...
     def get_prediction(self, x: np.ndarray, raw: bool = False, nested: bool = False):
         """
@@ -327,28 +345,26 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
             y = self.get_data("y", raw=True)
             return format_like(tree=y, arr=pred, new="n_pred")
 
-        if self._filters_idx is not None:
-            pred = pred[:, self._filters_idx] # Faster than making a tree
-        pred = self._apply_selection(pred, "y")
+        pred = self._format_2d_data(pred, name="y", nested=nested)
         y = self.get_data("y", nested=nested)
         return pred.reshape(-1, *y.shape[1:]) # Replace first dim by prediction nb
 
-    def get_test_set(self) -> tuple[np.ndarray, np.ndarray]:
+    def get_test_set(self) -> tuple[Array2D, Array2D]:
         """
         Get the test (x_test, y_test) set from the main tree.
 
         Returns
         -------
-        x: np.ndarray
+        x: np.ndarray[tuple[int, int]]
             Parameters values, of shape (n_samples, n_params).
-        truth: np.ndarray
+        truth: np.ndarray[tuple[int, int]]
             Truth values of selected values, of shape (n_samples, n_features).
 
         Notes
         -----
         Assumes that `x_test` and `y_test` ObservableTrees are present in the main tree.
         """
-        arrs: list[np.ndarray] = [] # x, truth
+        arrs: list[Array2D] = [] # x, truth
         for _name in ["x_test", "y_test"]:
             arr = self.get_data(_name, raw=True)
             arr = self._to_numpy(arr) # (n_samples, n_params/n_features)
@@ -369,10 +385,19 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
     def get_model_error(
         self,
         method: str,
+        raw: Literal[False],
+        nested: Literal[True],
+        **kwargs,
+    ) -> np.ndarray:
+        ...
+    @overload
+    def get_model_error(
+        self,
+        method: str,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Array2D:
         ...
     def get_model_error(self, method, raw = False, nested = False, **kwargs):
         """
@@ -414,7 +439,7 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
         y = self.get_data("y", nested=nested)
         return error.reshape(-1, *y.shape[1:]) # Replace first dim by prediction nb
 
-    def get_model_covariance(self, prefactor: float = 1, **kwargs) -> np.ndarray:
+    def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """
         Get the model covariance matrix matching the filtered data.
 
@@ -428,7 +453,7 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
 
         Returns
         -------
-        np.ndarray
+        np.ndarray[tuple[int, int]]
             The model covariance matrix, matching the filtered data.
 
         Raises
