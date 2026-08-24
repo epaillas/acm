@@ -29,10 +29,14 @@ class ObservableList[S]:
             raise ValueError("New order must match the registered observable names.")
         self._order = new
 
+    def items(self) -> Iterator[tuple[str, S]]:
+        """Return an iterator over the observables in the specified order."""
+        return zip(self.order, self, strict=True)
+
     def __getitem__(self, key: str | int) -> S:
         """Get an observable by name or index."""
         if isinstance(key, int):
-            key = self._order[key]
+            key = self.order[key]
         return self._observables[key]
 
     def __len__(self) -> int:
@@ -41,7 +45,7 @@ class ObservableList[S]:
 
     def __iter__(self) -> Iterator[S]:
         """Iterate over the observables in the order specified."""
-        for name in self._order:
+        for name in self.order:
             yield self._observables[name]
 
     def __contains__(self, key: str | int) -> bool:
@@ -52,7 +56,7 @@ class ObservableList[S]:
 
     def __reversed__(self) -> Iterator[S]:
         """Iterate over the observables in reverse order."""
-        for name in reversed(self._order):
+        for name in reversed(self.order):
             yield self._observables[name]
 
     def __add__(self, other: "ObservableList[S]") -> "ObservableList[S]":
@@ -70,8 +74,7 @@ class CombinedObservable(ObservableList[BaseObservable]):
 
     def get_handle(self, hlength: int | None = None) -> str:
         """Get a unique handle for the combined observable based on its components."""
-        items = zip(self.order, self, strict=True)
-        handles = [obs.get_handle(key, hlength) for key, obs in items]
+        handles = [obs.get_handle(key, hlength) for key, obs in self.items()]
         return "+".join(handles)
 
     @property
