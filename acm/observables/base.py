@@ -234,7 +234,6 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
         nested: bool, optional
             If True, return the prediction in its original unflattened form. Default is False.
         """
-        # TODO: Final transform (e.g. phase correction) - Here or in model?
 
     @overload
     def get_model_error(
