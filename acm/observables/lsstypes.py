@@ -225,9 +225,14 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
         -------
         np.ndarray or lsstypes.ObservableTree
             The requested data variable, either as a 2D NumPy array or as an ObservableTree if raw=True.
+
+        Raises
+        ------
+        KeyError
+            If the specified name is not found in the observable tree.
         """
         if name not in self._tree.labels("unflatten")["name"]:
-            raise ValueError(f"Name '{name}' not found in the observable tree.")
+            raise KeyError(f"Name '{name}' not found in the observable tree.")
         data = self._tree.get(name=name)
         if raw:
             return data
@@ -243,7 +248,7 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
             coords = next(iter(branch.flatten(level=None))).coords()
             if name in coords:
                 return list(coords[name])
-        raise ValueError(f"Name '{name}' not found in any observable.")
+        raise KeyError(f"Name '{name}' not found in any observable.")
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Get an attribute from the tree, with filters applied."""

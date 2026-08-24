@@ -364,11 +364,11 @@ class XarrayObservable(BaseObservable[xr.DataArray, np.ndarray]):
 
         Raises
         ------
-        ValueError
+        KeyError
             If the specified data variable name is not found in the dataset.
         """
         if name not in self._dataset.data_vars:
-            raise ValueError(f"Data variable '{name}' not found in the dataset.")
+            raise KeyError(f"Data variable '{name}' not found in the dataset.")
         da = self._dataset[name]
         if raw:
             return da
