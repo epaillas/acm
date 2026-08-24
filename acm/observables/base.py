@@ -101,6 +101,34 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
         self._select_names = []
         logger.debug("All filters and selection indices cleared.")
 
+    def get_handle(self, name: str | None = None, hlength: int | None = None) -> str:
+        """
+        Get a unique handle for the current instance based on its filters and selection.
+
+        Parameters
+        ----------
+        name: str | None, optional
+            An optional name to prepend to the handle. Defaults to None.
+        hlength: int | None, optional
+            The maximum length of the filter values before hashing. If the filter value
+            string exceeds this length, it will be hashed and truncated to this length.
+            Defaults to None.
+
+        Returns
+        -------
+        str
+            A unique string handle representing the current instance's filters and selection.
+
+        Notes
+        -----
+        The handle is constructed by sorting the filters, formatting their values, and joining them.
+        If the resulting handle exceeds the specified hash length, the filter values are hashed.
+        """
+        handle = make_handle(self.filters, hlength)
+        if name is not None:
+            handle = f"{name}_{handle}"
+        return handle
+
     @abstractmethod
     def _apply_filters(self, data: R) -> R:
         """Apply the set filters to the provided data."""
@@ -256,34 +284,6 @@ class BaseObservable[R, N](Formatter[R, N], ABC):
         return self._copy(deep=True, **kwargs)
 
     # def __repr__(self) -> str: # TODO
-
-    def get_handle(self, name: str | None = None, hlength: int | None = None) -> str:
-        """
-        Get a unique handle for the current instance based on its filters and selection.
-
-        Parameters
-        ----------
-        name: str | None, optional
-            An optional name to prepend to the handle. Defaults to None.
-        hlength: int | None, optional
-            The maximum length of the filter values before hashing. If the filter value
-            string exceeds this length, it will be hashed and truncated to this length.
-            Defaults to None.
-
-        Returns
-        -------
-        str
-            A unique string handle representing the current instance's filters and selection.
-
-        Notes
-        -----
-        The handle is constructed by sorting the filters, formatting their values, and joining them.
-        If the resulting handle exceeds the specified hash length, the filter values are hashed.
-        """
-        handle = make_handle(self.filters, hlength)
-        if name is not None:
-            handle = f"{name}_{handle}"
-        return handle
 
     @abstractmethod
     def _copy(self, deep: bool = False, **kwargs) -> Self:
