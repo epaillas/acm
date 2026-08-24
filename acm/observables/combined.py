@@ -68,7 +68,11 @@ class CombinedObservable(ObservableList[BaseObservable]):
 
     # def __repr__(self) -> str: # TODO
 
-    # def get_handle(self) -> str: # TODO
+    def get_handle(self, hlength: int | None = None) -> str:
+        """Get a unique handle for the combined observable based on its components."""
+        items = zip(self.order, self, strict=True)
+        handles = [obs.get_handle(key, hlength) for key, obs in items]
+        return "+".join(handles)
 
     @property
     def x_names(self) -> list[str]:
