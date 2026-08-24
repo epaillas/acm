@@ -1,14 +1,46 @@
 """Definition of the Observable product interface."""
 import logging
 from abc import ABC, abstractmethod
+from itertools import pairwise
 from pathlib import Path
 from typing import Literal, Self, overload
 
 import numpy as np
 
+from acm.utils.default import short_hash
+
 from .model import ObservableModel
 
 logger = logging.getLogger(__name__)
+
+def _format_filter_value(value) -> str:  # noqa: ANN001
+    """Format a filter value for string representation."""
+    if isinstance(value, slice):
+        parts = [value.start, value.stop]
+        if value.step is not None:
+            parts.append(value.step)
+        return "-".join([str(p) for p in parts]) # (start, stop, step)
+    if isinstance(value, (list, tuple)):
+        vals = list(value)
+        if len(vals) > 2 and all(isinstance(v, (int, float)) for v in vals):
+            steps = {b-a for a, b in pairwise(vals)}
+            if len(steps) == 1:  # Arithmetic sequence --> (start, stop, step)
+                parts = [f"{vals[0]:.3g}", f"{vals[-1]:.3g}"]
+                step = steps.pop()
+                if step != 1:
+                    parts.append(f"{step:.3g}")
+                return "-".join(parts)
+        return ",".join(str(v) for v in vals)
+    return str(value)
+
+def make_handle(filters: dict, hlength: int | None = None) -> str:
+    """Make a unique handle string from the given filters, optionally hashing if too long."""
+    items = sorted(filters.items())
+    parts = [f"{k}={_format_filter_value(v)}" for k, v in items]
+    handle = "_".join(parts)
+    if hlength is not None and len(handle) > hlength:
+        handle = short_hash(handle, length=hlength)
+    return handle
 
 class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
     """
@@ -34,7 +66,15 @@ class Formatter[R, N](ABC): # NOTE: splitting interface for clarity
         logger.debug(f"Filters set: {filters}")
         self._filters = filters
     def set_filters(self, **kwargs) -> None:
-        """Explicitly set filters trough keyword arguments."""
+        """
+        Explicitly set filters trough keyword arguments.
+
+        Parameters
+        ----------
+        **kwargs
+            Keyword arguments representing the filters to set.
+            Allows slices, list of values or single values for filtering.
+        """
         self.filters = kwargs # Uses setter
 
     def set_selection(self, *names: str, indices: list[int]) -> None:
@@ -217,7 +257,33 @@ class BaseObservable[R, N](Formatter[R, N], ABC):
 
     # def __repr__(self) -> str: # TODO
 
-    # def get_handle(self) -> str: # TODO
+    def get_handle(self, name: str | None = None, hlength: int | None = None) -> str:
+        """
+        Get a unique handle for the current instance based on its filters and selection.
+
+        Parameters
+        ----------
+        name: str | None, optional
+            An optional name to prepend to the handle. Defaults to None.
+        hlength: int | None, optional
+            The maximum length of the filter values before hashing. If the filter value
+            string exceeds this length, it will be hashed and truncated to this length.
+            Defaults to None.
+
+        Returns
+        -------
+        str
+            A unique string handle representing the current instance's filters and selection.
+
+        Notes
+        -----
+        The handle is constructed by sorting the filters, formatting their values, and joining them.
+        If the resulting handle exceeds the specified hash length, the filter values are hashed.
+        """
+        handle = make_handle(self.filters, hlength)
+        if name is not None:
+            handle = f"{name}_{handle}"
+        return handle
 
     @abstractmethod
     def _copy(self, deep: bool = False, **kwargs) -> Self:
