@@ -97,14 +97,9 @@ class CombinedObservable(ObservableList[BaseObservable]):
         """Parameter values from the first observable."""
         return self[0].get_data("x")
 
-    def _to_numpy(self, data: list) -> list[Array2D]:
-        """Cast a list of observable data to numpy arrays."""
-        return [self[0]._to_numpy(d) for d in data]
-
     def _transfer_call(self, name: str, *args, **kwargs) -> Array2D:
         """Call a method on all observables and combine the results."""
         results = [getattr(obs, name)(*args, **kwargs) for obs in self]
-        results = self._to_numpy(results)
         return np.concatenate(results, axis=-1)
 
     def get_data(self, name: str) -> Array2D:
