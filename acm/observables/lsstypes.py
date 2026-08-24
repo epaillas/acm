@@ -116,11 +116,7 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
     def filters(self, value: dict) -> None:
         """Set the filters to be applied to the data."""
         self._filters = value
-        for k, v in value.items():
-            if isinstance(v, slice):
-                self._filters[k] = (v.start, v.stop) # Slice by values, not indices
-            if not isinstance(v, (list, tuple)):
-                self._filters[k] = [v] # Preserve tree structure
+        logger.debug(f"Filters set: {value}")
         # Pecompute matching indices for array filtering
         og = next(iter(self._tree.get("y"))) # First measurement tree
         target = self._apply_filters(og)
@@ -129,9 +125,15 @@ class LsstypesObservable(BaseObservable[ObservableTree, np.ndarray]):
 
     def _apply_filters(self, data: ObservableTree) -> ObservableTree:
         """Apply any filters to the data."""
+        filters = self.filters.copy()
+        for k, v in filters.items():
+            if isinstance(v, slice):
+                filters[k] = (v.start, v.stop) # Slice by values, not indices
+            if not isinstance(v, (list, tuple)):
+                filters[k] = [v] # Preserve tree structure
         labels = data.labels("keys", level=None)
-        label_filters = {k: v for k, v in self.filters.items() if k in labels}
-        coordinate_filters = {k: v for k, v in self.filters.items() if k not in labels}
+        label_filters = {k: v for k, v in filters.items() if k in labels}
+        coordinate_filters = {k: v for k, v in filters.items() if k not in labels}
         return data.get(**label_filters).select(**coordinate_filters)
 
     def _apply_selection(self, data: np.ndarray, name: str) -> np.ndarray:
