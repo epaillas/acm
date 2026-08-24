@@ -1,5 +1,6 @@
 """File handling model predictions methods for the Observable classes."""
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
@@ -11,11 +12,31 @@ from acm.utils.covariance import orthogonal_gk_mad_covariance
 
 logger = logging.getLogger(__name__)
 
+# NOTE: Do we need info on x in transform ?
+type ModelTransform = Callable[[np.ndarray], np.ndarray]
+
 class ObservableModel:
     """Wrapper around `sunbird.emulators` models for Observable classes."""
 
-    def __init__(self, model: BaseModel) -> None:
+    def __init__(
+        self,
+        model: BaseModel,
+        transform: ModelTransform | None = None,
+    ) -> None:
+        """
+        Initialize the ObservableModel.
+
+        Parameters
+        ----------
+        model: BaseModel
+            A `sunbird.emulators` model instance.
+        transform: ModelTransform, optional
+            A callable to transform the model predictions (e.g. for corrections).
+            If None, no transformation is applied when calling `get_prediction`.
+            Default is None.
+        """
         self._model = model
+        self.transform = transform
 
     @classmethod
     def load(
@@ -34,6 +55,8 @@ class ObservableModel:
         with torch.no_grad():
             pred = self._model.get_prediction(torch.Tensor(x))
             pred = pred.numpy()
+        if self.transform is not None:
+            pred = self.transform(pred)
         logger.debug(f"Generated prediction of shape {pred.shape}.")
         return pred
 
@@ -54,6 +77,7 @@ class ObservableModel:
             Input of shape (N, n_parameters).
         truth: np.ndarray
             Truth value of the input measurement, of shape (N, n_features).
+            Must match the shape of the model prediction for the given input.
         method: str
             Method to use to compute the error.
         factor: float, optional
