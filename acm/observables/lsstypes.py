@@ -1,5 +1,3 @@
-
-
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
@@ -297,6 +295,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         data = self._tree
         if name in data.labels("unflatten")["name"]:
             return self.get_data(name)
+        if not hasattr(data, name): # Early check before filtering
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
         return getattr(self._apply_filters(data), name)
 
     @overload

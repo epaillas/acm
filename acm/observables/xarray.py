@@ -405,6 +405,8 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         data = self._dataset
         if name in data.data_vars:
             return self.get_data(name)
+        if not hasattr(data, name): # Early check before filtering
+            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
         return getattr(self._apply_filters(data), name)
 
     @overload
