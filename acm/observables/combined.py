@@ -70,7 +70,17 @@ class CombinedObservable(ObservableList[BaseObservable]):
     def __init__(self, **observables: BaseObservable) -> None:
         super().__init__(**observables)
 
-    # def __repr__(self) -> str: # TODO
+    def __repr__(self) -> str:
+        """Return a string representation of the combined observable."""
+        shapes = {"x": self.x.shape}
+        for name in ("y", "covariance_y"):
+            try:
+                shapes[name] = self.get_data(name).shape
+            except KeyError:
+                continue
+        shape_str = ", ".join(f"{k}={v}" for k, v in shapes.items())
+        names = ", ".join(self.order)
+        return f"{type(self).__name__}([{names}], {shape_str})"
 
     def get_handle(self, hlength: int | None = None) -> str:
         """Get a unique handle for the combined observable based on its components."""
