@@ -101,14 +101,14 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         self._select_names = []
         logger.debug("All filters and selection indices cleared.")
 
-    def get_handle(self, name: str | None = None, hlength: int | None = None) -> str:
+    def get_handle(self, prefix: str | None = None, hlength: int | None = None) -> str:
         """
         Get a unique handle for the current instance based on its filters and selection.
 
         Parameters
         ----------
-        name: str | None, optional
-            An optional name to prepend to the handle. Defaults to None.
+        prefix: str | None, optional
+            An optional prefix to prepend to the handle. Defaults to None.
         hlength: int | None, optional
             The maximum length of the filter values before hashing. If the filter value
             string exceeds this length, it will be hashed and truncated to this length.
@@ -125,8 +125,8 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         If the resulting handle exceeds the specified hash length, the filter values are hashed.
         """
         handle = make_handle(self.filters, hlength)
-        if name is not None:
-            handle = f"{name}_{handle}"
+        if prefix is not None:
+            handle = f"{prefix}_{handle}"
         return handle
 
     @abstractmethod
@@ -357,9 +357,9 @@ class BaseObservable[R](Formatter[R], ABC):
         """Create a shallow copy of the class instance."""
         return self._copy(deep=False)
 
-    def __deepcopy__(self, **kwargs) -> Self:
+    def __deepcopy__(self, memo=None, **kwargs) -> Self:  # noqa: ANN001
         """Create a deep copy of the class instance."""
-        return self._copy(deep=True, **kwargs)
+        return self._copy(deep=True, memo=memo, **kwargs)
 
     def __repr__(self) -> str:
         """Return a string representation of the observable instance."""
