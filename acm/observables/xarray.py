@@ -357,8 +357,8 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
     def get_data(
         self,
         name: str,
-        raw: Literal[False],
-        nested: Literal[False],
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
     ) -> Array2D:
         ...
     @overload
@@ -420,8 +420,8 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
     @overload
     def get_prediction(self,
         x: _ArrayLike,
-        raw: Literal[False],
-        nested: Literal[False],
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
     ) -> Array2D:
         ...
     @overload
@@ -500,8 +500,8 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
     def get_model_error(
         self,
         method: str,
-        raw: Literal[False],
-        nested: Literal[False],
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
         **kwargs,
     ) -> Array2D:
         ...
