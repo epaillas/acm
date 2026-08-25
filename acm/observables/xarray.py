@@ -234,7 +234,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         dims = set(data.dims)
         fdims = set(self._filters)
         if not fdims.issubset(dims):
-            logger.warning(
+            logger.debug(
                 f"Filter dimensions {fdims - dims} are not present in the data dimensions {dims}."
             )
         subset_filters = {k: v for k, v in self._filters.items() if k in dims}
@@ -265,8 +265,11 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
             The data cast to a 2D NumPy array, unless nested=True.
         """
         if nested is False:
-            data = _stack_on("sample", data, *data.attrs["sample"])
-            data = _stack_on("features", data, *data.attrs["features"])
+            for dim in ["sample", "features"]:
+                attr = data.attrs.get(dim, [])
+                if isinstance(attr, str):
+                    attr = [attr] # Edge case - single-string attribute
+                data = _stack_on(dim, data, *attr)
             data= data.transpose("sample", "features") # Ensure correct dim order
         return data.to_numpy()
 
