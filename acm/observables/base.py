@@ -91,7 +91,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
             Indices to select from the last dimension of the 2D NumPy array output.
         """
         self._select = indices
-        self._select_names = names
+        self._select_names = list(names)
         logger.debug(f"Selection set: {indices=}, {names=}")
 
     def clear_filters(self) -> None:
@@ -139,10 +139,10 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
 
     @overload
     @staticmethod
-    def _to_numpy(data: R, nested: Literal[True]) -> np.ndarray: ...
+    def _to_numpy(data: R, nested: Literal[False]) -> Array2D: ...
     @overload
     @staticmethod
-    def _to_numpy(data: R, nested: Literal[False] = False) -> Array2D: ...
+    def _to_numpy(data: R, nested: bool = False) -> np.ndarray: ...
     @staticmethod
     @abstractmethod
     def _to_numpy(data: R, nested: bool = False):
@@ -163,16 +163,9 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         """
 
     @overload
-    def _format_data(self, data: R, name: str, nested: Literal[True]) -> np.ndarray:
-        ...
+    def _format_data(self, data: R, name: str, nested: Literal[False]) -> Array2D: ...
     @overload
-    def _format_data(
-        self,
-        data: R,
-        name: str,
-        nested: Literal[False] = False,
-    ) -> Array2D:
-        ...
+    def _format_data(self, data: R, name: str, nested: bool = False) -> np.ndarray: ...
     def _format_data(self, data: R, name: str, nested: bool = False):
         """
         Format the provided data by applying filters, casting to numpy and applying selection.
@@ -191,29 +184,29 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         np.ndarray
             The formatted data as a 2D NumPy array, unless nested=True.
         """
-        data = self._apply_filters(data)
-        data = self._to_numpy(data, nested=nested)
+        _data = self._apply_filters(data)
+        _data = self._to_numpy(_data, nested=nested)
         if not nested:
-            data = self._apply_selection(data, name)
-        return data
+            _data = self._apply_selection(_data, name)
+        return _data
 
     @overload
-    def get_data(self, name: str, raw: Literal[True], nested: bool = False) -> R:
-        ...
+    def get_data(self, name: str, raw: Literal[True], nested: bool = False) -> R: ...
     @overload
     def get_data(
         self,
         name: str,
         raw: Literal[False],
-        nested: Literal[True],
-    ) -> np.ndarray:
+        nested: Literal[False],
+    ) -> Array2D:
         ...
     @overload
-    def get_data(self,
+    def get_data(
+        self,
         name: str,
         raw: Literal[False] = False,
-        nested: Literal[False] = False,
-    ) -> Array2D:
+        nested: bool = False,
+    ) -> np.ndarray:
         ...
     @abstractmethod
     def get_data(self, name: str, raw: bool = False, nested: bool = False):
@@ -244,18 +237,20 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
     ) -> R:
         ...
     @overload
-    def get_prediction(self,
+    def get_prediction(
+        self,
         x: np.ndarray,
         raw: Literal[False],
-        nested: Literal[True],
-    ) -> np.ndarray:
+        nested: Literal[False],
+    ) -> Array2D:
         ...
     @overload
-    def get_prediction(self,
+    def get_prediction(
+        self,
         x: np.ndarray,
         raw: Literal[False] = False,
-        nested: Literal[False] = False,
-    ) -> Array2D:
+        nested: bool = False,
+    ) -> np.ndarray:
         ...
     @abstractmethod
     def get_prediction(self, x: np.ndarray, raw: bool = False, nested: bool = False):
@@ -286,18 +281,18 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         self,
         method: str,
         raw: Literal[False],
-        nested: Literal[True],
+        nested: Literal[False],
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Array2D:
         ...
     @overload
     def get_model_error(
         self,
         method: str,
         raw: Literal[False] = False,
-        nested: Literal[False] = False,
+        nested: bool = False,
         **kwargs,
-    ) -> Array2D:
+    ) -> np.ndarray:
         ...
     @abstractmethod
     def get_model_error(self, method, raw = False, nested = False, **kwargs):

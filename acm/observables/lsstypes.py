@@ -173,10 +173,10 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
 
     @overload
     @staticmethod
-    def _to_numpy(data: ObservableTree, nested: Literal[True]) -> np.ndarray: ...
+    def _to_numpy(data: ObservableTree, nested: Literal[False]) -> Array2D: ...
     @overload
     @staticmethod
-    def _to_numpy(data: ObservableTree, nested: Literal[False] = False) -> Array2D: ...
+    def _to_numpy(data: ObservableTree, nested: bool = False) -> np.ndarray: ...
     @staticmethod
     def _to_numpy(data: ObservableTree, nested: bool = False):
         """
@@ -238,15 +238,15 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         self,
         name: str,
         raw: Literal[False],
-        nested: Literal[True],
-    ) -> np.ndarray:
+        nested: Literal[False],
+    ) -> Array2D:
         ...
     @overload
     def get_data(self,
         name: str,
         raw: Literal[False] = False,
-        nested: Literal[False] = False,
-    ) -> Array2D:
+        nested: bool = False,
+    ) -> np.ndarray:
         ...
     def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
@@ -311,15 +311,15 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
     def get_prediction(self,
         x: np.ndarray,
         raw: Literal[False],
-        nested: Literal[True],
-    ) -> np.ndarray:
+        nested: Literal[False],
+    ) -> Array2D:
         ...
     @overload
     def get_prediction(self,
         x: np.ndarray,
         raw: Literal[False] = False,
-        nested: Literal[False] = False,
-    ) -> Array2D:
+        nested: bool = False,
+    ) -> np.ndarray:
         ...
     def get_prediction(self, x: np.ndarray, raw: bool = False, nested: bool = False):
         """
@@ -386,18 +386,18 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         self,
         method: str,
         raw: Literal[False],
-        nested: Literal[True],
+        nested: Literal[False],
         **kwargs,
-    ) -> np.ndarray:
+    ) -> Array2D:
         ...
     @overload
     def get_model_error(
         self,
         method: str,
         raw: Literal[False] = False,
-        nested: Literal[False] = False,
+        nested: bool = False,
         **kwargs,
-    ) -> Array2D:
+    ) -> np.ndarray:
         ...
     def get_model_error(self, method, raw = False, nested = False, **kwargs):
         """
