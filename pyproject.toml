@@ -28,6 +28,7 @@ dependencies = [ # Base requirements
     "matplotlib",
     "torch",
     "h5py",
+    "h5netcdf", # For reading h5 files with xarray
     "lsstypes @ git+https://github.com/adematti/lsstypes",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
 ]
