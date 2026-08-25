@@ -134,43 +134,6 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         coordinate_filters = {k: v for k, v in filters.items() if k not in labels}
         return data.get(**label_filters).select(**coordinate_filters)
 
-    def _apply_selection(self, data: Array2D, name: str) -> Array2D:
-        """
-        Select specific indices from the last dimension of the array.
-
-        Applicable only if the array is 1D or 2D, and on the names
-        specified in the selection setup (see :meth:`set_select`).
-
-        Also accepts objects with names prefixed by "like_" and accepted names
-        (e.g., "like_y" if "y" is in the selection names).
-
-        Parameters
-        ----------
-        data : np.ndarray[tuple[int, int]]
-            The 2D NumPy array from which to select indices.
-        name : str
-            The name of the tree, used to determine if selection should be applied.
-
-        Returns
-        -------
-        np.ndarray[tuple[int, int]]
-            The selected NumPy array.
-
-        Raises
-        ------
-        ValueError
-            If the selection indices exceed the size of the last dimension of the array.
-        """
-        like_names = ["like_" + name for name in self._select_names] # e.g. "like_y"
-        ok_names = set(self._select_names + like_names)
-        if self._select is not None and data.ndim < 3 and name in ok_names:
-            ls = data.shape[-1]
-            if ls <= max(self._select):
-                raise ValueError(f"Indices number exceed last dimension size {ls}.")
-            return data[..., self._select]
-        logger.debug(f"No selection applied to tree '{name}'.")
-        return data
-
     @overload
     @staticmethod
     def _to_numpy(data: ObservableTree, nested: Literal[False]) -> Array2D: ...
@@ -221,7 +184,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         """
         if self._filters_idx is not None:
             data = data[:, self._filters_idx] # Faster than making a tree
-        if not nested:
+        if nested is False:
             data = self._apply_selection(data, name)
         return data
 

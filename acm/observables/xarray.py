@@ -241,43 +241,6 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         logger.debug(f"Applying filters: {subset_filters}")
         return data.sel(**subset_filters)
 
-    def _apply_selection(self, data: Array2D, name: str) -> Array2D:
-        """
-        Select specific indices from the last dimension of the array.
-
-        Applicable only if the array is 1D or 2D, and on the names
-        specified in the selection setup (see :meth:`set_select`).
-
-        Also accepts objects with names prefixed by "like_" and accepted names
-        (e.g., "like_y" if "y" is in the selection names).
-
-        Parameters
-        ----------
-        data : np.ndarray[tuple[int, int]]
-            The 2D NumPy array from which to select indices.
-        name : str
-            The name of the DataArray, used to determine if selection should be applied.
-
-        Returns
-        -------
-        np.ndarray[tuple[int, int]]
-            The selected NumPy array.
-
-        Raises
-        ------
-        ValueError
-            If the selection indices exceed the size of the last dimension of the array.
-        """
-        like_names = ["like_" + name for name in self._select_names] # e.g. "like_y"
-        ok_names = set(self._select_names + like_names)
-        if self._select is not None and data.ndim < 3 and name in ok_names:
-            ls = data.shape[-1]
-            if ls <= max(self._select):
-                raise ValueError(f"Indices number exceed last dimension size {ls}.")
-            return data[..., self._select]
-        logger.debug(f"No selection applied to DataArray '{name}'.")
-        return data
-
     @overload
     @staticmethod
     def _to_numpy(data: xr.DataArray, nested: Literal[False]) -> Array2D: ...
