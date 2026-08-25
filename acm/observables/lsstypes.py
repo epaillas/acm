@@ -237,8 +237,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
     def get_data(
         self,
         name: str,
-        raw: Literal[False],
-        nested: Literal[False],
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
     ) -> Array2D:
         ...
     @overload
@@ -310,8 +310,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
     @overload
     def get_prediction(self,
         x: np.ndarray,
-        raw: Literal[False],
-        nested: Literal[False],
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
     ) -> Array2D:
         ...
     @overload
@@ -385,8 +385,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
     def get_model_error(
         self,
         method: str,
-        raw: Literal[False],
-        nested: Literal[False],
+        raw: Literal[False] = False,
+        nested: Literal[False] = False,
         **kwargs,
     ) -> Array2D:
         ...
