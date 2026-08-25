@@ -127,8 +127,6 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         for k, v in filters.items():
             if isinstance(v, slice):
                 filters[k] = (v.start, v.stop) # Slice by values, not indices
-            if not isinstance(v, (list, tuple)):
-                filters[k] = [v] # Preserve tree structure
         labels = data.labels("keys", level=None)
         label_filters = {k: v for k, v in filters.items() if k in labels}
         coordinate_filters = {k: v for k, v in filters.items() if k not in labels}
