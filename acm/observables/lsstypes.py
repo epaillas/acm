@@ -173,7 +173,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         name: str
             The name of the variable in the tree.
         nested: bool
-            If True, returns an unflattened array. Defaults to False (2D array)
+            If True, returns a non-selected array, for eventual reshaping.
+            Defaults to False (2D array).
 
         Returns
         -------
@@ -237,6 +238,9 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         data = self._tree.get(name=name)
         if raw:
             return data
+        if nested is False: # 2D array
+            data = self._to_numpy(data, nested=False)
+            return self._format_2d_data(data, name=name)
         return self._format_data(data, name=name, nested=nested)
 
     def get_coordinate_list(self, name: str) -> list:
