@@ -52,6 +52,12 @@ def format_like(tree: ObservableTree, arr: np.ndarray, new: str) -> ObservableTr
     labels = {new: list(range(arr.shape[0]))}
     return ObservableTree(branches, **labels)
 
+def get_filter_indexes(tree: ObservableTree, target: ObservableTree) -> np.ndarray:
+    """Get the indexes selected from `tree` to match the shape of `target`."""
+    def hook(obs, transform): return obs, transform  # noqa: ANN001, ANN202
+    _, idx = tree.at.hook(hook)().match(target) # lsstypes black magic
+    return idx
+
 
 class LsstypesObservable(BaseObservable[ObservableTree]):
     """
@@ -68,7 +74,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         silent_load: bool = False,
     ) -> None:
         self._tree = data
-        self._filters_idx: list[int] | None = None
+        self._filters_idx: dict[str, np.ndarray] = {}
         names = list(data.labels("unflatten")["name"])
         with suppress_logging(enabled=silent_load):
             logger.info(f"Tree loaded with the following variables: {names}")
@@ -116,10 +122,13 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         self._filters = value
         logger.debug(f"Filters set: {value}")
         # Pecompute matching indices for array filtering
-        og = next(iter(self._tree.get("y"))) # First measurement tree
-        target = self._apply_filters(og)
-        def hook(obs, transform): return obs, transform  # noqa: ANN001, ANN202
-        _, self._filters_idx = og.at.hook(hook)().match(target) # lsstypes black magic
+        for name in list(self._tree.labels("unflatten")["name"]):
+            og = next(iter(self._tree.get(name))) # First measurement tree
+            target = self._apply_filters(og)
+            if og != target:
+                idx = get_filter_indexes(og, target)
+                logger.debug(f"Registering filter indexes for {name}")
+                self._filters_idx[name] = idx
 
     def _apply_filters(self, data: ObservableTree) -> ObservableTree:
         """Apply any filters to the data."""
@@ -164,14 +173,15 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         nested: bool = False,
     ) -> Array2D:
         """
-        Format a 2D NumPy array to match the structure of the observable tree.
+        Apply precomputed filter indexes and selection to the provided 2D data array.
 
         Parameters
         ----------
         data: np.ndarray[tuple[int, int]]
             The 2D array to format.
         name: str
-            The name of the variable in the tree.
+            The name of the data variable to format. Selection is applied
+            only if the indexes for this name have been precomputed.
         nested: bool
             If True, returns a non-selected array, for eventual reshaping.
             Defaults to False (2D array).
@@ -181,8 +191,9 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         np.ndarray[tuple[int, int]]
             The formatted 2D NumPy array.
         """
-        if self._filters_idx is not None:
-            data = data[:, self._filters_idx] # Faster than making a tree
+        if self._filters_idx.get(name) is not None:
+            logger.debug(f"Applying precomputed filter indexes for {name}")
+            data = data[:, self._filters_idx[name]] # Faster than making a tree
         if nested is False:
             data = self._apply_selection(data, name)
         return data
