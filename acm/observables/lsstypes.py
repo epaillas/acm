@@ -169,14 +169,14 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         """
         return np.array(data.value(concatenate=False, nested=nested))
 
-    def _format_2d_data(
+    def _filter_2d(
         self,
         data: Array2D,
         name: str,
         nested: bool = False,
     ) -> Array2D:
         """
-        Apply precomputed filter indexes and selection to the provided 2D data array.
+        Apply precomputed filter indexes and selection to the second dimension of the provided 2D data array.
 
         Parameters
         ----------
@@ -253,9 +253,6 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         data = self._tree.get(name=name)
         if raw:
             return data
-        if nested is False: # 2D array
-            data = self._to_numpy(data, nested=False)
-            return self._format_2d_data(data, name=name)
         return self._format_data(data, name=name, nested=nested)
 
     def get_coordinate_list(self, name: str) -> list:
@@ -331,7 +328,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
             y = self.get_data("y", raw=True)
             return format_like(tree=y, arr=pred, new="n_pred")
 
-        pred = self._format_2d_data(pred, name="y", nested=nested)
+        pred = self._filter_2d(pred, name="y", nested=nested)
         y = self.get_data("y", nested=nested)
         return pred.reshape(-1, *y.shape[1:]) # Replace first dim by prediction nb
 
@@ -421,7 +418,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         if raw:
             y = self.get_data("y", raw=True)
             return format_like(tree=y, arr=error, new="n_error")
-        error = self._format_2d_data(error, name="y", nested=nested)
+        error = self._filter_2d(error, name="y", nested=nested)
         y = self.get_data("y", nested=nested)
         return error.reshape(-1, *y.shape[1:]) # Replace first dim by prediction nb
 
@@ -461,5 +458,5 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         x, truth = self.get_test_set()
         pred = self.model.get_prediction(x)
         diff = truth - pred
-        diff = self._format_2d_data(diff, name="y", nested=False)
+        diff = self._filter_2d(diff, name="y", nested=False)
         return prefactor * self.model.make_covariance(diff, **kwargs)
