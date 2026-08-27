@@ -124,6 +124,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         self._filters = value
         logger.debug(f"Filters set: {value}")
         # Pecompute matching indices for array filtering
+        self._filters_idx.clear() # Reset previous indexes
         for name in list(self._tree.labels("unflatten")["name"]):
             og = next(iter(self._tree.get(name))) # First measurement tree
             target = self._apply_filters(og)
@@ -193,9 +194,10 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         np.ndarray[tuple[int, int]]
             The formatted 2D NumPy array.
         """
-        if self._filters_idx.get(name) is not None:
+        idx = self._filters_idx.get(name)
+        if idx is not None:
             logger.debug(f"Applying precomputed filter indexes for {name}")
-            data = data[:, self._filters_idx[name]] # Faster than making a tree
+            data = data[:, idx] # Faster than making a tree
         if nested is False:
             data = self._apply_selection(data, name)
         return data
