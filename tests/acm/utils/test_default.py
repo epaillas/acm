@@ -8,7 +8,7 @@ import pytest
 
 from acm.utils.default import _make_array, cosmo_list, is_nersc
 
-# ruff: noqa: ANN201, D101, D102, D103, INP001, S101
+# ruff: noqa: ANN201, D101, D102, D103, S101
 
 
 def test_cosmo_list():

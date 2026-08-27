@@ -9,7 +9,7 @@ from acm.catalogs.products.transforms import (
     _apply_rsd,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, INP001, S101
+# ruff: noqa: ANN001, ANN201, D101, D102, S101
 
 
 class TestApplyRsd:

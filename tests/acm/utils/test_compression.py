@@ -11,7 +11,7 @@ from acm.utils.compression import (
     split_test_set,
 )
 
-# ruff: noqa: ANN001, ANN201, ANN202, ARG001, INP001, S101
+# ruff: noqa: ANN001, ANN201, ANN202, ARG001, S101
 
 class TestReshapeToCoords:
     """Tests for the reshape_to_coords function."""

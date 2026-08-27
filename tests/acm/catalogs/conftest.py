@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-# ruff: noqa: ANN001, ANN201, ARG001, D103, INP001
+# ruff: noqa: ANN001, ANN201, ARG001, D103
 
 
 class DummyCosmology:
@@ -52,5 +52,5 @@ def cosmo_mock2():
     return DummyCosmology(efunc=1.0, add=1000)
 
 def pytest_configure(config):
-    sys.modules['cosmoprimo'] = cosmoprimo_module
-    sys.modules['cosmoprimo.fiducial'] = MagicMock()
+    sys.modules.setdefault('cosmoprimo', cosmoprimo_module)
+    sys.modules.setdefault('cosmoprimo.fiducial', MagicMock())

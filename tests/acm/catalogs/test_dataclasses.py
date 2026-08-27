@@ -3,7 +3,7 @@ import pytest
 
 from acm.catalogs.dataclasses import Tracer, Transform
 
-# ruff: noqa: ANN001, ANN201, ANN202, ARG001, D101, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, ANN202, ARG001, D101, D102, D103, S101
 
 #%% Fixtures
 

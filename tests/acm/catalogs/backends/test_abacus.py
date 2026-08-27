@@ -3,12 +3,13 @@ from copy import deepcopy
 import pandas as pd
 import pytest
 import yaml
-from conftest import MockAbacusHOD, make_hod_tracer_dict
 
 from acm.catalogs.backends.abacus import AbacusHODBackend
 from acm.catalogs.dataclasses import Tracer
 
-# ruff: noqa: ANN001, ANN201, ARG002, D102, D103, INP001, S101
+from .conftest import MockAbacusHOD, make_hod_tracer_dict
+
+# ruff: noqa: ANN001, ANN201, ARG002, D102, D103, S101
 
 
 #%% Fixtures
