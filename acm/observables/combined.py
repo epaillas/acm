@@ -27,6 +27,8 @@ class ObservableList[S]:
         """Set a new order for the observables."""
         if set(new) != set(self._observables):
             raise ValueError("New order must match the registered observable names.")
+        if len(new) != len(set(new)):
+            raise ValueError("New order must not contain duplicates.")
         self._order = new
 
     def items(self) -> Iterator[tuple[str, S]]:
@@ -61,14 +63,14 @@ class ObservableList[S]:
 
     def __add__(self, other: "ObservableList[S]") -> "ObservableList[S]":
         """Combine two ObservableLists into a new ObservableList."""
+        ol = set(self.order) & set(other.order)
+        if ol:
+            raise ValueError(f"Cannot add ObservableLists with overlapping names: {ol}")
         combined_observables = {**self._observables, **other._observables}
         return ObservableList(**combined_observables)
 
 class CombinedObservable(ObservableList[BaseObservable]):
     """Combine multiple observables into a single observable, that returns a combined output."""
-
-    def __init__(self, **observables: BaseObservable) -> None:
-        super().__init__(**observables)
 
     def __repr__(self) -> str:
         """Return a string representation of the combined observable."""
@@ -150,13 +152,7 @@ class CombinedObservable(ObservableList[BaseObservable]):
             The combined covariance matrix, matching the selected filtering.
         """
         factor = prefactor / volume_factor
-        cov_y: list[Array2D] = []
-        for obs in self:
-            cy = obs.get_data("covariance_y", raw=True)
-            cy = obs._apply_filters(cy)
-            cy = obs._to_numpy(cy)
-            cy = obs._apply_selection(cy, "y")
-            cov_y.append(cy)
+        cov_y: list[Array2D] = [obs.get_data("covariance_y") for obs in self]
         if block:
             blocks = [factor * np.cov(cy, rowvar=False) for cy in cov_y]
             cov = linalg.block_diag(*blocks)
