@@ -72,7 +72,11 @@ class CombinedObservable(ObservableList[BaseObservable]):
 
     def __repr__(self) -> str:
         """Return a string representation of the combined observable."""
-        shapes = {"x": self.x.shape}
+        shapes = {}
+        try:
+            shapes["x"] = self.x.shape
+        except KeyError: # Let ValueError raise if x's are not consistent
+            pass
         for name in ("y", "covariance_y"):
             try:
                 shapes[name] = self.get_data(name).shape
@@ -90,14 +94,20 @@ class CombinedObservable(ObservableList[BaseObservable]):
     @property
     def x_names(self) -> list[str]:
         """Parameter names from the first observable."""
-        return self[0].x_names
+        n = [obs.x_names for obs in self]
+        if any(not np.array_equal(n[0], _n) for _n in n):
+            raise ValueError("All observables must have the same x_names.")
+        return n[0]
 
     @property
     def x(self) -> Array2D:
         """Parameter values from the first observable."""
-        return self[0].get_data("x")
+        x = [obs.get_data("x") for obs in self]
+        if any(not np.array_equal(x[0], _x) for _x in x):
+            raise ValueError("All observables must have the same x values.")
+        return x[0]
 
-    def _transfer_call(self, name: str, *args, **kwargs) -> Array2D:
+    def _transfer_call(self, name: str, *args, **kwargs) -> np.ndarray:
         """Call a method on all observables and combine the results."""
         results = [getattr(obs, name)(*args, **kwargs) for obs in self]
         return np.concatenate(results, axis=-1)
