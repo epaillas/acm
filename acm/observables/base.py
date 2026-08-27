@@ -166,8 +166,8 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
             ls = data.shape[-1]
             if ls <= max(self._select):
                 raise ValueError(f"Indices number exceed last dimension size {ls}.")
+            logger.debug(f"Applying selection on {name}")
             return data[..., self._select]
-        logger.debug(f"No selection applied to '{name}'.")
         return data
 
     @overload
