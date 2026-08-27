@@ -38,12 +38,12 @@ def _make_xarray() -> xr.Dataset:
         coords = {
             "i": np.arange(2),
             "j": np.arange(5),
-            "ell": [0, 2, 4],
+            "ells": [0, 2, 4],
             "k": np.linspace(0., 0.2, 40),
         },
         attrs = {
             "sample": ["i", "j"],
-            "features": ["ell", "k"],
+            "features": ["ells", "k"],
         },
     )
     x = xr.DataArray(
@@ -58,17 +58,17 @@ def _make_xarray() -> xr.Dataset:
             "features": ["parameters"],
         }
     )
-    cy_specs = [get_spectrum(ells=(0, 2, 4), size=40, seed=i) for i in range(120)]
+    cy_specs = [get_spectrum(ells=(0, 2, 4), size=40, seed=i) for i in range(150)]
     covariance_y = xr.DataArray(
-        data=np.array(cy_specs).reshape((120, 3, 40)),
+        data=np.array(cy_specs).reshape((150, 3, 40)),
         coords = {
-            "ci": np.arange(120),
-            "ell": [0, 2, 4],
+            "ci": np.arange(150),
+            "ells": [0, 2, 4],
             "k": np.linspace(0., 0.2, 40),
         },
         attrs = {
             "sample": ["ci"],
-            "features": ["ell", "k"],
+            "features": ["ells", "k"],
         }
     )
     x_test = x.sel(i=[1])
@@ -97,8 +97,8 @@ def _make_lsstypes() -> ObservableTree:
         ) for i in range(x_vals.shape[0])],
         **labels,
     )
-    cy_specs = [get_spectrum(ells=(0, 2, 4), size=40, seed=i) for i in range(120)]
-    covariance_y = ObservableTree(branches=cy_specs, ci=np.arange(120))
+    cy_specs = [get_spectrum(ells=(0, 2, 4), size=40, seed=i) for i in range(150)]
+    covariance_y = ObservableTree(branches=cy_specs, ci=np.arange(150))
     x_test = x.select(i=[1])
     y_test = y.select(i=[1])
     return ObservableTree(
