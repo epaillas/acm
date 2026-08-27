@@ -110,7 +110,9 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
     def x_names(self) -> list[str]:
         """Parameter names from the first observable."""
         x = self.get_data("x", raw=True)
-        return next(iter(x)).labels("unflatten")["parameters"]
+        ordered_names = next(iter(x)).labels("unflatten")["parameters"]
+        selected_names = self.filters.get("parameters", ordered_names)
+        return [n for n in ordered_names if n in selected_names]
 
     @property
     def filters(self) -> dict:
@@ -255,13 +257,19 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         return self._format_data(data, name=name, nested=nested)
 
     def get_coordinate_list(self, name: str) -> list:
-        """Get the list of unique coordinates for a given name across all observables."""
-        ftree = self._apply_filters(self._tree)
-        for branch in ftree:
-            labels = branch.labels("unflatten", level=None)
+        """
+        Get the list of unique coordinates for a given name across all observables.
+
+        Notes
+        -----
+        When requesting a label name, the returned list is unique and may not preserve the order of the original data.
+        """
+        for branch in self._tree:
+            fbranch = self._apply_filters(branch)
+            labels = fbranch.labels("unflatten", level=None)
             if name in labels:
                 return list(set(labels[name])) # FIXME: preserve order ?
-            coords = next(iter(branch.flatten(level=None))).coords()
+            coords = next(iter(fbranch.flatten(level=None))).coords()
             if name in coords:
                 return list(coords[name])
         raise KeyError(f"Name '{name}' not found in any observable.")
