@@ -96,7 +96,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
 
     def clear_filters(self) -> None:
         """Clear all filters and selection indices."""
-        self._filters.clear()
+        self.filters = {} # Uses setter
         self._select = None
         self._select_names = []
         logger.debug("All filters and selection indices cleared.")
@@ -160,7 +160,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         ValueError
             If the selection indices exceed the size of the last dimension of the array.
         """
-        like_names = ["like_" + name for name in self._select_names] # e.g. "like_y"
+        like_names = ["like_" + n for n in self._select_names] # e.g. "like_y"
         ok_names = set(self._select_names + like_names)
         if self._select is not None and data.ndim < 3 and name in ok_names:
             ls = data.shape[-1]
@@ -419,10 +419,7 @@ class BaseObservable[R](Formatter[R], ABC):
         The covariance matrix is computed from the covariance_y data object with filters
         and selections applied before flattening the result on 2D (sample, features).
         """
-        cov_y = self.get_data("covariance_y", raw=True)
-        cov_y = self._apply_filters(cov_y)
-        cov_y = self._to_numpy(cov_y)
-        cov_y = self._apply_selection(cov_y, "y")
+        cov_y = self.get_data("covariance_y")
         cov = prefactor / volume_factor * np.cov(cov_y, rowvar=False)
         return cov
 
