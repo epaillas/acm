@@ -90,6 +90,8 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         indices: list[int]
             Indices to select from the last dimension of the 2D NumPy array output.
         """
+        if len(indices) == 0:
+            raise ValueError("Selection indices cannot be empty.")
         self._select = indices
         self._select_names = list(names)
         logger.debug(f"Selection set: {indices=}, {names=}")
