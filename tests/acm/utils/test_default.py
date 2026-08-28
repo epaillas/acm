@@ -3,12 +3,14 @@ Small tests on the default values of acm.utils.defaults.
 
 We mainly test that those values match the expected types.
 """
+from hashlib import sha256
+
 import numpy as np
 import pytest
 
-from acm.utils.default import _make_array, cosmo_list, is_nersc
+from acm.utils.default import _make_array, cosmo_list, is_nersc, short_hash
 
-# ruff: noqa: ANN201, D101, D102, D103, S101
+# ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
 
 
 def test_cosmo_list():
@@ -41,3 +43,34 @@ class TestMakeArray:
         """A value whose shape cannot be broadcast to the target shape should raise."""
         with pytest.raises(ValueError, match="could not broadcast"):
             _make_array([1.0, 2.0], 5)
+
+
+class TestShortHash:
+    """Test the short_hash function."""
+
+    def test_short_hash_output(self):
+        """Test that the short hash function returns the correct hash."""
+        val = "test_string"
+        result = short_hash(val, length=None)
+        expected = sha256(val.encode()).hexdigest()
+        assert result == expected
+
+    @pytest.mark.parametrize("length", [4, 8, 16])
+    def test_short_hash_length(self, length):
+        """Test that the short hash is correctly truncated."""
+        result = short_hash("test_string", length=length)
+        expected = sha256(b"test_string").hexdigest()[:length]
+        assert result == expected
+        assert len(result) == length
+
+    def test_short_hash_consistency(self):
+        """Test that the same input produces the same hash."""
+        result1 = short_hash("test_string")
+        result2 = short_hash("test_string")
+        assert result1 == result2
+
+    def test_short_hash_different_inputs(self):
+        """Test that different inputs produce different hashes."""
+        result1 = short_hash("test_string_1")
+        result2 = short_hash("test_string_2")
+        assert result1 != result2
