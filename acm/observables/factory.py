@@ -44,7 +44,7 @@ factory.register_observable("lsstypes", LsstypesObservable)
 class Observable[S: BaseObservable]:
     """Factory class for creating observables based on the backend choice."""
 
-    def __new__(cls, backend: str = "xarray", *args, **kwargs) -> S:
+    def __new__(cls, *args, backend: str = "xarray", **kwargs) -> S:
         """Create an observable instance based on the specified backend."""
         obs_cls: type[S] = factory.get_observable(backend)
         return obs_cls(*args, **kwargs)
