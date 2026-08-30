@@ -36,9 +36,9 @@ def format_like(tree: ObservableTree, arr: np.ndarray, new: str) -> ObservableTr
     Parameters
     ----------
     tree: ObservableTree
-        The reference tree whose structure will be used.
+        The reference tree whose structure will be used to build the new tree branches.
     arr: np.ndarray
-        The array to format. Must match the shape of the tree's values.
+        The array to format. First dimension will be cast as the new tree branches.
     new: str
         The name for the new variable in the tree.
         Its values will be indexed from the array first dimension.
@@ -142,7 +142,11 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         labels = data.labels("keys", level=None)
         label_filters = {k: v for k, v in filters.items() if k in labels}
         coordinate_filters = {k: v for k, v in filters.items() if k not in labels}
-        return data.get(**label_filters).select(**coordinate_filters)
+        if label_filters:
+            data = data.get(**label_filters)
+        if coordinate_filters:
+            data = data.select(**coordinate_filters)
+        return data
 
     @overload
     @staticmethod
@@ -317,15 +321,16 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
 
         Returns
         -------
-        np.ndarray
-            The predicted output as a 2D NumPy array, unless nested=True.
+        ObservableTree or np.ndarray
+            The predicted output as a 2D NumPy array, unless nested=True,
+            or as an ObservableTree if raw=True.
         """
         if self.model is None:
             raise AttributeError("No model has been registered.")
         pred = self.model.get_prediction(np.asarray(x)) # asarray = faster torch.Tensor
 
         if raw:
-            y = self.get_data("y", raw=True)
+            y = next(iter(self.get_data("y", raw=True))) # First measurement tree
             return format_like(tree=y, arr=pred, new="n_pred")
 
         pred = self._filter_2d(pred, name="y", nested=nested)
@@ -371,7 +376,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> Array2D:
+    ) -> np.ndarray[tuple[int]]: # 1D array of shape (n_features,)
         ...
     @overload
     def get_model_error(
@@ -401,6 +406,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         -------
         ObservableTree or np.ndarray
             The model error, formatted according to the output settings.
+            By default, returns a 2D NumPy array of shape (n_features, ) unless
+            nested=True, in which case the shape matches the original unflattened structure.
 
         Raises
         ------
@@ -416,11 +423,11 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         x, truth = self.get_test_set()
         error = self.model.get_error(x, truth, method=method, **kwargs)
         if raw:
-            y = self.get_data("y", raw=True)
-            return format_like(tree=y, arr=error, new="n_error")
-        error = self._filter_2d(error, name="y", nested=nested)
+            y = next(iter(self.get_data("y", raw=True))) # First measurement tree
+            return y.clone(value=error)
+        error = self._filter_2d(error.reshape(1, -1), name="y", nested=nested)
         y = self.get_data("y", nested=nested)
-        return error.reshape(-1, *y.shape[1:]) # Replace first dim by prediction nb
+        return error.reshape(*y.shape[1:]) # No first dim, as error is 1D (n_features,)
 
     def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """
