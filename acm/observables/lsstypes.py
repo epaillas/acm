@@ -73,7 +73,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         model: ObservableModel | None = None,
         silent_load: bool = False,
     ) -> None:
-        self._tree = data
+        self._data = data
         self._filters_idx: dict[str, np.ndarray] = {}
         names = list(data.labels("unflatten")["name"])
         with suppress_logging(enabled=silent_load):
@@ -100,7 +100,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
 
     def _copy(self, deep: bool = True, **kwargs) -> Self:
         cp = deepcopy if deep else copy
-        new = self.__class__(data = cp(self._tree, **kwargs), silent_load = True)
+        new = self.__class__(data = cp(self._data, **kwargs), silent_load = True)
         cv = vars(self)
         for k, v in cv.items():
             setattr(new, k, cp(v, **kwargs))
@@ -125,8 +125,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         logger.debug(f"Filters set: {value}")
         # Pecompute matching indices for array filtering
         self._filters_idx.clear() # Reset previous indexes
-        for name in list(self._tree.labels("unflatten")["name"]):
-            og = next(iter(self._tree.get(name))) # First measurement tree
+        for name in list(self._data.labels("unflatten")["name"]):
+            og = next(iter(self._data.get(name))) # First measurement tree
             target = self._apply_filters(og)
             if og != target:
                 idx = get_filter_indexes(og, target)
@@ -252,9 +252,9 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         KeyError
             If the specified name is not found in the observable tree.
         """
-        if name not in self._tree.labels("unflatten")["name"]:
+        if name not in self._data.labels("unflatten")["name"]:
             raise KeyError(f"Name '{name}' not found in the observable tree.")
-        data = self._tree.get(name=name)
+        data = self._data.get(name=name)
         if raw:
             return data
         return self._format_data(data, name=name, nested=nested)
@@ -267,7 +267,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         -----
         When requesting a label name, the returned list is unique and may not preserve the order of the original data.
         """
-        for branch in self._tree:
+        for branch in self._data:
             fbranch = self._apply_filters(branch)
             labels = fbranch.labels("unflatten", level=None)
             if name in labels:
@@ -279,7 +279,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Get an attribute from the tree, with filters applied."""
-        data = self._tree
+        data = self._data
         if name in data.labels("unflatten")["name"]:
             return self.get_data(name)
         if not hasattr(data, name): # Early check before filtering
