@@ -468,7 +468,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> Array2D:
+    ) -> np.ndarray[tuple[int]]:
         ...
     @overload
     def get_model_error(
@@ -498,6 +498,8 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         -------
         xr.DataArray or np.ndarray
             The model error, formatted according to the output settings.
+            By default, returns a 1D NumPy array of shape (n_features, ) unless
+            nested=True, in which case the shape matches the original unflattened structure.
 
         Raises
         ------
@@ -511,14 +513,15 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         if self.model is None:
             raise AttributeError("No model has been registered.")
         x, truth = self.get_test_set()
+        y = self.get_data("y", raw=True)
         error = self.model.get_error(x, truth, method=method, **kwargs)
-        error = format_like(
-            da = self.get_data("y", raw=True),
-            arr = error,
-        )
+        error = format_like(da=y, arr=error)
         if raw:
             return error
-        return self._format_data(error, "y", nested) # Format like y
+        f = self._format_data(error, "y", nested) # Format like y
+        ax = [error.dims.index(d) for d in error.attrs["sample"]]
+        return f.squeeze(axis=tuple(ax)) # Drop sample dims - only one here
+
 
     def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """

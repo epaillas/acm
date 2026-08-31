@@ -406,7 +406,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         -------
         ObservableTree or np.ndarray
             The model error, formatted according to the output settings.
-            By default, returns a 2D NumPy array of shape (n_features, ) unless
+            By default, returns a 1D NumPy array of shape (n_features, ) unless
             nested=True, in which case the shape matches the original unflattened structure.
 
         Raises
