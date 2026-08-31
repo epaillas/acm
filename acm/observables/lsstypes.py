@@ -17,15 +17,13 @@ logger = logging.getLogger(__name__)
 
 def _is_valid_tree(tree: ObservableTree) -> bool:
     """Check if the provided tree is a valid ObservableTree."""
-    required_vars = {"x", "y"}
+    req_vars = {"x", "y"}
     if "name" not in tree.labels("unflatten"):
         logger.debug("Tree is missing 'names' label in unflattened structure.")
         return False
     names = list(tree.labels("unflatten")["name"])
-    if not required_vars.issubset(names):
-        logger.debug(
-            f"Tree is missing required variables: {required_vars - set(names)}"
-        )
+    if not req_vars.issubset(names):
+        logger.debug(f"Tree is missing required variables: {req_vars - set(names)}")
         return False
     if tree.get(name="x").labels() != tree.get(name="y").labels():
         logger.debug("Labels for 'x' and 'y' do not match.")
@@ -60,8 +58,8 @@ def format_like(tree: ObservableTree, arr: np.ndarray, new: str) -> ObservableTr
 def get_filter_indexes(tree: ObservableTree, target: ObservableTree) -> np.ndarray:
     """Get the indexes selected from `tree` to match the shape of `target`."""
 
-    def hook(obs, transform):
-        return obs, transform  # noqa: ANN001, ANN202
+    def hook(obs, transform):  # noqa: ANN001, ANN202
+        return obs, transform
 
     _, idx = tree.at.hook(hook)().match(target)  # lsstypes black magic
     return idx
