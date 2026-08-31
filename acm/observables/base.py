@@ -53,8 +53,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
 
     def __init__(self) -> None:
         self._filters: dict = {}
-        self._select: list[int] | None = None
-        self._select_names: list[str] = []
+        self._select: dict[str, list[int]] = {}
 
     @property
     def filters(self) -> dict:
@@ -89,18 +88,23 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
             Names of the elements to which the selection will be applied.
         indices: list[int]
             Indices to select from the last dimension of the 2D NumPy array output.
+
+        Notes
+        -----
+        Calling this method with the same name will overwrite the previous selection.
+        Calling this method with a new name will add it to the existing selections.
+        Use :meth:`clear_filters` to reset all selections at once.
         """
         if len(indices) == 0:
             raise ValueError("Selection indices cannot be empty.")
-        self._select = indices
-        self._select_names = list(names)
+        for n in names:
+            self._select[n] = indices
         logger.debug(f"Selection set: {indices=}, {names=}")
 
     def clear_filters(self) -> None:
         """Clear all filters and selection indices."""
         self.filters = {} # Uses setter
-        self._select = None
-        self._select_names = []
+        self._select = {}
         logger.debug("All filters and selection indices cleared.")
 
     def get_handle(self, prefix: str | None = None, hlength: int | None = None) -> str:
@@ -135,22 +139,19 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
     def _apply_filters(self, data: R) -> R:
         """Apply the set filters to the provided data."""
 
-    def _apply_selection(self, data: Array2D, name: str) -> Array2D:
+    def _apply_selection(self, name: str, data: Array2D) -> Array2D:
         """
         Select specific indices from the last dimension of the array.
 
         Applicable only if the array is 1D or 2D, and on the names
         specified in the selection setup (see :meth:`set_select`).
 
-        Also accepts objects with names prefixed by "like_" and accepted names
-        (e.g., "like_y" if "y" is in the selection names).
-
         Parameters
         ----------
+        name: str
+            The name of the data variable, used to determine if selection should be applied.
         data : np.ndarray[tuple[int, int]]
             The 2D NumPy array from which to select indices.
-        name : str
-            The name of the data object, used to determine if selection should be applied.
 
         Returns
         -------
@@ -162,14 +163,13 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         ValueError
             If the selection indices exceed the size of the last dimension of the array.
         """
-        like_names = ["like_" + n for n in self._select_names] # e.g. "like_y"
-        ok_names = set(self._select_names + like_names)
-        if self._select is not None and data.ndim < 3 and name in ok_names:
+        idx = self._select.get(name, None)
+        if idx is not None and data.ndim < 3:
             ls = data.shape[-1]
-            if ls <= max(self._select):
+            if ls <= max(idx):
                 raise ValueError(f"Indices number exceed last dimension size {ls}.")
             logger.debug(f"Applying selection on {name}")
-            return data[..., self._select]
+            return data[..., idx]
         return data
 
     @overload
@@ -222,7 +222,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         _data = self._apply_filters(data)
         _data = self._to_numpy(_data, nested=nested)
         if nested is False:
-            _data = self._apply_selection(_data, name)
+            _data = self._apply_selection(name, _data)
         return _data
 
     @overload
@@ -373,7 +373,7 @@ class BaseObservable[R](Formatter[R], ABC):
                 continue
         has_model = self.model is not None
         shape_str = ", ".join(f"{k}={v}" for k, v in shapes.items())
-        sel = f", select={len(self._select)}" if self._select else ""
+        sel = f", select={list(self._select)}" if self._select else ""
         return f"{type(self).__name__}({shape_str}, filters={self.filters}{sel}, {has_model=})"
 
     @abstractmethod
