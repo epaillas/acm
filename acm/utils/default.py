@@ -27,6 +27,7 @@ def _make_array(
         raise ValueError(f"Broadcasted {value} to array but found NaN values inside.")
     return toret.astype(dtype=dtype)
 
+
 def short_hash(txt: str, length: int | None = 8) -> str:
     """Return a shortened hash of the input string."""
     hashed = sha256(txt.encode()).hexdigest()

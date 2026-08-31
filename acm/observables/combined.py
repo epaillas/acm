@@ -69,6 +69,7 @@ class ObservableList[S]:
         combined_observables = {**self._observables, **other._observables}
         return ObservableList(**combined_observables)
 
+
 class CombinedObservable(ObservableList[BaseObservable]):
     """Combine multiple observables into a single observable, that returns a combined output."""
 
@@ -77,7 +78,7 @@ class CombinedObservable(ObservableList[BaseObservable]):
         shapes = {}
         try:
             shapes["x"] = self.x.shape
-        except KeyError: # Let ValueError raise if x's are not consistent
+        except KeyError:  # Let ValueError raise if x's are not consistent
             pass
         for name in ("y", "covariance_y"):
             try:
