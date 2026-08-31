@@ -149,7 +149,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         Parameters
         ----------
         name: str
-            The name of the data variable, used to determine if selection should be applied.
+            The name of the data variable, to elect the correct selection indices.
         data : np.ndarray[tuple[int, int]]
             The 2D NumPy array from which to select indices.
 
@@ -318,7 +318,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> Array2D:
+    ) -> np.ndarray[tuple[int]]:
         ...
     @overload
     def get_model_error(
@@ -344,6 +344,14 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
             If True, return the error in its original unflattened form. Default is False.
         **kwargs
             Additional keyword arguments for the model error calculation.
+
+        Returns
+        -------
+        R | np.ndarray
+            The model error with filters and selection applied as a NumPy array, unless raw=True.
+            Defaults to a 1D array of shape (n_features, ) unless nested=True,
+            in which case the shape matches the structure of the nested data, and
+            selection is skipped (see :meth:`set_selection`).
         """
 
 
