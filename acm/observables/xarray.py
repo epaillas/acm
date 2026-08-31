@@ -124,7 +124,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         **kwargs
             Additional keyword arguments to set output format. See :meth:`set_output` for details.
         """
-        self._dataset = data
+        self._data = data
         names = list(data.data_vars)
         with suppress_logging(enabled=silent_load):
             logger.info(f"Datasets loaded with the following variables: {names}")
@@ -150,7 +150,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
 
     def _copy(self, deep: bool = True, **kwargs) -> Self:
         cp = deepcopy if deep else copy
-        new = self.__class__(data = cp(self._dataset, **kwargs), silent_load = True)
+        new = self.__class__(data = cp(self._data, **kwargs), silent_load = True)
         cv = vars(self)
         for k, v in cv.items():
             setattr(new, k, cp(v, **kwargs))
@@ -269,7 +269,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
                 if isinstance(attr, str):
                     attr = [attr] # Edge case - single-string attribute
                 data = _stack_on(dim, data, *attr)
-            data= data.transpose("sample", "features") # Ensure correct dim order
+            data = data.transpose("sample", "features") # Ensure correct dim order
         return data.to_numpy()
 
     @overload
@@ -358,16 +358,16 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         KeyError
             If the specified data variable name is not found in the dataset.
         """
-        if name not in self._dataset.data_vars:
+        if name not in self._data.data_vars:
             raise KeyError(f"Data variable '{name}' not found in the dataset.")
-        da = self._dataset[name]
+        da = self._data[name]
         if raw:
             return da
         return self._format_data(da, name, nested)
 
     def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Get an attribute from the dataset, with filters applied."""
-        data = self._dataset
+        data = self._data
         if name in data.data_vars:
             return self.get_data(name)
         if not hasattr(data, name): # Early check before filtering
