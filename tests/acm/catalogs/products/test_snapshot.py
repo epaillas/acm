@@ -9,7 +9,7 @@ from acm.catalogs.products.snapshot import (
     boundary_check,
 )
 
-# ruff: noqa: ANN001, ANN201, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, D103, S101
 
 #%% Fixtures
 
