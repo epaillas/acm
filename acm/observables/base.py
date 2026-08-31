@@ -1,4 +1,5 @@
 """Definition of the Observable product interface."""
+
 import logging
 from abc import ABC, abstractmethod
 from itertools import pairwise
@@ -11,9 +12,10 @@ from acm.utils.default import short_hash
 
 from .model import ObservableModel
 
-type Array2D = np.ndarray[tuple[int, int]] # Short type alias for 2D NumPy arrays
+type Array2D = np.ndarray[tuple[int, int]]  # Short type alias for 2D NumPy arrays
 
 logger = logging.getLogger(__name__)
+
 
 def _format_filter_value(value) -> str:  # noqa: ANN001
     """Format a filter value for string representation."""
@@ -21,11 +23,11 @@ def _format_filter_value(value) -> str:  # noqa: ANN001
         parts = [value.start, value.stop]
         if value.step is not None:
             parts.append(value.step)
-        return "-".join([str(p) for p in parts]) # (start, stop, step)
+        return "-".join([str(p) for p in parts])  # (start, stop, step)
     if isinstance(value, (list, tuple)):
         vals = list(value)
         if len(vals) > 2 and all(isinstance(v, (int, float)) for v in vals):
-            steps = {b-a for a, b in pairwise(vals)}
+            steps = {b - a for a, b in pairwise(vals)}
             if len(steps) == 1:  # Arithmetic sequence --> (start, stop, step)
                 parts = [f"{vals[0]:.3g}", f"{vals[-1]:.3g}"]
                 step = steps.pop()
@@ -34,6 +36,7 @@ def _format_filter_value(value) -> str:  # noqa: ANN001
                 return "-".join(parts)
         return ",".join(str(v) for v in vals)
     return str(value)
+
 
 def make_handle(filters: dict, hlength: int | None = None) -> str:
     """Make a unique handle string from the given filters, optionally hashing if too long."""
@@ -44,7 +47,8 @@ def make_handle(filters: dict, hlength: int | None = None) -> str:
         handle = short_hash(handle, length=hlength)
     return handle
 
-class Formatter[R](ABC): # NOTE: splitting interface for clarity
+
+class Formatter[R](ABC):  # NOTE: splitting interface for clarity
     """
     Class handling the output formatting of the Observable product interface.
 
@@ -59,11 +63,13 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
     def filters(self) -> dict:
         """Get the current filters."""
         return self._filters
+
     @filters.setter
     def filters(self, filters: dict) -> None:
         """Set the filters and update related values."""
         logger.debug(f"Filters set: {filters}")
         self._filters = filters
+
     def set_filters(self, **kwargs) -> None:
         """
         Explicitly set filters trough keyword arguments.
@@ -74,7 +80,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
             Keyword arguments representing the filters to set.
             Allows slices, list of values or single values for filtering.
         """
-        self.filters = kwargs # Uses setter
+        self.filters = kwargs  # Uses setter
 
     def set_selection(self, *names: str, indices: list[int]) -> None:
         """
@@ -103,7 +109,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
 
     def clear_filters(self) -> None:
         """Clear all filters and selection indices."""
-        self.filters = {} # Uses setter
+        self.filters = {}  # Uses setter
         self._select = {}
         logger.debug("All filters and selection indices cleared.")
 
@@ -233,16 +239,14 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         name: str,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
-    ) -> Array2D:
-        ...
+    ) -> Array2D: ...
     @overload
     def get_data(
         self,
         name: str,
         raw: Literal[False] = False,
         nested: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     @abstractmethod
     def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
@@ -269,24 +273,21 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         x: np.ndarray,
         raw: Literal[True],
         nested: bool = False,
-    ) -> R:
-        ...
+    ) -> R: ...
     @overload
     def get_prediction(
         self,
         x: np.ndarray,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
-    ) -> Array2D:
-        ...
+    ) -> Array2D: ...
     @overload
     def get_prediction(
         self,
         x: np.ndarray,
         raw: Literal[False] = False,
         nested: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     @abstractmethod
     def get_prediction(self, x: np.ndarray, raw: bool = False, nested: bool = False):
         """
@@ -309,8 +310,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         raw: Literal[True],
         nested: bool = False,
         **kwargs,
-    ) -> R:
-        ...
+    ) -> R: ...
     @overload
     def get_model_error(
         self,
@@ -318,8 +318,7 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> np.ndarray[tuple[int]]:
-        ...
+    ) -> np.ndarray[tuple[int]]: ...
     @overload
     def get_model_error(
         self,
@@ -327,10 +326,9 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         raw: Literal[False] = False,
         nested: bool = False,
         **kwargs,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     @abstractmethod
-    def get_model_error(self, method, raw = False, nested = False, **kwargs):
+    def get_model_error(self, method, raw=False, nested=False, **kwargs):
         """
         Wrap around :meth:`ObservableModel.get_error`.
 
@@ -355,13 +353,13 @@ class Formatter[R](ABC): # NOTE: splitting interface for clarity
         """
 
 
-#%% Product components
+# %% Product components
 class BaseObservable[R](Formatter[R], ABC):
     """Base class defining the interface for all Observable classes."""
 
     def __init__(self, model: ObservableModel | None = None) -> None:
         super().__init__()
-        self.model = model # Public attribute
+        self.model = model  # Public attribute
 
     def __copy__(self) -> Self:
         """Create a shallow copy of the class instance."""

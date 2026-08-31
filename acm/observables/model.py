@@ -1,4 +1,5 @@
 """File handling model predictions methods for the Observable classes."""
+
 import logging
 from collections.abc import Callable
 from pathlib import Path
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # NOTE: Do we need info on x in transform ?
 type ModelTransform = Callable[[np.ndarray], np.ndarray]
+
 
 class ObservableModel:
     """Wrapper around `sunbird.emulators` models for Observable classes."""
@@ -141,19 +143,19 @@ class ObservableModel:
         logger.info(f"Computing covariance matrix using '{method}' method ({diag=}).")
         if method == "mad" and diag:
             #  norm to make summary consistent with stdev for a normal distribution
-            mad = st.median_abs_deviation(y, axis=0) / st.norm.ppf(3/4)
+            mad = st.median_abs_deviation(y, axis=0) / st.norm.ppf(3 / 4)
             return np.diag(mad**2)
         if method == "mad" and not diag:
             return orthogonal_gk_mad_covariance(y)
         if method == "mean" and diag:
-            mad = np.mean(np.abs(y - np.mean(y, axis=0)), axis=0) * np.sqrt(np.pi/2)
+            mad = np.mean(np.abs(y - np.mean(y, axis=0)), axis=0) * np.sqrt(np.pi / 2)
             return np.diag(mad**2)
         if method == "mean" and not diag:
             raise NotImplementedError(
                 f"Mean absolute deviation covariance is not implemented for full matrix ({diag=})."
             )
         if method == "stdev" and diag:
-            return np.diag(np.std(y, axis=0)**2)
+            return np.diag(np.std(y, axis=0) ** 2)
         if method == "stdev" and not diag:
             return np.cov(y, rowvar=False)
         raise ValueError(f"Unknown method: {method}.")
