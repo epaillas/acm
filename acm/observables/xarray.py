@@ -92,7 +92,6 @@ def format_like(da: xr.DataArray, arr: np.ndarray, new: str = "dim0") -> xr.Data
         dims = [new, *feat_dims],
         coords = {d: da.coords[d] for d in feat_dims}, # new will just be indexed
         attrs = {"sample": [new], "features": feat_dims},
-        name = "like_" + str(da.name) if da.name is not None else None,
     )
 
 
@@ -427,7 +426,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         pred = format_like(da=y, arr=pred, new="n_pred")
         if raw:
             return pred
-        return self._format_data(pred, str(pred.name), nested)
+        return self._format_data(pred, "y", nested) # Format like y
 
     def get_test_set(self) -> tuple[Array2D, Array2D]:
         """
@@ -519,7 +518,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         )
         if raw:
             return error
-        return self._format_data(error, str(error.name), nested)
+        return self._format_data(error, "y", nested) # Format like y
 
     def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """
@@ -563,5 +562,5 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         )
         diff = self._apply_filters(diff)
         diff = self._to_numpy(diff)
-        diff = self._apply_selection(diff, "y")
+        diff = self._apply_selection("y", diff)
         return prefactor * self.model.make_covariance(diff, **kwargs)
