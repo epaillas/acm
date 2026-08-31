@@ -14,6 +14,7 @@ from .model import ObservableModel
 
 logger = logging.getLogger(__name__)
 
+
 def _is_valid_tree(tree: ObservableTree) -> bool:
     """Check if the provided tree is a valid ObservableTree."""
     required_vars = {"x", "y"}
@@ -22,12 +23,15 @@ def _is_valid_tree(tree: ObservableTree) -> bool:
         return False
     names = list(tree.labels("unflatten")["name"])
     if not required_vars.issubset(names):
-        logger.debug(f"Tree is missing required variables: {required_vars - set(names)}")
+        logger.debug(
+            f"Tree is missing required variables: {required_vars - set(names)}"
+        )
         return False
     if tree.get(name="x").labels() != tree.get(name="y").labels():
         logger.debug("Labels for 'x' and 'y' do not match.")
         return False
     return True
+
 
 def format_like(tree: ObservableTree, arr: np.ndarray, new: str) -> ObservableTree:
     """
@@ -52,10 +56,14 @@ def format_like(tree: ObservableTree, arr: np.ndarray, new: str) -> ObservableTr
     labels = {new: list(range(arr.shape[0]))}
     return ObservableTree(branches, **labels)
 
+
 def get_filter_indexes(tree: ObservableTree, target: ObservableTree) -> np.ndarray:
     """Get the indexes selected from `tree` to match the shape of `target`."""
-    def hook(obs, transform): return obs, transform  # noqa: ANN001, ANN202
-    _, idx = tree.at.hook(hook)().match(target) # lsstypes black magic
+
+    def hook(obs, transform):
+        return obs, transform  # noqa: ANN001, ANN202
+
+    _, idx = tree.at.hook(hook)().match(target)  # lsstypes black magic
     return idx
 
 
@@ -100,7 +108,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
 
     def _copy(self, deep: bool = True, **kwargs) -> Self:
         cp = deepcopy if deep else copy
-        new = self.__class__(data = cp(self._data, **kwargs), silent_load = True)
+        new = self.__class__(data=cp(self._data, **kwargs), silent_load=True)
         cv = vars(self)
         for k, v in cv.items():
             setattr(new, k, cp(v, **kwargs))
@@ -118,15 +126,16 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
     def filters(self) -> dict:
         """List of filters applied to the data."""
         return self._filters
+
     @filters.setter
     def filters(self, value: dict) -> None:
         """Set the filters to be applied to the data."""
         self._filters = value
         logger.debug(f"Filters set: {value}")
         # Pecompute matching indices for array filtering
-        self._filters_idx.clear() # Reset previous indexes
+        self._filters_idx.clear()  # Reset previous indexes
         for name in list(self._data.labels("unflatten")["name"]):
-            og = next(iter(self._data.get(name))) # First measurement tree
+            og = next(iter(self._data.get(name)))  # First measurement tree
             target = self._apply_filters(og)
             if og != target:
                 idx = get_filter_indexes(og, target)
@@ -138,7 +147,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         filters = self.filters.copy()
         for k, v in filters.items():
             if isinstance(v, slice):
-                filters[k] = (v.start, v.stop) # Slice by values, not indices
+                filters[k] = (v.start, v.stop)  # Slice by values, not indices
         labels = data.labels("keys", level=None)
         label_filters = {k: v for k, v in filters.items() if k in labels}
         coordinate_filters = {k: v for k, v in filters.items() if k not in labels}
@@ -201,7 +210,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         idx = self._filters_idx.get(name)
         if idx is not None:
             logger.debug(f"Applying precomputed filter indexes for {name}")
-            data = data[:, idx] # Faster than making a tree
+            data = data[:, idx]  # Faster than making a tree
         if nested is False:
             data = self._apply_selection(name, data)
         return data
@@ -212,23 +221,21 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         name: str,
         raw: Literal[True],
         nested: bool = False,
-    ) -> ObservableTree:
-        ...
+    ) -> ObservableTree: ...
     @overload
     def get_data(
         self,
         name: str,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
-    ) -> Array2D:
-        ...
+    ) -> Array2D: ...
     @overload
-    def get_data(self,
+    def get_data(
+        self,
         name: str,
         raw: Literal[False] = False,
         nested: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
         Get the data variable from the top level of the tree from the given name.
@@ -271,7 +278,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
             fbranch = self._apply_filters(branch)
             labels = fbranch.labels("unflatten", level=None)
             if name in labels:
-                return list(set(labels[name])) # FIXME: preserve order ?
+                return list(set(labels[name]))  # FIXME: preserve order ?
             coords = next(iter(fbranch.flatten(level=None))).coords()
             if name in coords:
                 return list(coords[name])
@@ -282,8 +289,10 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         data = self._data
         if name in data.labels("unflatten")["name"]:
             return self.get_data(name)
-        if not hasattr(data, name): # Early check before filtering
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        if not hasattr(data, name):  # Early check before filtering
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            )
         return getattr(self._apply_filters(data), name)
 
     @overload
@@ -292,22 +301,21 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         x: np.ndarray,
         raw: Literal[True],
         nested: bool = False,
-    ) -> ObservableTree:
-        ...
+    ) -> ObservableTree: ...
     @overload
-    def get_prediction(self,
+    def get_prediction(
+        self,
         x: np.ndarray,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
-    ) -> Array2D:
-        ...
+    ) -> Array2D: ...
     @overload
-    def get_prediction(self,
+    def get_prediction(
+        self,
         x: np.ndarray,
         raw: Literal[False] = False,
         nested: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     def get_prediction(self, x: np.ndarray, raw: bool = False, nested: bool = False):
         """
         Get the prediction for the given input x.
@@ -327,15 +335,15 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         """
         if self.model is None:
             raise AttributeError("No model has been registered.")
-        pred = self.model.get_prediction(np.asarray(x)) # asarray = faster torch.Tensor
+        pred = self.model.get_prediction(np.asarray(x))  # asarray = faster torch.Tensor
 
         if raw:
-            y = next(iter(self.get_data("y", raw=True))) # First measurement tree
+            y = next(iter(self.get_data("y", raw=True)))  # First measurement tree
             return format_like(tree=y, arr=pred, new="n_pred")
 
         pred = self._filter_2d(pred, name="y", nested=nested)
         y = self.get_data("y", nested=nested)
-        return pred.reshape(-1, *y.shape[1:]) # Replace first dim by prediction nb
+        return pred.reshape(-1, *y.shape[1:])  # Replace first dim by prediction nb
 
     def get_test_set(self) -> tuple[Array2D, Array2D]:
         """
@@ -352,10 +360,10 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         -----
         Assumes that `x_test` and `y_test` ObservableTrees are present in the main tree.
         """
-        arrs: list[Array2D] = [] # x, truth
+        arrs: list[Array2D] = []  # x, truth
         for _name in ["x_test", "y_test"]:
             arr = self.get_data(_name, raw=True)
-            arr = self._to_numpy(arr) # (n_samples, n_params/n_features)
+            arr = self._to_numpy(arr)  # (n_samples, n_params/n_features)
             arrs.append(arr)
         x, truth = arrs
         return x, truth
@@ -367,8 +375,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         raw: Literal[True],
         nested: bool = False,
         **kwargs,
-    ) -> ObservableTree:
-        ...
+    ) -> ObservableTree: ...
     @overload
     def get_model_error(
         self,
@@ -376,7 +383,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> np.ndarray[tuple[int]]: # 1D array of shape (n_features,)
+    ) -> np.ndarray[tuple[int]]:  # 1D array of shape (n_features,)
         ...
     @overload
     def get_model_error(
@@ -385,9 +392,8 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         raw: Literal[False] = False,
         nested: bool = False,
         **kwargs,
-    ) -> np.ndarray:
-        ...
-    def get_model_error(self, method, raw = False, nested = False, **kwargs):
+    ) -> np.ndarray: ...
+    def get_model_error(self, method, raw=False, nested=False, **kwargs):
         """
         Get the model error from the registered model, with filters, selection, and output formatting applied.
 
@@ -423,11 +429,11 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
         x, truth = self.get_test_set()
         error = self.model.get_error(x, truth, method=method, **kwargs)
         if raw:
-            y = next(iter(self.get_data("y", raw=True))) # First measurement tree
+            y = next(iter(self.get_data("y", raw=True)))  # First measurement tree
             return y.clone(value=error)
         error = self._filter_2d(error.reshape(1, -1), name="y", nested=nested)
         y = self.get_data("y", nested=nested)
-        return error.reshape(*y.shape[1:]) # No first dim, as error is 1D (n_features,)
+        return error.reshape(*y.shape[1:])  # No first dim, as error is 1D (n_features,)
 
     def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """
