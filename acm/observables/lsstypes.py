@@ -203,7 +203,7 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
             logger.debug(f"Applying precomputed filter indexes for {name}")
             data = data[:, idx] # Faster than making a tree
         if nested is False:
-            data = self._apply_selection(data, name)
+            data = self._apply_selection(name, data)
         return data
 
     @overload
