@@ -3,6 +3,7 @@ Factory pattern implementation for observables in the ACM package.
 
 See https://realpython.com/factory-method-python/.
 """
+
 from pathlib import Path
 
 from .base import BaseObservable
@@ -10,7 +11,7 @@ from .lsstypes import LsstypesObservable
 from .xarray import XarrayObservable
 
 
-#%% Creator components
+# %% Creator components
 class ObservableFactory[S: BaseObservable]:
     """Factory class for identifying which observable class to use."""
 
@@ -36,11 +37,13 @@ class ObservableFactory[S: BaseObservable]:
                 return creator
         raise ValueError(f"Unsupported file extension for: {filename}")
 
+
 factory = ObservableFactory()
 factory.register_observable("xarray", XarrayObservable)
 factory.register_observable("lsstypes", LsstypesObservable)
 
-#%% Client components
+
+# %% Client components
 class Observable[S: BaseObservable]:
     """Factory class for creating observables based on the backend choice."""
 

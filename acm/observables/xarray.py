@@ -1,4 +1,5 @@
 """Concrete implementation for the BaseObservable product for the xarray interface."""
+
 import logging
 from copy import copy, deepcopy
 from pathlib import Path
@@ -17,25 +18,32 @@ type _ArrayLike = xr.DataArray | np.ndarray
 
 logger = logging.getLogger(__name__)
 
+
 def _load_dataset(filename: str | Path) -> xr.Dataset:
     """Load a compressed XarrayObservable file and model."""
     filename = Path(filename)
-    if filename.suffix == ".npy": # Legacy files
+    if filename.suffix == ".npy":  # Legacy files
         return dataset_from_dict(np.load(filename, allow_pickle=True).item())
-    return xr.load_dataset(filename) # Should be h5, keeping engine free just in case
+    return xr.load_dataset(filename)  # Should be h5, keeping engine free just in case
+
 
 def _is_valid_dataset(ds: xr.Dataset) -> bool:
     """Check if the dataset has the required variables and coordinates."""
     required_vars = {"x", "y"}
     required_attrs = {"sample", "features"}
     if not required_vars.issubset(ds.data_vars):
-        logger.debug(f"Dataset missing required variables: {required_vars - set(ds.data_vars)}")
+        logger.debug(
+            f"Dataset missing required variables: {required_vars - set(ds.data_vars)}"
+        )
         return False
     for da in ds.data_vars.values():
         if not required_attrs.issubset(da.attrs):
-            logger.debug(f"DataArray '{da.name}' missing required attributes: {required_attrs - set(da.attrs)}")
+            logger.debug(
+                f"DataArray '{da.name}' missing required attributes: {required_attrs - set(da.attrs)}"
+            )
             return False
     return True
+
 
 def _stack_on(new: str, da: xr.DataArray, *dims: str) -> xr.DataArray:
     """
@@ -66,6 +74,7 @@ def _stack_on(new: str, da: xr.DataArray, *dims: str) -> xr.DataArray:
         return da.expand_dims(new)
     return da.stack({new: dims})
 
+
 def format_like(da: xr.DataArray, arr: np.ndarray, new: str = "dim0") -> xr.DataArray:
     """
     Format a NumPy array to have the same shape and coordinates as a given xarray DataArray.
@@ -85,13 +94,13 @@ def format_like(da: xr.DataArray, arr: np.ndarray, new: str = "dim0") -> xr.Data
     xr.DataArray
         A new DataArray with the reshaped array, the new dimension, and the same coordinates as the reference DataArray.
     """
-    feat_dims = da.attrs["features"] # NOTE: KeyError if "features" is missing
+    feat_dims = da.attrs["features"]  # NOTE: KeyError if "features" is missing
     data = arr.reshape(-1, *[da.sizes[d] for d in feat_dims])
     return xr.DataArray(
-        data = data,
-        dims = [new, *feat_dims],
-        coords = {d: da.coords[d] for d in feat_dims}, # new will just be indexed
-        attrs = {"sample": [new], "features": feat_dims},
+        data=data,
+        dims=[new, *feat_dims],
+        coords={d: da.coords[d] for d in feat_dims},  # new will just be indexed
+        attrs={"sample": [new], "features": feat_dims},
     )
 
 
@@ -150,7 +159,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
 
     def _copy(self, deep: bool = True, **kwargs) -> Self:
         cp = deepcopy if deep else copy
-        new = self.__class__(data = cp(self._data, **kwargs), silent_load = True)
+        new = self.__class__(data=cp(self._data, **kwargs), silent_load=True)
         cv = vars(self)
         for k, v in cv.items():
             setattr(new, k, cp(v, **kwargs))
@@ -175,7 +184,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         KeyError
             If the required name is not present in the coordinates of the filtered dataset.
         """
-        coords: xr.Coordinates = self.coords # Filtered coordinates
+        coords: xr.Coordinates = self.coords  # Filtered coordinates
         if name not in coords:
             raise KeyError(f"{name} not found in coordinates {list(coords)}")
         return coords[name].to_numpy().tolist()
@@ -201,7 +210,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
             The DataArray with NaN dimensions dropped. If all values are dropped, a warning is logged.
         """
         nan_dims = da.attrs.get("nan_dims", [])
-        for d in nan_dims: # Loop because multi-dims not supported by dropna
+        for d in nan_dims:  # Loop because multi-dims not supported by dropna
             if d in da.dims:
                 da = da.dropna(d, how="all")
         if nan_dims and da.size == 0:
@@ -267,9 +276,9 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
             for dim in ["sample", "features"]:
                 attr = data.attrs.get(dim, [])
                 if isinstance(attr, str):
-                    attr = [attr] # Edge case - single-string attribute
+                    attr = [attr]  # Edge case - single-string attribute
                 data = _stack_on(dim, data, *attr)
-            data = data.transpose("sample", "features") # Ensure correct dim order
+            data = data.transpose("sample", "features")  # Ensure correct dim order
         return data.to_numpy()
 
     @overload
@@ -278,16 +287,14 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         data: xr.DataArray,
         name: str,
         nested: Literal[False],
-    ) -> Array2D:
-        ...
+    ) -> Array2D: ...
     @overload
     def _format_data(
         self,
         data: xr.DataArray,
         name: str,
         nested: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     def _format_data(self, data: xr.DataArray, name: str, nested: bool = False):
         """
         Format the provided DataArray by applying filters, casting to numpy and applying selection.
@@ -316,24 +323,21 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         name: str,
         raw: Literal[True],
         nested: bool = False,
-    ) -> xr.DataArray:
-        ...
+    ) -> xr.DataArray: ...
     @overload
     def get_data(
         self,
         name: str,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
-    ) -> Array2D:
-        ...
+    ) -> Array2D: ...
     @overload
     def get_data(
         self,
         name: str,
         raw: Literal[False] = False,
         nested: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     def get_data(self, name: str, raw: bool = False, nested: bool = False):
         """
         Get the data variable from the dataset from the given name.
@@ -370,8 +374,10 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         data = self._data
         if name in data.data_vars:
             return self.get_data(name)
-        if not hasattr(data, name): # Early check before filtering
-            raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        if not hasattr(data, name):  # Early check before filtering
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute '{name}'"
+            )
         return getattr(self._apply_filters(data), name)
 
     @overload
@@ -380,22 +386,21 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         x: _ArrayLike,
         raw: Literal[True],
         nested: bool = False,
-    ) -> xr.DataArray:
-        ...
+    ) -> xr.DataArray: ...
     @overload
-    def get_prediction(self,
+    def get_prediction(
+        self,
         x: _ArrayLike,
         raw: Literal[False] = False,
         nested: Literal[False] = False,
-    ) -> Array2D:
-        ...
+    ) -> Array2D: ...
     @overload
-    def get_prediction(self,
+    def get_prediction(
+        self,
         x: _ArrayLike,
         raw: Literal[False] = False,
         nested: bool = False,
-    ) -> np.ndarray:
-        ...
+    ) -> np.ndarray: ...
     def get_prediction(self, x: _ArrayLike, raw: bool = False, nested: bool = False):
         """
         Get the prediction for the given input x.
@@ -421,12 +426,12 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         """
         if self.model is None:
             raise AttributeError("No model has been registered.")
-        pred = self.model.get_prediction(np.asarray(x)) # asarray = faster torch.Tensor
+        pred = self.model.get_prediction(np.asarray(x))  # asarray = faster torch.Tensor
         y = self.get_data("y", raw=True)
         pred = format_like(da=y, arr=pred, new="n_pred")
         if raw:
             return pred
-        return self._format_data(pred, "y", nested) # Format like y
+        return self._format_data(pred, "y", nested)  # Format like y
 
     def get_test_set(self) -> tuple[Array2D, Array2D]:
         """
@@ -443,11 +448,11 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         -----
         Assumes that `x_test` and `y_test` DataArrays are present in the dataset.
         """
-        arrs: list[Array2D] = [] # x, truth
+        arrs: list[Array2D] = []  # x, truth
         for _name in ["x_test", "y_test"]:
             arr = self.get_data(_name, raw=True)
-            arr = self._drop_nan_dims(arr) # nan_dims should exist by construction
-            arr = self._to_numpy(arr) # (n_samples, n_params/n_features)
+            arr = self._drop_nan_dims(arr)  # nan_dims should exist by construction
+            arr = self._to_numpy(arr)  # (n_samples, n_params/n_features)
             arrs.append(arr)
         x, truth = arrs
         return x, truth
@@ -459,8 +464,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         raw: Literal[True],
         nested: bool = False,
         **kwargs,
-    ) -> xr.DataArray:
-        ...
+    ) -> xr.DataArray: ...
     @overload
     def get_model_error(
         self,
@@ -468,8 +472,7 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         raw: Literal[False] = False,
         nested: Literal[False] = False,
         **kwargs,
-    ) -> np.ndarray[tuple[int]]:
-        ...
+    ) -> np.ndarray[tuple[int]]: ...
     @overload
     def get_model_error(
         self,
@@ -477,9 +480,8 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         raw: Literal[False] = False,
         nested: bool = False,
         **kwargs,
-    ) -> np.ndarray:
-        ...
-    def get_model_error(self, method, raw = False, nested = False, **kwargs):
+    ) -> np.ndarray: ...
+    def get_model_error(self, method, raw=False, nested=False, **kwargs):
         """
         Get the model error from the registered model, with filters, selection, and output formatting applied.
 
@@ -518,10 +520,9 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         error = format_like(da=y, arr=error)
         if raw:
             return error
-        f = self._format_data(error, "y", nested) # Format like y
+        f = self._format_data(error, "y", nested)  # Format like y
         ax = [error.dims.index(d) for d in error.attrs["sample"]]
-        return f.squeeze(axis=tuple(ax)) # Drop sample dims - only one here
-
+        return f.squeeze(axis=tuple(ax))  # Drop sample dims - only one here
 
     def get_model_covariance(self, prefactor: float = 1, **kwargs) -> Array2D:
         """
@@ -560,8 +561,8 @@ class XarrayObservable(BaseObservable[xr.DataArray]):
         pred = self.model.get_prediction(x)
         diff = truth - pred
         diff = format_like(
-            da = self.get_data("y", raw=True),
-            arr = diff,
+            da=self.get_data("y", raw=True),
+            arr=diff,
         )
         diff = self._apply_filters(diff)
         diff = self._to_numpy(diff)
