@@ -47,7 +47,7 @@ class ObservableModel:
         model_cls: type[BaseModel] | None = None,
         **kwargs,
     ) -> "ObservableModel":
-        """Initialize the class using a model loaded trough :func:`~sunbird.emulators.load_model_from_checkpoint`."""
+        """Initialize the class using a model loaded through :func:`~sunbird.emulators.load_model_from_checkpoint`."""
         model = load_model_from_checkpoint(filename, model_cls=model_cls)
         return cls(model=model, **kwargs)
 
@@ -131,7 +131,7 @@ class ObservableModel:
         Raises
         ------
         NotImplementedError
-            For method='mean' and diag=True.
+            For method='mean' and diag=False.
         ValueError
             When an unknown method is required.
 
@@ -139,6 +139,8 @@ class ObservableModel:
         -----
         Allowed `method` values in `make_covariance`:
             - `mad`: Median absolute deviation. See `~scipy.stats.median_abs_deviation`
+            - `mean`: Mean absolute deviation (diagonal only)
+            - `stdev`: Standard deviation (diag) or sample covariance (full)
         """
         logger.info(f"Computing covariance matrix using '{method}' method ({diag=}).")
         if method == "mad" and diag:
