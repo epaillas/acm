@@ -160,7 +160,7 @@ class TestRetry:
         retry(2, op, "a", "b", key="val")
         op.assert_called_once_with("a", "b", key="val")
 
-    @patch("jax.clear_caches")
+    @patch("acm.utils.scripts.clear_caches")  # Either jax or a no-op lambda
     @patch("gc.collect")
     def test_cache_cleared_on_failure(self, mock_gc, mock_jax_clear):
         """jax.clear_caches and gc.collect should each be called once per failure."""
