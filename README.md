@@ -30,30 +30,25 @@ pip install -e .[sunbird]
 > The `-e` flag is used to install the package in editable mode, which allows you to make changes to the code and have them reflected without reinstalling the package.
 
 ### Requirements
-Strict requirements are:
-- `numpy`
-- `scipy`
-- `pandas` 
-- `pyyaml`
-- `matplotlib`
-- `getdist`
+Requirements are handled in the `pyproject.toml` file. Notable default requirements include:
+- [`sunbird`](https://github.com/florpi/sunbird) to load and run the emulators
+- [`lsstypes`](https://github.com/adematti/lsstypes) to read and write statistics measurements
 
 > [!WARNING]
 > `Make` and `mpicc` are required to compile some C files during the installation, make sure they are available in your environment.
-
-To run the emulators, you will need:
-- [`sunbird`](https://github.com/florpi/sunbird)
 
 
 The package can be installed with the following dependencies:
 - `cosmodesi` to install extra cosmodesi dependencies (already included in the `cosmodesi` environment at NERSC)
 - `docs` to install the documentation building dependencies
-- some [estimators](acm/estimators/) also have their own dependencies, which can be installed trough the estimator name.
-- the [estimator backends](acm/estimators/galaxy_clustering/backends/) also have their own dependencies, which must be installed trough the backend name.
+- `estimators` to install all the dependencies for the [estimators](acm/estimators/)
+- the [estimator backends](acm/estimators/galaxy_clustering/backends/) also have their own dependencies that need to be installed separately, (e.g. `pypower`, `pyrecon`, ...)
 
 > [!TIP]
-> Add the dependency names separated by commas, e.g. `pip install acm[sunbird,cosmodesi,estimator1,estimator2]` to install several dependencies at once.
+> Add the dependency names separated by commas, e.g. `pip install acm[sunbird,cosmodesi,estimators]` to install several dependencies at once.
 
+> [!CAUTION]
+> On Windows systems with Intel processors, the `healpy` package installs `llvm-openmp` which reverts `intel-openmp` to a very low version, causing several issues - including Jupyter kernel crashes when showing plots. A quick-fix is to override the `intel-openmp` install to the latest version by hand (though we recommend using WSL instead)
 
 ### Cython building
 The Cython files can be rebuilt (*only in editable mode*) with:
@@ -95,7 +90,7 @@ The project has a continuous integration workflow defined in the `.github/workfl
 > [!Note]
 > This workflow only runs on the `acm` package code, and not on the scripts in the `scripts/` folder or on the documentation.
 
-The workflow formats the code with `Ruff` (used as a linter and formatter), type-checks the code with `ty`, and runs the tests with `pytest`. If any of those steps fail, the workflow will fail and the pull request cannot be merged until the issue is resolved. Annotations are added to the pull request code to indicate the issues that need to be resolved.
+The workflow formats the code with `ruff` (used as a linter and formatter), type-checks the code with `ty`, and runs the tests with `pytest`. If any of those steps fail, the workflow will fail and the pull request cannot be merged until the issue is resolved. Annotations are added to the pull request code to indicate the issues that need to be resolved.
 
 > [!NOTE]
 > We recommend running `ty check acm` locally to check for type issues before pushing your code. `ty` uses the environment it runs in to check for type issues, so some tests might differ depending on the environment. For example, if you have `jax` installed in your local environment, you might get some type errors that are not present in the CI workflow if `jax` is not installed there.
@@ -115,8 +110,17 @@ ruff check acm --fix
 > To prevent `ruff` rules from being applied to a specific line, you can use the `# ruff: noqa` comment at the end of the line. We recommend to specify specific rules to ignore (e.g. `# ruff: noqa: E501`). You can also ignore rules for an entire file by adding `# ruff: noqa` at the top of the file, but we discourage this practice as it can hide potential issues in the code.
 > [Learn more](https://docs.astral.sh/ruff/linter/#error-suppression).
 
-### Automated versions
 
+### Tests
+A test suite is implemented with `pytest` and is run on any pull request to the `dev` or `main` branches, and on any push to branches with open PR associated. The tests are located in the `tests/` folder and are organized by module.
+
+The test CI will fail if any test fails, or if the test coverage drops below the previous coverage. The PR cannot be merged until the issue is resolved. The test coverage is reported in the first comment of the PR, and is also available in the workflow logs.
+
+> [!TIP]
+> We recommend writing unit tests that depend on a minimal set of dependencies, and to use mocks for any external dependencies. This will ensure that the tests are fast and reliable, and that they can be run in any environment.
+
+
+### Automated versions
 The package version follows the [semantic versioning](https://semver.org/) scheme (`<major>.<minor>.<patch>-dev.<dev_version>`), and is automatically bumped on any merged PR to either `dev` or `main` branches. The version bumping is handled by the [bump2version](https://github.com/c4urself/bump2version) tool, with `.github/workflows/ci-version-dev.yml` handling dev bumps on `dev` and `.github/workflows/ci-version.yml` handling release bumps on `main`.
 
 On any merged PR to `dev`, the version of the package will be automatically bumped to the next dev version if any change is made in the `acm/` folder. For example, if the current version is `0.1.0`, it will be bumped to `0.1.0-dev.1`.
