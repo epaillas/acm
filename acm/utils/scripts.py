@@ -105,7 +105,7 @@ def retry(times: int, operation: Callable, *args, **kwargs) -> Any | None:  # no
         except Exception as e:  # noqa: BLE001 FIXME: catch jax exception type here
             logger.warning(f"Calling {name} failed with error: {e}")
             logger.info("Clearing cache and retrying...")
-            clear_caches() # Either jax or a no-op lambda
+            clear_caches()  # Either jax or a no-op lambda
             gc.collect()
     # Only runs when run reaches n
     logger.error(f"Calling {name} definitely failed after {times} times.")
