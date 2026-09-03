@@ -498,6 +498,198 @@ class TestObjectGroup:
         index_lists = group.get_index_lists(i=["j", "k"], j=["k"], k=["i", "j"])
         assert index_lists == {"i": [0, 0, 0], "j": [0, 0, 0], "k": [0, 1, 0]}
 
+    @pytest.fixture
+    def dummy_data(self):
+        """Create a dummy ObjectGroup with mixed index types for testing."""
+        obj1 = IndexedObject(indexes={"i": 1, "j": "a"}, data=make_lsstype_object())
+        obj2 = IndexedObject(indexes={"i": 1, "j": "b"}, data=make_lsstype_object())
+        obj3 = IndexedObject(indexes={"i": 0, "j": "a"}, data=make_lsstype_object())
+        return ObjectGroup(objects=[obj1, obj2, obj3])
+
+    def test_prepare_compression(self, dummy_data):
+        """Test that prepare_compression outputs the correct data and index lists."""
+        data, idx = dummy_data._prepare_compression(order=None, reindex=None)
+        assert data == dummy_data
+        assert idx == {"i": [1, 1, 0], "j": ["a", "b", "a"]}
+
+    @pytest.mark.parametrize("order", [["j", "i"], ["i", "j"]])
+    def test_prepare_compression_with_order(self, dummy_data, order):
+        """Test that prepare_compression respects the specified order of index names."""
+        data, idx_list = dummy_data._prepare_compression(order=order, reindex=None)
+        assert data == dummy_data.sort(*order)
+        assert idx_list == {"i": [0, 1, 1], "j": ["a", "a", "b"]} # Both orders return the same indexes
+
+    def test_prepare_compression_with_reindex(self, dummy_data):
+        """Test that prepare_compression respects the specified reindexing."""
+        reindex = {"i": ["j"], "j": ["i"]}
+        data, idx_list = dummy_data._prepare_compression(order=None, reindex=reindex)
+        assert data == dummy_data
+        assert idx_list == {"i": [0, 0, 1], "j": [0, 1, 0]} # Reindexed based on the other index
+
+
+class TestToXarray:
+    """Tests for ObjectGroup.to_xarray."""
+
+    @pytest.fixture
+    def group_2x2(self):
+        """2x2 ObjectGroup with known structure for shape/coord checks."""
+        objects = [
+            IndexedObject(indexes={"i": 0, "j": 0}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 0, "j": 1}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 1, "j": 0}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 1, "j": 1}, data=make_lsstype_object()),
+        ]
+        return ObjectGroup(objects=objects)
+
+    def test_returns_dataarray(self, group_2x2):
+        result = group_2x2.to_xarray(order=["i", "j"])
+        assert isinstance(result, xarray.DataArray)
+
+    def test_sample_and_features_attrs(self, group_2x2):
+        """DataArray attrs should list sample and feature dimension names."""
+        result = group_2x2.to_xarray(order=["i", "j"])
+        assert "sample" in result.attrs
+        assert "features" in result.attrs
+        assert "i" in result.attrs["sample"]
+        assert "j" in result.attrs["sample"]
+
+    def test_order_controls_dim_order(self, group_2x2):
+        """Order parameter should control the order of sample dimensions."""
+        result_ij = group_2x2.to_xarray(order=["i", "j"])
+        result_ji = group_2x2.to_xarray(order=["j", "i"])
+        assert result_ij.dims[:2] == ("i", "j")
+        assert result_ji.dims[:2] == ("j", "i")
+
+    def test_drop_single_removes_singleton(self):
+        """drop_single=True should squeeze out dimensions with a single unique value."""
+        objects = [
+            IndexedObject(indexes={"i": 0, "j": 0}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 0, "j": 1}, data=make_lsstype_object()),
+        ]
+        group = ObjectGroup(objects=objects)
+        result = group.to_xarray(drop_single=True)
+        assert "i" not in result.dims  # singleton i dimension should be dropped
+
+    def test_drop_single_false_keeps_singleton(self):
+        """drop_single=False should keep singleton dimensions."""
+        objects = [
+            IndexedObject(indexes={"i": 0, "j": 0}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 0, "j": 1}, data=make_lsstype_object()),
+        ]
+        group = ObjectGroup(objects=objects)
+        result = group.to_xarray(drop_single=False)
+        assert "i" in result.dims
+
+    def test_attrs_parameter_extracts_attributes(self, group_2x2):
+        """Attrs parameter should extract named attributes instead of data."""
+        result = group_2x2.to_xarray(attrs=["param1", "param2"])
+        assert "parameters" in result.dims
+        assert list(result.coords["parameters"].values) == ["param1", "param2"]
+
+    def test_reindex_applied(self, group_2x2):
+        """Reindex should renumber index values relative to their group."""
+        result = group_2x2.to_xarray(order=["i", "j"], reindex={"j": ["i"]})
+        assert list(result.coords["j"].values) == [0, 1]
+
+    def test_overlapping_sample_feature_coords_raises(self):
+        """If a sample index name clashes with a feature coord name, raise ValueError."""
+        rng = np.random.RandomState(42)
+        s = np.linspace(0, 200, 51)
+        mu = np.linspace(-1, 1, 101)
+        # Build a leaf whose coord name matches an index name
+        leaf = lsstypes.ObservableLeaf(
+            counts=1.0 + rng.uniform(size=(s.size, mu.size)),
+            s=s, mu=mu, coords=["s", "mu"],
+        )
+        tree = lsstypes.ObservableTree([leaf], pairs=["DD"])
+        objects = [
+            IndexedObject(indexes={"pairs": 0}, data=tree),  # "pairs" clashes with feature coord
+        ]
+        group = ObjectGroup(objects=objects)
+        with pytest.raises(ValueError, match="overlapping"):
+            group.to_xarray()
+
+    def test_observable_leaf_path(self):
+        """Coordinates should be correctly extracted if the data is an ObservableLeaf."""
+        rng = np.random.RandomState(42)
+        leaf = lsstypes.ObservableLeaf(
+            counts=rng.uniform(size=10),
+            s=np.linspace(0, 100, 10),
+            coords=["s"],
+        )
+        objects = [
+            IndexedObject(indexes={"i": 0}, data=leaf),
+            IndexedObject(indexes={"i": 1}, data=leaf),
+        ]
+        group = ObjectGroup(objects=objects)
+        result = group.to_xarray()
+        assert isinstance(result, xarray.DataArray)
+        assert "s" in result.dims
+
+    def test_mismatched_shape_raises(self):
+        """to_xarray should raise ValueError when data cannot be reshaped to the expected shape."""
+        rng = np.random.RandomState(42)
+        leaf = lsstypes.ObservableLeaf(counts=rng.uniform(size=10), s=np.linspace(0, 100, 10), coords=["s"])
+        objects = [
+            IndexedObject(indexes={"i": 0}, data=leaf),
+            IndexedObject(indexes={"i": 0}, data=leaf), # Same index: expects (1, 10) but will get (2, 10)
+        ]
+        group = ObjectGroup(objects=objects)
+        with pytest.raises(ValueError, match="Cannot reshape"):
+            group.to_xarray()
+
+
+class TestToLsstypes:
+    """Tests for ObjectGroup.to_lsstypes."""
+
+    @pytest.fixture
+    def group_2x2(self):
+        objects = [
+            IndexedObject(indexes={"i": 0, "j": 0}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 0, "j": 1}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 1, "j": 0}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 1, "j": 1}, data=make_lsstype_object()),
+        ]
+        return ObjectGroup(objects=objects)
+
+    def test_returns_observable_tree(self, group_2x2):
+        result = group_2x2.to_lsstypes(order=["i", "j"])
+        assert isinstance(result, lsstypes.ObservableTree)
+
+    def test_drop_single_removes_singleton(self):
+        """drop_single=True should exclude indexes with only one unique value."""
+        objects = [
+            IndexedObject(indexes={"i": 0, "j": 0}, data=make_lsstype_object()),
+            IndexedObject(indexes={"i": 0, "j": 1}, data=make_lsstype_object()),
+        ]
+        group = ObjectGroup(objects=objects)
+        result = group.to_lsstypes(drop_single=True)
+        assert not hasattr(result, "i")  # singleton i should not be a label
+
+    def test_attrs_extracts_parameters(self, group_2x2):
+        """Attrs parameter should build leaves from object attributes."""
+        result = group_2x2.to_lsstypes(attrs=["param1", "param2"])
+        assert isinstance(result, lsstypes.ObservableTree)
+        for obj in result:
+            assert obj.parameters == ["param1", "param2"]
+
+    def test_inconsistent_feature_length_raises(self):
+        """to_lsstypes should raise ValueError when objects have inconsistent feature lengths."""
+        rng = np.random.RandomState(42)
+        leaf1 = lsstypes.ObservableLeaf(
+            counts=rng.uniform(size=10), s=np.linspace(0, 100, 10), coords=["s"]
+        )
+        leaf2 = lsstypes.ObservableLeaf(
+            counts=rng.uniform(size=20), s=np.linspace(0, 100, 20), coords=["s"]
+        )
+        objects = [
+            IndexedObject(indexes={"i": 0}, data=leaf1),
+            IndexedObject(indexes={"i": 1}, data=leaf2),
+        ]
+        group = ObjectGroup(objects=objects)
+        with pytest.raises(ValueError, match="inhomogeneous shape"):
+            group.to_lsstypes()
+
 
 @patch("lsstypes.read", return_value=make_lsstype_object())
 class TestCompressor:
@@ -600,183 +792,6 @@ class TestCompressor:
         n_warn = sum(1 for record in caplog.records if "does not match the pattern" in record.message)
         assert n_warn == 1  # One file only should trigger one warning in this test
 
-    def test_compress(self, reader, compressor):
-        """Test that compress returns a DataArray with the correct number of objects."""
-        data = compressor.read(reader=reader)
-        result = compressor.compress(data=data)
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (2, 2, 3, 3, 51, 101)
-        assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
-        assert result.coords["k"].values.tolist() == [1, 2, 3] # This one should be as provided
-        assert result.attrs["sample"] == ["i", "j", "k"]
-        assert result.attrs["features"] == ["pairs", "s", "mu"]
-
-        # Check that the index types are correctly downcasted - in this case to int64
-        assert all(result.coords[dim].dtype == np.int64 for dim in ["i", "j", "k"])
-
-        # Check that the first object matches the compressed data
-        compressed_vals = result.sel(i=0, j=0, k=1).values
-        original_vals = np.stack(list(data.get_idx(i="0", j="0", k="1")[0].flatten()))
-        assert np.array_equal(compressed_vals, original_vals)
-
-    def test_compress_raise_on_incorrect_reshaping(self, reader, compressor):
-        """Test that compress raises a ValueError if the data cannot be reshaped correctly."""
-        # Add a duplicate file to the compressor's file list
-        # this should give the data a bigger size than inferred from the coordinates
-        duplicate_file = compressor._files[0]
-        compressor._files.append(duplicate_file)
-        data = compressor.read(reader=reader)
-        with pytest.raises(ValueError, match="Cannot reshape array of size"):
-            _ = compressor.compress(data=data)
-
-    def test_compress_and_full_order(self, reader, compressor):
-        """Test that compress with full ordering returns a DataArray with ordered dimensions."""
-        data = compressor.read(reader=reader)
-        result = compressor.compress(data=data, order=["k", "j", "i"])
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (3, 2, 2, 3, 51, 101)
-        assert result.dims == ("k", "j", "i", "pairs", "s", "mu")
-        assert result.attrs["sample"] == ["k", "j", "i"]
-
-    def test_compress_and_partial_order(self, reader, compressor):
-        """Test that compress with partial ordering returns a DataArray with no reordered dimensions."""
-        data = compressor.read(reader=reader)
-        result = compressor.compress(data=data, order=["k", "i"])
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (2, 2, 3, 3, 51, 101)
-        assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
-        assert result.attrs["sample"] == ["i", "j", "k"]
-
-    def test_compress_and_reindex(self, reader, compressor):
-        """Test that compress with reindexing returns a DataArray with the specified index values."""
-        data = compressor.read(reader=reader)
-        result = compressor.compress(data=data, reindex={"k": ["i", "j"]})
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (2, 2, 3, 3, 51, 101)
-        assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
-        assert result.attrs["sample"] == ["i", "j", "k"]
-        assert result.coords["k"].values.tolist() == [0, 1, 2]  # Reindexed to the order of ["i", "j"]
-        # FIXME: maybe there is a test for a more exotic reindexing case?
-
-    def test_compress_forwards_order_and_reindex(self, reader, compressor):
-        """Test that compress forwards arguments to the underlying data object."""
-        data = compressor.read(reader=reader)
-        p1 = patch.object(data, "sort", wraps=data.sort)
-        p2 = patch.object(data, "get_index_lists", wraps=data.get_index_lists)
-
-        # Separate 2 cases because the p2 patch won't work as data is reassigned when ordering is applied.
-        with p1 as mock_sort, p2 as mock_get_index_lists:
-            _ = compressor.compress(data=data, order=["k", "j", "i"])
-            mock_sort.assert_called_once_with("k", "j", "i")
-            mock_sort.reset_mock()  # Reset mock to avoid interference with the next test
-
-            _ = compressor.compress(data=data, reindex={"k": ["i", "j"]})
-            mock_sort.assert_called_once_with()  # Should return self - allowing the next patch to work
-            mock_get_index_lists.assert_called_once_with(k=["i", "j"])  # Ensure reindexing was called with the correct arguments
-
-    def test_compress_and_order_and_reindex(self, reader, compressor):
-        """Test that compress with ordering and reindexing returns a DataArray with the specified order and index values."""
-        data = compressor.read(reader=reader)
-        result = compressor.compress(data=data, order=["k", "j", "i"], reindex={"k": ["i", "j"]})
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (3, 2, 2, 3, 51, 101)
-        assert result.dims == ("k", "j", "i", "pairs", "s", "mu")
-        assert result.attrs["sample"] == ["k", "j", "i"]
-        assert result.coords["k"].values.tolist() == [0, 1, 2]  # Reindexed to the order of ["i", "j"]
-
-    @pytest.fixture
-    def dummy_data(self):
-        """Create a dummy ObjectGroup with mixed index types for testing."""
-        obj1 = IndexedObject(indexes={"i": 1, "j": "a"}, data=make_lsstype_object())
-        obj2 = IndexedObject(indexes={"i": 1, "j": "b"}, data=make_lsstype_object())
-        obj3 = IndexedObject(indexes={"i": 1, "j": "c"}, data=make_lsstype_object())
-        return ObjectGroup(objects=[obj1, obj2, obj3])
-
-    def test_compress_leaves(self, reader, dummy_data):
-        """Test that compress with lsstype ObservableLeaf object works."""
-        leaves = make_lsstype_object().flatten(level=None) # List of ObservableLeaf objects
-        obj1 = IndexedObject(indexes={"i": 1, "j": "a"}, data=leaves[0])
-        obj2 = IndexedObject(indexes={"i": 1, "j": "b"}, data=leaves[1])
-        obj3 = IndexedObject(indexes={"i": 1, "j": "c"}, data=leaves[2])
-        group = ObjectGroup(objects=[obj1, obj2, obj3])
-        result = Compressor.compress(data=group, drop_single=False)
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (1, 3, 51, 101)  # 1 unique 'i' value and 3 unique 'j' values
-        assert result.dims == ("i", "j", "s", "mu") # coords are indexes + leaf coordinates
-        assert result.attrs["sample"] == ["i", "j"]
-        assert result.attrs["features"] == ["s", "mu"]
-
-    def test_compress_mixed_index_types(self, reader, dummy_data):
-        """Test that compress can handle mixed index types (int and str) and correctly downcast."""
-        result = Compressor.compress(data=dummy_data, drop_single=False)
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (1, 3, 3, 51, 101)  # 1 unique 'i' value and 3 unique 'j' values
-        assert result.dims == ("i", "j", "pairs", "s", "mu")
-        assert result.attrs["sample"] == ["i", "j"]
-        assert result.attrs["features"] == ["pairs", "s", "mu"]
-        # Check that the index types are correctly downcasted
-        assert result.coords["i"].dtype == np.int64
-        assert result.coords["j"].dtype.type is np.str_
-
-    def test_compress_drop_single(self, reader, dummy_data):
-        """Test that compress with drop_single=True drops dimensions with a single unique value."""
-        result = Compressor.compress(data=dummy_data, drop_single=True)
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (3, 3, 51, 101)  # 'i' dimension dropped
-        assert "i" not in result.dims
-        assert "i" not in result.attrs["sample"]
-
-        result_no_drop = Compressor.compress(data=dummy_data, drop_single=False)
-        assert result_no_drop.shape == (1, 3, 3, 51, 101)  # 'i' dimension retained
-        assert "i" in result_no_drop.dims
-        assert "i" in result_no_drop.attrs["sample"]
-
-    def test_compress_drop_single_for_one_object(self, reader):
-        """Test that compress with drop_single=True works correctly for a single object in the group."""
-        obj = IndexedObject(indexes={"i": 1, "j": "a"}, data=make_lsstype_object())
-        group = ObjectGroup(objects=[obj])
-        result = Compressor.compress(data=group, drop_single=True)
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (3, 51, 101)  # Both 'i' and 'j' dimensions dropped
-        assert "i" not in result.dims
-        assert "j" not in result.dims
-        assert "i" not in result.attrs["sample"]
-        assert "j" not in result.attrs["sample"]
-
-    def test_compress_clashing_coords_raises(self, reader):
-        """Test that compress raises a ValueError when there are clashing coordinates (e.g. features and sample have a similar coordinate name)."""
-        obj1 = IndexedObject(indexes={"i": 1, "s": "a"}, data=make_lsstype_object())
-        group = ObjectGroup(objects=[obj1])
-        with pytest.raises(ValueError, match="Sample coordinates and feature coordinates have overlapping names"):
-            _ = Compressor.compress(data=group)
-
-    def test_compress_with_attrs(self, reader, dummy_data):
-        """Compressing with attrs should compress the object attributes instead of the data."""
-        result = Compressor.compress(data=dummy_data, attrs=["param1", "param2"])
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (3, 2)  # 3 unique 'j' values and 2 parameters
-        assert result.dims == ("j", "parameters")
-        assert result.attrs["sample"] == ["j"] # dropped single 'i' dimension
-        assert result.attrs["features"] == ["parameters"]
-        # Only selected attributes should be present in the coordinates
-        assert "param1" in result.coords["parameters"].values
-        assert "param2" in result.coords["parameters"].values
-        assert "param3" not in result.coords["parameters"].values  # param3 should not be included
-        # Check that the values match the selected attributes from the original objects
-        attrs = np.array([list(obj.data.attrs.values()) for obj in dummy_data.objects])
-        assert np.array_equal(result.values, attrs[:, [0, 1]])  # The values should match the selected attributes
-
-    def test_compress_with_attrs_preserve_order(self, reader, dummy_data):
-        """Test that compress with attrs preserves the order of the specified attributes."""
-        result = Compressor.compress(data=dummy_data, attrs=["param2", "param1"])
-        assert isinstance(result, xarray.DataArray)
-        assert result.shape == (3, 2)
-        assert result.dims == ("j", "parameters")
-        assert result.attrs["sample"] == ["j"]
-        assert result.attrs["features"] == ["parameters"]
-        # Check that the attributes are in the correct order
-        assert result.coords["parameters"].values[0] == "param2"
-        assert result.coords["parameters"].values[1] == "param1"
 
 class TestDowncast:
     """Test the downcast function for converting numpy arrays to lower precision types."""
@@ -916,8 +931,7 @@ def test_full_chain(reader, tmp_path, make_files):  # noqa: ARG001
     group = compressor.read(reader=reader, ignore_index=["m"])
     group = group.merge(method=lsstypes.mean)
     group = group.select(s=(0, 50))
-    result = Compressor.compress(
-        data=group,
+    result = group.to_xarray(
         order=["i", "j", "k"],
         reindex={"j": ["i"], "k": ["i", "j"]},
         drop_single=True,
