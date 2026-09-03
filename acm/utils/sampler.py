@@ -1,4 +1,5 @@
 """Utils module containing the LatinHyperCube sampler for HOD parameters."""
+
 from pathlib import Path
 
 import numpy as np
@@ -34,8 +35,10 @@ class LatinHyperCubeSampler:
     def add_columns(sample: pd.DataFrame, extra_params: pd.DataFrame) -> pd.DataFrame:
         """Add the extra parameters to each row of the sampled parameters."""
         nrows = sample.shape[0]
-        extra_df = pd.DataFrame({k: np.repeat(v, nrows) for k, v in extra_params.items()})
-        extra_df = extra_df.reset_index(drop=True) # All rows have index 0
+        extra_df = pd.DataFrame(
+            {k: np.repeat(v, nrows) for k, v in extra_params.items()}
+        )
+        extra_df = extra_df.reset_index(drop=True)  # All rows have index 0
         return pd.concat([sample, extra_df], axis=1)
 
     @staticmethod
@@ -45,11 +48,13 @@ class LatinHyperCubeSampler:
         order: list[str] | None = None,
     ) -> None:
         """Save the sampled parameters to a CSV file."""
+
         def _save(df: pd.DataFrame, fn: str | Path) -> None:
             if order is not None:
                 df = df[order]
             Path(fn).parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(fn, index=False, float_format="%.5f")
+
         if isinstance(sample, pd.DataFrame):
             _save(sample, save_fn)
         elif isinstance(sample, dict):
