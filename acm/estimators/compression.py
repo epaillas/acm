@@ -40,6 +40,7 @@ PATTERNS = {
     "cpsh": r"c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/",
 }
 
+
 def attrs_to_tree(tree: LsstypeObject, attrs: list[str]) -> ObservableTree:
     """Extract attributes from an lsstypes object and return a new ObservableTree with each attribute value as a leaf."""
     leaves = [ObservableLeaf(value=tree.attrs[attr]) for attr in attrs]
@@ -413,7 +414,7 @@ class ObjectGroup:
         data, index_lists = self._prepare_compression(order, reindex)
         sample_coords = {idx: np.unique(values) for idx, values in index_lists.items()}
 
-        if attrs is not None: # compress parameters instead of data
+        if attrs is not None:  # compress parameters instead of data
             features_coords = {"parameters": np.array(attrs)}
             result = np.asarray(
                 [o.data.attrs.get(attr) for o in data.objects for attr in attrs]
@@ -507,9 +508,9 @@ class ObjectGroup:
             **index_lists,
         )
 
-        #Check if values can be cast as an array (i.e. consistent feature lengths)
+        # Check if values can be cast as an array (i.e. consistent feature lengths)
         try:
-            _ = np.array(tree.value(concatenate=False)) # (n_samples, n_features)
+            _ = np.array(tree.value(concatenate=False))  # (n_samples, n_features)
         except ValueError:
             logger.exception("Unable to cast tree values to a 2D array")
             raise
