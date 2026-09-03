@@ -48,11 +48,11 @@ To run the emulators, you will need:
 The package can be installed with the following dependencies:
 - `cosmodesi` to install extra cosmodesi dependencies (already included in the `cosmodesi` environment at NERSC)
 - `docs` to install the documentation building dependencies
-- some [estimators](acm/estimators/) also have their own dependencies, which can be installed trough the estimator name.
-- the [estimator backends](acm/estimators/galaxy_clustering/backends/) also have their own dependencies, which must be installed trough the backend name.
+- `estimators` to install all extra [estimators](acm/estimators/) dependencies.
+- `dark-matter` to install all extra [estimator backends](acm/estimators/galaxy_clustering/backends/) dependencies.
 
 > [!TIP]
-> Add the dependency names separated by commas, e.g. `pip install acm[sunbird,cosmodesi,estimator1,estimator2]` to install several dependencies at once.
+> Add the dependency names separated by commas, e.g. `pip install acm[sunbird,cosmodesi,estimators,dark-matter]` to install several dependencies at once.
 
 
 ### Cython building

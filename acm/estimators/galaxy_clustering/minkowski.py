@@ -1,3 +1,4 @@
+# type: ignore
 import logging
 import time
 
@@ -9,6 +10,9 @@ from .base import BaseEstimator
 from .src import minkowski as mk
 
 logger = logging.getLogger(__name__)
+logger.critical(
+    f"{__name__} is out of date and needs to be updated to the new framework. Outputs might crash or be inconsistent."
+)
 
 
 class MinkowskiFunctionals(BaseEstimator):

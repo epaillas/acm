@@ -1,8 +1,16 @@
+# type: ignore
+import logging
+
 import numpy as np
 from numba import njit, prange
 from scipy.spatial import cKDTree
 
 from .base import BaseEstimator
+
+logger = logging.getLogger(__name__)
+logger.critical(
+    f"{__name__} is out of date and needs to be updated to the new framework. Outputs might crash or be inconsistent."
+)
 
 
 class KthNearestNeighbor(BaseEstimator):
