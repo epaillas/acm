@@ -2,6 +2,7 @@
 Compression module for estimator results.
 
 This module provides classes and functions to compress estimator results stored as lsstypes objects.
+Sample indexes are extracted from the filename pattern, feature coordinates are extracted from the lsstypes objects themselves.
 
 Example
 -------
@@ -12,8 +13,7 @@ Example
 >>> group = compressor.read(reader=lsstypes.read, ignore_index=['indice_l'])
 >>> group = group.merge(method=lsstypes.mean, **merge_kwargs)
 >>> group = group.select(**rebin).select(**select).get(**get)
->>> result = Compressor.compress(
-        data=group,
+>>> result = group.to_xarray(
         order=['indice_i', 'indice_j', 'indice_k'],
         reindex={'indice_j': ['indice_i'], 'indice_k': ['indice_i', 'indice_j']},
         drop_single=True,
@@ -26,9 +26,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import lsstypes
 import numpy as np
-import xarray
+import xarray as xr
+from lsstypes import ObservableLeaf, ObservableTree
 from pandas import to_numeric
 
 from acm.typing import LsstypeObject
@@ -37,8 +37,13 @@ from acm.utils.xarray import split_vars
 logger = logging.getLogger(__name__)
 
 PATTERNS = {
-    "cpsh": r"c{cosmo_idx}_p{phase_idx}/seed{seed}/hod{hod_idx}/",
+    "cpsh": r"c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/",
 }
+
+def attrs_to_tree(tree: LsstypeObject, attrs: list[str]) -> ObservableTree:
+    """Extract attributes from an lsstypes object and return a new ObservableTree with each attribute value as a leaf."""
+    leaves = [ObservableLeaf(value=tree.attrs[attr]) for attr in attrs]
+    return ObservableTree(branches=leaves, parameters=attrs)
 
 
 @dataclass
@@ -77,8 +82,8 @@ class Pattern:
         index_names = self.names
         for index in index_names:
             glob_pattern = glob_pattern.replace(f"{{{index}}}", "*")
-        # Avoid reccursive glob patterns for adjacent braces
-        glob_pattern = glob_pattern.replace("**", "*")
+        # Avoid reccursive glob patterns for adjacent braces: Collapse any run of adjacent stars into a single '*'
+        glob_pattern = re.sub(r"\*{2,}", "*", glob_pattern)
         return glob_pattern
 
     def to_regex(self, ignore_index: list[str] | None = None) -> re.Pattern:
@@ -349,6 +354,167 @@ class ObjectGroup:
 
         return index_lists
 
+    def _prepare_compression(
+        self,
+        order: list[str] | None,
+        reindex: dict[str, list[str]] | None,
+    ) -> tuple["ObjectGroup", dict[str, list]]:
+        """Sort objects and compute (optionally reindexed/ordered) index lists."""
+        order = order or []
+        reindex = reindex or {}
+
+        data = self.sort(*order)  # Ensure ordering and uniqueness of indexes
+        index_lists = data.get_index_lists(**reindex)  # ordered + reindexed
+        if set(order) == set(data.names):
+            index_lists = {k: index_lists[k] for k in order}  # Order indexes
+            logger.info(f"Ordering indexes as specified: {order}")
+        return data, index_lists
+
+    def to_xarray(
+        self,
+        order: list[str] | None = None,
+        reindex: dict[str, list[str]] | None = None,
+        attrs: list[str] | None = None,
+        drop_single: bool = True,
+    ) -> xr.DataArray:
+        """
+        Compress the content of the ObjectGroup into a xarray DataArray.
+
+        Parameters
+        ----------
+        order: list[str], optional
+            The order of the indexes the objects should be sorted by.
+            Changes the order of the dimensions in the resulting DataArray if all indexes are provided
+            (otherwise, it is not possible to know the correct order of the dimensions).
+            If None, the original order of the objects is preserved.
+        reindex: dict[str, list[str]], optional
+            A dictionary specifying how to reindex the indexes.
+            See :meth:`get_index_lists` for details.
+        attrs: list[str], optional
+            A list of attribute names to extract from the data objects.
+            The resulting DataArray will have a single feature dimension named "parameters"
+            containing these attributes in the provided order.
+        drop_single: bool, optional
+            Whether to drop singleton dimensions in the resulting DataArray.
+
+        Returns
+        -------
+        xarray.DataArray
+            A DataArray containing the compressed data from the ObjectGroup.
+            The dimensions correspond to the unique values of the indexes and the features of the data objects.
+            The attributes "sample" and "features" are added to indicate which dimensions correspond to sample indexes and feature coordinates, respectively.
+
+        Raises
+        ------
+        ValueError
+            If sample coordinates and feature coordinates have overlapping names.
+            If the resulting array cannot be reshaped to the expected shape based on the provided coordinates.
+        """
+        data, index_lists = self._prepare_compression(order, reindex)
+        sample_coords = {idx: np.unique(values) for idx, values in index_lists.items()}
+
+        if attrs is not None: # compress parameters instead of data
+            features_coords = {"parameters": np.array(attrs)}
+            result = np.asarray(
+                [o.data.attrs.get(attr) for o in data.objects for attr in attrs]
+            )
+        else:
+            # Unflattened labels from the first data object, assuming all objects have the same structure.
+            object_data = data.objects[0].data
+            if isinstance(object_data, ObservableTree):
+                _tmp = {
+                    **object_data.labels(return_type="unflatten", level=None),
+                    **object_data.flatten(level=None)[0].coords(),
+                }  # extract labels and coordinates
+            else:  # ObservableLeaf
+                _tmp = object_data.coords()  # access coordinates only
+            features_coords = {k: np.unique(v) for k, v in _tmp.items()}
+            result = np.asarray([o.data for o in data.objects])
+
+        if set(sample_coords) & set(features_coords):
+            raise ValueError(
+                "Sample coordinates and feature coordinates have overlapping names."
+                f" Sample: {list(sample_coords)}, Features: {list(features_coords)}"
+            )
+
+        coords = {**sample_coords, **features_coords}
+        coords = {k: downcast(v) for k, v in coords.items()}
+        logger.debug(f"Coordinates for xarray DataArray: {coords}")
+
+        shape = [len(v) for v in coords.values()]
+        if result.size != np.prod(shape):
+            raise ValueError(
+                f"Cannot reshape array of size {result.size} to shape {shape} based on provided coordinates."
+            )
+        logger.debug(f"Reshaping result array of size {result.size} to shape {shape}")
+
+        cout = xr.DataArray(
+            data=result.reshape(shape),
+            coords=coords,
+        )
+
+        if drop_single:
+            singleton_dims = [dim for dim in cout.dims if cout.sizes[dim] == 1]
+            logger.debug(f"Dropping singleton dimensions: {singleton_dims}")
+            cout = cout.squeeze(drop=True)
+
+        cout.attrs = {
+            "sample": [s for s in sample_coords if s in cout.dims],
+            "features": [s for s in features_coords if s in cout.dims],
+        }  # Assign attrs here to avoid singleton dimension in attrs
+
+        return cout
+
+    def to_lsstypes(
+        self,
+        order: list[str] | None = None,
+        reindex: dict[str, list[str]] | None = None,
+        attrs: list[str] | None = None,
+        drop_single: bool = True,
+    ) -> ObservableTree:
+        """
+        Convert the ObjectGroup to an ObservableTree labeled by the object indexes.
+
+        Parameters
+        ----------
+        order: list[str], optional
+            The order of the indexes the objects should be sorted by.
+            Changes the order of the branches in the resulting ObservableTree if all indexes are provided
+            (otherwise, it is not possible to know the correct order of the branches).
+            If None, the original order of the objects is preserved.
+        reindex: dict[str, list[str]], optional
+            A dictionary specifying how to reindex the indexes.
+            See :meth:`get_index_lists` for details.
+        attrs: list[str], optional
+            A list of attribute names to extract from the data objects.
+            The resulting ObservableTree will have a single feature dimension named "parameters"
+            containing these attributes in the provided order.
+        drop_single: bool, optional
+            Whether to drop singleton indexes in the resulting ObservableTree first label.
+        """
+        data, index_lists = self._prepare_compression(order, reindex)
+        if drop_single:
+            index_lists = {k: v for k, v in index_lists.items() if len(set(v)) > 1}
+            logger.info(f"Removing singleton indexes: {list(index_lists)}")
+
+        if attrs:
+            branches = [attrs_to_tree(o.data, attrs) for o in data.objects]
+        else:
+            branches = [o.data for o in data.objects]
+
+        tree = ObservableTree(
+            branches=branches,
+            **index_lists,
+        )
+
+        #Check if values can be cast as an array (i.e. consistent feature lengths)
+        try:
+            _ = np.array(tree.value(concatenate=False)) # (n_samples, n_features)
+        except ValueError:
+            logger.exception("Unable to cast tree values to a 2D array")
+            raise
+        return tree
+
 
 class Compressor:
     """Compression class for estimator results."""
@@ -426,121 +592,14 @@ class Compressor:
                 )
         return cout
 
-    @staticmethod
-    def compress(
-        data: ObjectGroup,
-        order: list[str] | None = None,
-        reindex: dict[str, list[str]] | None = None,
-        attrs: list[str] | None = None,
-        drop_single: bool = True,
-    ) -> xarray.DataArray:
-        """
-        Compress an ObjectGroup instance in a xarray DataArray.
-
-        If attrs is provided, it will extract the attributes from the data objects instead of the data itself.
-        The resulting feature dimension will be named "parameters" and will contain the provided attribute names.
-
-        Parameters
-        ----------
-        data: ObjectGroup
-            The ObjectGroup instance to compress.
-        order: list[str], optional
-            The order of the indexes the objects should be sorted by.
-            Changes the order of the dimensions in the resulting DataArray if all indexes are provided
-            (otherwise, it is not possible to know the correct order of the dimensions).
-            If None, the original order of the objects is preserved.
-        reindex: dict[str, list[str]], optional
-            A dictionary specifying how to reindex the indexes.
-            See :meth:`ObjectGroup.get_index_lists` for details.
-        attrs: list[str], optional
-            A list of attribute names to extract from the data objects.
-            The resulting DataArray will have a single feature dimension named "parameters"
-            containing these attributes in the provided order.
-        drop_single: bool, optional
-            Whether to drop singleton dimensions in the resulting DataArray.
-
-        Returns
-        -------
-        xarray.DataArray
-            A DataArray containing the compressed data from the ObjectGroup.
-            The dimensions correspond to the unique values of the indexes and the features of the data objects.
-            The attributes "sample" and "features" are added to indicate which dimensions correspond to sample indexes and feature coordinates, respectively.
-
-        Raises
-        ------
-        ValueError
-            If sample coordinates and feature coordinates have overlapping names.
-            If the resulting array cannot be reshaped to the expected shape based on the provided coordinates.
-        """
-        order = order or []
-        reindex = reindex or {}
-
-        data = data.sort(*order)  # Ensure ordering and uniqueness of indexes
-        index_lists = data.get_index_lists(**reindex)  # ordered + reindexed
-        if set(order) == set(data.names):
-            index_lists = {k: index_lists[k] for k in order}  # Order indexes
-            logger.info(f"Ordering indexes as specified: {order}")
-        sample_coords = {idx: np.unique(values) for idx, values in index_lists.items()}
-
-        if attrs is not None:
-            features_coords = {"parameters": np.array(attrs)}
-            result = np.asarray(
-                [o.data.attrs.get(attr) for o in data.objects for attr in attrs]
-            )
-        else:
-            # Unflattened labels from the first data object, assuming all objects have the same structure.
-            object_data = data.objects[0].data
-            if isinstance(object_data, lsstypes.ObservableTree):
-                _tmp = {
-                    **object_data.labels(return_type="unflatten", level=None),
-                    **object_data.flatten(level=None)[0].coords(),
-                }  # extract labels and coordinates
-            else:  # lsstypes.ObservableLeaf
-                _tmp = object_data.coords()  # access coordinates only
-            features_coords = {k: np.unique(v) for k, v in _tmp.items()}
-            result = np.asarray([o.data for o in data.objects])
-
-        if set(sample_coords) & set(features_coords):
-            raise ValueError(
-                "Sample coordinates and feature coordinates have overlapping names."
-                f" Sample: {list(sample_coords)}, Features: {list(features_coords)}"
-            )
-
-        coords = {**sample_coords, **features_coords}
-        coords = {k: downcast(v) for k, v in coords.items()}
-        logger.debug(f"Coordinates for xarray DataArray: {coords}")
-
-        shape = [len(v) for v in coords.values()]
-        if result.size != np.prod(shape):
-            raise ValueError(
-                f"Cannot reshape array of size {result.size} to shape {shape} based on provided coordinates."
-            )
-        logger.debug(f"Reshaping result array of size {result.size} to shape {shape}")
-
-        cout = xarray.DataArray(
-            data=result.reshape(shape),
-            coords=coords,
-        )
-
-        if drop_single:
-            singleton_dims = [dim for dim in cout.dims if cout.sizes[dim] == 1]
-            logger.debug(f"Dropping singleton dimensions: {singleton_dims}")
-            cout = cout.squeeze(drop=True)
-
-        cout.attrs = {
-            "sample": [s for s in sample_coords if s in cout.dims],
-            "features": [s for s in features_coords if s in cout.dims],
-        }  # Assign attrs here to avoid singleton dimension in attrs
-
-        return cout
-
 
 def downcast(array: np.ndarray[tuple[int]]) -> np.ndarray[tuple[int]]:
     """
-    Downcast a 1D numpy array to the smallest possible dtype without losing information.
+    Convert a 1D array of strings to a numeric dtype (int/float) where possible.
 
-    Converts strings arrays and returns the original array if
-    downcasting is not possible (ValueError raised).
+    Does not reduce to the smallest possible numeric subtype (e.g. int8) — only
+    converts strings to their natural numeric dtype (int64/float64). Returns the
+    original array unchanged if conversion is not possible (ValueError raised).
     """
     try:
         array = to_numeric(array, errors="raise")
@@ -549,11 +608,12 @@ def downcast(array: np.ndarray[tuple[int]]) -> np.ndarray[tuple[int]]:
     return array
 
 
+# NOTE: helper method for xarray split
 def split_test_set(
-    ds: xarray.Dataset,
+    ds: xr.Dataset,
     filters: dict,
     to_split: list[str] | None = None,
-) -> xarray.Dataset:
+) -> xr.Dataset:
     """
     Split DataArrays into test/train sets based on filters and merge into a single Dataset.
 
@@ -598,5 +658,5 @@ def split_test_set(
         v_in.attrs["nan_dims"] = list(filters)
         v_out.attrs["nan_dims"] = list(filters)
 
-        ds = xarray.merge([ds, v_in, v_out], join="outer")
+        ds = xr.merge([ds, v_in, v_out], join="outer")
     return ds
