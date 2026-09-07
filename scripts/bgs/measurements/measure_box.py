@@ -167,7 +167,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_galaxies", action="store_true", help="Save galaxy catalogs.")
     parser.add_argument("--measurements", type=str, nargs="+", default=[], help="List of statistics to measure on mocks.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files.")
-    parser.add_argument("--parameters_override", type=str, help="File containing an array of parameters overriding cosmologies, phases, seeds and hod parameter values.")
+    parser.add_argument("--parameters_override", type=str, help="CSV file containing parameters overriding cosmologies, phases, seeds and hod parameter values.")
     parser.add_argument("--failures", type=int, default=3, help="Number of tries for each etsimator computation before skipping (solving memory issues).")
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level (e.g., DEBUG, INFO, WARNING, ERROR).")
     parser.add_argument("--log_file", type=str, help="File to save logs. If None, logs are printed to console.")
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     hods = args.hods or range(args.start_hod, args.start_hod + args.max_hod)
     indices = itertools.product(args.cosmologies, args.phases, args.seeds, hods)
     if args.parameters_override:
-        _po = np.load(args.parameters_override)
+        _po = np.genfromtxt(args.parameters_override, delimiter=',', skip_header=1)
         indices = _po[np.lexsort((_po[:, 1], _po[:, 0]))] # sort by (cosmo, phase)
         logger.info(f"Overriding parameters from {args.parameters_override}.")
     grouped = itertools.groupby(indices, key=lambda x: (x[0], x[1]))
@@ -336,7 +336,7 @@ if __name__ == "__main__":
                         # Update result attrs with cosmo+HOD parameters
                         result.attrs.update(parameters)
                         estimator.save(result, fn, overwrite=args.overwrite)
-                del backend
+                del backend, positions
                 _memory_cleanup()
             else: # Only run if target_density does not break los loop
                 hod_count += 1
