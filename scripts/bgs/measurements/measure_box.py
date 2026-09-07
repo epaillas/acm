@@ -203,7 +203,7 @@ if __name__ == "__main__":
     hods = args.hods or range(args.start_hod, args.start_hod + args.max_hod)
     indices = itertools.product(args.cosmologies, args.phases, args.seeds, hods)
     if args.parameters_override:
-        _po = np.genfromtxt(args.parameters_override, delimiter=',', skip_header=1)
+        _po = np.genfromtxt(args.parameters_override, delimiter=',', dtype=int)
         indices = _po[np.lexsort((_po[:, 1], _po[:, 0]))] # sort by (cosmo, phase)
         logger.info(f"Overriding parameters from {args.parameters_override}.")
     grouped = itertools.groupby(indices, key=lambda x: (x[0], x[1]))
