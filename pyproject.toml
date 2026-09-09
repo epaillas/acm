@@ -24,8 +24,11 @@ dependencies = [ # Base requirements
     "pandas", 
     "xarray", 
     "pyyaml",
-    "healpy",
     "matplotlib",
+    "torch",
+    "h5py",
+    "h5netcdf", # For reading h5 files with xarray
+    "lsstypes @ git+https://github.com/adematti/lsstypes",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
 ]
 dynamic = ["version"]
@@ -34,11 +37,10 @@ dynamic = ["version"]
 cosmodesi = [ # Dependencies existing in the cosmodesi ecosystem
     "jax",
     "astropy",
+    "healpy",
     "cosmoprimo[class,camb,astropy,extras] @ git+https://github.com/cosmodesi/cosmoprimo",
     "fitsio",
-    "h5py",
     "desitarget",
-    "lsstypes @ git+https://github.com/adematti/lsstypes",
     "mockfactory @ git+https://github.com/cosmodesi/mockfactory",
     "regressis @ git+https://github.com/echaussidon/regressis",
 ]
@@ -68,9 +70,8 @@ testing = [ # Testing dependencies, with minimal install for type hints
     "pytest-cov",
     "pytest-emoji",
     "requests",
+    "healpy",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
-    # not tested, but dependency of some imports - minimal install
-    "lsstypes @ git+https://github.com/adematti/lsstypes",
 ]
 
 [project.urls]
