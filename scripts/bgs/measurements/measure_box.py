@@ -244,12 +244,12 @@ if __name__ == "__main__":
         hod_params = get_params( # Get only HOD parameters, without cosmology parameters
             tracer_names,
             args.param_dir,
-            pattern=f"hod_params/Bouchard25_c{cosmo_idx:03d}.csv",
+            pattern=f"hod/Bouchard25_c{cosmo_idx:03d}.csv",
         )
         all_params = get_params( # Same, but with cosmology parameters included
             tracer_names,
             args.param_dir,
-            pattern=f"cosmo+hod_params/AbacusSummit_c{cosmo_idx:03d}.csv",
+            pattern=f"cosmo+hod/AbacusSummit_c{cosmo_idx:03d}.csv",
         )
 
         for _, _, seed, hod_idx in group:

@@ -1,8 +1,8 @@
 cosmologies: [0]
 phases: [0]
 seeds: [0]
-param_dir: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-20/parameters
-save_dir: /pscratch/sd/s/sbouchar/acm/bgs-v2.0/mr-20/measurements
+param_dir: /pscratch/sd/s/sbouchar/acm/bgs/parameters
+save_dir: /pscratch/sd/s/sbouchar/acm/bgs/mr-20/measurements/v2.0/abacus/
 estimator_config: estimator_parameters.yaml
 n_hod: 100
 sim_type: base
