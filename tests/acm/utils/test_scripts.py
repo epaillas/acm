@@ -1,4 +1,5 @@
 import argparse
+import logging
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -6,12 +7,14 @@ import pytest
 import yaml
 
 from acm.utils.scripts import (
+    BenchmarkTimer,
     NumpyLoader,
     apply_parser_default,
     detect_gpu,
     dump_config,
     get_nthreads,
     load_parser_default,
+    memory_cleanup,
     retry,
 )
 
@@ -133,6 +136,22 @@ class TestDumpConfig:
         assert "label: test" in captured
 
 
+class TestMemoryCleanup:
+    @patch("acm.utils.scripts.gc.collect")
+    @patch("acm.utils.scripts.clear_caches")
+    def test_memory_cleanup_calls_gc_and_jax(self, mock_jax_clear, mock_gc):
+        memory_cleanup(use_jax=True)
+        mock_gc.assert_called_once()
+        mock_jax_clear.assert_called_once()
+
+    @patch("acm.utils.scripts.gc.collect")
+    @patch("acm.utils.scripts.clear_caches")
+    def test_memory_cleanup_without_jax(self, mock_jax_clear, mock_gc):
+        memory_cleanup(use_jax=False)
+        mock_gc.assert_called_once()
+        mock_jax_clear.assert_not_called()
+
+
 class TestRetry:
     def test_succeeds_on_first_attempt(self):
         """Operation succeeding immediately should return its value after one call."""
@@ -160,7 +179,7 @@ class TestRetry:
         retry(2, op, "a", "b", key="val")
         op.assert_called_once_with("a", "b", key="val")
 
-    @patch("acm.utils.scripts.clear_caches")  # Either jax or a no-op lambda
+    @patch("acm.utils.scripts.clear_caches")
     @patch("gc.collect")
     def test_cache_cleared_on_failure(self, mock_gc, mock_jax_clear):
         """jax.clear_caches and gc.collect should each be called once per failure."""
@@ -183,6 +202,85 @@ class TestRetry:
         op = MagicMock(return_value="ok")
         with pytest.raises(ValueError, match='got 0'):
             retry(0, op)
+
+
+class TestBenchmarkTimer:
+
+    @pytest.fixture
+    def timer(self):
+        return BenchmarkTimer(keys=["foo", "bar"])
+
+    def test_init_empty_times(self, timer):
+        assert timer.times == {"foo": [], "bar": []}
+
+    def test_init_empty_t0(self, timer):
+        assert timer.t0 == {}
+
+    def test_start_unknown_key_raises(self, timer):
+        with pytest.raises(ValueError, match="Unknown key"):
+            timer.start("nonexistent")
+
+    def test_register_unknown_key_raises(self, timer):
+        with pytest.raises(ValueError, match="Unknown key"):
+            timer.register("nonexistent")
+
+    def test_register_without_start_raises(self, timer):
+        """Registering a key that was never started should raise."""
+        with pytest.raises(ValueError, match="was not started"):
+            timer.register("foo")
+
+    def test_register_returns_elapsed(self, timer):
+        timer.start("foo")
+        elapsed = timer.register("foo")
+        assert isinstance(elapsed, float)
+        assert elapsed >= 0.0
+
+    def test_register_appends_to_times(self, timer):
+        timer.start("foo")
+        timer.register("foo")
+        timer.start("foo")
+        timer.register("foo")
+        assert len(timer.times["foo"]) == 2
+
+    def test_register_multiple_keys(self, timer):
+        """Registering multiple keys should store the same initial time for each key."""
+        timer.start("foo", "bar")
+        assert timer.t0["foo"] == timer.t0["bar"]
+
+    def test_register_logs_when_log_true(self, timer, caplog):
+        """Register should log elapsed time when log=True."""
+        timer.start("foo")
+        with caplog.at_level(logging.DEBUG):
+            timer.register("foo", log=True)
+        assert any("foo" in r.message and "Elapsed time" in r.message for r in caplog.records)
+
+    def test_multiple_keys_independent(self, timer):
+        timer.start("foo", "bar")
+        timer.register("foo")
+        timer.register("bar")
+        assert len(timer.times["foo"]) == 1
+        assert len(timer.times["bar"]) == 1
+
+    def test_report_logs_average(self, timer, caplog):
+        """Report should log average time for keys with recorded times."""
+        timer.start("foo")
+        timer.register("foo")
+        with caplog.at_level(logging.INFO):
+            timer.report()
+        assert any("foo" in r.message and "Average" in r.message for r in caplog.records)
+
+    def test_report_logs_no_recorded_times(self, timer, caplog):
+        """Report should log a message for keys with no recorded times."""
+        with caplog.at_level(logging.INFO):
+            timer.report()
+        assert any("No recorded times" in r.message for r in caplog.records)
+
+    def test_register_twice_without_restart_records_stale_time(self, timer):
+        """Registering twice without restarting silently records a larger elapsed time."""
+        timer.start("foo")
+        timer.register("foo")
+        elapsed_stale = timer.register("foo")  # no start in between
+        assert elapsed_stale > timer.times["foo"][0]  # stale: wall time keeps growing
 
 
 class TestNumpyLoader:
