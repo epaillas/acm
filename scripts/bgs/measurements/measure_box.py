@@ -8,7 +8,6 @@ import argparse
 import itertools
 import logging
 import pickle
-from gc import collect
 from pathlib import Path
 
 import jax
@@ -34,6 +33,7 @@ from acm.estimators.galaxy_clustering.wst import WaveletScatteringTransform
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.paths import lookup_registry_path
 from acm.utils.scripts import (
+    BenchmarkTimer,
     NumpyLoader,
     apply_parser_default,
     detect_gpu,
@@ -189,6 +189,14 @@ if __name__ == "__main__":
     with Path(args.estimator_config).open() as f:
         estimator_config = yaml.load(f, Loader=NumpyLoader)  # noqa: S506
 
+    timer = BenchmarkTimer(keys=[
+        "dm_loading",
+        "no_mock_run",
+        "los_run",
+        "mock_run",
+        *args.measurements
+    ])  # FIXME: Remove this after benchmark
+
     # Read pickled kymatio object from args
     kymatio_object = None
     if args.kymatio_object is not None:
@@ -212,6 +220,7 @@ if __name__ == "__main__":
     grouped = itertools.groupby(indices, key=lambda x: (x[0], x[1]))
 
     for (cosmo_idx, phase_idx), group in grouped:
+        timer.start("dm_loading")
         hod_count = 0 # Number of computed HODs per cosmo/phase pair
         factory = SnapshotCatalogFactory(
             backend = "AbacusHOD",
@@ -229,6 +238,7 @@ if __name__ == "__main__":
             redshift = args.redshift,
             tracers = [Tracer(name=k) for k in tracer_names] # Name only = default
         )
+        timer.register("dm_loading", log=True)
 
         # NOTE: Hardcoded file patterns
         hod_params = get_params( # Get only HOD parameters, without cosmology parameters
@@ -243,6 +253,7 @@ if __name__ == "__main__":
         )
 
         for _, _, seed, hod_idx in group:
+            timer.start("mock_run", "no_mock_run")
             parameters = all_params[tracer_names[0]][hod_idx] # FIXME (later): How to solve that for multi tracer ?
             tracers = [Tracer(name=k, params=v[hod_idx]) for k, v in hod_params.items()]
             factory.make_catalogs(
@@ -258,6 +269,7 @@ if __name__ == "__main__":
                 catalog.save(mock_dir / 'catalog.h5')
 
             for los in ['x', 'y', 'z']:
+                timer.start("los_run")
                 logger.info(f'Computing measurements for HOD {hod_idx:03d}, {seed=}, {los=}')
                 catalog.clear_transforms()
                 if args.add_rsd:
@@ -267,7 +279,6 @@ if __name__ == "__main__":
                     catalog.ap(los=los)
 
                 nbar = catalog.nbar
-
                 if los =='x':
                     logger.info(f"Density for hod {hod_idx:03d}: {nbar:.4e} h^3 Mpc^-3")
                     density_file = mock_dir / 'density.h5'
@@ -284,6 +295,7 @@ if __name__ == "__main__":
                 if target_density is not None:
                     if nbar < target_density and not args.process_underdense:
                         logger.info(f"Density below target ({nbar:.4e}<{target_density:.4e}). Skipping...")
+                        timer.register("no_mock_run", log=True)
                         break # In theory, same density for all los on boxes
                     for tracer in tracers:
                         # FIXME (later): target density selection wrt tracers ?
@@ -308,6 +320,7 @@ if __name__ == "__main__":
                 backend.set_density_contrast(**density_args)
 
                 for stat_name in args.measurements:
+                    timer.start(stat_name)
                     fn = mock_dir / f"{stat_name}_los-{los}.h5"
                     if fn.exists() and args.overwrite is False:
                         logger.info(f'File {fn} exists and {args.overwrite=}. Skipping...')
@@ -340,12 +353,15 @@ if __name__ == "__main__":
                     if result is not None: # Save object if computation was successful
                         result.attrs.update(parameters) # cosmo+HOD parameters
                         estimator.save(result, fn, overwrite=args.overwrite)
+                    timer.register(stat_name, log=True)
                     del result # remove buffer references
                     memory_cleanup()
+                timer.register("los_run", log=True)
                 del backend, positions
                 memory_cleanup()
             else: # Only run if target_density does not break los loop
                 hod_count += 1
+                timer.register("mock_run", log=True)
                 logger.debug(f"c{cosmo_idx:03d}_ph{phase_idx:03d}: Computed {hod_count}/{args.n_hod} mocks.")
             del catalog
             memory_cleanup()
@@ -353,3 +369,5 @@ if __name__ == "__main__":
                 break # break inner loop
         del factory
         memory_cleanup()
+
+    timer.report()
