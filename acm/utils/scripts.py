@@ -1,4 +1,5 @@
 """Useful functions usually called in scripts."""
+
 import argparse
 import gc
 import logging
@@ -92,12 +93,14 @@ def dump_config(parser: argparse.ArgumentParser) -> None:
             print(f"{arg}: {getattr(args, arg)}")  # noqa: T201
         sys.exit(-1)
 
+
 def memory_cleanup(use_jax: bool = False) -> None:
     """Clean up memory by clearing caches and collecting garbage."""
     if use_jax:
         clear_caches()
     gc.collect()
     logger.debug("Cleared caches and collected garbage.")
+
 
 def retry(times: int, operation: Callable, *args, **kwargs) -> Any | None:  # noqa: ANN401
     """Run a function n times then fails with logged error."""
@@ -149,7 +152,9 @@ class BenchmarkTimer:
         for key, times in self.times.items():
             if times:
                 avg_time = sum(times) / len(times)
-                logger.info(f"Average elapsed time for '{key}': {avg_time:.6f} seconds over {len(times)} runs")
+                logger.info(
+                    f"Average elapsed time for '{key}': {avg_time:.6f} seconds over {len(times)} runs"
+                )
             else:
                 logger.info(f"No recorded times for '{key}'.")
 
