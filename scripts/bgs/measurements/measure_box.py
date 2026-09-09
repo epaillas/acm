@@ -11,13 +11,14 @@ import pickle
 from gc import collect
 from pathlib import Path
 
+import jax
+import jax.extend as jext
 import lsstypes
 import numpy as np
 import pandas as pd
 import scipy.special
 import yaml
 from cosmoprimo.fiducial import AbacusSummit
-from jax import clear_caches
 
 from acm.catalogs.backends.abacus import AbacusHODBackend  # noqa: F401
 from acm.catalogs.dataclasses import Tracer
@@ -39,10 +40,12 @@ from acm.utils.scripts import (
     dump_config,
     get_nthreads,
     load_parser_default,
+    memory_cleanup,
     retry,
 )
 
 logger = get_logger_for_script(__file__)
+client = jext.backend.get_backend()
 
 # Temporary namespace monkeypatch for kymatio's scipy 1.15 compatibility
 def sph_harm(m, n, theta, phi):  # noqa: ANN001, ANN201, D103
@@ -121,11 +124,11 @@ def update_dict_with_keys(*d: dict, **kwargs) -> None:
         update_keys = {k: v for k, v in kwargs.items() if k in _d}
         _d.update(update_keys)
 
-def _memory_cleanup() -> None:
-    """Clear caches and collect garbage."""
-    logger.debug("Cleaning up memory")
-    clear_caches()
-    collect()
+def _log_buffers(loc: str | None = None) -> None:
+    bs = [b.shape for b in client.live_buffers()]
+    msg = f"at {loc}" if loc is not None else ""
+    logger.debug(f"Number of JAX live buffers {msg}: {len(bs)}")
+    logger.debug(f"JAX live buffers shapes {msg}: {bs}")
 
 def get_estimator(name: str) -> type[BaseEstimator]:
     """Get the estimator class by alias name."""
@@ -168,7 +171,7 @@ if __name__ == "__main__":
     parser.add_argument("--measurements", type=str, nargs="+", default=[], help="List of statistics to measure on mocks.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing files.")
     parser.add_argument("--parameters_override", type=str, help="CSV file containing parameters overriding cosmologies, phases, seeds and hod parameter values.")
-    parser.add_argument("--failures", type=int, default=3, help="Number of tries for each etsimator computation before skipping (solving memory issues).")
+    parser.add_argument("--failures", type=int, default=0, help="Number of tries for each etsimator computation before skipping (solving memory issues).")
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level (e.g., DEBUG, INFO, WARNING, ERROR).")
     parser.add_argument("--log_file", type=str, help="File to save logs. If None, logs are printed to console.")
     parser.add_argument("--kymatio_object", type=str, help="Path to a pickled kymatio object to bypass kymatio initialization.")
@@ -309,6 +312,7 @@ if __name__ == "__main__":
                     if fn.exists() and args.overwrite is False:
                         logger.info(f'File {fn} exists and {args.overwrite=}. Skipping...')
                         continue
+                    _log_buffers("before estimator initialization")
 
                     cls = get_estimator(stat_name)
                     confargs = estimator_config.get(stat_name, {})
@@ -327,23 +331,25 @@ if __name__ == "__main__":
                         data_positions = positions,
                         **init_args,
                     )
-                    result = retry(
-                        times = args.failures,
-                        operation = estimator.compute,
-                        **compute_args,
-                    )
+                    if args.failures > 0:
+                        result = retry(args.failures, estimator.compute, **compute_args)
+                    else:
+                        result = estimator.compute(**compute_args)
+                    _log_buffers("after estimator computation")
+                    jax.block_until_ready(result)  # Avoid OOM w/ async dispatching
                     if result is not None: # Save object if computation was successful
-                        # Update result attrs with cosmo+HOD parameters
-                        result.attrs.update(parameters)
+                        result.attrs.update(parameters) # cosmo+HOD parameters
                         estimator.save(result, fn, overwrite=args.overwrite)
+                    del result # remove buffer references
+                    memory_cleanup()
                 del backend, positions
-                _memory_cleanup()
+                memory_cleanup()
             else: # Only run if target_density does not break los loop
                 hod_count += 1
                 logger.debug(f"c{cosmo_idx:03d}_ph{phase_idx:03d}: Computed {hod_count}/{args.n_hod} mocks.")
             del catalog
-            _memory_cleanup()
+            memory_cleanup()
             if hod_count >= args.n_hod:
                 break # break inner loop
         del factory
-        _memory_cleanup()
+        memory_cleanup()
