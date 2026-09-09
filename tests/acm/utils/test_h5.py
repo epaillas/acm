@@ -11,7 +11,7 @@ from acm.utils.h5 import (
     _restore_from_json,
 )
 
-# ruff: noqa: ANN201, ARG005, D101, D102, INP001, S101
+# ruff: noqa: ANN201, ARG005, D101, D102, S101
 
 
 class TestPrepareForJson:

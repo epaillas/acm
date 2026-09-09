@@ -5,7 +5,7 @@ import pytest
 
 from acm.utils.decorators import kwargs_alias, require_nersc, temporary_class_state
 
-# ruff: noqa: ANN001, ANN201, ANN204, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, ANN204, D102, D103, S101
 
 
 #%% Tests for temporary_class_state decorator

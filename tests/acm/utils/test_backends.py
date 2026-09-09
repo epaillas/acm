@@ -4,7 +4,7 @@ import pytest
 
 from acm.utils.backends import BackendRegistry
 
-# ruff: noqa: ANN001, ANN201, ANN204, ARG001, D101, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, ANN204, ARG001, D101, D103, S101
 
 
 # Dummy base and concrete classes

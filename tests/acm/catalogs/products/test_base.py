@@ -5,7 +5,7 @@ import pytest
 from acm.catalogs.dataclasses import Tracer, Transform
 from acm.catalogs.products.base import BaseGalaxyCatalog
 
-# ruff: noqa: ANN001, ANN201, ANN206, ARG002, ARG003, D101, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, ANN206, ARG002, ARG003, D101, D102, D103, S101
 
 #%% Concrete dummy subclass
 

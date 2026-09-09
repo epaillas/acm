@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
-# ruff: noqa: ANN001, ANN201, ARG002, D103, INP001
+# ruff: noqa: ANN001, ANN201, ARG002, D103
 
 def make_hod_tracer_dict(n: int = 100, n_cent: int = 10) -> dict:
     """Generate a minimal AbacusHOD-style tracer output dict."""
