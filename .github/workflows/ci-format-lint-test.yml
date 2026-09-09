@@ -8,6 +8,7 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - "acm/**"
+      - "tests/**"
 
 permissions:
   contents: write
