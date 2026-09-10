@@ -147,8 +147,12 @@ class LsstypesObservable(BaseObservable[ObservableTree]):
             if isinstance(v, slice):
                 filters[k] = (v.start, v.stop)  # Slice by values, not indices
         labels = data.labels("keys", level=None)
+        coords = next(iter(data.flatten(level=None))).coords()
         label_filters = {k: v for k, v in filters.items() if k in labels}
-        coordinate_filters = {k: v for k, v in filters.items() if k not in labels}
+        coordinate_filters = {k: v for k, v in filters.items() if k in coords}
+        extras_keys = set(filters) - set(labels) - set(coords)
+        if extras_keys:
+            logger.debug(f"Ignoring unknown filter keys: {extras_keys}")
         if label_filters:
             data = data.get(**label_filters)
         if coordinate_filters:
