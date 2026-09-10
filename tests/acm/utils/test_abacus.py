@@ -10,7 +10,7 @@ from acm.utils.abacus import (
     map_params,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
 
 #%% Fixtures
 params = ["param1", "param2", "param3"]

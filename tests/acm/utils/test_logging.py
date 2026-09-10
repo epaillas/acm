@@ -7,7 +7,7 @@ from acm.utils.logging import (
     suppress_logging,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, INP001, S101
+# ruff: noqa: ANN001, ANN201, D101, S101
 
 
 class TestSuppressLogging:

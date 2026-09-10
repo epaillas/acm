@@ -4,15 +4,20 @@ import argparse
 import gc
 import logging
 import sys
+import time
 from collections.abc import Callable
 from multiprocessing import cpu_count
 from pathlib import Path
 from subprocess import check_output
 from typing import Any
 
-import jax
 import numpy as np
 import yaml
+
+try:
+    from jax import clear_caches  # pyright: ignore[reportMissingImports]
+except ImportError:
+    clear_caches = lambda: None  # noqa: E731
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +94,14 @@ def dump_config(parser: argparse.ArgumentParser) -> None:
         sys.exit(-1)
 
 
+def memory_cleanup(use_jax: bool = False) -> None:
+    """Clean up memory by clearing caches and collecting garbage."""
+    if use_jax:
+        clear_caches()
+    gc.collect()
+    logger.debug("Cleared caches and collected garbage.")
+
+
 def retry(times: int, operation: Callable, *args, **kwargs) -> Any | None:  # noqa: ANN401
     """Run a function n times then fails with logged error."""
     name = getattr(operation, "__name__", "operation")
@@ -101,11 +114,49 @@ def retry(times: int, operation: Callable, *args, **kwargs) -> Any | None:  # no
         except Exception as e:  # noqa: BLE001 FIXME: catch jax exception type here
             logger.warning(f"Calling {name} failed with error: {e}")
             logger.info("Clearing cache and retrying...")
-            jax.clear_caches()
-            gc.collect()
+            memory_cleanup(use_jax=True)
     # Only runs when run reaches n
     logger.error(f"Calling {name} definitely failed after {times} times.")
     return None
+
+
+class BenchmarkTimer:
+    """A timer class to benchmark different parts of the code running in loops."""
+
+    def __init__(self, keys: list[str]) -> None:
+        self.t0 = {}
+        self.times = {key: [] for key in keys}
+
+    def start(self, *keys: str) -> None:
+        """Start or restart the timer for a specific key. Providing multiple keys will store the same initial time for each key."""
+        t0 = time.time()
+        for k in keys:
+            if k not in self.times:
+                raise ValueError(f"Unknown key '{k}'.")
+            self.t0[k] = t0
+
+    def register(self, key: str, log: bool = False) -> float:
+        """Register and return the elapsed time for a specific key. Logs elapsed time at DEBUG level if log is True."""
+        if key not in self.times:
+            raise ValueError(f"Unknown key '{key}'.")
+        if key not in self.t0:
+            raise ValueError(f"Timer for key '{key}' was not started.")
+        elapsed_time = time.time() - self.t0[key]
+        self.times[key].append(elapsed_time)
+        if log:
+            logger.debug(f"Elapsed time for '{key}': {elapsed_time:.6f} seconds")
+        return elapsed_time
+
+    def report(self) -> None:
+        """Log the average elapsed time for each key at INFO level."""
+        for key, times in self.times.items():
+            if times:
+                avg_time = sum(times) / len(times)
+                logger.info(
+                    f"Average elapsed time for '{key}': {avg_time:.6f} seconds over {len(times)} runs"
+                )
+            else:
+                logger.info(f"No recorded times for '{key}'.")
 
 
 class NumpyLoader(yaml.SafeLoader):

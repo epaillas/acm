@@ -10,7 +10,7 @@ from acm.catalogs.dataclasses import Tracer
 from acm.catalogs.factories.snapshot import SnapshotCatalogFactory
 from acm.catalogs.products.snapshot import SnapshotCatalog
 
-# ruff: noqa: ANN001, ANN201, ARG002, ARG005, D102, D103, INP001, S101
+# ruff: noqa: ANN001, ANN201, ARG002, ARG005, D102, D103, S101
 
 logger = logging.getLogger(__name__)
 

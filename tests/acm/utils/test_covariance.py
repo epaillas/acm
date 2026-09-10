@@ -17,7 +17,7 @@ from acm.utils.covariance import (
     orthogonal_gk_mad_covariance,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, INP001, S101
+# ruff: noqa: ANN001, ANN201, D101, D102, S101
 
 #%% Fixtures
 @pytest.fixture
