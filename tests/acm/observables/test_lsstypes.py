@@ -118,14 +118,15 @@ class TestFormatLike:
         assert list(result.labels("unflatten")["pred"]) == [0, 1, 2, 3]
         np.testing.assert_allclose(np.asarray(result.value(concatenate=False))[2], arr[2])
 
-    # @pytest.mark.parametrize("delta", [-1, 1], ids=["too_short", "too_long"]) #FIXME: add this if lsstypes internal bug fixed
-    def test_incompatible_array_length_raises(self, tree, delta=-1):  # noqa: PT028
+    @pytest.mark.parametrize("delta", [-1, 1], ids=["too_short", "too_long"])
+    def test_incompatible_array_length_raises(self, tree, delta):
         """Array's per-row length must match the (single-sample) tree's flattened size."""
         y = tree.get(name="y")
         sample = next(iter(y))
         n_features = np.asarray(sample.value()).size
         arr = np.zeros((3, n_features + delta))  # wrong length per row
-        with pytest.raises(ValueError, match="cannot reshape"):
+        match=f"has length {n_features + delta}, but {n_features} values are expected"
+        with pytest.raises(ValueError, match=match):
             format_like(tree=sample, arr=arr, new="pred")
 
     def test_new_label_already_present_raises(self, tree):
@@ -314,6 +315,11 @@ class TestApplyFilters:
         obs.set_filters(bogus=[0])
         with pytest.raises(KeyError):
             obs._apply_filters(obs.get_data("y", raw=True))
+
+    def test_non_existent_coord_logs_warning(self, obs, caplog):
+        with caplog.at_level(logging.DEBUG):
+            obs.set_filters(nonexistent=[0]) # Internally calls _apply_filters
+        assert any("Ignoring unknown filter keys" in r.message for r in caplog.records)
 
     def test_sample_level_filter_reduces_row_count(self, obs):
         obs.set_filters(i=[0])
