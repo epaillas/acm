@@ -11,7 +11,7 @@ target_density_sigma: 3.1e-6
 process_underdense: false
 add_rsd: true
 add_ap: true
-measurements: ['density', 'tpcf', 'density_split']
+measurements: ['density', 'tpcf', 'density_split', 'power_spectrum', 'density_split_power']
 gpu: false
 nthreads: 64
 save_dir: /pscratch/sd/s/sbouchar/acm/bgs-21.35/measurements

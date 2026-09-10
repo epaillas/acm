@@ -1,19 +1,28 @@
 """
 Outdated script to train and optimize a model for given hyperparameters.
 Use optimize_model.py instead.
+
+Usage:
+    python /global/homes/s/sbouchar/acm/scripts/bgs/training/train_model.py \
+    --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs-20/input_data \
+    --checkpoint_dir /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/study \
+    --transform arcsinh \
+    --log_level info \
+    --statistics tpcf
 """
 
-import torch
 import logging
 import argparse
 from pathlib import Path
+
+import torch
 from astropy.stats import sigma_clip
+from pytorch_lightning import seed_everything
 from sunbird.emulators.train import train_fcn
 from sunbird.data.transforms_array import LogTransform, ArcsinhTransform
+
 from acm.observables import Observable
 from acm.utils.logging import setup_logging
-
-from pytorch_lightning import seed_everything
 
 torch.set_float32_matmul_precision('high')
 
@@ -39,8 +48,7 @@ if __name__ == '__main__':
     
     paths = dict(data_dir=args.compressed_dir)
     checkpoint_dir = Path(args.checkpoint_dir)
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    
+        
     idx_train = slice(args.n_test, None)  # Assuming first n_test are test data
     
     if args.transform == 'log':
@@ -56,13 +64,13 @@ if __name__ == '__main__':
         logger_fn = checkpoint_dir / f'{stat_name}.log'
         setup_logging(filename=logger_fn, level=args.log_level)
         
-        logger.info(f'Starting optimization for {stat_name}')
+        logger.info(f'Starting training for {stat_name}')
         observable = Observable(stat_name=stat_name, paths=paths, numpy_output=True, flat_output_dims=2)
         
-        checkpoint_dir = checkpoint_dir / f'{observable}'
+        checkpoint_dir = checkpoint_dir / f'{stat_name}'
         
-        lhc_x = observable.get('x_train', observable.x[idx_train])
-        lhc_y = observable.get('y_train', observable.y[idx_train])
+        lhc_x = getattr(observable, 'x_train', observable.x[idx_train])
+        lhc_y = getattr(observable, 'y_train', observable.y[idx_train])
         lhc_x_names = observable.x_names
         # covariance_matrix = observable.get_covariance_matrix() # Not used in mae loss
         
@@ -88,14 +96,3 @@ if __name__ == '__main__':
             checkpoint_dir=checkpoint_dir,
         )
         logger.info(f'Final validation loss for {stat_name}: {val_loss}')
-        
-        
-# Usage
-"""
-python /global/homes/s/sbouchar/acm/scripts/bgs/training/train_model.py \
-    --compressed_dir /pscratch/sd/s/sbouchar/acm/bgs-20/input_data \
-    --checkpoint_dir /pscratch/sd/s/sbouchar/acm/bgs-20/trained_models/sigma_clipped/study \
-    --transform arcsinh \
-    --log_level info \
-    --statistics tpcf
-"""

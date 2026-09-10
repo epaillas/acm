@@ -16,20 +16,21 @@ Directories and files:
 """
 import gc
 import sys
-import jax
 import yaml
-import fitsio
 import logging
 import argparse
-import numpy as np
 from pathlib import Path
+
+import jax
+import fitsio
+import numpy as np
 from pycorr import TwoPointCorrelationFunction
-from pypower import CatalogFFTPower
 
 from acm.hod import BoxHOD
 from acm.utils.logging import setup_logging
 from acm.utils.paths import lookup_registry_path
 from acm.estimators.galaxy_clustering.density_split import DensitySplit
+from acm.estimators.galaxy_clustering.spectrum import PowerSpectrumMultipoles
 
 #%% Box loading functions
 def get_save_fn(
@@ -176,6 +177,44 @@ def compute_tpcf(
     
     return tpcf
 
+def compute_power_spectrum(
+    positions, 
+    edges,
+    boxsize: float,
+    los: str = 'z', 
+    save_fn: Path = None, 
+    **kwargs
+):
+    """
+    Compute the power spectrum using ACM's PowerSpectrumMultipoles wrapper around jaxpower.
+
+    Parameters
+    ----------
+    positions : np.ndarray
+        The positions of the galaxies, with shape (N, 3).
+    edges : tuple of np.ndarray
+        Binning specification for the spectrum. See `compute_spectrum`.
+    boxsize : float
+        The size of the simulation box.
+    los : str, optional
+        The line-of-sight direction. Defaults to 'z'.
+    save_fn : Path, optional
+        The filename to save the power spectrum trough the `save` method of the `jaxpower` mesh object. If None, the it is not saved. Defaults to None.
+    **kwargs
+        Additional keyword arguments to pass to the compute_spectrum method.
+    
+    Returns
+    -------
+    TwoPointCorrelationFunction
+        The computed two-point correlation function.
+    """
+    meshsize = kwargs.pop('meshsize', 512)
+    ps = PowerSpectrumMultipoles(data_positions=positions, boxsize=boxsize, boxcenter=boxsize/2, meshsize=meshsize)
+    ps.set_density_contrast(resampler='tsc', interlacing=3, compensate=True) # FIXME: Remove hardcoded values!
+    pk = ps.compute_spectrum(edges=edges, los=los, save_fn=save_fn, **kwargs)
+    
+    return pk
+
 def compute_density_split(
     positions,
     edges,
@@ -184,8 +223,9 @@ def compute_density_split(
     cellsize: float = 5.0,
     smoothing_radius: float = 10.0,
     nquantiles: int = 5,
-    save_fn_ccf: Path = None,
-    save_fn_acf: Path = None,
+    type: str = 'correlation',
+    save_fn_qd: Path = None,
+    save_fn_qq: Path = None,
     **kwargs
 ) -> tuple[list, list]:
     """
@@ -210,12 +250,14 @@ def compute_density_split(
         The radius for smoothing the density field. Defaults to 10.0.
     nquantiles : int, optional
         The number of quantiles to split the density field into. Defaults to 5.
-    save_fn_ccf : Path, optional
-        The filename to save the cross-correlation function as a list of `pycorr` objects. If None, the CCF is not saved. Defaults to None.
+    type: str, optional
+        The type of statistic to compute. Can be either 'correlation' for correlation functions or 'power' for power spectra. Defaults to 'correlation'.
+    save_fn_qd : Path, optional
+        The filename to save the cross-correlation function. If None, the CCF is not saved. Defaults to None.
     save_fn_acf : Path, optional
-        The filename to save the auto-correlation function as a list of `pycorr` objects. If None, the ACF is not saved. Defaults to None.
+        The filename to save the auto-correlation function. If None, the ACF is not saved. Defaults to None.
     **kwargs
-        Additional keyword arguments to pass to the correlation function computations.
+        Additional keyword arguments to pass to the computation functions.
     
     Returns
     -------
@@ -226,118 +268,40 @@ def compute_density_split(
     ds.set_density_contrast(smoothing_radius=smoothing_radius)
     ds.set_quantiles(nquantiles=nquantiles, query_method='randoms')
 
-    quantile_data_correlation = ds.quantile_data_correlation(
-        data_positions = positions,
-        edges = edges,
-        los = los,
-        compute_sepsavg = False,
-        **kwargs
-    )
-    if save_fn_ccf is not None:
-        np.save(save_fn_ccf, quantile_data_correlation)
-        ds.logger.info(f'Saved {save_fn_ccf}')
+    if type == 'correlation':
+        qd = ds.quantile_data_correlation(
+            data_positions = positions,
+            edges = edges,
+            los = los,
+            compute_sepsavg = False,
+            save_fn = save_fn_qd,
+            **kwargs
+        )
+        qq = ds.quantile_correlation(
+            edges = edges,
+            los = los,
+            compute_sepsavg = False,
+            save_fn = save_fn_qq,
+            **kwargs
+        )
+    elif type == 'power':
+        qd = ds.quantile_data_power(
+            data_positions = positions,
+            edges = edges,
+            los = los,
+            save_fn = save_fn_qd,
+            **kwargs,
+        )
+        qq = ds.quantile_power(
+            edges = edges,
+            los = los,
+            save_fn = save_fn_qq,
+            **kwargs
+        )
+    else:
+        raise ValueError(f"Unknown type '{type}'. Available types: 'correlation', 'power'")
     
-    quantile_correlation = ds.quantile_correlation(
-        edges = edges,
-        los = los,
-        compute_sepsavg = False,
-        **kwargs
-    )
-    if save_fn_acf is not None:
-        np.save(save_fn_acf, quantile_correlation)
-        ds.logger.info(f'Saved {save_fn_acf}')
-    
-    return quantile_data_correlation, quantile_correlation
-
-def compute_power_spectrum(
-    positions, 
-    edges,
-    boxsize: float,
-    los: str = 'z', 
-    save_fn: Path = None, 
-    **kwargs
-):
-    pk = CatalogFFTPower(
-        data_positions1 = positions,
-        edges = edges,
-        boxsize = boxsize,
-        los = los,
-        position_type = 'pos',
-        **kwargs,
-    )
-    if save_fn is not None:
-        pk.save(save_fn)
-    
-    return pk
-
-def compute_density_split_power(
-    positions,
-    edges, 
-    boxsize: float,
-    los: str = 'z',
-    cellsize: float = 5.0,
-    smoothing_radius: float = 10.0,
-    nquantiles: int = 5,
-    save_fn_ccf: Path = None,
-    save_fn_acf: Path = None,
-    **kwargs
-):
-    """
-    Compute the power spectra for the DensitySplit quantiles
-
-    Parameters
-    ----------
-    positions : np.ndarray
-        The positions of the galaxies, with shape (N, 3).
-    edges : tuple of np.ndarray
-        The edges of the bins for the power spectrum. Should be a tuple of two arrays:
-        (k_edges, mu_edges).
-    boxsize : float
-        The size of the simulation box.
-    los : str, optional
-        The line-of-sight direction. Defaults to 'z'.
-    cellsize : float, optional
-        The size of the cells for the density field. Defaults to 5.0.
-    smoothing_radius : float, optional
-        The radius for smoothing the density field. Defaults to 10.0.
-    nquantiles : int, optional
-        The number of quantiles to split the density field into. Defaults to 5.
-    save_fn_ccf : Path, optional
-        The filename to save the cross-correlation function as a list of poles from `pypower`. If None, the CCF is not saved. Defaults to None.
-    save_fn_acf : Path, optional
-        The filename to save the auto-correlation function as a list of poles from `pypower`. If None, the ACF is not saved. Defaults to None.
-    **kwargs
-        Additional keyword arguments to pass to the power spectra computations.
-        
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    ds = DensitySplit(data_positions=positions, boxsize=boxsize, boxcenter=boxsize/2, cellsize=cellsize)
-    ds.set_density_contrast(smoothing_radius=smoothing_radius)
-    ds.set_quantiles(nquantiles=nquantiles, query_method='randoms')
-    
-    quantile_data_power = ds.quantile_data_power(
-        data_positions = positions,
-        edges = edges,
-        los = los,
-        **kwargs,
-    )
-    if save_fn_ccf is not None:
-        np.save(save_fn_ccf, quantile_data_power)
-        ds.logger.info(f'Saved {save_fn_ccf}')
-    
-    quantile_power = ds.quantile_power(
-        edges = edges,
-        los = los,
-        **kwargs,
-    )
-    if save_fn_acf is not None:
-        np.save(save_fn_acf, quantile_power)
-        ds.logger.info(f'Saved {save_fn_acf}')
-
-    return quantile_data_power, quantile_power
+    return qd, qq
 
 #%% Main script
 if __name__ == "__main__":
@@ -551,10 +515,10 @@ if __name__ == "__main__":
                                 compute_tpcf(positions, **kwargs)
 
                         if 'density_split' in measurements:
-                            save_fn_ccf = get_save_fn(save_dir, measurement='quantile_data_correlation', los=los, exist_ok=overwrite)
-                            save_fn_acf = get_save_fn(save_dir, measurement='quantile_correlation', los=los, exist_ok=overwrite)
-                            if save_fn_ccf is None and save_fn_acf is None:
-                                logger.info(f'Quantile files exist. Skipping...')
+                            save_fn_qd = get_save_fn(save_dir, measurement='quantile_data_correlation', los=los, exist_ok=overwrite)
+                            save_fn_qq = get_save_fn(save_dir, measurement='quantile_correlation', los=los, exist_ok=overwrite)
+                            if save_fn_qd is None and save_fn_qq is None:
+                                logger.info(f'Quantile correlation files exist. Skipping...')
                             else:
                                 # NOTE : hardcoded settings for simplification
                                 kwargs = dict(
@@ -564,15 +528,15 @@ if __name__ == "__main__":
                                     nquantiles = 5,
                                     boxsize = boxsize,
                                     los = los,
-                                    save_fn_ccf = save_fn_ccf,
-                                    save_fn_acf = save_fn_acf,
+                                    save_fn_qd = save_fn_qd,
+                                    save_fn_qq = save_fn_qq,
                                     nthreads = nthreads,
                                     gpu = gpu,
                                 )
                                 n_tries = 0
-                                while n_tries < failures:
+                                while n_tries < failures: # NOTE: This is a temporary workaround to handle potential memory issues with jax.
                                     try:
-                                        compute_density_split(positions, **kwargs)
+                                        compute_density_split(positions, type='correlation', **kwargs)
                                         break
                                     except Exception as e:
                                         n_tries += 1
@@ -585,38 +549,40 @@ if __name__ == "__main__":
                                     continue
 
                         if 'power_spectrum' in measurements:
-                            save_fn = get_save_fn(save_dir, measurement='power_spectrum', los=los, exist_ok=overwrite)
+                            save_fn = get_save_fn(save_dir, measurement='power_spectrum', los=los, exist_ok=overwrite, extension='h5')
                             if save_fn is None:
                                 logger.info(f'Power spectrum file exists. Skipping...')
                             else:
                                 # NOTE : hardcoded settings for simplification
-                                kwargs = dict( # Dict for code readability
-                                    edges = (np.arange(0.01, 0.5, 0.01), np.linspace(-1, 1, 120)), # k and mu edges for the power spectrum
+                                kwargs = dict(
+                                    edges = {'step': 0.001},
+                                    ells = (0, 2, 4),
                                     boxsize = boxsize,
                                     los = los,
                                     save_fn = save_fn,
-                                    nthreads = nthreads,
-                                    gpu = gpu,
                                 )
                                 compute_power_spectrum(positions, **kwargs)
                         
                         if 'density_split_power' in measurements:
-                            save_fn_ccf = get_save_fn(save_dir, measurement='quantile_data_power', los=los, exist_ok=overwrite)
-                            save_fn_acf = get_save_fn(save_dir, measurement='quantile_power', los=los, exist_ok=overwrite)
-                            if save_fn_ccf is None and save_fn_acf is None:
+                            save_fn_qd = get_save_fn(save_dir, measurement='quantile_data_power', los=los, exist_ok=overwrite, extension='h5')
+                            save_fn_qq = get_save_fn(save_dir, measurement='quantile_power', los=los, exist_ok=overwrite, extension='h5')
+                            if save_fn_qd is None and save_fn_qq is None:
                                 logger.info(f'Quantile power files exist. Skipping...')
                             else:
                                 # NOTE : hardcoded settings for simplification
                                 kwargs = dict(
-                                    edges = (np.arange(0.01, 0.5, 0.01), np.linspace(-1, 1, 120)),
+                                    edges = {'step': 0.001},
+                                    ells = (0, 2, 4),
                                     cellsize = 5.0,
                                     smoothing_radius = 10.0,
                                     nquantiles = 5,
                                     boxsize = boxsize,
                                     los = los,
-                                    save_fn_ccf = save_fn_ccf,
-                                    save_fn_acf = save_fn_acf,
-                                    nthreads = nthreads,
-                                    gpu = gpu,
+                                    save_fn_qd = save_fn_qd,
+                                    save_fn_qq = save_fn_qq,
                                 )
-                                compute_density_split_power(positions, **kwargs)
+                                compute_density_split(positions, type='power', **kwargs)
+            
+            del abacus, catalog, positions
+            jax.clear_caches()
+            gc.collect()
