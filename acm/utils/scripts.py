@@ -16,7 +16,7 @@ import yaml
 
 try:
     from jax import clear_caches  # pyright: ignore[reportMissingImports]
-except ImportError:
+except ImportError:  # pragma: no cover
     clear_caches = lambda: None  # noqa: E731
 
 logger = logging.getLogger(__name__)
