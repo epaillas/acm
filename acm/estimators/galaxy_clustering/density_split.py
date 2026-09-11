@@ -355,7 +355,7 @@ class DensitySplit(BaseEstimator):
         obj: LsstypeObject,
         fig: plt.Figure | None = None,
         ax: plt.Axes | None = None,
-        quantiles: list[int] = [0, 1, 3, 4],
+        quantiles: list[int] | None = None,
         ell: int = 0,
         **kwargs,
     ) -> tuple[plt.Figure, plt.Axes]:
@@ -371,7 +371,8 @@ class DensitySplit(BaseEstimator):
         ax: plt.Axes, optional
             The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         quantiles: list[int], optional
-            The quantiles to plot. Defaults to [0, 1, 3, 4].
+            Restrict the plot to specific quantiles.
+            If None, all available quantiles will be plotted. Defaults to None.
         ell: int, optional
             The multipole to plot for each quantile. Defaults to 0.
         **kwargs
@@ -404,6 +405,7 @@ class DensitySplit(BaseEstimator):
             ax.set_ylabel(ylabel)
 
         ld = obj.flatten(level=None)[0].coords(last_dim)
+        quantiles = quantiles or obj.quantiles
         for q in quantiles:
             quantile = obj.get(quantiles=q)
             if isinstance(quantile, lsstypes.Count2Correlation):

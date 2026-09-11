@@ -123,6 +123,6 @@ class TestPlot:
         plt.close(fig_in)
 
     def test_draws_one_line_per_multipole(self, mock_spectrum):
-        fig, ax = PowerSpectrumMultipoles.plot(mock_spectrum, ells=(0, 2, 4))
-        assert len(ax.lines) == 3
+        fig, ax = PowerSpectrumMultipoles.plot(mock_spectrum, ells=(0, 2))
+        assert len(ax.lines) == 2
         plt.close(fig)

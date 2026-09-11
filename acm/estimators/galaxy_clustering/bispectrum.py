@@ -150,7 +150,7 @@ class BispectrumMultipoles(BaseEstimator):
         obj: LsstypeObject,
         fig: plt.Figure | None = None,
         ax: plt.Axes | None = None,
-        ells: tuple[int, ...] | list[int] | list[tuple[int, int, int]] = (0, 2),
+        ells: tuple[int, ...] | list[int] | list[tuple[int, int, int]] | None = None,
         weight_by_kprod: bool = True,
         **kwargs,
     ) -> tuple[plt.Figure, plt.Axes]:
@@ -168,7 +168,8 @@ class BispectrumMultipoles(BaseEstimator):
             The matplotlib axes to plot on. If None, a new axes is created.
             Defaults to None.
         ells: tuple[int, ...] | list[int] | list[tuple[int, int, int]], optional
-            List of multipoles to plot. Default is (0, 2).
+            Restrict the plot to specific multipoles.
+            If None, all available multipoles will be plotted. Default is None.
         weight_by_kprod: bool, optional
             If True, plot the conventional coordinate-weighted bispectrum:
             ``k1 * k2 * k3 * B`` for Scoccimarro bases and ``k1 * k2 * B``
@@ -186,6 +187,7 @@ class BispectrumMultipoles(BaseEstimator):
         if not isinstance(obj, lsstypes.Mesh3SpectrumPoles):
             raise TypeError(f"Expected a Mesh3SpectrumPoles object, got {type(obj)}")
         basis = str(obj.basis).lower()
+        ells = ells or obj.ells
         args = (obj, fig, ax, ells, weight_by_kprod)
         if "sugiyama" in basis:
             fig, ax = _plot_sugiyama(*args, **kwargs)  # ty:ignore[invalid-argument-type]
