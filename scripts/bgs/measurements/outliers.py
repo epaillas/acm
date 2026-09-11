@@ -119,9 +119,12 @@ if __name__ == "__main__":
     if args.save_dir:
         save_dir = Path(args.save_dir)
         save_dir.mkdir(parents=True, exist_ok=True)
+        header="cosmo,phase,seed,hod"
         if len(corrupted_idx) > 0:
-            logger.info(f"Saving {len(corrupted_idx)} corrupted indices")
-            np.save(save_dir / f"{stat_name}_corrupted_idx.npy", corrupted_idx)
+            fn = save_dir / f"{stat_name}_corrupted_idx.csv"
+            logger.info(f"Saving {len(corrupted_idx)} corrupted indices to {fn}")
+            np.savetxt(fn, corrupted_idx, delimiter=",", fmt="%d", header=header)
         if len(outlier_idx) > 0:
-            logger.info(f"Saving {len(outlier_idx)} outlier indices")
-            np.save(save_dir / f"{stat_name}_outlier_idx.npy", outlier_idx)
+            fn = save_dir / f"{stat_name}_outlier_idx.csv"
+            logger.info(f"Saving {len(outlier_idx)} outlier indices to {fn}")
+            np.savetxt(fn, outlier_idx, delimiter=",", fmt="%d", header=header)
