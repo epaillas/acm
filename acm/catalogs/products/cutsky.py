@@ -6,13 +6,17 @@ import h5py
 import healpy as hp
 import numpy as np
 import pandas as pd
+import copy
 from cosmoprimo import Cosmology
 from numpy.random import RandomState
 from scipy.interpolate import interp1d
+from typing import Self
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products.base import BaseGalaxyCatalog
-from acm.catalogs.products.transforms import _add_distance_column, _apply_downsample
+from acm.catalogs.products.snapshot import SnapshotCatalog
+from acm.catalogs.products.transforms import _add_distance_column, _apply_downsample, _apply_angular_mask, _apply_r_cut, _apply_sky_coords, _apply_radial_mask
+#_apply_fiber_assign, _apply_nz # TODO: implement
 
 logger = logging.getLogger(__name__)
 
@@ -83,13 +87,16 @@ class CutskyCatalog(BaseGalaxyCatalog):
     set of transforms to avoid redundant calculations when applying multiple transforms sequentially.
     Caches are automatically invalidated when transforms are added, removed, or reset.
     """
-
-    pos_columns = ("ra", "dec", "z")
+    #TODO: need to overwrite indexng to take elements from self._catalogs?
+    sky_columns = ("ra", "dec", "redshift")
+    pos_columns = ("x", "y", "z")
+    vel_columns = ("vx", "vy", "vz")
 
     def __init__(
         self,
         cosmo: Cosmology,
         cosmo_fid: Cosmology,
+        z_pad_limits: tuple[float, float],
         hp_res: int = 256,
     ) -> None:
         """
@@ -111,6 +118,44 @@ class CutskyCatalog(BaseGalaxyCatalog):
         # Caches for expensive computations keyed by transform state
         self._fsky_cache: dict[tuple, float] = {}
         self._interpolate_nz_cache: dict[tuple, Callable[[float], float]] = {}
+        self._catalogs = {}
+        self._z_pad_limits = z_pad_limits
+
+    @override
+    def __add__(self, right_summand) -> Self:
+        """Add two galaxy catalogs by combining their tracers"""
+        # check that catalog attributes (types) are compatible
+        left_type = type(self)
+        right_type = type(right_summand)
+        if left_type != right_type:
+            error_message = f"TypeError: unsupported operand type(s) for +: '{left_type}' and '{right_type}'"
+            raise ValueError()
+        # create sum object 
+        addition_sum = copy.deepcopy(self)
+        # determine what padding to cut
+        left_dist_squared_limits = [self._z_pad_limits[0], self._z_pad_limits[1]]
+        right_dist_squared_limits = [right_summand._z_pad_limits[0], right_summand._z_pad_limits[1]]
+        if np.isfinite(self._z_pad_limits[0]):
+            left_dist_squared_limits[0] = self.cosmo.comoving_radial_distance(left_dist_squared_limits[0]).item()**2
+        if np.isfinite(self._z_pad_limits[1]):
+            left_dist_squared_limits[1] = self.cosmo.comoving_radial_distance(left_dist_squared_limits[1]).item()**2
+        if np.isfinite(right_summand._z_pad_limits[0]):
+            right_dist_squared_limits[0] = self.cosmo.comoving_radial_distance(right_dist_squared_limits[0]).item()**2
+        if np.isfinite(right_summand._z_pad_limits[1]):
+            right_dist_squared_limits[1] = self.cosmo.comoving_radial_distance(right_dist_squared_limits[1]).item()**2
+        #add summands
+        for tracer in addition_sum.tracers:
+            distance_squared = addition_sum[tracer]['x']**2 + addition_sum[tracer]['y']**2 + addition_sum[tracer]['z']**2
+            select_left = ((distance_squared > left_dist_squared_limits[0])*(distance_squared < left_dist_squared_limits[1])).to_numpy()
+            left_summand_tracer = addition_sum[tracer][select_left]
+            distance_squared = right_summand[tracer]['x']**2 + right_summand[tracer]['y']**2 + right_summand[tracer]['z']**2
+            select_right = ((distance_squared > right_dist_squared_limits[0])*(distance_squared < right_dist_squared_limits[1])).to_numpy()
+            right_summand_tracer = right_summand[tracer][select_right]
+            
+            # TODO: How to handle tracers with same name but different paramters?
+            # Right now only the parameters of self are saved
+            addition_sum[tracer] = pd.concat([left_summand_tracer, right_summand_tracer], ignore_index=True)
+        return addition_sum
 
     def _check_data_columns(self, data: pd.DataFrame) -> bool:
         """
@@ -153,7 +198,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         Parameters
         ----------
         coord : str
-            Coordinate to compute the range for (e.g., "ra", "dec", "z").
+            Coordinate to compute the range for (e.g., "ra", "dec", "redshift").
         *tracers : str
             Specific tracer names to compute the range for. If no tracers are specified, computes the range across all tracers.
         periodic_wrap : float | None
@@ -171,7 +216,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
 
     def _zrange(self, *tracers: str) -> tuple[float, float]:
         """Return the redshift range of specified tracers, or the full catalog if tracer is None."""
-        return self._range("z", *tracers)
+        return self._range("redshift", *tracers)
 
     @property
     def zrange(self) -> tuple[float, float]:
@@ -359,6 +404,106 @@ class CutskyCatalog(BaseGalaxyCatalog):
             hp_res=int(attrs.get("hp_res", 256)),
         )
 
+    def angular_mask(self, 
+                   region: str = 'N+SNGC',
+                   release: str = 'Y1',
+                   npasses: int | None = None,
+                   custom_mask_path: str | None = None,
+                   num_fibonacci_samples: int = 100000
+                  ):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            for tracer in galaxy_catalog.tracers:
+                if 'BGS' in tracer.upper():
+                    program = 'bright'
+                else:
+                    program = 'dark'
+                galaxy_catalog._add_transform(
+                    Transform(
+                        name=f"angular_mask_{tracer}",
+                        func=_apply_angular_mask,
+                        tracer=tracer,
+                        kwargs={
+                            "region": region,
+                            "release": release,
+                            "npasses": npasses,
+                            "custom_mask_path": custom_mask_path,
+                            "num_fibonacci_samples": num_fibonacci_samples, 
+                        },
+                    )
+                )
+    def r_cut(self):
+        """
+        """
+        for zranges, galaxy_catalog in self._catalogs.items():
+            distance_limits = self.cosmo.comoving_radial_distance(zranges)
+            galaxy_catalog._add_transform(
+                Transform(
+                name="r_cut",
+                func=_apply_r_cut,
+                kwargs={
+                    "r_min": distance_limits[0],
+                    "r_max": distance_limits[1],
+                    },
+                )
+            )
+
+    def rsd(self):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog.rsd(los = "los", wrap = False)
+
+    '''
+    def apply_fiber_assign(self, params):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog._add_transform(_apply_fiber_assign)
+    
+    '''
+
+    def sky_coords(self):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            galaxy_catalog._add_transform(
+                Transform(
+                    name="sky_coords",
+                    func=_apply_sky_coords,
+                    kwargs = {
+                        "cosmo":self.cosmo,
+                    }
+                )
+            )
+
+    def radial_mask(self,
+                         nz_filename: str, 
+                         shape_only: bool = False, 
+                         dz_new: float = 0.002
+                         ):
+        """
+        """
+        for galaxy_catalog in self._catalogs.values():
+            for tracer in galaxy_catalog.tracers:
+                sky_fraction = ... # TODO: calcualte sky_fraction using _fsky?
+                galaxy_catalog._add_transform(
+                    Transform(
+                        name=f"radial_mask_{tracer}",
+                        func=_apply_radial_mask,
+                        kwargs={
+                            "sky_fraction": sky_fraction,
+                            "cosmo":self.cosmo,
+                            "nz_filename":nz_filename,
+                            "shape_only":shape_only,
+                            "dz_new":dz_new,
+                        },
+                    )
+                )
+
+        
+
 
 class RandomCutskyCatalog(CutskyCatalog):
     """A random catalog with cutsky geometry and redshift evolution."""
@@ -442,18 +587,3 @@ class RandomCutskyCatalog(CutskyCatalog):
         return pd.DataFrame({"ra": ra, "dec": dec, "z": z})
 
 
-# %% Transforms between box and cutsky geometries
-
-
-def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[empty-body]
-    """Convert a box geometry to a cutsky geometry."""
-    # Input: SnapshotCatalog (positions, cosmology & boxsize), observer position, redshift range
-    # Depends on cosmology for distance-redshift conversion.
-    # Depends on boxsize & observer position for angle values and eventual periodic wrapping.
-
-
-def cutsky_to_box(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[empty-body]
-    """Convert a cutsky geometry to a box geometry."""
-    # Input: CutskyCatalog (positions, cosmology & redshift range), observer position, boxsize
-    # Depends on cosmology for distance-redshift conversion.
-    # Depends on redshift range & observer position for angle values and eventual periodic wrapping.

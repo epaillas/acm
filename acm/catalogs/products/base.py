@@ -6,7 +6,9 @@ from typing import Self
 
 import h5py
 import pandas as pd
+import copy
 from cosmoprimo import Cosmology
+from typing import Self
 
 from acm.catalogs.dataclasses import Tracer, Transform
 from acm.utils.h5 import _h5_read_state, _h5_write_state
@@ -52,6 +54,24 @@ class BaseGalaxyCatalog(ABC):
     def __repr__(self) -> str:
         """Provide a string representation of the galaxy catalog, including tracer information."""
         return f"{self.__class__.__name__}(tracers={list(self.tracers.keys())})"
+
+    def __add__(self, right_summand) -> Self:
+        """Add two galaxy catalogs by combining their tracers"""
+        # check that catalog attributes (types) are compatible
+        left_type = type(self)
+        right_type = type(right_summand)
+        if left_type != right_type:
+            error_message = f"TypeError: unsupported operand type(s) for +: '{left_type}' and '{right_type}'"
+            raise ValueError()
+        # create sum object 
+        addition_sum = copy.deepcopy(self)
+        # add summands
+        for tracer in addition_sum.tracers:
+            # TODO: How to handle tracers with same name but different paramters?
+            # Right now only the paramters of self are saved
+            addition_sum[tracer] = pd.concat([addition_sum[tracer], right_summand[tracer]], ignore_index=True)
+        return addition_sum
+        
 
     def register_tracer(self, tracer: Tracer) -> None:
         """Register a tracer in the catalog."""
