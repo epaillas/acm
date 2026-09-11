@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray
 
-from acm.estimators.galaxy_clustering.base import BaseEstimator
+from acm.estimators.galaxy_clustering.density_split import DensitySplit
 from acm.utils.decorators import temporary_class_state
 from acm.utils.default import cosmo_list  # List of cosmologies in AbacusSummit
 from acm.utils.plotting import set_plot_style
@@ -90,7 +90,7 @@ class DensitySplitBaseClass(BaseObservableEMC):
 
         y = []
         for data_fn in data_fns:
-            data = BaseEstimator.read(data_fn)
+            data = DensitySplit.load(data_fn)
             for q in quantiles:
                 xi = data.get(quantiles=q).select(s=slice(0, None, rebin))  # ty:ignore[no-matching-overload, unresolved-attribute]
                 xi = xi.select(s=(smin, smax))
