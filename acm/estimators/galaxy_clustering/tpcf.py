@@ -62,7 +62,7 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         obj: LsstypeObject,
         fig: plt.Figure | None = None,
         ax: plt.Axes | None = None,
-        ells: tuple[int, ...] | list[int] = (0, 2, 4),
+        ells: tuple[int, ...] | list[int] | None = None,
         **kwargs,
     ) -> tuple[plt.Figure, plt.Axes]:
         """
@@ -77,7 +77,8 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
         ax: plt.Axes, optional
             The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         ells: tuple[int, ...] | list[int], optional
-            List of multipoles to plot. Default is (0, 2, 4).
+            Restrict the plot to specific multipoles.
+            If None, all available multipoles will be plotted. Defaults to None.
         **kwargs
             Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
 
@@ -92,9 +93,11 @@ class TwoPointCorrelationFunctionEstimator(BaseEstimator):
             ax.set_ylabel(r"$s^2 \xi(s)$ [Mpc/h]$^2$")
 
         if isinstance(obj, lsstypes.Count2Correlation):
+            ells = ells or (0, 2, 4)
             logger.debug(f"Got pair counts, projecting to multipoles: {ells}")
             obj = obj.project(ells=ells)
 
+        ells = ells or obj.ells
         s = obj.flatten(level=None)[0].coords("s")
         for ell in ells:
             pole = obj.get(ells=ell).value()

@@ -33,6 +33,7 @@ def estimator_no_randoms(data_positions):
 def _make_mock_spectrum(basis: str, k: np.ndarray):
     obj = MagicMock(spec=lsstypes.Mesh3SpectrumPoles)
     obj.basis = basis
+    obj.ells = (0, 2) if basis == "scoccimarro" else [(0, 0, 0), (0, 0, 2)]
     coords_mock = MagicMock(return_value=k)
     obj.flatten.return_value = (MagicMock(coords=coords_mock),)
     obj.get.return_value.value.return_value = MagicMock(real=np.ones(len(k)))
