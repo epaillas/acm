@@ -508,7 +508,7 @@ def get_box_replications(
         boxpad : float,
         shifts: list | None = None,
         distance_limits: tuple[float, float] | None = None,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> dict:
     """
     Get the positions, velocities, and box centers of the replications of the simulations,
     obtained by applying the input shift values.

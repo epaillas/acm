@@ -201,12 +201,19 @@ class CutskyCatalogFactory(BaseCutskyFactory):
                 distance_limits = (distance_limits[0], distance_limits[1]),
             )
 
+            z_pad_limits = [-np.inf, np.inf]
+            if zranges[0] in [redshift_range[1] for redshift_range in redshift_ranges]: # lower redshift limit is bordered by another snapshot
+                z_pad_limits[0] = zranges[0] # no need to keep padding below z limit
+            if zranges[1] in [redshift_range[0] for redshift_range in redshift_ranges]: # upper redshift limit is bordered by another snapshot
+                z_pad_limits[1] = zranges[1] # no need to keep padding above z limit
+
             galaxy_catalog = self.catalog_class(
                 #redshift=zsnap,
                 cosmo=self.cosmo,
                 cosmo_fid=self.cosmo_fid,
                 #boxsize=boxsize,
                 hp_res = 256,
+                z_pad_limits = z_pad_limits,
             )
             
             for tracer, data in replications.items():
@@ -229,13 +236,28 @@ class CutskyCatalogFactory(BaseCutskyFactory):
         redshift_range : tuple[float, float]
             The redshift range of the desired catalog.
         """
+        # set redshift limits
         if redshift_range  is None:
-            # TODO: fix this
-            cutsky_catalog = self.catalog_class(
-                cosmo=self.cosmo,
-                cosmo_fid=self.cosmo_fid,
-                hp_res = 256,
-            )
-            cutsky_catalog.set_snapshot_catalogs(self._catalogs)
-            return cutsky_catalog
-        return self._catalogs[redshift_range]
+            z_low = -np.inf
+            z_high = np.inf
+        else:
+            z_low, z_high = redshift_range
+
+        # determine which snapshots to add
+        ranges_to_add = []
+        for z_range in self._catalogs.keys():
+            if z_range[0] < z_high and z_range[1] > z_low:
+                ranges_to_add.append(z_range)
+
+        if len(ranges_to_add) == 0:
+            return 
+
+        if len(ranges_to_add) == 1:
+            return self._catalogs[ranges_to_add[0]]
+ 
+        addition_sum = self._catalogs[ranges_to_add[0]]
+
+        for z_range in ranges_to_add[1:]:
+            addition_sum += self._catalogs[z_range]
+
+        return addition_sum
