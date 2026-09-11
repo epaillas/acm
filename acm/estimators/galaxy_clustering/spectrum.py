@@ -113,7 +113,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         obj: LsstypeObject,
         fig: plt.Figure | None = None,
         ax: plt.Axes | None = None,
-        ells: tuple[int, ...] | list[int] = (0, 2, 4),
+        ells: tuple[int, ...] | list[int] | None = None,
         **kwargs,
     ) -> tuple[plt.Figure, plt.Axes]:
         """
@@ -128,7 +128,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
         ax: plt.Axes, optional
             The matplotlib axes to plot on. If None, a new axes will be created. Defaults to None.
         ells: tuple[int, ...] | list[int], optional
-            List of multipoles to plot. Default is (0, 2, 4).
+            Restrict the plot to specific multipoles. If None, all available multipoles will be plotted. Defaults to None.
         **kwargs
             Additional keyword arguments for the plot. See :meth:`matplotlib.pyplot.plot` for details.
 
@@ -142,6 +142,7 @@ class PowerSpectrumMultipoles(BaseEstimator):
             ax.set_xlabel(r"$k$ [h/Mpc]")
             ax.set_ylabel(r"$k P(k)$ [(Mpc/h)$^3$]")
 
+        ells = ells or obj.ells
         k = obj.flatten(level=None)[0].coords("k")
         for ell in ells:
             pole = obj.get(ells=ell).value()

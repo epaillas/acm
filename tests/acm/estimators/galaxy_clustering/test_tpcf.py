@@ -35,6 +35,7 @@ def mock_poles():
     """Simulate an already-projected Count2CorrelationPoles object."""
     poles = MagicMock(spec=lsstypes.Count2CorrelationPoles)
     coord_mock = MagicMock(return_value=np.linspace(1, 100, 30))
+    poles.ells = (0, 2, 4)
     poles.flatten.return_value = (MagicMock(coords=coord_mock),)
     poles.get.return_value.value.return_value = np.ones(30)
     return poles
