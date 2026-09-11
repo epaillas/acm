@@ -6,9 +6,11 @@ import h5py
 import healpy as hp
 import numpy as np
 import pandas as pd
+import copy
 from cosmoprimo import Cosmology
 from numpy.random import RandomState
 from scipy.interpolate import interp1d
+from typing import Self
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products.base import BaseGalaxyCatalog
@@ -94,6 +96,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         self,
         cosmo: Cosmology,
         cosmo_fid: Cosmology,
+        z_pad_limits: tuple[float, float],
         hp_res: int = 256,
     ) -> None:
         """
@@ -116,11 +119,43 @@ class CutskyCatalog(BaseGalaxyCatalog):
         self._fsky_cache: dict[tuple, float] = {}
         self._interpolate_nz_cache: dict[tuple, Callable[[float], float]] = {}
         self._catalogs = {}
+        self._z_pad_limits = z_pad_limits
 
-    def set_snapshot_catalogs(self, catalogs: dict[tuple, SnapshotCatalog]):
-        """
-        """
-        self._catalogs = catalogs
+    @override
+    def __add__(self, right_summand) -> Self:
+        """Add two galaxy catalogs by combining their tracers"""
+        # check that catalog attributes (types) are compatible
+        left_type = type(self)
+        right_type = type(right_summand)
+        if left_type != right_type:
+            error_message = f"TypeError: unsupported operand type(s) for +: '{left_type}' and '{right_type}'"
+            raise ValueError()
+        # create sum object 
+        addition_sum = copy.deepcopy(self)
+        # determine what padding to cut
+        left_dist_squared_limits = [self._z_pad_limits[0], self._z_pad_limits[1]]
+        right_dist_squared_limits = [right_summand._z_pad_limits[0], right_summand._z_pad_limits[1]]
+        if np.isfinite(self._z_pad_limits[0]):
+            left_dist_squared_limits[0] = self.cosmo.comoving_radial_distance(left_dist_squared_limits[0]).item()**2
+        if np.isfinite(self._z_pad_limits[1]):
+            left_dist_squared_limits[1] = self.cosmo.comoving_radial_distance(left_dist_squared_limits[1]).item()**2
+        if np.isfinite(right_summand._z_pad_limits[0]):
+            right_dist_squared_limits[0] = self.cosmo.comoving_radial_distance(right_dist_squared_limits[0]).item()**2
+        if np.isfinite(right_summand._z_pad_limits[1]):
+            right_dist_squared_limits[1] = self.cosmo.comoving_radial_distance(right_dist_squared_limits[1]).item()**2
+        #add summands
+        for tracer in addition_sum.tracers:
+            distance_squared = addition_sum[tracer]['x']**2 + addition_sum[tracer]['y']**2 + addition_sum[tracer]['z']**2
+            select_left = ((distance_squared > left_dist_squared_limits[0])*(distance_squared < left_dist_squared_limits[1])).to_numpy()
+            left_summand_tracer = addition_sum[tracer][select_left]
+            distance_squared = right_summand[tracer]['x']**2 + right_summand[tracer]['y']**2 + right_summand[tracer]['z']**2
+            select_right = ((distance_squared > right_dist_squared_limits[0])*(distance_squared < right_dist_squared_limits[1])).to_numpy()
+            right_summand_tracer = right_summand[tracer][select_right]
+            
+            # TODO: How to handle tracers with same name but different paramters?
+            # Right now only the parameters of self are saved
+            addition_sum[tracer] = pd.concat([left_summand_tracer, right_summand_tracer], ignore_index=True)
+        return addition_sum
 
     def _check_data_columns(self, data: pd.DataFrame) -> bool:
         """
