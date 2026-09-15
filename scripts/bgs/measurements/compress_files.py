@@ -3,14 +3,13 @@ from pathlib import Path
 
 import lsstypes
 import numpy as np
-import xarray
 import yaml
 from measure_box import get_estimator
+from sample_hods import order
 
-from acm.estimators.compression import Compressor, ObjectGroup, split_test_set
+from acm.estimators.compression import Compressor, ObjectGroup
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.scripts import NumpyLoader
-from acm.utils.xarray import dataset_to_dict
 
 logger = get_logger_for_script(__file__)
 
@@ -20,21 +19,13 @@ K_MAX = np.pi * 512 / 2200 # Higher limit fixed by Nyquist frequency of the larg
 # Order of the parameters to select in the attributes of the read objects.
 parameters = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'nrun', 'N_ur', 'w0_fld', 'wa_fld', 'logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
 
-def select(stat_name: str, group: ObjectGroup) -> ObjectGroup:
+def select(group: ObjectGroup, **kwargs) -> ObjectGroup:
     """Select the relevant data from the ObjectGroup based on the statistic name."""
-    # FIXME (later): Replace hardcoded values ?
-    _get, _rebin, _select = {}, {}, {} # Empty by default
-    if stat_name == "tpcf" or "xi" in stat_name:
-        _get.update({"ells": [0, 2]})  # Get only monopole and quadrupole
-        _rebin.update({"s": slice(0, None, 3)})  # Rebin s by a factor of 3
-    if stat_name == "spectrum" or "pk" in stat_name:
-        _get.update({"ells": [0, 2]})
-        _rebin.update({"k": slice(0, None, 3)})
-        _select.update({"k": (K_MIN, K_MAX)})
-    if stat_name.startswith("ds"):
-        _get.update({"quantiles": [0, 1, 3, 4]})
-    group = group.get(**_get).select(**_rebin).select(**_select)
-    return group
+    _get = kwargs.get("get", {})
+    _rebin = kwargs.get("rebin", {})
+    _select = kwargs.get("select", {})
+    return group.get(**_get).select(**_rebin).select(**_select)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -60,6 +51,7 @@ if __name__ == "__main__":
     stat_name = args.measurement
     confargs = estimator_config.get(stat_name, {})
     load_args = confargs.get("load", {})
+    compress_args = confargs.get("compress", {})
     reader = get_estimator(stat_name).load
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
@@ -69,23 +61,27 @@ if __name__ == "__main__":
 
     compressor = Compressor(root=Path(args.root) / "base", pattern=pattern)
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
-    group = select(stat_name, group)
+    group = select(group, **compress_args)
     group = group.merge(method=lsstypes.mean)  # Merge identical indices
-    y = Compressor.compress(data=group, reindex=reindex)
-    x = Compressor.compress(data=group, reindex=reindex, attrs=parameters)
+    y = group.to_lsstypes(data=group, reindex=reindex)
+    x = group.to_lsstypes(data=group, reindex=reindex, attrs=order)
 
     compressor = Compressor(root=Path(args.root) / "small", pattern=pattern)
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
-    group = select(stat_name, group)
+    group = select(group, **compress_args)
     group = group.merge(method=lsstypes.mean)  # Merge identical indices
-    cov_y = Compressor.compress(data=group, reindex=reindex)
+    cov_y = group.to_lsstypes(data=group, reindex=reindex)
 
-    ds = xarray.Dataset({"x": x, "y": y, "cov_y": cov_y})
-    if test_filter: # Only split if test_filter is not empty
-        ds = split_test_set(ds, filters=test_filter)
+    data = lsstypes.ObservableTree(
+        branches=[x, y, cov_y],
+        names=["x", "y", "cov_y"],
+    )
+
+    if test_filter:  # Only split if test_filter is not empty
+        # data = split_test_set(data, filters=test_filter)
+        pass  # FIXME: add train/test set split to data based on test_filter
 
     Path(args.save_dir).mkdir(parents=True, exist_ok=True)
-    save_fn = Path(args.save_dir) / f"{stat_name}.npy"
-    payload = np.array(dataset_to_dict(ds), dtype=object)
-    np.save(save_fn, payload)
+    save_fn = Path(args.save_dir) / f"{stat_name}.h5"
+    data.write(save_fn)  # NOTE: no overwrite protection or atomic write
     logger.info(f"Saving compressed data to {save_fn}")
