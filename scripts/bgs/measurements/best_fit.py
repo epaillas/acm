@@ -12,7 +12,6 @@ from acm.estimators.compression import Compressor
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.scripts import NumpyLoader
 
-
 logger = get_logger_for_script(__file__)
 
 
