@@ -14,10 +14,8 @@ from acm.utils.scripts import NumpyLoader
 logger = get_logger_for_script(__file__)
 
 K_MIN = 2 * np.pi / 500  # lower limit fixed by small boxsize
-K_MAX = np.pi * 512 / 2200 # Higher limit fixed by Nyquist frequency of the largest boxsize*
+K_MAX = np.pi * 512 / 2200  # Higher limit fixed by Nyquist freq. of the largest boxsize
 
-# Order of the parameters to select in the attributes of the read objects.
-parameters = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'nrun', 'N_ur', 'w0_fld', 'wa_fld', 'logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
 
 def select(group: ObjectGroup, **kwargs) -> ObjectGroup:
     """Select the relevant data from the ObjectGroup based on the statistic name."""
@@ -28,6 +26,7 @@ def select(group: ObjectGroup, **kwargs) -> ObjectGroup:
 
 
 if __name__ == "__main__":
+    # fmt: off
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=str, required=True, help="Root directory containing the files to compress")
     parser.add_argument("--measurement", type=str, required=True, help="Measurement to process")
@@ -35,8 +34,9 @@ if __name__ == "__main__":
     parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the compressed files")
     parser.add_argument("--n_hod", type=int, default=None, help="Number of HODs to keep (default: all)")
     parser.add_argument("--test_cosmos", type=int, nargs="+", default=[], help="List of cosmo indices to use as test set")
-    parser.add_argument("--log_level", type=str, default='info', help="Set logging level (e.g., DEBUG, INFO)")
+    parser.add_argument("--log_level", type=str, default="info", help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
+    # fmt: on
 
     setup_logging(level=args.log_level)
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     reader = get_estimator(stat_name).load
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
-    pattern = r"c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"
+    pattern = r"c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"  # fmt: skip
     ignore_index = ["los"]
     reindex = {"hod_idx": ["cosmo_idx", "phase_idx"]}
 
