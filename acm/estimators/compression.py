@@ -352,6 +352,7 @@ class ObjectGroup:
                 # Assign a new integer to each unique raw value within this group
                 new_values.append(local.setdefault(index_lists[name][row], len(local)))
             index_lists[name] = new_values
+            logger.debug(f"Reindexed '{name}' based on {group_names}: {new_values}")
 
         return index_lists
 
@@ -496,7 +497,8 @@ class ObjectGroup:
         data, index_lists = self._prepare_compression(order, reindex)
         if drop_single:
             index_lists = {k: v for k, v in index_lists.items() if len(set(v)) > 1}
-            logger.info(f"Removing singleton indexes: {list(index_lists)}")
+            logger.info(f"Removing singleton indexes, keeping: {list(index_lists)}")
+        index_lists = {k: downcast(v) for k, v in index_lists.items()}  # ty: ignore[invalid-argument-type]
 
         if attrs:
             branches = [attrs_to_tree(o.data, attrs) for o in data.objects]
