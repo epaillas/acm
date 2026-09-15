@@ -163,6 +163,12 @@ class NumpyLoader(yaml.SafeLoader):
     """A YAML loader to allow numpy functions to be registered."""
 
 
+def _tuple(loader: Any, node: Any) -> tuple:  # noqa: ANN401
+    """Load a tuple from YAML."""
+    args = loader.construct_sequence(node)
+    return tuple(args)
+
+
 def _np_arange(loader: Any, node: Any) -> np.ndarray:  # noqa: ANN401
     args = loader.construct_sequence(node)
     return np.arange(*args)
@@ -173,5 +179,6 @@ def _np_linspace(loader: Any, node: Any) -> np.ndarray:  # noqa: ANN401
     return np.linspace(*args)
 
 
+NumpyLoader.add_constructor("!python/tuple", _tuple)
 NumpyLoader.add_constructor("!np.arange", _np_arange)
 NumpyLoader.add_constructor("!np.linspace", _np_linspace)
