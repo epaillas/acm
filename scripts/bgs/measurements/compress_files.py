@@ -63,14 +63,14 @@ if __name__ == "__main__":
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
     group = select(group, **compress_args)
     group = group.merge(method=lsstypes.mean)  # Merge identical indices
-    y = group.to_lsstypes(data=group, reindex=reindex)
-    x = group.to_lsstypes(data=group, reindex=reindex, attrs=order)
+    y = group.to_lsstypes(reindex=reindex)
+    x = group.to_lsstypes(reindex=reindex, attrs=order)
 
     compressor = Compressor(root=Path(args.root) / "small", pattern=pattern)
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
     group = select(group, **compress_args)
     group = group.merge(method=lsstypes.mean)  # Merge identical indices
-    cov_y = group.to_lsstypes(data=group, reindex=reindex)
+    cov_y = group.to_lsstypes(reindex=reindex)
 
     data = lsstypes.ObservableTree(
         branches=[x, y, cov_y],

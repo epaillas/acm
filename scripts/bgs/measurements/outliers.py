@@ -100,6 +100,7 @@ if __name__ == "__main__":
     stat_name = args.measurement
     confargs = estimator_config.get(stat_name, {})
     load_args = confargs.get("load", {})
+    compress_args = confargs.get("compress", {})
     reader = get_estimator(stat_name).load
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
@@ -119,7 +120,7 @@ if __name__ == "__main__":
 
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
     if not args.raw:
-        group = select(stat_name, group)
+        group = select(group, **compress_args)
         group = group.merge(method=lsstypes.mean)  # Merge identical indices
     outlier_idx = get_outliers(group, sigma=args.sigma)
 
