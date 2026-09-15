@@ -134,15 +134,47 @@ class TestFormatterFiltersAndSelection:
         obs.set_filters(i=[0, 1])
         assert obs.filters == {"i": [0, 1]}
 
-    def test_clear_filters_resets_everything(self, obs):
-        """Checks clear_filters resets state without mutating a dict the caller still holds."""
-        original = {"i": [0, 1]}
+    def test_clear_filters_with_names(self, obs):
+        """Checks clear_filters can remove only a subset of registered filters."""
+        original = {"i": [0, 1], "j": 2}
         obs.filters = original
-        obs.set_selection("y", indices=[0, 1])
+        obs.clear_filters("i")
+        assert obs.filters == {"j": 2}
+        assert original == {"i": [0, 1], "j": 2} # original dict should not be mutated
+
+    def test_clear_filters_noargs(self, obs):
+        """Checks clear_filters with no args removes all registered filters."""
+        original = {"i": [0, 1], "j": 2}
+        obs.filters = original
         obs.clear_filters()
         assert obs.filters == {}
-        assert original == {"i": [0, 1]}
+        assert original == {"i": [0, 1], "j": 2} # original dict should not be mutated
+
+    def test_clear_filters_unknown_passes_silently(self, obs):
+        """Checks clear_filters with unknown names does not raise an error."""
+        obs.filters = {"i": [0, 1], "j": 2}
+        obs.clear_filters("unknown")
+        assert obs.filters == {"i": [0, 1], "j": 2}
+
+    def test_clear_selection_with_names(self, obs):
+        """Checks clear_selection can remove only a subset of registered selections."""
+        obs.set_selection("y", indices=[0, 1])
+        obs.set_selection("covariance_y", indices=[0])
+        obs.clear_selection("y")
+        assert obs._select == {"covariance_y": [0]}
+
+    def test_clear_selection_noargs(self, obs):
+        """Checks clear_selection with no args removes all registered selections."""
+        obs.set_selection("y", indices=[0, 1])
+        obs.set_selection("covariance_y", indices=[0])
+        obs.clear_selection()
         assert obs._select == {}
+
+    def test_clear_selection_unknown_passes_silently(self, obs):
+        """Checks clear_selection with unknown names does not raise an error."""
+        obs.set_selection("y", indices=[0, 1])
+        obs.clear_selection("unknown")
+        assert obs._select == {"y": [0, 1]}
 
     def test_get_handle_prefix_and_hlength_forwarded(self, obs):
         """Checks get_handle forwards prefix/hlength to make_handle without duplicating its logic."""

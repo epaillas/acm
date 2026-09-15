@@ -107,11 +107,20 @@ class Formatter[R](ABC):  # NOTE: splitting interface for clarity
             self._select[n] = indices
         logger.debug(f"Selection set: {indices=}, {names=}")
 
-    def clear_filters(self) -> None:
-        """Clear all filters and selection indices."""
-        self.filters = {}  # Uses setter
-        self._select = {}
-        logger.debug("All filters and selection indices cleared.")
+    def clear_filters(self, *names: str) -> None:
+        """Clear all filters. If names are provided, only clear those specific filters."""
+        filters = self.filters.copy()
+        _names = set(names) or set(filters)
+        for n in _names:
+            value = filters.pop(n, None)
+            logger.debug(f"Filter cleared: {n}={value}")
+        self.filters = filters  # Update filters to trigger any related updates
+
+    def clear_selection(self, *names: str) -> None:
+        """Clear all selections. If names are provided, only clear those specific selections."""
+        _names = set(names) or set(self._select)
+        self._select = {k: v for k, v in self._select.items() if k not in _names}
+        logger.debug(f"Selection cleared: {names=}, remaining={list(self._select)}")
 
     def get_handle(self, prefix: str | None = None, hlength: int | None = None) -> str:
         """
