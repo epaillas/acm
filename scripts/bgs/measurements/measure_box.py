@@ -4,6 +4,7 @@ Script to measure clustering statistics from HOD catalogs generated with AbacusH
 Usage:
     python measure_box.py -h
 """  # noqa: INP001
+
 import argparse
 import itertools
 import logging
@@ -47,10 +48,14 @@ from acm.utils.scripts import (
 logger = get_logger_for_script(__file__)
 client = jext.backend.get_backend()
 
+
 # Temporary namespace monkeypatch for kymatio's scipy 1.15 compatibility
 def sph_harm(m, n, theta, phi):  # noqa: ANN001, ANN201, D103
     return scipy.special.sph_harm_y(n, m, phi, theta)
+
+
 scipy.special.sph_harm = sph_harm  # ty:ignore[unresolved-attribute]
+
 
 def get_params(
     tracer_names: list[str],
@@ -87,15 +92,15 @@ def get_params(
 
     Examples
     --------
-    >>> get_params(['BGS'], '/some_dir/', pattern='{tracer}/myfile.csv')
-    {'BGS': [
-        {'p0': 0, 'p1': 1},
-        {'p0': 2, 'p1': 3},
+    >>> get_params(["BGS"], "/some_dir/", pattern="{tracer}/myfile.csv")
+    {"BGS": [
+        {"p0": 0, "p1": 1},
+        {"p0": 2, "p1": 3},
         ...
     ]}
     """
-    fns = [Path(data_dir)/pattern.format(tracer=t) for t in tracer_names]
-    fnf = [fn for fn in fns if not fn.exists()] # Files Not Found
+    fns = [Path(data_dir) / pattern.format(tracer=t) for t in tracer_names]
+    fnf = [fn for fn in fns if not fn.exists()]  # Files Not Found
     if any(fnf):
         raise FileNotFoundError(f"Some files were not found: {fnf}")
 
@@ -103,8 +108,8 @@ def get_params(
 
     # Check that the number of columns is consistent
     shapes = np.array([df.shape for df in _params])
-    Ns = np.unique(shapes[:, 0]) # Number of parameter combinations
-    Np = np.unique(shapes[:, 1]) # Number of parameters per combination
+    Ns = np.unique(shapes[:, 0])  # Number of parameter combinations
+    Np = np.unique(shapes[:, 1])  # Number of parameters per combination
     if len(Np) != 1:
         raise ValueError(
             f"Found inconsistent number of parameters across parameter files: {Np}"
@@ -114,9 +119,10 @@ def get_params(
         logger.warning(
             f"Found different lengths for parameter files. Keeping only first {min(Ns)} parameter combinations."
         )
-        _params = [df[:min(Ns)] for df in _params]
+        _params = [df[: min(Ns)] for df in _params]
 
-    return {k: v.to_dict('records') for k, v in zip(tracer_names, _params, strict=True)}
+    return {k: v.to_dict("records") for k, v in zip(tracer_names, _params, strict=True)}
+
 
 def update_dict_with_keys(*d: dict, **kwargs) -> None:
     """Update dictionaries in place if the parameter names are present in their respective keys."""
@@ -124,11 +130,13 @@ def update_dict_with_keys(*d: dict, **kwargs) -> None:
         update_keys = {k: v for k, v in kwargs.items() if k in _d}
         _d.update(update_keys)
 
+
 def _log_buffers(loc: str | None = None) -> None:
     bs = [b.shape for b in client.live_buffers()]
     msg = f"at {loc}" if loc is not None else ""
     logger.debug(f"Number of JAX live buffers {msg}: {len(bs)}")
     logger.debug(f"JAX live buffers shapes {msg}: {bs}")
+
 
 def get_estimator(name: str) -> type[BaseEstimator]:
     """Get the estimator class by alias name."""
@@ -140,15 +148,16 @@ def get_estimator(name: str) -> type[BaseEstimator]:
         return BispectrumMultipoles
     if name.startswith("wst"):  # wst-j4, wst-j3, ...
         return WaveletScatteringTransform
-    if name.startswith("ds_"): # ds_xiqq, ds_xiqg, ds_pkqq, ds_pkqg
+    if name.startswith("ds_"):  # ds_xiqq, ds_xiqg, ds_pkqq, ds_pkqg
         return DensitySplit
     raise ValueError(f"Unknown estimator name: {name}")
 
+
 if __name__ == "__main__":
+    # fmt: off
     parser = argparse.ArgumentParser(description="Generate snapshot mocks and compute measurements on several statistics.")
     parser.add_argument("--config", type=str, help="Path to a YAML file to set default parameters. Command line arguments override config file settings.")
     parser.add_argument("--dump_config", action="store_true", help="If set, dumps the current configuration in the console and exits.")
-
     config_args = load_parser_default(parser)
 
     parser.add_argument("-c", "--cosmologies", type=int, nargs="+", required=True, help="List of cosmology indices to process.")
@@ -175,32 +184,28 @@ if __name__ == "__main__":
     parser.add_argument("--log_level", type=str, default="INFO", help="Logging level (e.g., DEBUG, INFO, WARNING, ERROR).")
     parser.add_argument("--log_file", type=str, help="File to save logs. If None, logs are printed to console.")
     parser.add_argument("--kymatio_object", type=str, help="Path to a pickled kymatio object to bypass kymatio initialization.")
-
+    # fmt: on
     apply_parser_default(parser, config_args)
     dump_config(parser)
     args = parser.parse_args()
     target_density = args.target_density
 
     setup_logging(level=args.log_level, filename=args.log_file)
-    logging.getLogger("numba").setLevel(logging.INFO) # Remove noisy DEBUG levels
+    logging.getLogger("numba").setLevel(logging.INFO)  # Remove noisy DEBUG levels
     logging.getLogger("jax").setLevel(logging.INFO)
     logging.getLogger("h5py").setLevel(logging.INFO)
 
     with Path(args.estimator_config).open() as f:
         estimator_config = yaml.load(f, Loader=NumpyLoader)  # noqa: S506
 
-    timer = BenchmarkTimer(keys=[
-        "dm_loading",
-        "no_mock_run",
-        "los_run",
-        "mock_run",
-        *args.measurements
-    ])  # FIXME: Remove this after benchmark
+    timer = BenchmarkTimer(
+        keys=["dm_loading", "no_mock_run", "los_run", "mock_run", *args.measurements]
+    )
 
     # Read pickled kymatio object from args
     kymatio_object = None
     if args.kymatio_object is not None:
-        with Path(args.kymatio_object).open('rb') as f:
+        with Path(args.kymatio_object).open("rb") as f:
             kymatio_object = pickle.load(f)  # noqa: S301
 
     is_gpu = detect_gpu()
@@ -208,69 +213,64 @@ if __name__ == "__main__":
 
     # NOTE: Hardcoded single BGS tracer for this script
     abacus_paths = lookup_registry_path("Abacus.yaml", "BGS", "box", args.sim_type)
-    tracer_names = ['BGS']
+    tracer_names = ["BGS"]
 
     # Precompute indices to avoid loop nesting & make indice overload easier
     hods = args.hods or range(args.start_hod, args.start_hod + args.max_hod)
     indices = itertools.product(args.cosmologies, args.phases, args.seeds, hods)
     if args.parameters_override:
-        _po = np.genfromtxt(args.parameters_override, delimiter=',', dtype=int)
-        indices = _po[np.lexsort((_po[:, 1], _po[:, 0]))] # sort by (cosmo, phase)
+        _po = np.genfromtxt(args.parameters_override, delimiter=",", dtype=int)
+        indices = _po[np.lexsort((_po[:, 1], _po[:, 0]))]  # sort by (cosmo, phase)
         logger.info(f"Overriding parameters from {args.parameters_override}.")
     grouped = itertools.groupby(indices, key=lambda x: (x[0], x[1]))
 
     for (cosmo_idx, phase_idx), group in grouped:
         timer.start("dm_loading")
-        hod_count = 0 # Number of computed HODs per cosmo/phase pair
+        hod_count = 0  # Number of computed HODs per cosmo/phase pair
         factory = SnapshotCatalogFactory(
-            backend = "AbacusHOD",
-            catalog_class = SnapshotCatalog,
-            cosmo = AbacusSummit(cosmo_idx), # NOTE: cosmo_fid=DESI()
-            cosmo_idx = cosmo_idx, # From here, backend arguments are passed as kwargs
-            phase_idx = phase_idx,
-            sim_type = args.sim_type,
-            sim_dir = abacus_paths["sim_dir"],
-            subsample_dir = abacus_paths["subsample_dir"],
+            backend="AbacusHOD",
+            catalog_class=SnapshotCatalog,
+            cosmo=AbacusSummit(cosmo_idx),  # NOTE: cosmo_fid=DESI()
+            cosmo_idx=cosmo_idx,  # From here, backend arguments are passed as kwargs
+            phase_idx=phase_idx,
+            sim_type=args.sim_type,
+            sim_dir=abacus_paths["sim_dir"],
+            subsample_dir=abacus_paths["subsample_dir"],
         )
-        logger.info(f'Loaded factory for c{cosmo_idx:03d}_ph{phase_idx:03d}')
+        logger.info(f"Loaded factory for c{cosmo_idx:03d}_ph{phase_idx:03d}")
 
         factory.backend.load_dark_matter_catalog(
-            redshift = args.redshift,
-            tracers = [Tracer(name=k) for k in tracer_names] # Name only = default
+            redshift=args.redshift,
+            tracers=[Tracer(name=k) for k in tracer_names],  # Name only = default
         )
         timer.register("dm_loading", log=True)
 
         # NOTE: Hardcoded file patterns
-        hod_params = get_params( # Get only HOD parameters, without cosmology parameters
-            tracer_names,
-            args.param_dir,
-            pattern=f"hod/Bouchard25_c{cosmo_idx:03d}.csv",
-        )
-        all_params = get_params( # Same, but with cosmology parameters included
-            tracer_names,
-            args.param_dir,
-            pattern=f"cosmo+hod/AbacusSummit_c{cosmo_idx:03d}.csv",
-        )
+        pattern = f"hod/Bouchard25_c{cosmo_idx:03d}.csv"  # Get only HOD parameters, without cosmology
+        hod_params = get_params(tracer_names, args.param_dir, pattern=pattern)
+        pattern = f"cosmo+hod/AbacusSummit_c{cosmo_idx:03d}.csv"  # Same, but with cosmology parameters included
+        all_params = get_params(tracer_names, args.param_dir, pattern=pattern)
 
         for _, _, seed, hod_idx in group:
             timer.start("mock_run", "no_mock_run")
-            parameters = all_params[tracer_names[0]][hod_idx] # FIXME (later): How to solve that for multi tracer ?
+            # FIXME (later): How to solve that for multi tracer ?
+            parameters = all_params[tracer_names[0]][hod_idx]
             tracers = [Tracer(name=k, params=v[hod_idx]) for k, v in hod_params.items()]
             factory.make_catalogs(
-                redshifts = [args.redshift],
-                tracers = tracers,
-                use_logsigma = True,
-                seed = seed,
+                redshifts=[args.redshift],
+                tracers=tracers,
+                use_logsigma=True,
+                seed=seed,
             )
             catalog = factory.get_catalog(args.redshift)
-            mock_dir = Path(args.save_dir) / str(args.sim_type) / f'c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}'
+            mock_dir = Path(args.save_dir) / str(args.sim_type) / f"c{cosmo_idx:03d}_ph{phase_idx:03d}/seed{seed}/hod{hod_idx:03d}"  # fmt: skip
 
             if args.save_galaxies:
-                catalog.save(mock_dir / 'catalog.h5')
+                catalog.save(mock_dir / "catalog.h5")
 
-            for los in ['x', 'y', 'z']:
+            for los in ["x", "y", "z"]:
                 timer.start("los_run")
-                logger.info(f'Computing measurements for HOD {hod_idx:03d}, {seed=}, {los=}')
+                logger.info(f"Computing measurements for HOD {hod_idx:03d}, {seed=}, {los=}")  # fmt: skip
                 catalog.clear_transforms()
                 if args.add_rsd:
                     offset = catalog.boxsize[catalog.pos_columns.index(los)] / 2
@@ -279,42 +279,42 @@ if __name__ == "__main__":
                     catalog.ap(los=los)
 
                 nbar = catalog.nbar
-                if los =='x':
+                if los == "x":
                     logger.info(f"Density for hod {hod_idx:03d}: {nbar:.4e} h^3 Mpc^-3")
-                    density_file = mock_dir / 'density.h5'
+                    density_file = mock_dir / "density.h5"
                     if not density_file.exists() or args.overwrite:
                         mock_dir.mkdir(exist_ok=True, parents=True)
                         leaf = lsstypes.ObservableLeaf(
-                            density = np.array([nbar]),
-                            index = np.array([0]),
-                            coords = ["index"],
-                            attrs = parameters,
+                            density=np.array([nbar]),
+                            index=np.array([0]),
+                            coords=["index"],
+                            attrs=parameters,
                         )
-                        leaf.write(density_file) # NOTE: no atomic write !
+                        leaf.write(density_file)  # NOTE: no atomic write !
 
                 if target_density is not None:
                     if nbar < target_density and not args.process_underdense:
-                        logger.info(f"Density below target ({nbar:.4e}<{target_density:.4e}). Skipping...")
+                        logger.info(f"Density below target ({nbar:.4e}<{target_density:.4e}). Skipping...")  # fmt: skip
                         timer.register("no_mock_run", log=True)
-                        break # In theory, same density for all los on boxes
+                        break  # In theory, same density for all los on boxes
                     for tracer in tracers:
                         # FIXME (later): target density selection wrt tracers ?
                         catalog.downsample(tracer.name, nbar=target_density, seed=42)
 
                 positions = (
-                    catalog.positions().to_numpy() + catalog.boxsize/2
-                ) % catalog.boxsize - catalog.boxsize/2 # Periodic wrapping
+                    catalog.positions().to_numpy() + catalog.boxsize / 2
+                ) % catalog.boxsize - catalog.boxsize / 2  # Periodic wrapping
                 boundary_check(positions, catalog.boxsize, center_at_zero=True)
-                logger.debug(f'Positions shape: {positions.shape}')
-                logger.info(f'Box size: {catalog.boxsize}')
+                logger.debug(f"Positions shape: {positions.shape}")
+                logger.info(f"Box size: {catalog.boxsize}")
 
                 backend_config = estimator_config.get("backend", {})
                 init_args = backend_config.get("initialization", {})
                 density_args = backend_config.get("density_contrast", {})
                 backend = JaxpowerBackend(
-                    data_positions = positions,
-                    boxsize = catalog.boxsize,
-                    boxcenter = 0,
+                    data_positions=positions,
+                    boxsize=catalog.boxsize,
+                    boxcenter=0,
                     **init_args,
                 )
                 backend.set_density_contrast(**density_args)
@@ -323,7 +323,7 @@ if __name__ == "__main__":
                     timer.start(stat_name)
                     fn = mock_dir / f"{stat_name}_los-{los}.h5"
                     if fn.exists() and args.overwrite is False:
-                        logger.info(f'File {fn} exists and {args.overwrite=}. Skipping...')
+                        logger.info(f"File {fn} exists and {args.overwrite=}. Skipping...")  # fmt: skip
                         continue
                     _log_buffers("before estimator initialization")
 
@@ -331,17 +331,17 @@ if __name__ == "__main__":
                     confargs = estimator_config.get(stat_name, {})
                     init_args = confargs.get("initialization", {})
                     compute_args = confargs.get("compute", {})
-                    update_dict_with_keys( # Update those if required
+                    update_dict_with_keys(  # Update those if required
                         init_args,
                         compute_args,
-                        los = los,
-                        gpu = is_gpu,
-                        nthreads = nthreads,
-                        kymatio_object = kymatio_object,
+                        los=los,
+                        gpu=is_gpu,
+                        nthreads=nthreads,
+                        kymatio_object=kymatio_object,
                     )
                     estimator = cls(
-                        backend = backend,
-                        data_positions = positions,
+                        backend=backend,
+                        data_positions=positions,
                         **init_args,
                     )
                     if args.failures > 0:
@@ -350,23 +350,23 @@ if __name__ == "__main__":
                         result = estimator.compute(**compute_args)
                     _log_buffers("after estimator computation")
                     jax.block_until_ready(result)  # Avoid OOM w/ async dispatching
-                    if result is not None: # Save object if computation was successful
-                        result.attrs.update(parameters) # cosmo+HOD parameters
+                    if result is not None:  # Save object if computation was successful
+                        result.attrs.update(parameters)  # cosmo+HOD parameters
                         estimator.save(result, fn, overwrite=args.overwrite)
                     timer.register(stat_name, log=True)
-                    del result # remove buffer references
+                    del result  # remove buffer references
                     memory_cleanup()
                 timer.register("los_run", log=True)
                 del backend, positions
                 memory_cleanup()
-            else: # Only run if target_density does not break los loop
+            else:  # Only run if target_density does not break los loop
                 hod_count += 1
                 timer.register("mock_run", log=True)
-                logger.debug(f"c{cosmo_idx:03d}_ph{phase_idx:03d}: Computed {hod_count}/{args.n_hod} mocks.")
+                logger.debug(f"c{cosmo_idx:03d}_ph{phase_idx:03d}: Computed {hod_count}/{args.n_hod} mocks.")  # fmt: skip
             del catalog
             memory_cleanup()
             if hod_count >= args.n_hod:
-                break # break inner loop
+                break  # break inner loop
         del factory
         memory_cleanup()
 

@@ -12,7 +12,9 @@ from acm.estimators.compression import Compressor
 from acm.utils.logging import get_logger_for_script, setup_logging
 from acm.utils.scripts import NumpyLoader
 
+
 logger = get_logger_for_script(__file__)
+
 
 def chi2(
     observed: np.ndarray[tuple[int], np.dtype[np.float64]],
@@ -43,22 +45,25 @@ def chi2(
     diff = observed - expected
     inv_cov = np.linalg.inv(covariance)
     chi2 = diff @ inv_cov @ diff
-    return chi2 / dof
+    return float(chi2 / dof)  # Should be a scalar value
+
 
 if __name__ == "__main__":
+    # fmt: off
     parser = argparse.ArgumentParser(description="Calculate data best-fit statistics")
     parser.add_argument("--root_obs", type=str, required=True, help="Root directory containing the measurements")
     parser.add_argument("--root_exp", type=str, required=True, help="Root directory containing the expected measurements")
     parser.add_argument("--measurement", type=str, required=True, help="Measurement to process")
     parser.add_argument("--estimator_config", type=str, required=True, help="YAML file containing estimator parameters.")
-    parser.add_argument('--Mr', type=float, default=-20, help='Magnitude threshold for the measurements (default: -20)')
-    parser.add_argument('--cosmo_idx', type=int, default=0, help='SecondGen Cosmology index to use (default: 0)')
-    parser.add_argument("--phase_idx", type=int, default=0, help='SecondGen Phase index to use (default: 0)')
-    parser.add_argument('--ndof', type=int, help='Calculate chi-squared per degree of freedom')
-    parser.add_argument('--diag', action='store_true', help='Use diagonal covariance matrix only')
-    parser.add_argument('--plot', action='store_true', help='Plot the best-fit comparison')
-    parser.add_argument("--log_level", type=str, default='info', help="Set logging level (e.g., DEBUG, INFO)")
+    parser.add_argument("--Mr", type=float, default=-20, help="Magnitude threshold for the measurements (default: -20)")
+    parser.add_argument("--cosmo_idx", type=int, default=0, help="SecondGen Cosmology index to use (default: 0)")
+    parser.add_argument("--phase_idx", type=int, default=0, help="SecondGen Phase index to use (default: 0)")
+    parser.add_argument("--ndof", type=int, help="Calculate chi-squared per degree of freedom")
+    parser.add_argument("--diag", action="store_true", help="Use diagonal covariance matrix only")
+    parser.add_argument("--plot", action="store_true", help="Plot the best-fit comparison")
+    parser.add_argument("--log_level", type=str, default="info", help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
+    # fmt: on
 
     setup_logging(level=args.log_level)
 
@@ -72,8 +77,8 @@ if __name__ == "__main__":
     reader = get_estimator(stat_name).load
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
-    pattern_obs = f"c{args.cosmo_idx:03d}" + r"_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"
-    pattern_exp = f"AbacusSummit_base_c{args.cosmo_idx:03d}" + r"_ph{phase_idx}/measurements/" + f"Mr{args.Mr}/{stat_name}" + r"_los-{los}.h5"
+    pattern_obs = f"c{args.cosmo_idx:03d}" + r"_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"  # fmt: skip
+    pattern_exp = f"AbacusSummit_base_c{args.cosmo_idx:03d}" + r"_ph{phase_idx}/measurements/" + f"Mr{args.Mr}/{stat_name}" + r"_los-{los}.h5"  # fmt: skip
     ignore_index = ["los"]
 
     # Compress measurements
@@ -81,14 +86,14 @@ if __name__ == "__main__":
     group_obs = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
     group_obs = select(group_obs, **compress_args)
     group_obs = group_obs.merge(method=lsstypes.mean)  # Merge identical indices
-    data = np.array([obj.data for obj in group_obs]) # Flattened arrays of observed data
+    data = np.array([obj.data for obj in group_obs])  # 2D arrays of observed data
 
     # Load expected data and covariance matrix
     compressor = Compressor(root=Path(args.root_exp), pattern=pattern_exp)
     group_exp = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
     group_exp = select(group_exp, **compress_args)
     group_exp = group_exp.merge(method=lsstypes.mean)  # Merge identical indices
-    expected = np.asarray(group_exp[0].data) # Flattened array of expected data
+    expected = np.asarray(group_exp[0].data)  # 2D array of expected data
     covariance = np.cov(np.array([obj.data for obj in group_exp]), rowvar=False)
     if args.diag:
         covariance = np.diag(np.diag(covariance))
@@ -97,21 +102,21 @@ if __name__ == "__main__":
     for observed in data:
         dof = len(observed) - args.ndof if args.ndof else 1
         chi2_value = chi2(observed, expected, covariance, dof=dof)
-        logger.info(f"Chi-squared value: {chi2_value}")
+        logger.info(f"Chi2 value: {chi2_value}")
         values.append(chi2_value)
 
     idx = int(np.argmin(values))
     str_idx = ", ".join([f"{k}={v}" for k, v in group_obs[idx].indexes.items()])
-    logger.info(f"Best-fit found for {str_idx} ({idx=}) with chi-squared value: {values[idx]}")
+    logger.info(f"Best-fit found for {str_idx} ({idx=}) with chi2 value: {values[idx]}")
 
     if args.plot:
         plotter = get_estimator(stat_name).plot
-        fig, ax = plotter(group_obs[idx].data, ls='-')
-        fig, ax = plotter(group_exp[0].data, ls='--', fig=fig, ax=ax)
+        fig, ax = plotter(group_obs[idx].data, ls="-")
+        fig, ax = plotter(group_exp[0].data, ls="--", fig=fig, ax=ax)
         handles = [
-            plt.Line2D([0], [0], lw=2, ls='-', label='Observed'),
-            plt.Line2D([0], [0], lw=2, ls='--', label='Expected'),
+            plt.Line2D([0], [0], lw=2, ls="-", label="Observed"),
+            plt.Line2D([0], [0], lw=2, ls="--", label="Expected"),
         ]
         ax.legend(handles=handles)
-        ax.set_title(f'Best-fit comparison for {stat_name} ({str_idx})')
-        fig.savefig(f"best_fit_{stat_name}.png", dpi=300, bbox_inches='tight')
+        ax.set_title(f"Best-fit comparison for {stat_name} ({str_idx})")
+        fig.savefig(f"best_fit_{stat_name}.png", dpi=300, bbox_inches="tight")
