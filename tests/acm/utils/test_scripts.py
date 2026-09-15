@@ -284,6 +284,10 @@ class TestBenchmarkTimer:
 
 
 class TestNumpyLoader:
+    def test_tuple(self):
+        data = yaml.load("values: !python/tuple [1, 2, 3]", Loader=NumpyLoader)  # noqa: S506
+        assert data["values"] == (1, 2, 3)
+
     def test_arange(self):
         data = yaml.load("values: !np.arange [0, 5, 1]", Loader=NumpyLoader)  # noqa: S506
         np.testing.assert_array_equal(data["values"], np.arange(0, 5, 1))
