@@ -1,51 +1,85 @@
 import argparse  # noqa: INP001
+from pathlib import Path
 
+import pandas as pd
 from sunbird.inference.priors import Bouchard25
 
-from acm.hod.parameters import HODLatinHypercube
 from acm.utils.abacus import load_cosmologies
 from acm.utils.default import cosmo_list
 from acm.utils.logging import get_logger_for_script, setup_logging
+from acm.utils.sampler import LatinHyperCubeSampler
 
 logger = get_logger_for_script(__file__)
-setup_logging()
 
 # Default parameters
-filename = '/pscratch/sd/s/sbouchar/acm/bgs-20/parameters/cosmo_params/AbacusSummit.csv'
-parameters = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'alpha_s', 'N_ur', 'w0_fld', 'wa_fld']
-order = ['omega_b', 'omega_cdm', 'sigma8_m', 'n_s', 'nrun', 'N_ur', 'w0_fld', 'wa_fld', 'logM_cut', 'logM_1', 'sigma', 'alpha', 'kappa', 'alpha_c', 'alpha_s', 's', 'A_cen', 'A_sat', 'B_cen', 'B_sat']
+abacus_fn = "/pscratch/sd/s/sbouchar/acm/bgs/parameters/cosmo/AbacusSummit.csv"
+parameters = [
+    "omega_b",
+    "omega_cdm",
+    "sigma8_m",
+    "n_s",
+    "alpha_s",
+    "N_ur",
+    "w0_fld",
+    "wa_fld",
+]
+order = [
+    "omega_b",
+    "omega_cdm",
+    "sigma8_m",
+    "n_s",
+    "nrun",
+    "N_ur",
+    "w0_fld",
+    "wa_fld",
+    "logM_cut",
+    "logM_1",
+    "sigma",
+    "alpha",
+    "kappa",
+    "alpha_c",
+    "alpha_s",
+    "s",
+    "A_cen",
+    "A_sat",
+    "B_cen",
+    "B_sat",
+]
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-n', '--number', type=int, default=85*100, help='Number of HOD to sample')
-parser.add_argument('-f', '--filename', type=str, default=filename, help='Path to the AbacusSummit cosmology parameters CSV file')
-parser.add_argument('-p', '--parameters', type=str, nargs='+', default=parameters, help='List of cosmological parameters to include')
-parser.add_argument('-c', '--cosmologies', type=int, nargs='+', default=cosmo_list, help='List of cosmology indices to sample HODs for')
-parser.add_argument('-o', '--order', type=str, nargs='+', default=order, help='Order of parameters in the final output CSV files')
-parser.add_argument('-s', '--save_dir', type=str, default=None, help='Directory to save the sampled HOD parameters')
-args = parser.parse_args()
+if __name__ == "__main__":
+    # fmt: off
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--number", type=int, required=True, help="Total number of combinations to sample")
+    parser.add_argument("-s", "--save_dir", type=str, required=True, help="Directory to save the sampled parameters")
+    parser.add_argument("-f", "--filename", type=str, default=abacus_fn, help="Path to the AbacusSummit cosmology parameters CSV file")
+    parser.add_argument("-p", "--parameters", type=str, nargs="+", default=parameters, help="List of cosmological parameters to include")
+    parser.add_argument("-c", "--cosmologies", type=int, nargs="+", default=cosmo_list, help="List of cosmology indices to sample HODs for")
+    args = parser.parse_args()
+    # fmt: on
 
-n = args.number
-filename = args.filename
-parameters = args.parameters
-cosmologies = args.cosmologies
-save_dir = args.save_dir
+    setup_logging()
+    logger.info(
+        f"Sampling {args.number} HODs for {len(args.cosmologies)} cosmologies from {args.filename} with parameters {args.parameters}"
+    )
 
-logger.info(f'Sampling {n} HODs for {len(cosmologies)} cosmologies from {filename} with parameters {parameters}')
+    cosmologies = load_cosmologies(
+        filename=args.filename,
+        cosmologies=args.cosmologies,
+        parameters=parameters,
+        mapping={"alpha_s": "nrun"},  # map alpha_s to nrun as it exists in HODs
+    )
 
-ranges = Bouchard25().ranges
-cosmo_params = load_cosmologies(
-    filename = filename,
-    cosmologies = cosmologies,
-    parameters = parameters,
-    mapping = {'alpha_s': 'nrun'}, # map alpha_s to nrun to avoid overwriting alpha_s in HOD params
-)
+    ranges = Bouchard25().ranges
+    lhc = LatinHyperCubeSampler(ranges=ranges)  # ty: ignore[invalid-argument-type]
+    sample = lhc.sample(n=args.number)  # All HODs sampled in the Latin Hypercube
+    splits = lhc.split(sample, keys=list(cosmologies))  # Split the HODs by cosmology
 
-lhc = HODLatinHypercube(ranges=ranges, order=order)
-lhc.sample(n)
-save_fn = [f'{save_dir}/hod_params/Bouchard25_c{c:03d}.csv' for c in cosmologies] if save_dir else None
-lhc.split_by_cosmo(cosmologies, save_fn=save_fn)
-save_fn = [f'{save_dir}/cosmo+hod_params/AbacusSummit_c{c:03d}.csv' for c in cosmologies] if save_dir else None
-lhc.add_cosmo_params(cosmo_params, save_fn=save_fn)
+    finals = {}
+    for k, d in splits.items():  # Add cosmology parameters to the HODs
+        new_cols = pd.DataFrame(cosmologies[k], index=[0]) # Only one row to duplicate
+        finals[k] = lhc.add_columns(d, cosmologies[k])
 
-if save_dir:
-    logger.info(f'Saved files to {save_dir}')
+    fn = Path(args.save_dir) / "hod/Bouchard25_{key}.csv"
+    lhc.save(splits, save_fn=fn , order=order[len(parameters):])
+    fn = Path(args.save_dir) / "cosmo+hod/AbacusSummit_{key}.csv"
+    lhc.save(finals, save_fn=fn, order=order)
