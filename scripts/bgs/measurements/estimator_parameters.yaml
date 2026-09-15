@@ -42,8 +42,8 @@ spectrum:
       k: 3
     select:
       k: !python/tuple [
-        0.13, # 2 * pi / 500 - lower limit fixed by small boxsize
-        0.73, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
+        0.013, # 2 * pi / 500 - lower limit fixed by small boxsize
+        0.731, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
       ]
 
 bispectrum:
@@ -128,8 +128,8 @@ ds_pkqg:
       k: 3
     select:
       k: !python/tuple [
-        0.13, # 2 * pi / 500 - lower limit fixed by small boxsize
-        0.73, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
+        0.013, # 2 * pi / 500 - lower limit fixed by small boxsize
+        0.731, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
       ]
 
 ds_pkqq:
@@ -153,8 +153,8 @@ ds_pkqq:
       k: 3
     select:
       k: !python/tuple [
-        0.13, # 2 * pi / 500 - lower limit fixed by small boxsize
-        0.73, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
+        0.013, # 2 * pi / 500 - lower limit fixed by small boxsize
+        0.731, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
       ]
 
 wst-j4:
