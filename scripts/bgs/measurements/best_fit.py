@@ -68,6 +68,7 @@ if __name__ == "__main__":
     stat_name = args.measurement
     confargs = estimator_config.get(stat_name, {})
     load_args = confargs.get("load", {})
+    compress_args = confargs.get("compress", {})
     reader = get_estimator(stat_name).load
 
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
@@ -78,14 +79,14 @@ if __name__ == "__main__":
     # Compress measurements
     compressor = Compressor(root=Path(args.root_obs), pattern=pattern_obs)
     group_obs = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
-    group_obs = select(stat_name, group_obs)
+    group_obs = select(group_obs, **compress_args)
     group_obs = group_obs.merge(method=lsstypes.mean)  # Merge identical indices
     data = np.array([obj.data for obj in group_obs]) # Flattened arrays of observed data
 
     # Load expected data and covariance matrix
     compressor = Compressor(root=Path(args.root_exp), pattern=pattern_exp)
     group_exp = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
-    group_exp = select(stat_name, group_exp)
+    group_exp = select(group_exp, **compress_args)
     group_exp = group_exp.merge(method=lsstypes.mean)  # Merge identical indices
     expected = np.asarray(group_exp[0].data) # Flattened array of expected data
     covariance = np.cov(np.array([obj.data for obj in group_exp]), rowvar=False)

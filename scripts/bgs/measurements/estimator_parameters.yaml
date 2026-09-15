@@ -20,6 +20,11 @@ tpcf:
   load:
     project: True
     ells: [0, 2]
+  compress:
+    get:
+      ells: [0, 2]
+    rebin: 
+      s: 3
 
 spectrum:
   compute:
@@ -30,6 +35,16 @@ spectrum:
     interlacing: 3
     compensate: True
     los: z
+  compress:
+    get:
+      ells: [0, 2]
+    rebin: 
+      k: 3
+    select:
+      k: !python/tuple [
+        0.13, # 2 * pi / 500 - lower limit fixed by small boxsize
+        0.73, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
+      ]
 
 bispectrum:
   compute:
@@ -61,6 +76,12 @@ ds_xiqg:
   load:
     project: True
     ells: [0, 2]
+  compress:
+    get:
+      ells: [0, 2]
+      quantiles: [0, 1, 3, 4]
+    rebin: 
+      s: 3
 
 ds_xiqq:
   initialization:
@@ -79,6 +100,12 @@ ds_xiqq:
   load:
     project: True
     ells: [0, 2]
+  compress:
+    get:
+      ells: [0, 2]
+      quantiles: [0, 1, 3, 4]
+    rebin: 
+      s: 3
 
 ds_pkqg:
   initialization:
@@ -93,6 +120,17 @@ ds_pkqg:
     interlacing: 3
     compensate: True
     los: z
+  compress:
+    get:
+      ells: [0, 2]
+      quantiles: [0, 1, 3, 4]
+    rebin: 
+      k: 3
+    select:
+      k: !python/tuple [
+        0.13, # 2 * pi / 500 - lower limit fixed by small boxsize
+        0.73, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
+      ]
 
 ds_pkqq:
   initialization:
@@ -107,6 +145,17 @@ ds_pkqq:
     interlacing: 3
     compensate: True
     los: z
+  compress:
+    get:
+      ells: [0, 2]
+      quantiles: [0, 1, 3, 4]
+    rebin: 
+      k: 3
+    select:
+      k: !python/tuple [
+        0.13, # 2 * pi / 500 - lower limit fixed by small boxsize
+        0.73, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
+      ]
 
 wst-j4:
   initialization:
