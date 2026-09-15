@@ -19,10 +19,14 @@ K_MAX = np.pi * 512 / 2200  # Higher limit fixed by Nyquist freq. of the largest
 
 def select(group: ObjectGroup, **kwargs) -> ObjectGroup:
     """Select the relevant data from the ObjectGroup based on the statistic name."""
-    _get = kwargs.get("get", {})
+    get = kwargs.get("get", {})
     _rebin = kwargs.get("rebin", {})
-    _select = kwargs.get("select", {})
-    return group.get(**_get).select(**_rebin).select(**_select)
+    if not all(isinstance(v, int) and v > 0 for v in _rebin.values()):
+        raise ValueError(f"Rebin values must be positive integers, got {_rebin}")
+    rebin = {k: slice(0, None, v) for k, v in _rebin.items()}
+    select = kwargs.get("select", {})
+    logger.debug(f"Selecting data with {get=}, {rebin=}, {select=}")
+    return group.get(**get).select(**rebin).select(**select)
 
 
 if __name__ == "__main__":
@@ -32,7 +36,6 @@ if __name__ == "__main__":
     parser.add_argument("--measurement", type=str, required=True, help="Measurement to process")
     parser.add_argument("--estimator_config", type=str, required=True, help="YAML file containing estimator parameters.")
     parser.add_argument("--save_dir", type=str, required=True, help="Directory to save the compressed files")
-    parser.add_argument("--n_hod", type=int, default=None, help="Number of HODs to keep (default: all)")
     parser.add_argument("--test_cosmos", type=int, nargs="+", default=[], help="List of cosmo indices to use as test set")
     parser.add_argument("--log_level", type=str, default="info", help="Set logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
@@ -57,7 +60,7 @@ if __name__ == "__main__":
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
     pattern = r"c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"  # fmt: skip
     ignore_index = ["los"]
-    reindex = {"hod_idx": ["cosmo_idx", "phase_idx"]}
+    reindex = None  #{"hod_idx": ["cosmo_idx", "phase_idx"]}
 
     compressor = Compressor(root=Path(args.root) / "base", pattern=pattern)
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
@@ -74,7 +77,7 @@ if __name__ == "__main__":
 
     data = lsstypes.ObservableTree(
         branches=[x, y, cov_y],
-        names=["x", "y", "cov_y"],
+        name=["x", "y", "cov_y"],
     )
 
     if test_filter:  # Only split if test_filter is not empty
