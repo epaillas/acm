@@ -4,6 +4,7 @@ from pathlib import Path
 import lsstypes
 import numpy as np
 import yaml
+from lsstypes import ObservableTree
 from measure_box import get_estimator
 from sample_hods import order
 
@@ -27,6 +28,20 @@ def select(group: ObjectGroup, **kwargs) -> ObjectGroup:
     select = kwargs.get("select", {})
     logger.debug(f"Selecting data with {get=}, {rebin=}, {select=}")
     return group.get(**get).select(**rebin).select(**select)
+
+
+def split_tree(tree: ObservableTree, **labels) -> tuple[ObservableTree, ObservableTree]:
+    """Split an ObservableTree into two trees based on label filters."""
+    if len(labels) > 1:  # FIXME
+        raise NotImplementedError("split_tree currently only supports single label.")
+    label_name = next(iter(labels.keys()))
+    tree_label = tree.labels(return_type="unflatten", level=None)[label_name]
+    label_in = labels[label_name]
+    label_out = list(set(tree_label) - set(label_in))
+    logger.debug(f"Splitting tree on {label_name}: {label_in=} and {label_out=}")
+    tree_in = tree.get(**{label_name: label_in})
+    tree_out = tree.get(**{label_name: label_out})
+    return tree_in, tree_out
 
 
 if __name__ == "__main__":
@@ -60,7 +75,7 @@ if __name__ == "__main__":
     # NOTE: using hardcoded pattern/index structure for those files, as they handle outputs of measure_box.py
     pattern = r"c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/" + stat_name + r"_los-{los}.h5"  # fmt: skip
     ignore_index = ["los"]
-    reindex = None  #{"hod_idx": ["cosmo_idx", "phase_idx"]}
+    reindex = None  # {"hod_idx": ["cosmo_idx", "phase_idx"]}
 
     compressor = Compressor(root=Path(args.root) / "base", pattern=pattern)
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
@@ -81,8 +96,12 @@ if __name__ == "__main__":
     )
 
     if test_filter:  # Only split if test_filter is not empty
-        # data = split_test_set(data, filters=test_filter)
-        pass  # FIXME: add train/test set split to data based on test_filter
+        for name in ["x", "y"]:
+            logger.info(f"Splitting {name} into test/train using filter: {test_filter}")
+            data = data.insert(
+                split_tree(data.get(name=name), **test_filter),
+                name=[f"{name}_test", f"{name}_train"],
+            )
 
     Path(args.save_dir).mkdir(parents=True, exist_ok=True)
     save_fn = Path(args.save_dir) / f"{stat_name}.h5"
