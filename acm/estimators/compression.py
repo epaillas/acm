@@ -239,9 +239,11 @@ class ObjectGroup:
             # Call the method on the first data object to check for errors
             d0 = method(*args, **kwargs)
             new = ObjectGroup()
+            logger.debug(f"Applying '{name}' to {len(self.objects)} objects")
             for obj in self.objects:
                 # Match the output of the first data object
                 new.objects.append(IndexedObject(obj.indexes, obj.data.match(d0)))
+            logger.debug(f"Created new ObjectGroup with {len(new.objects)} objects")
             return new
 
         return _apply
