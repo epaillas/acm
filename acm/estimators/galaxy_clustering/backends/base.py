@@ -41,6 +41,11 @@ class EstimatorBackend(ABC):
         if randoms_weights is not None and randoms_positions is None:
             raise ValueError("randoms_weights requires randoms_positions to be set.")
 
+        self.data_positions = data_positions
+        self.randoms_positions = randoms_positions
+        self.data_weights = data_weights
+        self.randoms_weights = randoms_weights
+
         # Assign internal attributes
         self._size_data = size_data
         self._size_randoms = size_randoms
