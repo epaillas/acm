@@ -44,10 +44,25 @@ class BaseEstimator(ABC):
             f"Initializing {self.__class__.__name__} with {self.backend.__class__.__name__}"
         )
 
-        self.data_positions = data_positions
-        self.randoms_positions = randoms_positions
-        self.data_weights = data_weights
-        self.randoms_weights = randoms_weights
+    @property
+    def data_positions(self) -> np.ndarray:
+        """Get the data positions."""
+        return self.backend.data_positions
+
+    @property
+    def randoms_positions(self) -> np.ndarray | None:
+        """Get the randoms positions."""
+        return self.backend.randoms_positions
+
+    @property
+    def data_weights(self) -> np.ndarray | None:
+        """Get the data weights."""
+        return self.backend.data_weights
+
+    @property
+    def randoms_weights(self) -> np.ndarray | None:
+        """Get the randoms weights."""
+        return self.backend.randoms_weights
 
     def __repr__(self) -> str:  # pragma: no cover
         """Provide a string representation of the estimator, including backend."""
