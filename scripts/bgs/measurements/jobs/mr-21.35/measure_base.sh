@@ -9,8 +9,8 @@
 #SBATCH --time 10:00:00
 
 #SBATCH --job-name base-21
-#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_measurements/%A.%x_%a.out
-#SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_measurements/%A.%x_%a.err
+#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-21.35/measurements/%A.%x_%a.out
+#SBATCH --error  /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-21.35/measurements/%A.%x_%a.err
 
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
@@ -30,6 +30,6 @@ OVERRIDE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/parameters/override/idx/c%03d
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-21.35/logs/v2.0/measurements/abacus/base/run%d/log_c%03d_ph000_seed0.log" ${RUN} ${COSMO})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/bgs-21.35/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}"
+python measure_box.py --config jobs/mr-21.35/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}"
 
 # Launch with : sbatch --array=0-84 ...

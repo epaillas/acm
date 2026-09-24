@@ -9,8 +9,8 @@
 #SBATCH --time 00:30:00
 
 #SBATCH --job-name outliers-20
-#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.out
-#SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.err
+#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-20/measurements/%A.%x_%a.out
+#SBATCH --error  /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-20/measurements/%A.%x_%a.err
 
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
@@ -28,4 +28,4 @@ LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-20/logs/v2.0/measurements/a
 OVERRIDE="/pscratch/sd/s/sbouchar/acm/bgs/parameters/override/${SIMTYPE}/${TYPE}_idx.csv" # Needs to be build by hand
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/bgs-20/config.yaml --sim_type "${SIMTYPE}" --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}" --overwrite
+python measure_box.py --config jobs/mr-20/config.yaml --sim_type "${SIMTYPE}" --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}" --overwrite
