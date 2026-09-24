@@ -46,13 +46,28 @@ spectrum:
         0.731, # pi * 512 / 2200 - Higher limit fixed by Nyquist frequency of the largest boxsize
       ]
 
-bispectrum:
+bispectrum-scoccimarro:
   compute:
     basis: scoccimarro
     edges:
       min: 0.02
       max: 0.20
       step: 0.02
+    buffer_size: 30
+    resampler: tsc
+    interlacing: 3
+    compensate: True
+    los: z
+
+bispectrum-sugiyama: # with non-diagonal terms
+  compute:
+    basis: sugiyama
+    ells:
+      - !python/tuple [0, 0, 0]
+      - !python/tuple [2, 0, 2]
+    mask_edges: 
+      - "edge1[:, 1] <= nyq / 2."
+      - "edge2[:, 1] <= nyq / 2."
     buffer_size: 30
     resampler: tsc
     interlacing: 3
