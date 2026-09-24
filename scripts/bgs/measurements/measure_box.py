@@ -144,7 +144,7 @@ def get_estimator(name: str) -> type[BaseEstimator]:
         return TwoPointCorrelationFunctionEstimator
     if name == "spectrum":
         return PowerSpectrumMultipoles
-    if name == "bispectrum":
+    if name.startswith("bispectrum"):  # soccimaro, sugiyama
         return BispectrumMultipoles
     if name.startswith("wst"):  # wst-j4, wst-j3, ...
         return WaveletScatteringTransform
