@@ -9,8 +9,8 @@
 #SBATCH --time 12:00:00
 
 #SBATCH --job-name base-20
-#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.out
-#SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.err
+#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-20/measurements/%A.%x_%a.out
+#SBATCH --error  /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-20/measurements/%A.%x_%a.err
 
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
@@ -29,6 +29,6 @@ RUN=1
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-20/logs/v2.0/measurements/abacus/base/run%d/log_c%03d_ph000_seed0.log" ${RUN} ${COSMO})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/bgs-20/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}"
+python measure_box.py --config jobs/mr-20/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}"
 
 # Launch with : sbatch --array=0-84 ...
