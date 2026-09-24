@@ -8,7 +8,7 @@
 
 #SBATCH --time 12:00:00
 
-#SBATCH --job-name bgs_base
+#SBATCH --job-name base-20
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.out
 #SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.err
 
