@@ -3,12 +3,12 @@
 #SBATCH --account desi_g
 #SBATCH --nodes 1
 #SBATCH --ntasks-per-node 1
-#SBATCH --qos regular
+#SBATCH --qos debug
 #SBATCH --constraint gpu&hbm80g
 
-#SBATCH --time 12:00:00
+#SBATCH --time 00:30:00
 
-#SBATCH --job-name base-20
+#SBATCH --job-name outliers-20
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.out
 #SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-20_measurements/%A.%x_%a.err
 
@@ -20,15 +20,12 @@ module swap pyrecon/mpi pyrecon/main
 
 export XLA_PYTHON_CLIENT_ALLOCATOR=platform # JAX backend for GPU memory allocation
 
-# Get the cosmology index from the SLURM_ARRAY_TASK_ID
-COSMO_LIST=(0 {1..4} 13 {100..126} {130..181}) # List of cosmologies to be used
-ID=$((SLURM_ARRAY_TASK_ID)) # ID of the cosmology to be used, starting from 0
-COSMO=${COSMO_LIST[ID]} # Cosmology to be used
+SIMTYPE=base
+TYPE=outlier # outlier/corrupted
 
-RUN=1
-LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-20/logs/v2.0/measurements/abacus/base/run%d/log_c%03d_ph000_seed0.log" ${RUN} ${COSMO})
+RUN=2 # New run!
+LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-20/logs/v2.0/measurements/abacus/${SIMTYPE}/run%d/log_outliers_${TYPE}.log" ${RUN})
+OVERRIDE="/pscratch/sd/s/sbouchar/acm/bgs/parameters/override/${SIMTYPE}/${TYPE}_idx.csv" # Needs to be build by hand
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/bgs-20/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}"
-
-# Launch with : sbatch --array=0-84 ...
+python measure_box.py --config jobs/bgs-20/config.yaml --sim_type "${SIMTYPE}" --log_file "${LOGFILE}" --parameters_override "${OVERRIDE}" --overwrite
