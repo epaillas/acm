@@ -6,9 +6,9 @@
 #SBATCH --qos regular
 #SBATCH --constraint gpu&hbm80g
 
-#SBATCH --time 12:00:00
+#SBATCH --time 10:00:00
 
-#SBATCH --job-name 10-bgs_base
+#SBATCH --job-name base-21
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_measurements/%A.%x_%a.out
 #SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_measurements/%A.%x_%a.err
 

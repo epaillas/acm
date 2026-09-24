@@ -6,9 +6,9 @@
 #SBATCH --qos regular
 #SBATCH --constraint gpu&hbm80g
 
-#SBATCH --time 00:20:00
+#SBATCH --time 00:08:00
 
-#SBATCH --job-name bgs_small
+#SBATCH --job-name small-21
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_measurements/%A.%x_%a.out
 #SBATCH --error /pscratch/sd/s/sbouchar/Output_jobs/bgs-21.35_measurements/%A.%x_%a.err
 
@@ -29,8 +29,6 @@ RUN=1
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-21.35/logs/v2.0/measurements/abacus/small/run%d/log_c000_ph%03d_seed0.log" ${RUN} ${PHASE})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/bgs-21.35/config.yaml --sim_type small --hods 70 157 --phases ${PHASE} --log_file "${LOGFILE}"
-# 70 is the best-fit, 157 is the best-fit of the -20 magnitude cut BGS sample (if we need it)
-
+python measure_box.py --config jobs/bgs-21.35/config.yaml --sim_type small --hods 58 --phases ${PHASE} --log_file "${LOGFILE}"
 
 # Launch with : sbatch --array=0-1642 ... 
