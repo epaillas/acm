@@ -12,7 +12,7 @@ from scipy.interpolate import interp1d
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products.base import BaseGalaxyCatalog
-from acm.catalogs.products.transforms import _add_distance_column, _apply_downsample
+from acm.catalogs.products.transforms import add_distance_column, downsample
 
 logger = logging.getLogger(__name__)
 
@@ -296,7 +296,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         self._add_transform(
             Transform(
                 name="add_distance",
-                func=_add_distance_column,
+                func=add_distance_column,
                 kwargs={"cosmo": self.cosmo},
             )
         )
@@ -336,7 +336,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         self._add_transform(
             Transform(
                 name=f"downsample_{tracer}",
-                func=_apply_downsample,
+                func=downsample,
                 tracer=tracer,
                 kwargs={
                     "tracer": tracer,  # passed for logging purposes

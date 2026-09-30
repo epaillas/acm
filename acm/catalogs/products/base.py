@@ -134,6 +134,7 @@ class BaseGalaxyCatalog(ABC):
     def _ngal(self, *tracers: str) -> int:
         """Return the total number of galaxies for specified tracers, or the full catalog otherwise."""
         tracers = tracers or tuple(self.tracers)
+        logger.debug(f"Calculating number of galaxies for tracers: {tracers}")
         return len(self.get_tracer_data(*tracers))
 
     @property

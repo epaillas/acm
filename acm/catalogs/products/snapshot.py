@@ -9,7 +9,7 @@ from numpy.random import RandomState
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products import BaseGalaxyCatalog
-from acm.catalogs.products.transforms import _apply_ap, _apply_downsample, _apply_rsd
+from acm.catalogs.products.transforms import ap_snapshot, downsample, rsd_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         self._add_transform(
             Transform(
                 name="rsd",
-                func=_apply_rsd,
+                func=rsd_snapshot,
                 kwargs={
                     "los": los,
                     "hubble": self.hubble,
@@ -177,7 +177,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         self._add_transform(
             Transform(
                 name="ap",
-                func=_apply_ap,
+                func=ap_snapshot,
                 kwargs={
                     "los": los,
                     "q_par": self.q_par,
@@ -222,7 +222,7 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         self._add_transform(
             Transform(
                 name=f"downsample_{tracer}",
-                func=_apply_downsample,
+                func=downsample,
                 tracer=tracer,
                 kwargs={
                     "tracer": tracer,  # passed for logging purposes

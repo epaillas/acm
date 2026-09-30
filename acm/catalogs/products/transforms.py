@@ -10,7 +10,7 @@ from numpy.random import RandomState
 logger = logging.getLogger(__name__)
 
 
-def _apply_rsd(
+def rsd_snapshot(
     data: pd.DataFrame,
     los: str,
     hubble: float,
@@ -51,7 +51,7 @@ def _apply_rsd(
     return data
 
 
-def _apply_ap(
+def ap_snapshot(
     data: pd.DataFrame,
     los: str,
     q_par: float,
@@ -86,7 +86,7 @@ def _apply_ap(
     return data
 
 
-def _apply_downsample(
+def downsample(
     data: pd.DataFrame,
     tracer: str,
     n_gal: int | None = None,
@@ -155,7 +155,7 @@ def _apply_downsample(
     return data.sample(n=n_target, random_state=seed).reset_index(drop=True)
 
 
-def _add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
+def add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
     """Add a comoving distance column to the DataFrame based on the redshift column."""
     if "z" not in df.columns:
         raise ValueError("DataFrame must contain a 'z' column to compute distances.")
