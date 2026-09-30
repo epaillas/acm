@@ -9,8 +9,8 @@
 #SBATCH --time 00:08:00
 
 #SBATCH --job-name small-21
-#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-21.35/measurements/%A.%x_%a.out
-#SBATCH --error  /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-21.35/measurements/%A.%x_%a.err
+#SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-21.35/measurements/abacus/small/%A.%x_%a.out
+#SBATCH --error  /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-21.35/measurements/abacus/small/%A.%x_%a.err
 
 # Load the modules of the DESI environment (cosmodesi)
 source /global/common/software/desi/users/adematti/cosmodesi_environment.sh main
