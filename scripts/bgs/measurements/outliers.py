@@ -108,11 +108,7 @@ if __name__ == "__main__":
     ignore_index = ["los"] if not args.raw else None
 
     compressor = Compressor(root=Path(args.root), pattern=pattern)
-    corrupted_idx = check_corrupted_files(
-        compressor,
-        reader=reader,
-        **load_args,
-    )
+    corrupted_idx = check_corrupted_files(compressor, reader, **load_args)
 
     nfiles = len(compressor._files)
     if nfiles != args.n_expected:
