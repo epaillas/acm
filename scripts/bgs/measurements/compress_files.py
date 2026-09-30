@@ -86,8 +86,8 @@ if __name__ == "__main__":
 
     compressor = Compressor(root=Path(args.root) / "small", pattern=pattern)
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
-    group = select(group, **compress_args)
     group = group.merge(method=lsstypes.mean)  # Merge identical indices
+    group = select(group, **compress_args)
     cov_y = group.to_lsstypes(reindex=reindex)
 
     data = lsstypes.ObservableTree(
