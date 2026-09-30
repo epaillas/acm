@@ -145,65 +145,69 @@ class TestTransforms:
 
     def test_get_tracer_data_applies_transforms(self, populated_catalog):
         t = Transform(name="scale", func=lambda data, f: data * f, kwargs={"f": 2.0})
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         result = populated_catalog.get_tracer_data("FOO")
         assert result["x"].tolist() == pytest.approx([2.0, 4.0])
 
     def test_get_tracer_data_does_not_mutate_raw(self, populated_catalog):
         raw_before = populated_catalog._data["FOO"].copy()
         t = Transform(name="scale", func=lambda data, f: data * f, kwargs={"f": 2.0})
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         populated_catalog.get_tracer_data("FOO")
         pd.testing.assert_frame_equal(populated_catalog._data["FOO"], raw_before)
 
     def test_get_raw_tracer_data_bypasses_transforms(self, populated_catalog, valid_data):
         t = Transform(name="scale", func=lambda data, f: data * f, kwargs={"f": 2.0})
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         result = populated_catalog.get_tracer_data("FOO", raw=True)
         pd.testing.assert_frame_equal(result, valid_data)
 
-    def test_add_transform(self, catalog):
+    def test_register_transform(self, catalog):
         t = Transform(name="t1", func=lambda d: d, kwargs={})
-        catalog._add_transform(t)
+        catalog.register_transform(t)
         assert "t1" in catalog._transforms
 
-    def test_add_transform_replaces_existing(self, catalog, caplog):
+    def test_register_transform_replaces_existing(self, catalog, caplog):
         t1 = Transform(name="t1", func=lambda d: d, kwargs={})
-        t2 = Transform(name="t1", func=lambda d: d * 2, kwargs={})
-        catalog._add_transform(t1)
+        t2 = Transform(name="t2", func=lambda d: d * 3, kwargs={})
+        catalog.register_transform(t1)
+        catalog.register_transform(t2)
+        t1_new = Transform(name="t1", func=lambda d: d * 2, kwargs={})
         with caplog.at_level("WARNING"):
-            catalog._add_transform(t2)
-        assert catalog._transforms["t1"] is t2
+            catalog.register_transform(t1_new)
+        assert "t1" in caplog.text # Warning is raised
+        assert catalog._transforms["t1"] is t1_new # New transform replaces old one
+        assert catalog.transform_pipeline == ["t1", "t2"] # Order is preserved
 
     def test_transform_pipeline_property(self, catalog):
         t1 = Transform(name="t1", func=lambda d: d, kwargs={})
         t2 = Transform(name="t2", func=lambda d: d * 2, kwargs={})
-        catalog._add_transform(t1)
-        catalog._add_transform(t2)
+        catalog.register_transform(t1)
+        catalog.register_transform(t2)
         assert catalog.transform_pipeline == ["t1", "t2"]
 
     def test_remove_transform(self, catalog):
         t = Transform(name="t1", func=lambda d: d, kwargs={})
-        catalog._add_transform(t)
-        catalog._remove_transform("t1")
+        catalog.register_transform(t)
+        catalog.remove_transform("t1")
         assert "t1" not in catalog._transforms
 
     def test_remove_transform_missing_raises(self, catalog):
         with pytest.raises(KeyError, match="t1"):
-            catalog._remove_transform("t1")
+            catalog.remove_transform("t1")
 
     def test_transforms_applied_in_order(self, populated_catalog):
         """Transforms should be applied sequentially in insertion order."""
         t1 = Transform(name="add", func=lambda d, v: d + v, kwargs={"v": 1.0})
         t2 = Transform(name="scale", func=lambda d, f: d * f, kwargs={"f": 2.0})
-        populated_catalog._add_transform(t1)
-        populated_catalog._add_transform(t2)
+        populated_catalog.register_transform(t1)
+        populated_catalog.register_transform(t2)
         result = populated_catalog.get_tracer_data("FOO") # (original + 1) * 2
         assert result["x"].tolist() == pytest.approx([(1.0 + 1.0) * 2.0, (2.0 + 1.0) * 2.0])
 
     def test_clear_transforms(self, populated_catalog):
         t = Transform(name="t1", func=lambda d: d, kwargs={})
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         populated_catalog.clear_transforms()
         assert len(populated_catalog._transforms) == 0
 
@@ -211,7 +215,7 @@ class TestTransforms:
         """A transform with tracer=None should apply to all tracers."""
         t = Transform(name="t1", func=lambda d, f: d * f, kwargs={"f": 2.0})
         populated_catalog.set_tracer_data(tracer_bar, valid_data) # Add BAR tracer
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         bar_data = populated_catalog.get_tracer_data("BAR")
         foo_data = populated_catalog.get_tracer_data("FOO")
         assert populated_catalog._transforms["t1"].tracer is None
@@ -222,7 +226,7 @@ class TestTransforms:
         """A transform with a specific tracer should only apply to that tracer."""
         t = Transform(name="t1", func=lambda d, f: d * f, kwargs={"f": 2.0}, tracer="FOO")
         populated_catalog.set_tracer_data(tracer_bar, valid_data) # Add BAR tracer
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         bar_data = populated_catalog.get_tracer_data("BAR")
         foo_data = populated_catalog.get_tracer_data("FOO")
         assert populated_catalog._transforms["t1"].tracer == "FOO"
@@ -289,7 +293,7 @@ class TestSaveLoad:
 
     def test_save_warns_on_active_transforms(self, populated_catalog, tmp_path, caplog):
         t = Transform(name="scale", func=lambda d, f: d * f, kwargs={"f": 2.0})
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         path = tmp_path / "catalog.h5"
         with caplog.at_level("WARNING"):
             populated_catalog.save(path)
@@ -298,7 +302,7 @@ class TestSaveLoad:
     def test_load_transforms_not_restored(self, populated_catalog, tmp_path):
         """Transforms should not be present after loading."""
         t = Transform(name="scale", func=lambda d, f: d * f, kwargs={"f": 2.0})
-        populated_catalog._add_transform(t)
+        populated_catalog.register_transform(t)
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
         loaded = DummyCatalog.load(path)

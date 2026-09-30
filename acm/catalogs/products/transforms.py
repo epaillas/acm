@@ -1,3 +1,5 @@
+"""Transforms functions to pass to Galaxy catalog Transform objects. Should mutate the input DataFrame in place."""
+
 import logging
 from collections.abc import Callable
 
@@ -8,7 +10,7 @@ from numpy.random import RandomState
 logger = logging.getLogger(__name__)
 
 
-def _apply_rsd(
+def rsd_snapshot(
     data: pd.DataFrame,
     los: str,
     hubble: float,
@@ -42,7 +44,6 @@ def _apply_rsd(
     pd.DataFrame
         Transformed galaxy data with RSD applied.
     """
-    data = data.copy()
     v_col = f"v{los}"
     data[los] = data[los] + data[v_col] / (hubble * az)
     if wrap > 0:
@@ -50,7 +51,7 @@ def _apply_rsd(
     return data
 
 
-def _apply_ap(
+def ap_snapshot(
     data: pd.DataFrame,
     los: str,
     q_par: float,
@@ -80,13 +81,12 @@ def _apply_ap(
     pd.DataFrame
         Transformed galaxy data with AP scaling applied.
     """
-    data = data.copy()
     for ax in pos_columns:
         data[ax] = data[ax] / (q_par if ax == los else q_perp)
     return data
 
 
-def _apply_downsample(
+def downsample(
     data: pd.DataFrame,
     tracer: str,
     n_gal: int | None = None,
@@ -155,10 +155,29 @@ def _apply_downsample(
     return data.sample(n=n_target, random_state=seed).reset_index(drop=True)
 
 
-def _add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
-    """Add a comoving distance column to the DataFrame based on the redshift column."""
+def add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
+    """
+    Add a comoving distance column to the DataFrame based on the redshift column.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing a 'z' column for redshift.
+    cosmo : Cosmology
+        Cosmology object from cosmoprimo to compute comoving distances.
+        Must have a method `comoving_radial_distance(z)` that returns the comoving distance for a given redshift.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with an additional 'distance' column containing comoving distances.
+
+    Raises
+    ------
+    ValueError
+        If the 'z' column is not present in the DataFrame.
+    """
     if "z" not in df.columns:
         raise ValueError("DataFrame must contain a 'z' column to compute distances.")
-    df = df.copy()
     df["distance"] = cosmo.comoving_radial_distance(df["z"])
     return df

@@ -74,7 +74,10 @@ class BaseGalaxyCatalog(ABC):
         """
         Return tracer data with all pipeline transforms applied for the specified tracers.
 
-        No transformations are applied if `raw=True`.
+        Creates a copy of the data for each tracer before applying the transforms,
+        so the original data remains unchanged. Transforms are applied in-place to the
+        copied DataFrame. If multiple tracers are specified, the results are concatenated
+        into a single DataFrame.
 
         Parameters
         ----------
@@ -116,6 +119,8 @@ class BaseGalaxyCatalog(ABC):
         tracers_data = []
         for tracer in tracers:
             data = self._data[tracer].copy()
+            size = data.memory_usage(deep=True).sum() / 1024
+            logger.debug(f"Created copy of '{tracer}' tracer with size {size:.2f} KB")
             if not raw:
                 for transform in self._transforms.values():
                     if transform.tracer is None or transform.tracer == tracer:
@@ -129,6 +134,7 @@ class BaseGalaxyCatalog(ABC):
     def _ngal(self, *tracers: str) -> int:
         """Return the total number of galaxies for specified tracers, or the full catalog otherwise."""
         tracers = tracers or tuple(self.tracers)
+        logger.debug(f"Calculating number of galaxies for tracers: {tracers}")
         return len(self.get_tracer_data(*tracers))
 
     @property
@@ -146,8 +152,18 @@ class BaseGalaxyCatalog(ABC):
         """Return the list of transform names in the current pipeline."""
         return list(self._transforms)
 
-    def _add_transform(self, transform: Transform) -> None:
-        """Register or replace a transform in the pipeline."""
+    def register_transform(self, transform: Transform) -> None:
+        """
+        Register or replace a transform in the pipeline.
+
+        Transforms are applied in the order they are registered.
+        Replaced transforms are replaced in-place, preserving their position in the pipeline.
+
+        Parameters
+        ----------
+        transform : Transform
+            The transform to register, using the Transform object name.
+        """
         if transform.name in self._transforms:
             logger.warning(
                 f"Transform '{transform.name}' already exists and will be replaced."
@@ -155,8 +171,20 @@ class BaseGalaxyCatalog(ABC):
         self._transforms[transform.name] = transform
         self._transform_state += 1
 
-    def _remove_transform(self, name: str) -> None:
-        """Remove a transform from the pipeline."""
+    def remove_transform(self, name: str) -> None:
+        """
+        Remove a transform from the pipeline.
+
+        Parameters
+        ----------
+        name : str
+            The name of the transform to remove.
+
+        Raises
+        ------
+        KeyError
+            If the transform name is not found in the pipeline.
+        """
         if name not in self._transforms:
             raise KeyError(f"Transform '{name}' is not in the pipeline.")
         del self._transforms[name]

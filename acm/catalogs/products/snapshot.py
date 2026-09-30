@@ -9,7 +9,7 @@ from numpy.random import RandomState
 
 from acm.catalogs.dataclasses import Transform
 from acm.catalogs.products import BaseGalaxyCatalog
-from acm.catalogs.products.transforms import _apply_ap, _apply_downsample, _apply_rsd
+from acm.catalogs.products.transforms import ap_snapshot, downsample, rsd_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -146,10 +146,10 @@ class SnapshotCatalog(BaseGalaxyCatalog):
                 "AP transform exists: RSD transform will be registered with a distorted boxsize and may yield unexpected results. "
             )
         L = self.boxsize[self.pos_columns.index(los)]  # For periodic wrapping
-        self._add_transform(
+        self.register_transform(
             Transform(
                 name="rsd",
-                func=_apply_rsd,
+                func=rsd_snapshot,
                 kwargs={
                     "los": los,
                     "hubble": self.hubble,
@@ -174,10 +174,10 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         """
         if los not in self.pos_columns:
             raise ValueError(f"los must be one of {self.pos_columns}, got '{los}'.")
-        self._add_transform(
+        self.register_transform(
             Transform(
                 name="ap",
-                func=_apply_ap,
+                func=ap_snapshot,
                 kwargs={
                     "los": los,
                     "q_par": self.q_par,
@@ -219,10 +219,10 @@ class SnapshotCatalog(BaseGalaxyCatalog):
         provided = sum(p is not None for p in (n_gal, f_gal, nbar))
         if provided != 1:
             raise ValueError("Exactly one of n_gal, f_gal or nbar must be provided.")
-        self._add_transform(
+        self.register_transform(
             Transform(
                 name=f"downsample_{tracer}",
-                func=_apply_downsample,
+                func=downsample,
                 tracer=tracer,
                 kwargs={
                     "tracer": tracer,  # passed for logging purposes
