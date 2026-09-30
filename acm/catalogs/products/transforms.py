@@ -156,7 +156,27 @@ def downsample(
 
 
 def add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
-    """Add a comoving distance column to the DataFrame based on the redshift column."""
+    """
+    Add a comoving distance column to the DataFrame based on the redshift column.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing a 'z' column for redshift.
+    cosmo : Cosmology
+        Cosmology object from cosmoprimo to compute comoving distances.
+        Must have a method `comoving_radial_distance(z)` that returns the comoving distance for a given redshift.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with an additional 'distance' column containing comoving distances.
+
+    Raises
+    ------
+    ValueError
+        If the 'z' column is not present in the DataFrame.
+    """
     if "z" not in df.columns:
         raise ValueError("DataFrame must contain a 'z' column to compute distances.")
     df["distance"] = cosmo.comoving_radial_distance(df["z"])
