@@ -1,16 +1,27 @@
+"""
+PocoMC inference script for BGS observables.
+
+Usage:
+    python inference_pocomc.py --config path/to/config.yaml [other options]
+
+    python inference_pocomc.py --slice_map "{'tpcf': {'s': [1, 200]}, 'ds_xiqg': {'s': [1, 200]}, 'ds_xiqq': {'s': [1, 200]}}"
+"""
+
 import sys
 import yaml
 import logging
 import argparse
-import numpy as np
 from pathlib import Path
-from utils import get_fixed_params # Will be moved to sunbird 
+
+import numpy as np
 from sunbird.inference.pocomc import PocoMCSampler
-from sunbird.inference.priors import get_priors, Bouchard25
+from sunbird.inference.priors import get_priors, get_fixed_params, Bouchard25
+
 from acm import setup_logging
 from acm.utils.covariance import get_covariance_correction, check_covariance_matrix
+
 from utils import get_observable, save_and_plot
-from secondgen_bgs import get_secondgen_data
+from bgs_mocks import get_mock_data
 
 logger = logging.getLogger(__file__.split('/')[-1])
 
@@ -144,6 +155,7 @@ def fit_pocomc(
     cov_emu_method: str = 'median',
     cov_emu_diag: bool = False,
     cov_correction: str = 'percival',
+    **kwargs
 ) -> PocoMCSampler:
     """
     Fit PocoMC sampler to the given observable data and model.
@@ -182,8 +194,12 @@ def fit_pocomc(
     if fit_type == 'validation':
         x, observation = get_observable_data(observable)
     elif fit_type == 'secondgen':
-        x, observation, extra_cov = get_secondgen_data(observable)
+        x, observation, extra_cov = get_mock_data(observable, mock_type='SecondGen', **kwargs)
         covariances.append(extra_cov)
+    elif fit_type == 'uchuu':
+        x, observation = get_mock_data(observable, mock_type='Uchuu', add_covariance=False, **kwargs)
+        # extra_cov = observable.get_covariance_matrix(volume_factor=64)
+        # covariances.append(extra_cov)
     else:
         raise ValueError(f'Unknown fit_type: {fit_type}')
     
@@ -227,8 +243,9 @@ if __name__ == '__main__':
     parser.add_argument('--dump_config', action='store_true', help='Dump the current configuration and exit.')
     parser.add_argument('--module', type=str, default='acm.observables.bgs', help='Base module path for observables')
     parser.add_argument('--data_dir', type=str, default=None, help='Directory where the observable compressed data is stored.')
-    parser.add_argument('--model_dir', type=str, default=None, help='Directory where the emulatir is stored.')
+    parser.add_argument('--model_dir', type=str, default=None, help='Directory where the emulator is stored.')
     parser.add_argument('--statistics', nargs='+', help='List of statistics to use, e.g. GalaxyPowerSpectrumMultipoles')
+    parser.add_argument('--slice_map', type=str, default=None, help='Expression of slice_filters_map to use (evaluated as a dictionary). Defaults as None')
     parser.add_argument('-t', '--fit_type', type=str, default='validation', help='Type of mock to fit: validation or secondgen.')
     parser.add_argument('-ce', '--add_cov_emu', action='store_true', help='Whether to add emulator covariance or not.')
     parser.add_argument('-cm', '--cosmo_model', type=str, default='base', help='Cosmological model to use.')
@@ -240,6 +257,8 @@ if __name__ == '__main__':
     parser.add_argument('--save_dir', type=str, default=None, help='Directory to save results.')
     parser.add_argument('--cosmo_idx', type=int, default=0, help='Index of the cosmology to fit, if fit_type is validation.')
     parser.add_argument('--hod_idx', type=int, default=0, help='Index of the HOD to fit, if fit_type is validation.')
+    parser.add_argument('--obs_kwargs', type=str, default=None, help='Mapping of additional keyword arguments to pass at observable load. Will override all other passed arguments if provided')
+    parser.add_argument('--fit_kwargs', type=str, default=None, help='Mapping of additional keyword arguments to pass at fit_pocomc.')
     
     args = parser.parse_args()
     
@@ -267,6 +286,7 @@ if __name__ == '__main__':
     hod_model = args.hod_model
     identifier = args.identifier
     fit_type = args.fit_type
+    fit_kwargs = args.fit_kwargs
     
     # Observable paths
     paths = dict(
@@ -276,14 +296,28 @@ if __name__ == '__main__':
     
     logger.info(f'Running inference for cosmo model: {cosmo_model}, hod model: {hod_model}')
     
+    if args.slice_map is not None:
+        slice_filters_map = eval(args.slice_map)
+        logger.info(f'Using slice_filters_map: {slice_filters_map}')
+    else:
+        slice_filters_map = None
+    
+    if args.obs_kwargs is not None:
+        kwargs_map = eval(args.obs_kwargs)
+        logger.info(f'Using kwargs_map for observables: {kwargs_map}')
+    else:
+        kwargs_map = None
+    
     priors, ranges, labels = get_priors(hod_class=Bouchard25)
     fixed_param_names = get_fixed_params(cosmo_model, hod_model, priors)
     
     observable = get_observable(
         statistics, 
         module=module, 
-        paths=paths,
         select_filters_map=select_filters_map,
+        slice_filters_map=slice_filters_map,
+        kwargs_map=kwargs_map,
+        paths=paths,
         numpy_output=True, 
         squeeze_output=True,
         select_filters = {'cosmo_idx': args.cosmo_idx, 'hod_idx': args.hod_idx},
@@ -300,6 +334,7 @@ if __name__ == '__main__':
         cov_emu_method=args.cov_emu_method,
         cov_emu_diag=args.cov_emu_diag,
         cov_correction=args.cov_correction,
+        **fit_kwargs
     )
     
     if fit_type == 'validation':
