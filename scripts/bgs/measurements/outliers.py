@@ -120,8 +120,8 @@ if __name__ == "__main__":
 
     group = compressor.read(reader=reader, ignore_index=ignore_index, **load_args)
     if not args.raw:
-        group = select(group, **compress_args)
         group = group.merge(method=lsstypes.mean)  # Merge identical indices
+        group = select(group, **compress_args)
     outlier_idx = get_outliers(group, sigma=args.sigma)
 
     if args.save_dir:
