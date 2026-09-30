@@ -293,7 +293,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         The column is computed using the true cosmology at call time of
         ``get_tracer_data``. Has no effect if the transform is already registered.
         """
-        self._add_transform(
+        self.register_transform(
             Transform(
                 name="add_distance",
                 func=add_distance_column,
@@ -333,7 +333,7 @@ class CutskyCatalog(BaseGalaxyCatalog):
         if provided != 1:
             raise ValueError("Exactly one of n_gal or f_gal must be provided.")
 
-        self._add_transform(
+        self.register_transform(
             Transform(
                 name=f"downsample_{tracer}",
                 func=downsample,

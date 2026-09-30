@@ -152,7 +152,7 @@ class BaseGalaxyCatalog(ABC):
         """Return the list of transform names in the current pipeline."""
         return list(self._transforms)
 
-    def _add_transform(self, transform: Transform) -> None:
+    def register_transform(self, transform: Transform) -> None:
         """Register or replace a transform in the pipeline."""
         if transform.name in self._transforms:
             logger.warning(
@@ -161,7 +161,7 @@ class BaseGalaxyCatalog(ABC):
         self._transforms[transform.name] = transform
         self._transform_state += 1
 
-    def _remove_transform(self, name: str) -> None:
+    def remove_transform(self, name: str) -> None:
         """Remove a transform from the pipeline."""
         if name not in self._transforms:
             raise KeyError(f"Transform '{name}' is not in the pipeline.")
