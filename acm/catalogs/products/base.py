@@ -153,7 +153,17 @@ class BaseGalaxyCatalog(ABC):
         return list(self._transforms)
 
     def register_transform(self, transform: Transform) -> None:
-        """Register or replace a transform in the pipeline."""
+        """
+        Register or replace a transform in the pipeline.
+
+        Transforms are applied in the order they are registered.
+        Replaced transforms are replaced in-place, preserving their position in the pipeline.
+
+        Parameters
+        ----------
+        transform : Transform
+            The transform to register, using the Transform object name.
+        """
         if transform.name in self._transforms:
             logger.warning(
                 f"Transform '{transform.name}' already exists and will be replaced."
@@ -162,7 +172,19 @@ class BaseGalaxyCatalog(ABC):
         self._transform_state += 1
 
     def remove_transform(self, name: str) -> None:
-        """Remove a transform from the pipeline."""
+        """
+        Remove a transform from the pipeline.
+
+        Parameters
+        ----------
+        name : str
+            The name of the transform to remove.
+
+        Raises
+        ------
+        KeyError
+            If the transform name is not found in the pipeline.
+        """
         if name not in self._transforms:
             raise KeyError(f"Transform '{name}' is not in the pipeline.")
         del self._transforms[name]

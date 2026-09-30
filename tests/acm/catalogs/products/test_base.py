@@ -169,11 +169,15 @@ class TestTransforms:
 
     def test_add_transform_replaces_existing(self, catalog, caplog):
         t1 = Transform(name="t1", func=lambda d: d, kwargs={})
-        t2 = Transform(name="t1", func=lambda d: d * 2, kwargs={})
+        t2 = Transform(name="t2", func=lambda d: d * 3, kwargs={})
         catalog.register_transform(t1)
+        catalog.register_transform(t2)
+        t1_new = Transform(name="t1", func=lambda d: d * 2, kwargs={})
         with caplog.at_level("WARNING"):
-            catalog.register_transform(t2)
-        assert catalog._transforms["t1"] is t2
+            catalog.register_transform(t1_new)
+        assert "t1" in caplog.text # Warning is raised
+        assert catalog._transforms["t1"] is t1_new # New transform replaces old one
+        assert catalog.transform_pipeline == ["t1", "t2"] # Order is preserved
 
     def test_transform_pipeline_property(self, catalog):
         t1 = Transform(name="t1", func=lambda d: d, kwargs={})
