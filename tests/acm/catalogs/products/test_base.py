@@ -162,12 +162,12 @@ class TestTransforms:
         result = populated_catalog.get_tracer_data("FOO", raw=True)
         pd.testing.assert_frame_equal(result, valid_data)
 
-    def test_add_transform(self, catalog):
+    def test_register_transform(self, catalog):
         t = Transform(name="t1", func=lambda d: d, kwargs={})
         catalog.register_transform(t)
         assert "t1" in catalog._transforms
 
-    def test_add_transform_replaces_existing(self, catalog, caplog):
+    def test_register_transform_replaces_existing(self, catalog, caplog):
         t1 = Transform(name="t1", func=lambda d: d, kwargs={})
         t2 = Transform(name="t2", func=lambda d: d * 3, kwargs={})
         catalog.register_transform(t1)

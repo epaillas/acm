@@ -12,7 +12,7 @@ from acm.catalogs.products.transforms import (
 # ruff: noqa: ANN001, ANN201, D101, D102, S101
 
 
-class TestApplyRsd:
+class TestRsdSnapshot:
     def test_shifts_los_column(self):
         """RSD transform should shift the los column according to the formula z' = z + vz / (H * az)."""
         data = pd.DataFrame({"z": [0.0], "vz": [100.0]})
@@ -46,7 +46,7 @@ class TestApplyRsd:
         assert result["z"].iloc[0] == pytest.approx(expected_z)
 
 
-class TestApplyAp:
+class TestApSnapshot:
     def test_scales_los_by_qpar(self):
         """AP transform should scale the los column by q_par."""
         data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [1.2]})
@@ -80,7 +80,7 @@ class TestApplyAp:
         pd.testing.assert_frame_equal(data, result)
 
 
-class TestApplyDownsample:
+class TestDownsample:
     @pytest.fixture
     def data(self):
         return pd.DataFrame({"x": np.arange(100, dtype=float)})
