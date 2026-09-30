@@ -74,7 +74,10 @@ class BaseGalaxyCatalog(ABC):
         """
         Return tracer data with all pipeline transforms applied for the specified tracers.
 
-        No transformations are applied if `raw=True`.
+        Creates a copy of the data for each tracer before applying the transforms,
+        so the original data remains unchanged. Transforms are applied in-place to the
+        copied DataFrame. If multiple tracers are specified, the results are concatenated
+        into a single DataFrame.
 
         Parameters
         ----------
@@ -116,6 +119,8 @@ class BaseGalaxyCatalog(ABC):
         tracers_data = []
         for tracer in tracers:
             data = self._data[tracer].copy()
+            size = data.memory_usage(deep=True).sum() / 1024
+            logger.debug(f"Created copy of '{tracer}' tracer with size {size:.2f} KB")
             if not raw:
                 for transform in self._transforms.values():
                     if transform.tracer is None or transform.tracer == tracer:

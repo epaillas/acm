@@ -1,3 +1,5 @@
+"""Transforms functions to pass to Galaxy catalog Transform objects. Should mutate the input DataFrame in place."""
+
 import logging
 from collections.abc import Callable
 
@@ -42,7 +44,6 @@ def _apply_rsd(
     pd.DataFrame
         Transformed galaxy data with RSD applied.
     """
-    data = data.copy()
     v_col = f"v{los}"
     data[los] = data[los] + data[v_col] / (hubble * az)
     if wrap > 0:
@@ -80,7 +81,6 @@ def _apply_ap(
     pd.DataFrame
         Transformed galaxy data with AP scaling applied.
     """
-    data = data.copy()
     for ax in pos_columns:
         data[ax] = data[ax] / (q_par if ax == los else q_perp)
     return data
@@ -159,6 +159,5 @@ def _add_distance_column(df: pd.DataFrame, cosmo: Cosmology) -> pd.DataFrame:
     """Add a comoving distance column to the DataFrame based on the redshift column."""
     if "z" not in df.columns:
         raise ValueError("DataFrame must contain a 'z' column to compute distances.")
-    df = df.copy()
     df["distance"] = cosmo.comoving_radial_distance(df["z"])
     return df
