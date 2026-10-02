@@ -59,10 +59,8 @@ class MarkFKPField(FKPField):
         and ``randoms``, so that ``mark`` and ``resampler`` are preserved, e.g.
         by :meth:`~jaxpower.FKPField.exchange` in distributed runs.
         """
-        state = {
-            name: getattr(self, name)
-            for name in ["mark", "data", "randoms", "resampler"]
-        } | kwargs
+        state_keys = ["mark", "data", "randoms", "resampler"]
+        state = {k: getattr(self, k) for k in state_keys} | kwargs
         return self.__class__(**state)
 
     @property
