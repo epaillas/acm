@@ -80,29 +80,10 @@ class MarkFKPField(FKPField):
             alpha = self.data.sum() / self.randoms.sum()
 
             # weights are updated
-            particles = (marked_positions - alpha * self.randoms).clone(
-                attrs=self.data.attrs
-            )
-            self.__dict__["_particles"] = particles
+            particles = marked_positions - alpha * self.randoms
+            self.__dict__["_particles"] = particles.clone(attrs=self.data.attrs)
 
         return particles
-
-
-def _flatten_mark_fkp(field: MarkFKPField) -> tuple[tuple, tuple]:
-    return (field.data, field.randoms, field.mark), (field.resampler,)
-
-
-def _unflatten_mark_fkp(aux: tuple, children: tuple) -> MarkFKPField:
-    # Bypass __init__ (children may be jax tracers), as the parent dataclass does.
-    field = object.__new__(MarkFKPField)
-    data, randoms, mark = children
-    field.__dict__.update(data=data, randoms=randoms, mark=mark, resampler=aux[0])
-    return field
-
-
-# Register as a pytree (like the parent FKPField) so the field can be passed
-# through jax transformations (e.g. jit), with the mark carried along as data.
-jax.tree_util.register_pytree_node(MarkFKPField, _flatten_mark_fkp, _unflatten_mark_fkp)
 
 
 class MarkedPowerSpectrumMultipoles(BaseEstimator):
@@ -117,8 +98,9 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         randoms_weights: np.ndarray | None = None,
         smoothing_radius: float | None = None,
         coefficients: tuple[float, ...] | list[float] = (0.0, 1.0),
-        mark_kwargs: dict | None = None,
-        **kwargs,
+        resampler: str = "cic",
+        kwargs_backend: dict = {},
+        kwargs_paint: dict = {},
     ) -> None:
         """
         Initialize the marked power spectrum estimator.
@@ -142,14 +124,16 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         smoothing_radius: float, optional
             Gaussian smoothing radius of the density contrast used in the mark,
             see :meth:`set_mark`. If None, the mark is not set at initialization.
+            If backend does not have a density contrast set, :meth:`set_density_contrast` is called with the given smoothing radius.
         coefficients: tuple[float, ...] | list[float], optional
             Polynomial coefficients ``(c_0, c_1, ...)`` of the mark,
             see :meth:`set_mark`. Defaults to (0.0, 1.0).
-        mark_kwargs: dict, optional
-            Keyword arguments passed to :meth:`set_mark` for painting the density
-            contrast, e.g. ``resampler``, ``interlacing`` and ``compensate``.
-        **kwargs
+        resampler: str, default "cic"
+            Resampler used for painting the mesh fields, see :meth:`compute`. It is used to instantiate to paint mark on a grid, as well as on galaxy positions.
+        kwargs_backend: dict, optional
             Additional keyword arguments for the backend.
+        kwargs_paint: dict, optional
+            Additional keyword arguments for the paint methods, e.g.  ``interlacing`` and ``compensate``. See :meth:`compute`.
         """
         super().__init__(
             backend,
@@ -157,28 +141,45 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             randoms_positions,
             data_weights,
             randoms_weights,
-            **kwargs,
+            **kwargs_backend,
         )
 
         self.jit_cm2s = jax.jit(cm2s, static_argnames=["los"], donate_argnums=[0])
+        self.resampler = resampler
 
         # This estimator relies on jaxpower-specific backend attributes.
-        self.backend: JaxpowerBackend
+        assert isinstance(self.backend, JaxpowerBackend), (
+            f"{self.__class__.__name__} requires a JaxpowerBackend, "
+            f"but got {type(self.backend)}."
+        )
 
-        if smoothing_radius is None:
-            logger.info("No smoothing radius given, cannot set mark yet.")
-        else:
-            self.set_mark(
-                smoothing_radius=smoothing_radius,
-                coefficients=coefficients,
-                **(mark_kwargs or {}),
+        if self.backend._density_contrast is None:
+            logger.info(
+                "Density contrast not set, cannot set mark yet. set_density_contrast running first."
             )
+            if smoothing_radius is None:
+                raise ValueError(
+                    "smoothing_radius must be provided to set the density contrast."
+                )
+            self.backend.set_density_contrast(
+                smoothing_radius=smoothing_radius,
+                resampler=self.resampler,
+                **kwargs_paint,
+            )
+            if self.backend._density_contrast is None:
+                raise ValueError("Backend failed to compute the density contrast.")
+        else:
+            logger.info(
+                "Density contrast already set from backend. The provided smoothing_radius is ignored, and the mark will be set using the existing density contrast."
+            )
+
+        self.set_mark(
+            coefficients=coefficients,
+        )
 
     def set_mark(
         self,
-        smoothing_radius: float,
         coefficients: tuple[float, ...] | list[float] = (0.0, 1.0),
-        **kwargs,
     ) -> RealMeshField:
         """
         Set the mark from the density contrast smoothed on ``smoothing_radius``.
@@ -194,32 +195,15 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
 
         Parameters
         ----------
-        smoothing_radius: float
-            Gaussian smoothing radius of the density contrast, in Mpc/h.
         coefficients: tuple[float, ...] | list[float], optional
             Polynomial coefficients ``(c_0, c_1, ...)``. Defaults to (0.0, 1.0).
-        **kwargs
-            Additional keyword arguments for
-            :meth:`~acm.estimators.galaxy_clustering.backends.jaxpower.JaxpowerBackend.set_density_contrast`,
-            e.g. ``resampler``, ``interlacing`` and ``compensate``.
 
         Returns
         -------
         mark
             Mesh field containing the mark.
         """
-        previous_density_contrast = self.backend._density_contrast
-        try:
-            self.backend.set_density_contrast(
-                smoothing_radius=smoothing_radius, **kwargs
-            )
-            delta_mesh = self.backend._density_contrast
-        finally:
-            # Leave the (possibly shared) backend state untouched.
-            self.backend._density_contrast = previous_density_contrast
-
-        if delta_mesh is None:
-            raise RuntimeError("Backend failed to compute the density contrast.")
+        delta_mesh = self.backend._density_contrast
 
         mark = delta_mesh.clone(
             value=delta_mesh.value * 0,
@@ -229,8 +213,6 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             mark += coefficient * delta_mesh**n
 
         self.mark = mark
-        self.smoothing_radius = smoothing_radius
-        self.coefficients = tuple(coefficients)
         return mark
 
     def compute(
@@ -253,7 +235,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             Line-of-sight convention passed to jaxpower. Defaults to "z".
         **kwargs
             Additional keyword arguments passed to the jaxpower ``paint`` methods,
-            e.g. ``resampler``, ``interlacing`` and ``compensate``.
+            e.g.  ``interlacing`` and ``compensate``.
 
         Returns
         -------
@@ -264,15 +246,12 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             raise AttributeError("Mark has not been set. Run set_mark first.")
 
         t0 = time.time()
-        # Read the mark at particle positions with the same resampler used for
-        # painting (jaxpower's paint default is "cic").
-        resampler = kwargs.get("resampler", "cic")
         mattrs = self.backend.mattrs
         bin_mesh = BinMesh2SpectrumPoles(mattrs, edges, ells)
         data_field = self.backend.data_field
 
         # Paint the unweighted galaxy-density field used to normalize the mark.
-        data_mesh = data_field.paint(out="real", **kwargs)
+        data_mesh = data_field.paint(out="real", resampler=self.resampler, **kwargs)
 
         # Mean mark: <m> = <m n_g> / <n_g>.
         marked_data = self.mark * data_mesh
@@ -291,11 +270,13 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
                 normalised_mark,
                 data_field,
                 self.backend.randoms_field,
-                resampler=resampler,
+                resampler=self.resampler,
             )
             norm = compute_fkp2_normalization(mfkp, bin=bin_mesh)
             num_shotnoise = compute_fkp2_shotnoise(mfkp, bin=bin_mesh)
-            marked_delta_mesh = mfkp.paint(out="real", **kwargs)
+            marked_delta_mesh = mfkp.paint(
+                out="real", resampler=self.resampler, **kwargs
+            )
         else:
             logger.info(
                 "Computing marked power spectrum using box normalization without randoms."
@@ -310,7 +291,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             # Compute the shotnoise with the normalised marked positions (weights)
             normalised_mark_at_particle = normalised_mark.read(
                 data_field,
-                resampler=resampler,
+                resampler=self.resampler,
             )
             normalised_data_at_particle = normalised_mark_at_particle * data_field
             num_shotnoise = compute_fkp2_shotnoise(
