@@ -6,7 +6,7 @@
 #SBATCH --qos regular
 #SBATCH --constraint gpu&hbm80g
 
-#SBATCH --time 12:00:00
+#SBATCH --time 15:00:00
 
 #SBATCH --job-name base-20
 #SBATCH --output /pscratch/sd/s/sbouchar/Output_jobs/acm/bgs/mr-20/measurements/abacus/base/%A.%x_%a.out
@@ -25,10 +25,10 @@ COSMO_LIST=(0 {1..4} 13 {100..126} {130..181}) # List of cosmologies to be used
 ID=$((SLURM_ARRAY_TASK_ID)) # ID of the cosmology to be used, starting from 0
 COSMO=${COSMO_LIST[ID]} # Cosmology to be used
 
-RUN=1
+RUN=2
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-20/logs/v2.0/measurements/abacus/base/run%d/log_c%03d_ph000_seed0.log" ${RUN} ${COSMO})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/mr-20/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}"
+python measure_box.py --config jobs/mr-20/config.yaml --cosmologies ${COSMO} --log_file "${LOGFILE}" --log_level debug
 
 # Launch with : sbatch --array=0-84 ...
