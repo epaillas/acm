@@ -21,7 +21,6 @@ from acm.utils.scripts import (
 # ruff: noqa: ANN001, ANN201, ARG002, D101, D102, D103, S101
 
 #%% Fixtures
-
 @pytest.fixture
 def config_file(tmp_path):
     p = tmp_path / "config.yaml"

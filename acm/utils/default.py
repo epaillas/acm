@@ -1,6 +1,7 @@
 """Default values and helper methods used in the acm package."""
 
 import os
+from hashlib import sha256
 from typing import Any
 
 import numpy as np
@@ -25,3 +26,9 @@ def _make_array(
     if np.any(np.isnan(toret)):
         raise ValueError(f"Broadcasted {value} to array but found NaN values inside.")
     return toret.astype(dtype=dtype)
+
+
+def short_hash(txt: str, length: int | None = 8) -> str:
+    """Return a shortened hash of the input string."""
+    hashed = sha256(txt.encode()).hexdigest()
+    return hashed[:length]
