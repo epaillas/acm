@@ -25,10 +25,10 @@ PHASE_LIST=({3000..3005} 3007 3009 {3011..3017} {3019..3023} 3025 {3028..3035} {
 ID=$((SLURM_ARRAY_TASK_ID)) # ID of the phase to be used, starting from 0
 PHASE=${PHASE_LIST[$ID]} # Phase to be used
 
-RUN=1
+RUN=2
 LOGFILE=$(printf "/pscratch/sd/s/sbouchar/acm/bgs/mr-20/logs/v2.0/measurements/abacus/small/run%d/log_c000_ph%03d_seed0.log" ${RUN} ${PHASE})
 
 cd /global/homes/s/sbouchar/acm/scripts/bgs/measurements
-python measure_box.py --config jobs/mr-20/config.yaml --sim_type small --hods 58 --phases ${PHASE} --log_file "${LOGFILE}"
+python measure_box.py --config jobs/mr-20/config.yaml --sim_type small --hods 58 --phases ${PHASE} --log_file "${LOGFILE}" --log_level debug
 
 # Launch with : sbatch --array=0-1642 ... 
