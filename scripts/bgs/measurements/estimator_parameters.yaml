@@ -51,8 +51,8 @@ bispectrum-scoccimarro:
     basis: scoccimarro
     edges:
       min: 0.02
-      max: 0.20
-      step: 0.02
+      max: 0.50
+      step: 0.04
     buffer_size: 30
     resampler: tsc
     interlacing: 3
