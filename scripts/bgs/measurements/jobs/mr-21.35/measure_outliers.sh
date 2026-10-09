@@ -5,6 +5,7 @@
 #SBATCH --ntasks-per-node 1
 #SBATCH --qos debug
 #SBATCH --constraint gpu&hbm80g
+#SBATCH --licenses scratch
 
 #SBATCH --time 00:30:00
 
