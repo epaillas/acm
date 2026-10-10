@@ -51,17 +51,6 @@ class MarkFKPField(FKPField):
         self.resampler = resampler
         super().__init__(data, randoms, **kwargs)
 
-    def clone(self, **kwargs) -> "MarkFKPField":
-        """
-        Create a new instance, updating some attributes.
-
-        Overrides :meth:`jaxpower.FKPField.clone`, which only forwards ``data``
-        and ``randoms``, so that ``mark`` and ``resampler`` are preserved, e.g.
-        by :meth:`~jaxpower.FKPField.exchange` in distributed runs.
-        """
-        state_keys = ["mark", "data", "randoms", "resampler"]
-        state = {k: getattr(self, k) for k in state_keys} | kwargs
-        return self.__class__(**state)
 
     @property
     def particles(self) -> ParticleField:
@@ -127,10 +116,8 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             see :meth:`set_mark`. Defaults to (0.0, 1.0).
         resampler: str, default "cic"
             Resampler used for painting the mesh fields, see :meth:`compute`. It is used to instantiate to paint mark on a grid, as well as on galaxy positions.
-        kwargs_backend: dict, optional
+        kwargs: dict, optional
             Additional keyword arguments for the backend.
-        kwargs_paint: dict, optional
-            Additional keyword arguments for the paint methods, e.g.  ``interlacing`` and ``compensate``. See :meth:`compute`.
         """
         super().__init__(
             backend,
@@ -138,11 +125,10 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             randoms_positions,
             data_weights,
             randoms_weights,
-            **kwargs_backend,
+            **kwargs,
         )
 
         self.jit_cm2s = jax.jit(cm2s, static_argnames=["los"], donate_argnums=[0])
-        self.resampler = resampler
 
         # This estimator relies on jaxpower-specific backend attributes.
         if not isinstance(self.backend, JaxpowerBackend):
@@ -154,7 +140,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             logger.info("Density contrast not set, cannot set mark yet.")
         else:
             logger.info("Setting mark using existing density contrast.")
-            self.set_mark(coefficients=coefficients,)
+            self.set_mark(coefficients=coefficients)
 
     def set_mark(
         self,
@@ -215,6 +201,8 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             Multipoles to compute. Defaults to (0, 2, 4).
         los: str, optional
             Line-of-sight convention passed to jaxpower. Defaults to "z".
+        resampler: str, optional
+            Resampler used for painting the mesh fields. Defaults to "cic".
         **kwargs
             Additional keyword arguments passed to the jaxpower ``paint`` methods,
             e.g.  ``interlacing`` and ``compensate``.
@@ -233,7 +221,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         data_field = self.backend.data_field
 
         # Paint the unweighted galaxy-density field used to normalize the mark.
-        data_mesh = data_field.paint(out="real", resampler=self.resampler, **kwargs)
+        data_mesh = data_field.paint(out="real", resampler=resampler, **kwargs)
 
         # Mean mark: <m> = <m n_g> / <n_g>.
         marked_data = self.mark * data_mesh
@@ -252,12 +240,12 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
                 normalised_mark,
                 data_field,
                 self.backend.randoms_field,
-                resampler=self.resampler,
+                resampler=resampler,
             )
             norm = compute_fkp2_normalization(mfkp, bin=bin_mesh)
             num_shotnoise = compute_fkp2_shotnoise(mfkp, bin=bin_mesh)
             marked_delta_mesh = mfkp.paint(
-                out="real", resampler=self.resampler, **kwargs
+                out="real", resampler=resampler, **kwargs
             )
         else:
             logger.info(
@@ -273,7 +261,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             # Compute the shotnoise with the normalised marked positions (weights)
             normalised_mark_at_particle = normalised_mark.read(
                 data_field,
-                resampler=self.resampler,
+                resampler=resampler,
             )
             normalised_data_at_particle = normalised_mark_at_particle * data_field
             num_shotnoise = compute_fkp2_shotnoise(
