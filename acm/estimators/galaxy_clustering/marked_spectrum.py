@@ -186,6 +186,8 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             Mesh field containing the mark.
         """
         delta_mesh = self.backend._density_contrast
+        if delta_mesh is None:
+            raise RuntimeError("Backend failed to set the density contrast.")
 
         mark = delta_mesh.clone(
             value=delta_mesh.value * 0,
