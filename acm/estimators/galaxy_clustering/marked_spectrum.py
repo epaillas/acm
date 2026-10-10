@@ -154,28 +154,10 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         )
 
         if self.backend._density_contrast is None:
-            logger.info(
-                "Density contrast not set, cannot set mark yet. set_density_contrast running first."
-            )
-            if smoothing_radius is None:
-                raise ValueError(
-                    "smoothing_radius must be provided to set the density contrast."
-                )
-            self.backend.set_density_contrast(
-                smoothing_radius=smoothing_radius,
-                resampler=self.resampler,
-                **kwargs_paint,
-            )
-            if self.backend._density_contrast is None:
-                raise ValueError("Backend failed to compute the density contrast.")
+            logger.info("Density contrast not set, cannot set mark yet.")
         else:
-            logger.info(
-                "Density contrast already set from backend. The provided smoothing_radius is ignored, and the mark will be set using the existing density contrast."
-            )
-
-        self.set_mark(
-            coefficients=coefficients,
-        )
+            logger.info("Setting mark using existing density contrast.")
+            self.set_mark(coefficients=coefficients,)
 
     def set_mark(
         self,
