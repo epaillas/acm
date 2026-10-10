@@ -148,10 +148,10 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         self.resampler = resampler
 
         # This estimator relies on jaxpower-specific backend attributes.
-        assert isinstance(self.backend, JaxpowerBackend), (
-            f"{self.__class__.__name__} requires a JaxpowerBackend, "
-            f"but got {type(self.backend)}."
-        )
+        if not isinstance(self.backend, JaxpowerBackend):
+            raise TypeError(
+                f"{self.__class__.__name__} requires a JaxpowerBackend, got {type(self.backend)}."
+            )
 
         if self.backend._density_contrast is None:
             logger.info("Density contrast not set, cannot set mark yet.")
