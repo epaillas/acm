@@ -204,6 +204,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         edges: np.ndarray | dict = {"step": 0.001},
         ells: tuple[int, ...] | list[int] = (0, 2, 4),
         los: str = "z",
+        resampler: str = 'cic',
         **kwargs,
     ) -> lsstypes.Mesh2SpectrumPoles:
         """
