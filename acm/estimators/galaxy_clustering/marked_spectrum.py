@@ -96,11 +96,8 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         randoms_positions: np.ndarray | None = None,
         data_weights: np.ndarray | None = None,
         randoms_weights: np.ndarray | None = None,
-        smoothing_radius: float | None = None,
         coefficients: tuple[float, ...] | list[float] = (0.0, 1.0),
-        resampler: str = "cic",
-        kwargs_backend: dict = {},
-        kwargs_paint: dict = {},
+        **kwargs,
     ) -> None:
         """
         Initialize the marked power spectrum estimator.
