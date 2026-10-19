@@ -26,17 +26,19 @@ logger = logging.getLogger(__name__)
 
 
 class MarkFKPField(FKPField):
-    """Extend jaxpower's FKPField to support marked galaxy fields.
-
-    The marked FKP field fluctuation is defined as:
-            F_M(x) = m'(x) * n_g(x) - alpha * n_r(x)
-        where:
-            m'(x) = m(x) / <m> is normalized mark,
-            n_g(x) is the galaxy density field,
-            n_r(x) is the random catalog density field,
-            alpha = sum(w_g) / sum(w_r).
     """
+    Extend jaxpower's FKPField to support marked galaxy fields.
 
+    Notes
+    -----
+    The marked FKP field fluctuation is defined as:
+        F_M(x) = m'(x) * n_g(x) - alpha * n_r(x)
+    where:
+        * ``m'(x) = m(x) / <m>`` is normalized mark,
+        * ``n_g(x)`` is the galaxy density field,
+        * ``n_r(x)`` is the random catalog density field,
+        * ``alpha = sum(w_g) / sum(w_r)``.
+    """
     def __init__(
         self,
         mark: RealMeshField,
@@ -69,8 +71,8 @@ class MarkFKPField(FKPField):
             alpha = self.data.sum() / self.randoms.sum()
 
             # weights are updated
-            particles = marked_positions - alpha * self.randoms
-            self.__dict__["_particles"] = particles.clone(attrs=self.data.attrs)
+            particles = (marked_positions - alpha * self.randoms).clone(attrs=self.data.attrs)
+            self.__dict__['_particles'] = particles
 
         return particles
 
@@ -91,10 +93,6 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         """
         Initialize the marked power spectrum estimator.
 
-        Sets the mark if ``smoothing_radius`` is given, so that only
-        ``__init__`` and :meth:`compute` need to be called. Otherwise logs a
-        message, and :meth:`set_mark` must be called before :meth:`compute`.
-
         Parameters
         ----------
         backend: str | JaxpowerBackend
@@ -107,15 +105,9 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             Weights for data galaxies, of shape (N,).
         randoms_weights: np.ndarray, optional
             Weights for randoms, of shape (M,).
-        smoothing_radius: float, optional
-            Gaussian smoothing radius of the density contrast used in the mark,
-            see :meth:`set_mark`. If None, the mark is not set at initialization.
-            If backend does not have a density contrast set, :meth:`set_density_contrast` is called with the given smoothing radius.
         coefficients: tuple[float, ...] | list[float], optional
             Polynomial coefficients ``(c_0, c_1, ...)`` of the mark,
             see :meth:`set_mark`. Defaults to (0.0, 1.0).
-        resampler: str, default "cic"
-            Resampler used for painting the mesh fields, see :meth:`compute`. It is used to instantiate to paint mark on a grid, as well as on galaxy positions.
         kwargs: dict, optional
             Additional keyword arguments for the backend.
         """
@@ -147,26 +139,29 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         coefficients: tuple[float, ...] | list[float] = (0.0, 1.0),
     ) -> RealMeshField:
         """
-        Set the mark from the density contrast smoothed on ``smoothing_radius``.
-
-        The mark is
-
-            m(x) = c_0 + c_1 delta_R(x) + c_2 delta_R(x)^2 + ...
-
-        The smoothed density contrast ``delta_R`` is computed with the backend's
-        :meth:`~acm.estimators.galaxy_clustering.backends.jaxpower.JaxpowerBackend.set_density_contrast`,
-        but the backend's own density contrast is restored afterwards, so a
-        backend shared with other estimators is left unchanged.
-
+        Set the mark from the density contrast.
+        
+        The smoothed density contrast ``delta_R`` is computed from the backend's
+        :attr:`~acm.estimators.galaxy_clustering.backends.jaxpower.JaxpowerBackend._density_contrast`
+        value (smoothed on ``smoothing_radius``).
         Parameters
         ----------
         coefficients: tuple[float, ...] | list[float], optional
             Polynomial coefficients ``(c_0, c_1, ...)``. Defaults to (0.0, 1.0).
-
         Returns
         -------
-        mark
+        jaxpower.RealMeshField
             Mesh field containing the mark.
+            
+        Raises
+        -------
+        RuntimeError
+            If the density contrast has not been set at runtime.
+            
+        Notes
+        -----
+        The mark is:
+            m(x) = c_0 + c_1 delta_R(x) + c_2 delta_R(x)^2 + ...
         """
         delta_mesh = self.backend._density_contrast
         if delta_mesh is None:
@@ -245,7 +240,9 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             norm = compute_fkp2_normalization(mfkp, bin=bin_mesh)
             num_shotnoise = compute_fkp2_shotnoise(mfkp, bin=bin_mesh)
             marked_delta_mesh = mfkp.paint(
-                out="real", resampler=resampler, **kwargs
+                out="real", 
+                resampler=resampler, 
+                **kwargs
             )
         else:
             logger.info(
