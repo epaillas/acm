@@ -263,12 +263,7 @@ class TestMarkFKPField:
             attrs=data.attrs
         )
 
-        assert first is cloned_particles        # this is where we currently fail. 
-                                                # "MarkFKPField.particles" returns the original particles the first time. 
-                                                # "cloned_particles" the second time. (See the estimator.)
-                                                # So the first use of .particles is fundamentally different than the 
-                                                # second use of .particles. The cached version
-                                                # is a mutated copy, not the same as the original.
+        assert first is cloned_particles        
         assert second is cloned_particles
 
 
