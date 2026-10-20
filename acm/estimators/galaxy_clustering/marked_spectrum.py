@@ -242,7 +242,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             marked_delta_mesh = mfkp.paint(
                 out="real", 
                 resampler=resampler, 
-                **kwargs
+                **kwargs,
             )
         else:
             logger.info(
