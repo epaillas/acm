@@ -39,6 +39,7 @@ class MarkFKPField(FKPField):
         * ``n_r(x)`` is the random catalog density field,
         * ``alpha = sum(w_g) / sum(w_r)``.
     """
+
     def __init__(
         self,
         mark: RealMeshField,
@@ -52,7 +53,6 @@ class MarkFKPField(FKPField):
         # particle positions and painting the marked particles are consistent.
         self.resampler = resampler
         super().__init__(data, randoms, **kwargs)
-
 
     @property
     def particles(self) -> ParticleField:
@@ -71,8 +71,9 @@ class MarkFKPField(FKPField):
             alpha = self.data.sum() / self.randoms.sum()
 
             # weights are updated
-            particles = (marked_positions - alpha * self.randoms).clone(attrs=self.data.attrs)
-            self.__dict__['_particles'] = particles
+            particles = marked_positions - alpha * self.randoms
+            particles = particles.clone(attrs=self.data.attrs)
+            self.__dict__["_particles"] = particles
 
         return particles
 
@@ -140,24 +141,26 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
     ) -> RealMeshField:
         """
         Set the mark from the density contrast.
-        
+
         The smoothed density contrast ``delta_R`` is computed from the backend's
         :attr:`~acm.estimators.galaxy_clustering.backends.jaxpower.JaxpowerBackend._density_contrast`
         value (smoothed on ``smoothing_radius``).
+
         Parameters
         ----------
         coefficients: tuple[float, ...] | list[float], optional
             Polynomial coefficients ``(c_0, c_1, ...)``. Defaults to (0.0, 1.0).
+
         Returns
         -------
         jaxpower.RealMeshField
             Mesh field containing the mark.
-            
+
         Raises
-        -------
+        ------
         RuntimeError
             If the density contrast has not been set at runtime.
-            
+
         Notes
         -----
         The mark is:
@@ -182,7 +185,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         edges: np.ndarray | dict = {"step": 0.001},
         ells: tuple[int, ...] | list[int] = (0, 2, 4),
         los: str = "z",
-        resampler: str = 'cic',
+        resampler: str = "cic",
         **kwargs,
     ) -> lsstypes.Mesh2SpectrumPoles:
         """
@@ -240,8 +243,8 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
             norm = compute_fkp2_normalization(mfkp, bin=bin_mesh)
             num_shotnoise = compute_fkp2_shotnoise(mfkp, bin=bin_mesh)
             marked_delta_mesh = mfkp.paint(
-                out="real", 
-                resampler=resampler, 
+                out="real",
+                resampler=resampler,
                 **kwargs,
             )
         else:
