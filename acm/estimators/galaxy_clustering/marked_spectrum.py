@@ -83,7 +83,7 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
 
     def __init__(
         self,
-        backend: str | JaxpowerBackend,
+        backend: str | JaxpowerBackend,  # NOTE: restrained backend here
         data_positions: np.ndarray,
         randoms_positions: np.ndarray | None = None,
         data_weights: np.ndarray | None = None,
@@ -122,6 +122,9 @@ class MarkedPowerSpectrumMultipoles(BaseEstimator):
         )
 
         self.jit_cm2s = jax.jit(cm2s, static_argnames=["los"], donate_argnums=[0])
+
+        # Type hint
+        self.backend: JaxpowerBackend
 
         # This estimator relies on jaxpower-specific backend attributes.
         if not isinstance(self.backend, JaxpowerBackend):
