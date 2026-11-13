@@ -6,7 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from acm.estimators.galaxy_clustering.multiplets import GalaxyMultiplets
+from acm.estimators.galaxy_clustering.multiplets import (
+    GalaxyMultiplets,
+    identify_multiplets,
+)
 
 matplotlib.use("Agg")  # Use a non-interactive backend for testing
 
@@ -44,18 +47,10 @@ def cutsky_estimator(make_estimator):
 
 class TestInit:
     def test_box_mode_without_randoms(self, box_estimator):
-        assert not box_estimator.cutsky
+        assert not box_estimator.is_cutsky
 
     def test_cutsky_mode_with_randoms(self, cutsky_estimator):
-        assert cutsky_estimator.cutsky
-
-    def test_invalid_los_raises(self, data_positions):
-        with pytest.raises(ValueError, match="Invalid los"):
-            make_box(data_positions, los="w")
-
-    def test_multiplets_before_identify_raises(self, box_estimator):
-        with pytest.raises(ValueError, match="identify_multiplets"):
-            _ = box_estimator.multiplets
+        assert cutsky_estimator.is_cutsky
 
 
 class TestIdentifyBox:
@@ -68,7 +63,8 @@ class TestIdentifyBox:
             [51.0, 50, 50],  # triplet (chain)
             [80, 80, 80],  # singlet
         ]
-        groups = make_box(pos).identify_multiplets()
+        box = make_box(pos)
+        groups = identify_multiplets(box.data_positions, box.backend.boxsize)
         assert [len(groups[n]) for n in (1, 2, 3, 4)] == [1, 1, 1, 0]
         np.testing.assert_allclose(groups[2][0], [10.25, 10, 10])
         np.testing.assert_allclose(groups[1][0], [80, 80, 80])
@@ -76,38 +72,35 @@ class TestIdentifyBox:
     def test_rperp_cut_along_los(self):
         # 5 Mpc/h apart along the LOS (r_perp = 0) -> linked;
         # 5 Mpc/h apart perpendicular to the LOS -> not linked
-        assert (
-            len(
-                make_box([[10, 10, 10], [10, 10, 15]], los="z").identify_multiplets()[2]
-            )
-            == 1
-        )
-        assert (
-            len(
-                make_box([[10, 10, 10], [10, 10, 15]], los="x").identify_multiplets()[2]
-            )
-            == 0
-        )
+        box = make_box([[10, 10, 10], [10, 10, 15]])
+        mult_x = identify_multiplets(box.data_positions, box.backend.boxsize, los="x")
+        mult_z = identify_multiplets(box.data_positions, box.backend.boxsize, los="z")
+        assert len(mult_z[2]) == 1
+        assert len(mult_x[2]) == 0
 
     def test_rmax_cut(self):
         # r_perp = 0 but 3D separation above r_max
-        assert len(make_box([[10, 10, 10], [10, 10, 18]]).identify_multiplets()[2]) == 0
+        box = make_box([[10, 10, 10], [10, 10, 18]])
+        assert len(identify_multiplets(box.data_positions, box.backend.boxsize)[2]) == 0
 
     def test_pair_across_periodic_boundary(self):
-        groups = make_box(
-            [[0.2, 10, 10], [99.9, 10, 10], [50, 50, 50]]
-        ).identify_multiplets()
+        box = make_box([[0.2, 10, 10], [99.9, 10, 10], [50, 50, 50]])
+        groups = identify_multiplets(box.data_positions, box.backend.boxsize)
         assert len(groups[2]) == 1
         center_x = groups[2][0, 0]
         assert min(center_x, 100 - center_x) < 0.5  # wrapped mean, not the box middle
 
     def test_positions_centered_on_zero_are_wrapped(self):
-        groups = make_box([[-10, -10, -10], [-9.5, -10, -10]]).identify_multiplets()
+        box = make_box([[-10, -10, -10], [-9.5, -10, -10]])
+        groups = identify_multiplets(box.data_positions, box.backend.boxsize)
         np.testing.assert_allclose(groups[2][0], [90.25, 90, 90])
 
     def test_max_multiplicity(self):
         pos = [[10 + 0.5 * i, 10, 10] for i in range(5)]  # chain of 5
-        groups = make_box(pos).identify_multiplets(max_multiplicity=5)
+        box = make_box(pos)
+        groups = identify_multiplets(
+            box.data_positions, box.backend.boxsize, max_multiplicity=5
+        )
         assert len(groups[5]) == 1
         assert all(len(groups[n]) == 0 for n in (1, 2, 3, 4))
 
@@ -124,14 +117,17 @@ class TestIdentifyCutsky:
     def test_midpoint_los(self):
         # Two galaxies 5 Mpc/h apart along the radial direction (LOS): linked.
         # Same separation transverse to the LOS: not linked.
-        radial = self.make([[1000, 0, 0], [1005, 0, 0]]).identify_multiplets()
-        transverse = self.make([[1000, 0, 0], [1000, 5, 0]]).identify_multiplets()
+        box_r = self.make([[1000, 0, 0], [1005, 0, 0]])
+        box_t = self.make([[1000, 0, 0], [1000, 5, 0]])
+        radial = identify_multiplets(box_r.data_positions, None)
+        transverse = identify_multiplets(box_t.data_positions, None)
         assert len(radial[2]) == 1
         assert len(transverse[2]) == 0
 
     def test_no_periodic_wrapping(self):
         # in cutsky, galaxies on opposite sides of the (dummy) box are never linked
-        groups = self.make([[0.2, 10, 10], [99.9, 10, 10]]).identify_multiplets()
+        box = self.make([[0.2, 10, 10], [99.9, 10, 10]])
+        groups = identify_multiplets(box.data_positions, None)
         assert len(groups[2]) == 0
 
 
@@ -140,10 +136,10 @@ class TestCompute:
     @patch(f"{MODULE}.from_pycorr")
     @patch(f"{MODULE}.TwoPointCorrelationFunction")
     def test_box_arguments(self, mock_tpcf, mock_from_pycorr, mock_tree, box_estimator):
-        box_estimator.identify_multiplets()
-        box_estimator.compute(EDGES, nthreads=2)
+        box_estimator.compute(edges=EDGES, nthreads=2)
         args, kwargs = mock_tpcf.call_args
-        assert args == ("rppi", EDGES)
+        assert args == ("rppi",)
+        assert kwargs["edges"] == EDGES
         np.testing.assert_array_equal(kwargs["boxsize"], box_estimator.backend.boxsize)
         assert kwargs["los"] == "z"
         assert kwargs["position_type"] == "pos"
@@ -157,39 +153,12 @@ class TestCompute:
     def test_cutsky_arguments(
         self, mock_tpcf, mock_from_pycorr, mock_tree, cutsky_estimator
     ):
-        cutsky_estimator.identify_multiplets()
-        cutsky_estimator.compute(EDGES)
+        cutsky_estimator.compute(edges=EDGES)
         kwargs = mock_tpcf.call_args.kwargs
         assert kwargs["estimator"] == "davispeebles"
         assert kwargs["los"] == "midpoint"
         assert kwargs["randoms_positions2"] is cutsky_estimator.randoms_positions
         assert "boxsize" not in kwargs
-
-    @patch(f"{MODULE}.ObservableTree")
-    @patch(f"{MODULE}.from_pycorr")
-    @patch(f"{MODULE}.TwoPointCorrelationFunction")
-    def test_empty_classes_skipped_and_labelled(
-        self, mock_tpcf, mock_from_pycorr, mock_tree, box_estimator
-    ):
-        box_estimator._multiplets = {
-            1: np.ones((3, 3)),
-            2: np.empty((0, 3)),
-            3: np.ones((2, 3)),
-        }
-        box_estimator.compute(EDGES)
-        assert mock_tpcf.call_count == 2
-        assert mock_tree.call_args.kwargs["multiplets"] == ["singlet", "triplet"]
-        assert len(mock_tree.call_args.args[0]) == 2
-
-    @patch(f"{MODULE}.TwoPointCorrelationFunction")
-    def test_no_multiplets_raises(self, mock_tpcf, box_estimator):
-        box_estimator._multiplets = {1: np.empty((0, 3))}
-        with pytest.raises(ValueError, match="No multiplets"):
-            box_estimator.compute(EDGES)
-
-    def test_compute_before_identify_raises(self, box_estimator):
-        with pytest.raises(ValueError, match="identify_multiplets"):
-            box_estimator.compute(EDGES)
 
 
 class TestToLsstypes:
