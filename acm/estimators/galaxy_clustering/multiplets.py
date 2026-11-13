@@ -1,651 +1,360 @@
-# type: ignore
 import logging
 from collections import defaultdict
+from pathlib import Path
 
+import lsstypes
+import matplotlib.pyplot as plt
 import numpy as np
-from pycorr import AnalyticTwoPointCounter, NaturalTwoPointEstimator, TwoPointCorrelationFunction, TwoPointCounter
+from lsstypes.base import ObservableTree
+from lsstypes.external import from_pycorr
+from pycorr import TwoPointCorrelationFunction
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
 
+from acm.estimators.galaxy_clustering.backends import EstimatorBackend
+from acm.typing import LsstypeObject
+
+from .base import BaseEstimator
+
 logger = logging.getLogger(__name__)
 
+MULTIPLET_NAMES = {1: "singlet", 2: "pair", 3: "triplet", 4: "quadruplet"}
 
-def _sky_to_cartesian(rdd: np.ndarray) -> np.ndarray:
-    """Convert (N, 3) [RA, DEC, distance] (degrees) to (N, 3) Cartesian, observer at origin."""
-    ra, dec, dist = np.deg2rad(rdd[:, 0]), np.deg2rad(rdd[:, 1]), rdd[:, 2]
-    return np.column_stack(
-        [dist * np.cos(dec) * np.cos(ra), dist * np.cos(dec) * np.sin(ra), dist * np.sin(dec)]
+
+def find_pairs_box(
+    positions: np.ndarray,
+    boxsize: np.ndarray,
+    r_max: float,
+    r_perp_max: float,
+    los: str,
+) -> np.ndarray:
+    """Find linked pairs in a periodic box, with a fixed line of sight."""
+    if los not in ("x", "y", "z"):
+        raise ValueError(f"Invalid los: {los}. Must be 'x', 'y', or 'z'.")
+    perp_axes = [i for i, ax in enumerate("xyz") if ax != los]
+    kd_tree = cKDTree(positions, boxsize=boxsize)
+    all_pairs = kd_tree.query_pairs(r=r_max, output_type="ndarray")
+    diff = np.abs(positions[all_pairs[:, 0]] - positions[all_pairs[:, 1]])
+    diff = np.where(diff > boxsize / 2, boxsize - diff, diff)  # minimum image
+    r_perp2 = np.sum(diff[:, perp_axes] ** 2, axis=1)
+    return all_pairs[r_perp2 < r_perp_max**2]
+
+
+def find_pairs_cutsky(
+    positions: np.ndarray,
+    r_max: float,
+    r_perp_max: float,
+) -> np.ndarray:
+    """Find linked pairs in cutsky geometry, using the pair midpoint as line of sight."""
+    kd_tree = cKDTree(positions)
+    all_pairs = kd_tree.query_pairs(r=r_max, output_type="ndarray")
+    a = positions[all_pairs[:, 0]]
+    b = positions[all_pairs[:, 1]]
+    sep = a - b
+    mid = (a + b) / 2
+    mid_unit = mid / np.linalg.norm(mid, axis=1, keepdims=True)
+    r_perp2 = np.sum(sep**2, axis=1) - np.sum(sep * mid_unit, axis=1) ** 2
+    return all_pairs[r_perp2 < r_perp_max**2]
+
+
+def form_multiplets(pairs: np.ndarray, n_galaxies: int) -> list[list[int]]:
+    """Group linked galaxies into connected components (multiplets)."""
+    adj = csr_matrix(
+        (np.ones(len(pairs), dtype=int), (pairs[:, 0], pairs[:, 1])),
+        shape=(n_galaxies, n_galaxies),
     )
+    _, labels = connected_components(csgraph=adj, directed=False)
+    groups = defaultdict(set)
+    for a, b in pairs:
+        groups[labels[a]].update((a, b))
+    return [sorted(groups[g]) for g in sorted(groups)]
 
 
-def _check_rdd(rdd: np.ndarray, name: str = "positions") -> None:
-    """Check that (N, 3) positions look like [RA, DEC, distance], e.g. not Cartesian by mistake."""
-    rdd = np.asarray(rdd)
-    if rdd.ndim != 2 or rdd.shape[1] != 3:
-        raise ValueError(f"{name} must be of shape (N, 3) as [RA, DEC, distance].")
-    ra, dec, dist = rdd[:, 0], rdd[:, 1], rdd[:, 2]
-    if np.any((ra < 0) | (ra > 360)) or np.any(np.abs(dec) > 90) or np.any(dist <= 0):
-        raise ValueError(
-            f"{name} must be [RA, DEC, distance] with RA in [0, 360], DEC in [-90, 90] "
-            "(degrees) and distance > 0 in cutsky mode (boxsize=None). Got Cartesian positions?"
-        )
+def group_center(coords: np.ndarray, boxsize: np.ndarray | None = None) -> np.ndarray:
+    """Mean position of a group: periodic (minimum-image) mean in a box, Cartesian mean otherwise."""
+    if boxsize is None:
+        return coords.mean(axis=0)
+    # Bring every member next to the first one, average, then wrap the mean back into [0, L)
+    shifted = coords - boxsize * np.round((coords - coords[0]) / boxsize)
+    return shifted.mean(axis=0) % boxsize
 
 
-#logger.critical(
-#    f"{__name__} is out of date and needs to be updated to the new framework. Outputs might crash or be inconsistent."
-#)
+def compute_group_centers(
+    positions: np.ndarray,
+    groups_list: list[list[int]],
+    boxsize: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Center and size of each group."""
+    centers = [group_center(positions[ids], boxsize) for ids in groups_list]
+    centers = np.array(centers).reshape(-1, 3)
+    sizes = np.array([len(ids) for ids in groups_list], dtype=int)
+    return centers, sizes
 
 
-class GalaxyMultiplets:
+def identify_multiplets(
+    positions: np.ndarray,
+    boxsize: np.ndarray | None,
+    r_max: float = 7.0,
+    r_perp_max: float = 1.05,
+    max_multiplicity: int = 4,
+    los: str = "z",
+) -> dict[int, np.ndarray]:
     """
-    Class to identify galaxy multiplets (singlets, pairs, triplets, quadruplets, etc.).
-
-    Based on 3D spatial separation and projected separation criteria, and compute
-    their cross-correlation with the full galaxy sample.
-
-    A multiplet is a group of galaxies that are connected by proximity:
-    - Two galaxies are linked if their 3D separation is < r_max and their projected
-      separation (perpendicular to LOS) is < r_perp_max.
-    - Groups are formed by connecting all linked pairs using graph-based clustering.
-
-    Two geometries are supported:
-    - Box mode: pass ``boxsize`` (positions must lie in [0, boxsize) along each axis).
-      The line of sight is the fixed axis ``los``.
-    - Cutsky mode: pass ``boxsize=None`` and ``randoms_positions`` for cross correlations.
-      Positions (galaxies and randoms) are [RA, DEC, distance] with angles in degrees,
-      consistent with ``position_type='rdd'``; the line of sight is the pair midpoint,
-      and cross-correlations use the Davis-Peebles estimator.
+    Link galaxies into multiplets and store the positions of each class.
 
     Parameters
     ----------
-    r_max : float
-        Maximum 3D separation for linking galaxies (default: 7 Mpc/h)
-    r_perp_max : float
-        Maximum projected separation perpendicular to line-of-sight (default: 1.05 Mpc/h)
-    los : str
-        Line-of-sight direction in box mode: 'x', 'y', or 'z' (default: 'z').
-        Ignored in cutsky mode, which uses the pair midpoint.
-    nthreads : int
-        Number of threads for correlation function computation (default: 4)
+    r_max: float, optional
+        Maximum 3D separation for linking galaxies. Defaults to 7 Mpc/h.
+    r_perp_max: float, optional
+        Maximum separation perpendicular to the line of sight. Defaults to 1.05 Mpc/h.
+    los: str, optional
+        Line-of-sight axis in box mode, one of 'x', 'y', 'z'.
+        Ignored in cutsky mode, which uses the pair midpoint. Defaults to 'z'.
+    max_multiplicity: int, optional
+        Largest multiplet size to keep as its own class. Defaults to 4 (quadruplets).
+
+    Returns
+    -------
+    dict[int, np.ndarray]
+        Positions keyed by multiplicity: galaxy positions for singlets (1), group centers for larger multiplets.
+    """
+    n_galaxies = len(positions)
+    logger.info(f"Finding pairs with r_max={r_max}, r_perp_max={r_perp_max}")
+    if boxsize is None:
+        pairs = find_pairs_cutsky(positions, r_max, r_perp_max)
+    else:
+        positions = positions % boxsize  # wrap e.g. boxes centred on 0 into [0, L)
+        pairs = find_pairs_box(positions, boxsize, r_max, r_perp_max, los=los)
+
+    in_pairs = np.unique(pairs.ravel())
+    singlet_ids = np.setdiff1d(np.arange(n_galaxies), in_pairs)
+    groups_list = form_multiplets(pairs, n_galaxies)
+    centers, sizes = compute_group_centers(positions, groups_list, boxsize)
+
+    multiplets = {1: positions[singlet_ids]}
+    for n in range(2, max_multiplicity + 1):
+        multiplets[n] = centers[sizes == n]
+    logger.info(
+        f"{len(in_pairs) / n_galaxies * 100:.2f}% of galaxies are in multiplets. Counts: "
+        + ", ".join(
+            f"{MULTIPLET_NAMES.get(n, n)}={len(p)}" for n, p in multiplets.items()
+        )
+    )
+    return multiplets
+
+
+class GalaxyMultiplets(BaseEstimator):
+    """
+    Galaxy multiplets (singlets, pairs, triplets, ...) and their cross-correlation with the full sample.
+
+    Two galaxies are linked if their 3D separation is < ``r_max`` and their separation
+    perpendicular to the line of sight is < ``r_perp_max``. Multiplets are the connected
+    components of the resulting graph; singlets are galaxies with no link.
+
+    The geometry follows the inputs, as in the other estimators:
+
+    - box (no randoms): periodic boundaries with ``backend.boxsize``, fixed ``los`` axis,
+      natural estimator with analytic randoms.
+    - cutsky (randoms given): Cartesian positions with the observer at the origin, midpoint
+      line of sight, Davis-Peebles estimator (randoms on the galaxy side only).
     """
 
     def __init__(
         self,
-        r_max: float = 7.0,
-        r_perp_max: float = 1.05,
-        los: str = "z",
-        nthreads: int = 4,
+        backend: str | EstimatorBackend,
+        data_positions: np.ndarray,
+        randoms_positions: np.ndarray | None = None,
+        data_weights: np.ndarray | None = None,
+        randoms_weights: np.ndarray | None = None,
+        **kwargs,
     ) -> None:
-        logger.info("Initializing GalaxyMultiplets.")
-
-        self.r_max = r_max
-        self.r_perp_max = r_perp_max
-        self.los = los
-        self.nthreads = nthreads
-
-        # Results storage
-        self.singlet_ids = None
-        self.singlet_coords = None
-        self.groups_list = None
-        self.group_centers = None
-        self.group_sizes = None
-        self.pair_coords = None
-        self.triplet_coords = None
-        self.quadruplet_coords = None
-
-    def _get_los_axes(self) -> list[int]:
-        """Get the perpendicular axes for the given line-of-sight."""
-        if self.los == "z":
-            return [0, 1]
-        if self.los == "y":
-            return [0, 2]
-        if self.los == "x":
-            return [1, 2]
-        raise ValueError(f"Invalid los: {self.los}. Must be 'x', 'y', or 'z'")
-
-    def find_pairs(
-        self, positions: np.ndarray, boxsize: float | np.ndarray | None
-    ) -> np.ndarray:
         """
-        Find all galaxy pairs within the specified 3D and projected separations.
+        Initialize the multiplets estimator.
 
         Parameters
         ----------
-        positions : array_like, shape (N, 3)
-            Galaxy positions: Cartesian in box mode, [RA, DEC, distance] in cutsky mode
-        boxsize : float or array_like, shape (3,), or None
-            Periodic box size(s). None for cutsky mode.
-
-        Returns
-        -------
-        pairs : ndarray, shape (M, 2)
-            Array of galaxy pair indices
+        backend: str | EstimatorBackend
+            The backend to use for the estimator.
+        data_positions: np.ndarray
+            Cartesian positions of data galaxies, of shape (N, 3).
+        randoms_positions: np.ndarray, optional
+            Cartesian positions of randoms, of shape (M, 3). If given, cutsky mode is used.
+        data_weights: np.ndarray, optional
+            Weights for data galaxies, of shape (N,). Only used in the cross-correlation.
+        randoms_weights: np.ndarray, optional
+            Weights for randoms, of shape (M,).
+        **kwargs
+            Additional keyword arguments for the backend.
         """
-        logger.info(
-            f"Finding pairs with r_max={self.r_max}, r_perp_max={self.r_perp_max}"
-        )
-
-        if boxsize is None:
-            return self._find_pairs_cutsky(positions)
-
-        if np.isscalar(boxsize):
-            boxsize = np.array([boxsize, boxsize, boxsize])
-        else:
-            boxsize = np.asarray(boxsize)
-
-        perp_axes = self._get_los_axes()
-
-        # Build KD-tree and find all pairs within r_max
-        kd_tree = cKDTree(positions, boxsize=boxsize)
-        all_pairs = kd_tree.query_pairs(r=self.r_max, output_type="ndarray")
-
-        logger.info(f"Found {len(all_pairs)} pairs within r_max={self.r_max}")
-
-        # Separate boundary and non-boundary pairs
-        sep_3d = np.sqrt(
-            np.sum(
-                (positions[all_pairs[:, 0]] - positions[all_pairs[:, 1]]) ** 2, axis=1
-            )
-        )
-        # Pairs are within r_max, so a raw separation > L/2 means the pair wraps the box
-        boundary_mask = sep_3d > np.min(boxsize) / 2
-
-        # Non-boundary pairs: simple projected separation check
-        non_boundary_pairs = all_pairs[~boundary_mask]
-        if len(non_boundary_pairs) > 0:
-            proj_sep_nb = np.sqrt(
-                np.sum(
-                    (
-                        positions[non_boundary_pairs[:, 0]][:, perp_axes]
-                        - positions[non_boundary_pairs[:, 1]][:, perp_axes]
-                    )
-                    ** 2,
-                    axis=1,
-                )
-            )
-            non_boundary_pairs = non_boundary_pairs[proj_sep_nb < self.r_perp_max]
-
-        # Boundary pairs: account for periodic wrapping
-        boundary_pairs = all_pairs[boundary_mask]
-        valid_boundary = []
-
-        for i, (a, b) in enumerate(boundary_pairs):
-            diff = np.abs(positions[a] - positions[b])
-            # Apply periodic boundary conditions
-            diff = np.where(diff > boxsize / 2, boxsize - diff, diff)
-            proj_sep = np.sqrt(np.sum(diff[perp_axes] ** 2))
-            if proj_sep < self.r_perp_max:
-                valid_boundary.append(i)
-
-        if valid_boundary:
-            boundary_pairs = boundary_pairs[valid_boundary]
-        else:
-            boundary_pairs = np.empty((0, 2), dtype=int)
-
-        # Combine all valid pairs
-        pairs = (
-            np.vstack([non_boundary_pairs, boundary_pairs])
-            if len(non_boundary_pairs) > 0
-            else boundary_pairs
-        )
-
-        logger.info(f"Found {len(pairs)} pairs satisfying all criteria")
-        logger.info(
-            f"  Non-boundary: {len(non_boundary_pairs)}, Boundary: {len(boundary_pairs)}"
-        )
-
-        return pairs
-
-    def _find_pairs_cutsky(self, positions: np.ndarray) -> np.ndarray:
-        """
-        Find linked pairs in cutsky geometry, using the pair midpoint as line of sight.
-
-        Parameters
-        ----------
-        positions : array_like, shape (N, 3)
-            Galaxy positions as [RA, DEC, distance], angles in degrees
-
-        Returns
-        -------
-        pairs : ndarray, shape (M, 2)
-            Array of galaxy pair indices
-        """
-        positions = _sky_to_cartesian(positions)
-        kd_tree = cKDTree(positions)
-        all_pairs = kd_tree.query_pairs(r=self.r_max, output_type="ndarray")
-        logger.info(f"Found {len(all_pairs)} pairs within r_max={self.r_max}")
-
-        a = positions[all_pairs[:, 0]]
-        b = positions[all_pairs[:, 1]]
-        sep = a - b
-        mid = (a + b) / 2
-        mid_unit = mid / np.linalg.norm(mid, axis=1, keepdims=True)
-        r_perp2 = np.sum(sep**2, axis=1) - np.sum(sep * mid_unit, axis=1) ** 2
-        pairs = all_pairs[r_perp2 < self.r_perp_max**2]
-
-        logger.info(f"Found {len(pairs)} pairs satisfying all criteria")
-        return pairs
-
-    def form_multiplets(self, pairs: np.ndarray, n_galaxies: int) -> list[list[int]]:
-        """
-        Form multiplets by connecting pairs using graph-based clustering.
-
-        Parameters
-        ----------
-        pairs : array_like, shape (M, 2)
-            Array of galaxy pair indices
-        n_galaxies : int
-            Total number of galaxies
-
-        Returns
-        -------
-        groups_list : list of lists
-            List where each element is a list of galaxy indices in that group
-        """
-        logger.info("Forming multiplets via connected components")
-
-        # Create adjacency matrix
-        row = pairs[:, 0]
-        col = pairs[:, 1]
-        data = np.ones(len(pairs), dtype=int)
-        adj_matrix = csr_matrix((data, (row, col)), shape=(n_galaxies, n_galaxies))
-
-        # Find connected components
-        _, labels = connected_components(csgraph=adj_matrix, directed=False)
-
-        # Group galaxies by component label
-        groups = defaultdict(set)
-        for a, b in pairs:
-            g = labels[a]
-            groups[g].add(a)
-            groups[g].add(b)
-
-        # Convert to sorted lists
-        groups_list = [sorted(groups[g]) for g in sorted(groups)]
-
-        logger.info(f"Formed {len(groups_list)} multiplets")
-
-        return groups_list
-
-    def _periodic_mean(
-        self, coords: np.ndarray, boxsize: float | np.ndarray
-    ) -> np.ndarray:
-        """
-        Compute the mean position of a group accounting for periodic boundaries.
-
-        Parameters
-        ----------
-        coords : array_like, shape (M, D)
-            Coordinates of objects in one group
-        boxsize : float or array_like, shape (D,)
-            Box size(s)
-
-        Returns
-        -------
-        mean : ndarray, shape (D,)
-            Mean position wrapped into [0, boxsize)
-        """
-        ref = coords[0]
-        shifted = coords.copy()
-
-        # Minimum-image convention: shift by +/- boxsize to be closest to reference
-        shifted -= np.round((shifted - ref) / boxsize) * boxsize
-
-        mean = shifted.mean(axis=0)
-
-        # Wrap back into [0, boxsize)
-        mean = mean % boxsize
-
-        return mean
-
-    def compute_group_centers(
-        self,
-        positions: np.ndarray,
-        groups_list: list[list[int]],
-        boxsize: float | np.ndarray | None,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compute the center for each multiplet group.
-
-        Parameters
-        ----------
-        positions : array_like, shape (N, 3)
-            Galaxy positions
-            [x, y, z] for Box; [RA, DEC, distance] for cutsky.
-        groups_list : list of lists
-            List of galaxy groups
-        boxsize : float or array_like, or None
-            Box size(s). None for cutsky mode.
-
-        Returns
-        -------
-        group_centers : ndarray, shape (n_groups, 3)
-            Center position for each group
-        group_sizes : ndarray, shape (n_groups,)
-            Number of galaxies in each group
-        """
-        if boxsize is not None:
-            if np.isscalar(boxsize):
-                boxsize = np.array([boxsize, boxsize, boxsize])
-            else:
-                boxsize = np.asarray(boxsize)
-
-        n_groups = len(groups_list)
-        group_centers = np.zeros((n_groups, 3))
-        group_sizes = np.zeros(n_groups, dtype=int)
-
-        for i, obj_ids in enumerate(groups_list):
-            coords = positions[obj_ids]
-            if boxsize is None:
-                group_centers[i] = coords.mean(axis=0)
-                # RA is periodic in 360 deg: wrap so groups across RA=0 average correctly
-                group_centers[i, 0] = self._periodic_mean(coords[:, :1], 360.0)[0]
-            else:
-                group_centers[i] = self._periodic_mean(coords, boxsize)
-            group_sizes[i] = len(obj_ids)
-
-        return group_centers, group_sizes
-
-    def identify_multiplets(
-        self, positions: np.ndarray, boxsize: float | np.ndarray | None
-    ) -> dict:
-        """
-        Complete pipeline to identify all multiplets in a galaxy catalog.
-
-        Parameters
-        ----------
-        positions : array_like, shape (N, 3)
-            Galaxy positions: Cartesian in box mode, [RA, DEC, distance] in cutsky mode
-        boxsize : float or array_like, or None
-            Box size(s). None for cutsky mode.
-
-        Returns
-        -------
-        results : dict
-            Dictionary containing:
-            - 'singlet_ids': indices of singlet galaxies
-            - 'singlet_coords': coordinates of singlet galaxies
-            - 'groups_list': list of multiplet groups
-            - 'group_centers': center positions of multiplets
-            - 'group_sizes': sizes of multiplets
-            - 'pair_coords': centers of pairs (size=2)
-            - 'triplet_coords': centers of triplets (size=3)
-            - 'quadruplet_coords': centers of quadruplets (size=4)
-        """
-        logger.info("Starting multiplet identification")
-
-        positions = np.asarray(positions)
-        if boxsize is None:
-            _check_rdd(positions)
-        else:
-            # Wrap into [0, boxsize), e.g. for boxes centered at 0 ([-L/2, L/2))
-            positions = positions % boxsize
-        n_galaxies = len(positions)
-
-        # Find pairs
-        pairs = self.find_pairs(positions, boxsize)
-
-        # Identify singlets (galaxies not in any pair)
-        all_pair_ids = np.unique(np.concatenate([pairs[:, 0], pairs[:, 1]]))
-        all_ids = np.arange(n_galaxies)
-        self.singlet_ids = np.setdiff1d(all_ids, all_pair_ids)
-        self.singlet_coords = positions[self.singlet_ids]
-
-        logger.info(
-            f"Found {len(self.singlet_ids)} singlets ({len(self.singlet_ids) / n_galaxies * 100:.2f}%)"
-        )
-        logger.info(
-            f"{len(all_pair_ids) / n_galaxies * 100:.2f}% of galaxies are in multiplets"
-        )
-
-        # Form multiplets
-        self.groups_list = self.form_multiplets(pairs, n_galaxies)
-
-        # Compute group centers
-        self.group_centers, self.group_sizes = self.compute_group_centers(
-            positions, self.groups_list, boxsize
-        )
-
-        # Separate by multiplet size
-        self.pair_coords = self.group_centers[self.group_sizes == 2]
-        self.triplet_coords = self.group_centers[self.group_sizes == 3]
-        self.quadruplet_coords = self.group_centers[self.group_sizes == 4]
-
-        logger.info("Multiplet counts:")
-        logger.info(f"  Pairs: {len(self.pair_coords)}")
-        logger.info(f"  Triplets: {len(self.triplet_coords)}")
-        logger.info(f"  Quadruplets: {len(self.quadruplet_coords)}")
-
-        return {
-            "singlet_ids": self.singlet_ids,
-            "singlet_coords": self.singlet_coords,
-            "groups_list": self.groups_list,
-            "group_centers": self.group_centers,
-            "group_sizes": self.group_sizes,
-            "pair_coords": self.pair_coords,
-            "triplet_coords": self.triplet_coords,
-            "quadruplet_coords": self.quadruplet_coords,
-        }
-
-    def compute_cross_correlation(
-        self,
-        multiplet_coords: np.ndarray,
-        all_positions: np.ndarray,
-        boxsize: float | np.ndarray | None,
-        edges: tuple[np.ndarray, np.ndarray],
-        randoms_positions: np.ndarray | None = None,
-        data_weights: np.ndarray | None = None,
-        randoms_weights: np.ndarray | None = None,
-    ) -> NaturalTwoPointEstimator:
-        """
-        Compute the cross-correlation between multiplet centers and all galaxies.
-
-        Parameters
-        ----------
-        multiplet_coords : array_like, shape (M, 3)
-            Multiplet center positions
-        all_positions : array_like, shape (N, 3)
-            All galaxy positions
-        boxsize : float or array_like, or None
-            Box size(s). None for cutsky mode.
-        edges : tuple of arrays
-            (rp_edges, pi_edges) for the correlation function bins
-        randoms_positions : array_like, shape (R, 3), optional
-            Randoms of the full galaxy sample as [RA, DEC, distance]. Required in cutsky mode.
-        data_weights : array_like, shape (N,), optional
-            Weights of all_positions. Cutsky mode only.
-        randoms_weights : array_like, shape (R,), optional
-            Weights of randoms_positions. Cutsky mode only.
-
-        Returns
-        -------
-        estimator : NaturalTwoPointEstimator or TwoPointCorrelationFunction
-            Correlation function estimator (Davis-Peebles in cutsky mode)
-        """
-        if boxsize is None:
-            if randoms_positions is None:
-                raise ValueError("randoms_positions are required in cutsky mode (boxsize=None)")
-            _check_rdd(multiplet_coords, "multiplet_coords")
-            _check_rdd(all_positions, "all_positions")
-            _check_rdd(randoms_positions, "randoms_positions")
-            # Davis-Peebles: D1D2 / D1R2 - 1, randoms only on the galaxy side
-            return TwoPointCorrelationFunction(
-                "rppi",
-                edges,
-                # pycorr expects 'rdd' positions as (3, N): [RA, DEC, distance]
-                data_positions1=np.asarray(multiplet_coords).T,
-                data_positions2=np.asarray(all_positions).T,
-                randoms_positions2=np.asarray(randoms_positions).T,
-                data_weights2=data_weights,
-                randoms_weights2=randoms_weights,
-                estimator="davispeebles",
-                position_type="rdd",
-                compute_sepsavg=False,
-                engine="corrfunc",
-                nthreads=self.nthreads,
-            )
-        
-        if randoms_positions is not None or randoms_weights is not None or data_weights is not None:
-            raise ValueError(
-                "randoms_positions and weights are only used in cutsky mode (boxsize=None)"
-            )
-
-        if np.isscalar(boxsize):
-            boxsize = np.array([boxsize, boxsize, boxsize])
-
-        # Wrap into [0, boxsize), same frame as the multiplet centers
-        multiplet_coords = np.asarray(multiplet_coords) % boxsize
-        all_positions = np.asarray(all_positions) % boxsize
-
-        DD_counts = TwoPointCounter(
-            "rppi",
-            edges,
-            positions1=[
-                multiplet_coords[:, 0],
-                multiplet_coords[:, 1],
-                multiplet_coords[:, 2],
-            ],
-            positions2=[all_positions[:, 0], all_positions[:, 1], all_positions[:, 2]],
-            boxsize=boxsize,
-            los=self.los,
-            position_type="xyz",
-            engine="corrfunc",
-            nthreads=self.nthreads,
-        )
-
-        RR_counts = AnalyticTwoPointCounter(
-            "rppi",
-            edges,
-            size1=len(multiplet_coords),
-            size2=len(all_positions),
-            boxsize=boxsize,
-            los=self.los,
-        )
-
-        estimator = NaturalTwoPointEstimator(D1D2=DD_counts, R1R2=RR_counts)
-
-        return estimator
-
-    def compute_all_cross_correlations(
-        self,
-        positions: np.ndarray,
-        boxsize: float | np.ndarray | None,
-        edges: tuple[np.ndarray, np.ndarray],
-        pimax: float | None = None,
-        randoms_positions: np.ndarray | None = None,
-        data_weights: np.ndarray | None = None,
-        randoms_weights: np.ndarray | None = None,
-    ) -> dict:
-        """
-        Compute cross-correlations for all multiplet types (singlets, pairs, triplets, quadruplets).
-
-        Parameters
-        ----------
-        positions : array_like, shape (N, 3)
-            All galaxy positions
-        boxsize : float or array_like, or None
-            Box size(s). None for cutsky mode.
-        edges : tuple of arrays
-            (rp_edges, pi_edges) for the correlation function bins
-        pimax : float, optional
-            Maximum pi for wp calculation. If None, integrates over the full pi range
-        randoms_positions : array_like, shape (R, 3), optional
-            Randoms of the full galaxy sample as [RA, DEC, distance]. Required in cutsky mode.
-        data_weights : array_like, shape (N,), optional
-            Galaxy weights. Cutsky mode only.
-        randoms_weights : array_like, shape (R,), optional
-            Random weights. Cutsky mode only.
-
-        Returns
-        -------
-        correlations : dict
-            Dictionary with keys 'singlet', 'pair', 'triplet', 'quadruplet',
-            each containing the correlation function values
-        """
-        if self.singlet_coords is None:
-            raise ValueError("Must run identify_multiplets() first")
-
-        logger.info("Computing cross-correlations for all multiplet types")
-
-        correlations = {}
-        extra = dict(
+        super().__init__(
+            backend,
+            data_positions=data_positions,
             randoms_positions=randoms_positions,
             data_weights=data_weights,
             randoms_weights=randoms_weights,
+            **kwargs,
         )
 
-        # Singlets
-        if len(self.singlet_coords) > 0:
-            logger.info(
-                f"Computing singlet cross-correlation ({len(self.singlet_coords)} objects)"
-            )
-            est_singlet = self.compute_cross_correlation(
-                self.singlet_coords, positions, boxsize, edges, **extra
-            )
-            correlations["singlet"] = est_singlet(pimax=pimax, return_sep=False)
+    @property
+    def is_cutsky(self) -> bool:
+        """Whether the estimator runs in cutsky mode (randoms provided)."""
+        return self.randoms_positions is not None
 
-        # Pairs
-        if self.pair_coords is not None and len(self.pair_coords) > 0:
-            logger.info(
-                f"Computing pair cross-correlation ({len(self.pair_coords)} objects)"
-            )
-            est_pair = self.compute_cross_correlation(
-                self.pair_coords, positions, boxsize, edges, **extra
-            )
-            correlations["pair"] = est_pair(pimax=pimax, return_sep=False)
-
-        # Triplets
-        if self.triplet_coords is not None and len(self.triplet_coords) > 0:
-            logger.info(
-                f"Computing triplet cross-correlation ({len(self.triplet_coords)} objects)"
-            )
-            est_triplet = self.compute_cross_correlation(
-                self.triplet_coords, positions, boxsize, edges, **extra
-            )
-            correlations["triplet"] = est_triplet(pimax=pimax, return_sep=False)
-
-        # Quadruplets
-        if self.quadruplet_coords is not None and len(self.quadruplet_coords) > 0:
-            logger.info(
-                f"Computing quadruplet cross-correlation ({len(self.quadruplet_coords)} objects)"
-            )
-            est_quadruplet = self.compute_cross_correlation(
-                self.quadruplet_coords, positions, boxsize, edges, **extra
-            )
-            correlations["quadruplet"] = est_quadruplet(pimax=pimax, return_sep=False)
-
-        return correlations
-
-    def get_summary_table(
-        self, edges: tuple[np.ndarray, np.ndarray], correlations: dict
-    ) -> np.ndarray:
+    def compute(
+        self,
+        r_max: float = 7.0,
+        r_perp_max: float = 1.05,
+        los: str = "z",
+        **kwargs,
+    ) -> ObservableTree:
         """
-        Create a summary table with separation bins and correlation functions.
+        Cross-correlate each multiplet class with the full galaxy sample in (rp, pi).
 
         Parameters
         ----------
-        edges : tuple of arrays
-            (rp_edges, pi_edges) used for the correlation function
-        correlations : dict
-            Dictionary of correlation functions from compute_all_cross_correlations()
+        r_max: float, optional
+            Maximum 3D separation for linking galaxies. Defaults to 7 Mpc/h.
+        r_perp_max: float, optional
+            Maximum separation perpendicular to the line of sight. Defaults to 1.05 Mpc/h.
+        los: str, optional
+            Line-of-sight axis in box mode, one of 'x', 'y', 'z'. Ignored in cutsky mode,
+            which uses the pair midpoint. Defaults to 'z'.
+        **kwargs
+            Additional keyword arguments for :class:`pycorr.TwoPointCorrelationFunction`
+            (e.g. ``nthreads``).
 
         Returns
         -------
-        table : ndarray
-            Array with columns: [r, wp_singlet, wp_pair, wp_triplet, wp_quadruplet]
+        ObservableTree
+            One :class:`lsstypes.Count2Correlation` per non-empty multiplet class, labelled
+            by ``multiplets``. Use ``.project()`` on a leaf (or ``load(..., project=True)``)
+            to get :math:`w_p(r_p)`.
         """
-        rp_edges = edges[0]
-        nbins = len(rp_edges) - 1
-        r = (rp_edges[:nbins] + rp_edges[1:]) / 2
+        positions = self.data_positions
+        if self.is_cutsky:
+            boxsize = None
+            geometry = dict(
+                randoms_positions2=self.randoms_positions,
+                randoms_weights2=self.randoms_weights,
+                los="midpoint",
+                estimator="davispeebles",
+            )
+        else:
+            # Without randoms, pycorr uses analytic RR in a periodic box
+            boxsize = np.asarray(self.backend.boxsize, dtype=float)
+            positions = positions % boxsize  # wrap e.g. boxes centred on 0 into [0, L)
+            geometry = dict(boxsize=boxsize, los=los)
+        multiplets = identify_multiplets(
+            positions, boxsize, r_max=r_max, r_perp_max=r_perp_max, los=los
+        )
 
-        data = [r]
-        for key in ["singlet", "pair", "triplet", "quadruplet"]:
-            if key in correlations:
-                data.append(correlations[key])
-            else:
-                data.append(np.zeros(nbins))
+        leaves, labels = [], []
+        for n, pos in multiplets.items():
+            label = MULTIPLET_NAMES.get(n, f"{n}-plet")
+            if len(pos) == 0:
+                logger.warning(f"No {label}s found, skipping.")
+                continue
+            logger.info(f"Computing {label} cross-correlation ({len(pos)} objects)")
+            correlation = TwoPointCorrelationFunction(
+                "rppi",
+                data_positions1=pos,
+                data_positions2=positions,
+                data_weights2=self.data_weights,
+                position_type="pos",
+                **geometry,
+                **kwargs,
+            )
+            leaves.append(self._to_lsstypes(correlation))
+            labels.append(label)
 
-        table = np.vstack(data).T
+        if not leaves:
+            raise ValueError("No multiplets found, nothing to correlate.")
+        attrs = dict(
+            name=self.__class__.__name__,
+            r_max=r_max,
+            r_perp_max=r_perp_max,
+            los="midpoint" if self.is_cutsky else los,
+            is_cutsky=self.is_cutsky,
+        )
+        return ObservableTree(leaves, multiplets=labels, attrs=attrs)
 
-        return table
+    # TODO: remove once lsstypes supports Davis-Peebles (https://github.com/adematti/lsstypes/issues/6)
+    @staticmethod
+    def _to_lsstypes(
+        correlation: TwoPointCorrelationFunction,
+    ) -> lsstypes.Count2Correlation:
+        """Convert a pycorr correlation to lsstypes, with a clear error for unsupported Davis-Peebles."""
+        try:
+            return from_pycorr(correlation)
+        except AssertionError as exc:
+            if getattr(correlation, "name", None) == "davispeebles":
+                raise NotImplementedError(
+                    "Cutsky multiplets use the Davis-Peebles estimator, which the installed lsstypes "
+                    "does not support yet. See https://github.com/adematti/lsstypes/issues/6."
+                ) from exc
+            raise
+
+    @staticmethod
+    def load(filename: str | Path, project: bool = False, **kwargs) -> LsstypeObject:
+        """
+        Load a multiplets result from file.
+
+        Parameters
+        ----------
+        filename: str | Path
+            Path to the file containing the result.
+        project: bool, optional
+            Whether to project each leaf onto :math:`w_p(r_p)`. Defaults to False.
+        **kwargs
+            Additional keyword arguments for :meth:`lsstypes.Count2Correlation.project`.
+
+        Returns
+        -------
+        lsstypes.ObservableTree
+            The loaded result, optionally projected.
+        """
+        obj = lsstypes.read(filename)
+        if project:
+            leaves = [leaf.project(**kwargs) for leaf in obj.flatten(level=1)]
+            obj = ObservableTree(leaves, multiplets=obj.multiplets, attrs=obj.attrs)
+        return obj
+
+    @staticmethod
+    def plot(
+        obj: LsstypeObject,
+        fig: plt.Figure | None = None,
+        ax: plt.Axes | None = None,
+        **kwargs,
+    ) -> tuple[plt.Figure, plt.Axes]:
+        """
+        Plot :math:`r_p w_p(r_p)` for each multiplet class.
+
+        Parameters
+        ----------
+        obj: LsstypeObject
+            Result of :meth:`compute` or :meth:`load` (projected or not).
+        fig: plt.Figure, optional
+            Figure to plot on. If None, a new one is created.
+        ax: plt.Axes, optional
+            Axes to plot on. If None, a new one is created.
+        **kwargs
+            Additional keyword arguments for :meth:`matplotlib.pyplot.plot`.
+
+        Returns
+        -------
+        fig, ax: tuple[plt.Figure, plt.Axes]
+        """
+        if fig is None or ax is None:
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.set_xlabel(r"$r_p$ [Mpc/$h$]")
+            ax.set_ylabel(r"$r_p\,w_p(r_p)$ [(Mpc/$h$)$^2$]")
+        for label in obj.multiplets:
+            leaf = obj.get(multiplets=label)
+            if isinstance(leaf, lsstypes.Count2Correlation):
+                leaf = leaf.project()
+            rp = leaf.coords("rp")
+            ax.plot(rp, rp * leaf.value(), label=label, **kwargs)
+        ax.legend()
+        return fig, ax
