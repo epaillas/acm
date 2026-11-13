@@ -125,7 +125,9 @@ def plot_parameters_triangle(
         for j, y_param in enumerate(names):
             ax = axes[i, j]
             for k, p in enumerate(parameters):
-                if i == j:
+                if i == j and p[x_param].size == 1:
+                    ax.axvline(p[x_param], color=colors[k], alpha=alpha)
+                elif i == j:  # Diagonal: plot histogram of the parameter
                     ax.hist(
                         p[x_param],
                         bins=bins,
