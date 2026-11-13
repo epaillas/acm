@@ -117,12 +117,12 @@ class JaxpowerBackend(EstimatorBackend):
         )
 
     @property
-    def boxsize(self) -> jax.Array:
+    def boxsize(self) -> jax.Array:  # ty: ignore[invalid-property-type-override]
         """Physical size of the box along each dimension. If None, set to meshsize."""
         return self.mattrs.boxsize
 
     @property
-    def boxcenter(self) -> jax.Array:
+    def boxcenter(self) -> jax.Array:  # ty: ignore[invalid-property-type-override]
         """Physical coordinates of the box center along each dimension."""
         return self.mattrs.boxcenter
 
@@ -132,7 +132,7 @@ class JaxpowerBackend(EstimatorBackend):
         return self.mattrs.meshsize
 
     @property
-    def cellsize(self) -> jax.Array:
+    def cellsize(self) -> jax.Array:  # ty: ignore[invalid-property-type-override]
         """Physical size of each mesh cell."""
         return self.mattrs.cellsize
 

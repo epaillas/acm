@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
 """
 
-import datetime
+import datetime as dt
 import logging
 import sys
 import time
@@ -112,7 +112,7 @@ def setup_logging(
     logging.basicConfig(level=level, handlers=[handler], **kwargs)
     sys.excepthook = exception_handler
     logger.debug(
-        f"Start logger at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"  # noqa: DTZ005
+        f"Start logger at {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"  # noqa: DTZ005
     )
 
 
