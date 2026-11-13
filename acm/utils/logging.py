@@ -114,6 +114,7 @@ def setup_logging(
     logger.debug(f"Start logger at {dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")  # noqa: DTZ005
 
 
+
 def exception_handler(
     exc_type: type[BaseException],
     exc_value: BaseException,

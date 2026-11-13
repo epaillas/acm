@@ -14,22 +14,27 @@ N_RANDOMS = 250
 
 @register_backend("dummyestimatorbackend")
 class DummyBackend(EstimatorBackend):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._boxsize = np.array([100.0, 100.0, 100.0])
+        self._boxcenter = np.array([50.0, 50.0, 50.0])
+        self._meshsize = np.array([64, 64, 64])
 
     @property
     def boxsize(self):
-        return (100.0, 100.0, 100.0)
+        return self._boxsize
 
     @property
     def boxcenter(self):
-        return (50.0, 50.0, 50.0)
+        return self._boxcenter
 
     @property
     def meshsize(self):
-        return (64, 64, 64)
+        return self._meshsize
 
     @property
     def cellsize(self):
-        return (100.0 / 64,) * 3
+        return self._boxsize / self._meshsize
 
     def set_density_contrast(self, **kwargs):
         self._density_contrast = np.zeros(self.meshsize)
