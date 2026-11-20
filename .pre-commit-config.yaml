@@ -6,6 +6,7 @@ repos:
       - id: check-ast # Check valid Python syntax
       - id: check-json # Check valid JSON syntax
       - id: check-yaml # Check valid YAML syntax
+        args: ['--unsafe']
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-added-large-files

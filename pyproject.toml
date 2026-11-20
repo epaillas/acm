@@ -212,3 +212,14 @@ allow-star-arg-any = true # suppress ANN401 for *args and **kwargs
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"] # Ignore unused imports in __init__.py, as they are often used for package exports.
+"*.ipynb" = [
+    "T201", # Ignore print statements
+]
+"tests/**/*.py" = [
+    "ANN", # Ignore missing type annotations in test files
+    "ARG", # Ignore unused arguments in test files
+    "D",   # Ignore missing docstrings in test files
+    "INP001", # Igore
+    "S101", # Ignore assert statements
+    "T201", # Ignore print statements
+]
