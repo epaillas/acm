@@ -93,6 +93,7 @@ acm = [
 [tool.setuptools-git-versioning]
 enabled = true
 starting_version = "0.0.0" # Fallback version if no git tags are found
+tag_filter = "^v?\\d+\\.\\d+\\.\\d+.*$"
 
 # Pytest settings
 [tool.pytest.ini_options]
