@@ -52,6 +52,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+lcov.info
 
 # Translations
 *.mo
@@ -144,7 +145,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-#.vscode/
+.vscode/
 
 # Spyder project settings
 .spyderproject
@@ -177,6 +178,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Ruff stuff:
+.ruff_cache/
+
 # PyPI configuration file
 .pypirc
 
@@ -199,6 +203,3 @@ quality/coverage_report*
 quality/type_report*
 quality/mypy_report*
 quality/pylint_report*
-
-
-
