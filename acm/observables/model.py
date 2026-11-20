@@ -55,7 +55,7 @@ class ObservableModel:
         """Get the model prediction from a single set of parameters or a 2D set of parameters (n_pred, n_params)."""
         x = np.asarray(x)  # Ensure x is an array to make torch.Tensor faster
         with torch.no_grad():
-            pred = self._model.get_prediction(torch.Tensor(x))
+            pred = self._model.get_prediction(torch.Tensor(x))  # ty: ignore[not-callable]
             pred = pred.numpy()
         if self.transform is not None:
             pred = self.transform(pred)
