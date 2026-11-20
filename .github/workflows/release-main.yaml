@@ -1,0 +1,49 @@
+name: Release tests
+# Run tests, generate changelog, and create a draft release on push to main
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  badges-update:
+    name: Update Badges
+    uses: ./.github/workflows/badges.yaml
+    permissions:
+      contents: read
+      checks: write
+    secrets: inherit
+    with:
+      checkout_ref: ${{ github.sha }}
+
+  resolve-refs:
+    name: Resolve release ref
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      commit-sha: ${{ steps.resolve.outputs.commit_sha }}
+      from-ref: ${{ steps.resolve.outputs.from_ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record Resolved Commit
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+
+          git fetch origin main --tags --force
+          from_ref="$(git describe --tags --abbrev=0 --match '[0-9]*.[0-9]*.[0-9]*' --exclude '*[!0-9.]*' origin/main)"
+
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "from_ref=${from_ref}" >> "$GITHUB_OUTPUT"

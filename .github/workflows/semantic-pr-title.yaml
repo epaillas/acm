@@ -1,0 +1,34 @@
+name: CI - Semantic PR Title
+# Enforce Conventional Commit format for pull request titles on develop/main branches
+# Taken from https://github.com/grimmory-tools/grimmory/blob/develop/.github/workflows/semantic-pr-title.yml
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+jobs:
+  validate-pr-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check Conventional PR Title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          regex='^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([A-Za-z0-9._/-]+\))?(!)?: .+$'
+          if ! printf '%s\n' "$PR_TITLE" | grep -Eq "$regex"; then
+            echo "PR titles for develop/main must use Conventional Commit format." >&2
+            echo "Example: refactor(release): adopt semantic-release for stable builds" >&2
+            exit 1
+          fi

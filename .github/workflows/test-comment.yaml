@@ -1,0 +1,52 @@
+name: Test Comment
+# Add a coverage comment to pull requests with the results of the tests
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+
+jobs:
+  test-suite:
+    name: Test Suite
+    uses: ./.github/workflows/test-suite.yaml
+    permissions:
+      contents: read
+      checks: write
+    with:
+      checkout_ref: ${{ github.sha }}
+
+  test-comment:
+    name: Post Test Comment
+    needs: [test-suite]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # Post coverage comment
+    strategy:
+      matrix:
+        python-version: ['3.13']
+        os: [ubuntu-latest]
+    steps:
+      - name: Download artifacts from test suite
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-${{ matrix.python-version }}-${{ matrix.os }}
+      - name: Coverage comment
+        id: coverage
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
+          xml-skip-covered: true # Skip files with 100% coverage
+          remove-links-to-lines: true # Remove clickable line number links
+          unique-id-for-comment: ${{ matrix.python-version }}-${{ matrix.os }}
+          title: Coverage for Python ${{ matrix.python-version }} (on ${{ matrix.os }})
+          # report-only-changed-files: true # Only show changed files
+          # remove-links-to-files: true # Remove clickable file links
+          # hide-emoji: true
+      - name: Fail on test errors or failures
+        if: steps.coverage.outputs.failures > 0 || steps.coverage.outputs.errors > 0
+        run: |
+          echo "Tests failed (${{ steps.coverage.outputs.failures }} failures and ${{ steps.coverage.outputs.errors }} errors)"
+          exit 1
