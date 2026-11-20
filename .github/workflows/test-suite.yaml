@@ -40,14 +40,14 @@ jobs:
           set -o pipefail
           mkdir -p coverage
           pytest \
-            --cov=src \
+            --cov=acm \
             --cov-branch \
             --cov-report=lcov:coverage/lcov.info \
             --cov-report=json:coverage/coverage.json \
             --cov-report=markdown:coverage/coverage.md \
             --cov-report=term-missing:skip-covered \
             --junitxml=coverage/pytest.xml \
-            tests/ \
+            tests/acm \
             | tee coverage/pytest-coverage.txt
       - name: Make summary
         run: |

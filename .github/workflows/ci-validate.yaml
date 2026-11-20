@@ -40,9 +40,9 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.3
       - name: Get number of type errors # First run is to get the number of errors without failing
-        run: uvx ty check src --quiet --exit-zero --python-version 3.13
+        run: uvx ty check acm --quiet --exit-zero --python-version 3.13
       - name: Run type checker # Second run is to get the output in GitHub format for annotations
-        run: uvx ty check src --output-format github  --python-version 3.13
+        run: uvx ty check acm --output-format github  --python-version 3.13
 
   test-suite:
     name: Test Suite
@@ -70,7 +70,7 @@ jobs:
       - name: Run crap score
         id: crapscore
         continue-on-error: true
-        run: uvx crap4py src/ --lcov lcov.info --max-crap 10 >> crapscore.txt
+        run: uvx crap4py acm/ --lcov lcov.info --max-crap 10 >> crapscore.txt
       - name: Make summary
         run: |
           {

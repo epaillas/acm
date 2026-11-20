@@ -61,7 +61,7 @@ jobs:
       - name: Run crap score
         id: crapscore
         run: |
-          uvx crap4py src/ --lcov lcov.info --max-crap 10
+          uvx crap4py acm/ --lcov lcov.info --max-crap 10
           if [ $? -eq 0 ]; then
             echo "status=passing" >> "$GITHUB_OUTPUT"
             echo "color=brightgreen" >> "$GITHUB_OUTPUT"
