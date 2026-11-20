@@ -1,8 +1,8 @@
 [build-system]
 requires = [
-    "setuptools", 
+    "setuptools",
     "setuptools-git-versioning",
-    "wheel", 
+    "wheel",
     "cython",
     "numpy < 2.0.0", # Avoid numpy 2.0.0 for now for type errors in Cython
 ]
@@ -21,8 +21,8 @@ requires-python = ">=3.12"
 dependencies = [ # Base requirements
     "numpy",
     "scipy",
-    "pandas", 
-    "xarray", 
+    "pandas",
+    "xarray",
     "pyyaml",
     "matplotlib",
     "torch",
@@ -65,7 +65,7 @@ docs = [
 ]
 testing = [ # Testing dependencies, with minimal install for type hints
     "pre-commit",
-    "ruff", 
+    "ruff",
     "ty",
     "pytest >= 7",
     "pytest-cov",
@@ -120,6 +120,13 @@ incompatible-method-override = "warn" # Warn about invalid method overrides, as 
 
 [tool.ty.terminal]
 error-on-warning = false # Do not treat warnings as errors, as some warnings may be intentional and not critical.
+
+[tool.ty.src]
+include = ["acm/**/*.py"]
+exclude = [
+    "tests/scripts/**/*.py", # Exclude test scripts
+    "scripts/**/*.py", # Exclude scripts
+]
 
 # Ruff settings
 [tool.ruff]
