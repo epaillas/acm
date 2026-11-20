@@ -1,12 +1,12 @@
 [build-system]
 requires = [
     "setuptools", 
+    "setuptools-git-versioning",
     "wheel", 
     "cython",
     "numpy < 2.0.0", # Avoid numpy 2.0.0 for now for type errors in Cython
 ]
 build-backend = "setuptools.build_meta"
-
 
 [project]
 name = "acm"
@@ -31,7 +31,7 @@ dependencies = [ # Base requirements
     "lsstypes @ git+https://github.com/adematti/lsstypes",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
 ]
-dynamic = ["version"]
+dynamic = ["version"]  # read from git tags
 
 [project.optional-dependencies]
 cosmodesi = [ # Dependencies existing in the cosmodesi ecosystem
@@ -78,13 +78,9 @@ testing = [ # Testing dependencies, with minimal install for type hints
 Repository = "https://github.com/epaillas/acm.git"
 Documentation = "https://acm.readthedocs.io"
 
-
 # Setuptools settings
 [tool.setuptools]
 packages = ["acm"]
-
-[tool.setuptools.dynamic]
-version = {file = "VERSION"}
 
 [tool.setuptools.package-data]
 acm = [
@@ -92,6 +88,9 @@ acm = [
     "**/*.yaml",
 ]
 
+[tool.setuptools-git-versioning]
+enabled = true
+starting_version = "0.0.0" # Fallback version if no git tags are found
 
 # Pytest settings
 [tool.pytest.ini_options]
