@@ -11,7 +11,6 @@ from acm.utils.compression import (
     split_test_set,
 )
 
-# ruff: noqa: ANN001, ANN201, ANN202, ARG001, S101
 
 class TestReshapeToCoords:
     """Tests for the reshape_to_coords function."""
@@ -94,7 +93,7 @@ class TestReindexSamples:
         """Test global reindexing without grouping."""
         index_arrays = {
             "cosmo_idx": ["000", "000", "001", "001"],
-            "hod_idx":   ["006", "008", "006", "010"],
+            "hod_idx": ["006", "008", "006", "010"],
         }
         result = reindex_samples(index_arrays, reindex=["hod_idx"])
         # Global ordering: 006->0, 008->1, 010->2
@@ -105,9 +104,11 @@ class TestReindexSamples:
         """Test reindexing within groups defined by other index arrays."""
         index_arrays = {
             "cosmo_idx": ["000", "000", "000", "001", "001", "001"],
-            "hod_idx":   ["006", "008", "010", "008", "010", "014"],
+            "hod_idx": ["006", "008", "010", "008", "010", "014"],
         }
-        result = reindex_samples(index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx"])
+        result = reindex_samples(
+            index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx"]
+        )
         # Within each cosmo group, hod_idx is re-indexed from 0
         assert result["hod_idx"] == [0, 1, 2, 0, 1, 2]
 
@@ -121,9 +122,11 @@ class TestReindexSamples:
         """Test that the re-indexing preserves the original order of samples within each group, not sorted order."""
         index_arrays = {
             "cosmo_idx": ["000", "000", "000"],
-            "hod_idx":   ["010", "006", "008"],  # not sorted
+            "hod_idx": ["010", "006", "008"],  # not sorted
         }
-        result = reindex_samples(index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx"])
+        result = reindex_samples(
+            index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx"]
+        )
         assert result["hod_idx"] == [0, 1, 2]
 
     def test_no_group_by_single_group(self):
@@ -136,7 +139,7 @@ class TestReindexSamples:
         """Test reindexing multiple index arrays at once."""
         index_arrays = {
             "cosmo_idx": ["000", "001"],
-            "hod_idx":   ["006", "008"],
+            "hod_idx": ["006", "008"],
             "phase_idx": ["000", "001"],
         }
         result = reindex_samples(index_arrays, reindex=["hod_idx", "phase_idx"])
@@ -155,14 +158,16 @@ class TestReindexSamples:
         index_arrays = {
             "cosmo_idx": ["000", "000", "001", "001"],
             "phase_idx": ["000", "000", "001", "001"],
-            "hod_idx":   ["006", "008", "006", "010"],
+            "hod_idx": ["006", "008", "006", "010"],
         }
         result = reindex_samples(
             index_arrays, reindex=["hod_idx"], group_by=["cosmo_idx", "phase_idx"]
         )
         assert result["hod_idx"] == [0, 1, 0, 1]
 
+
 # %% split_test_set
+
 
 @pytest.fixture
 def simple_dataset():
@@ -180,6 +185,7 @@ def simple_dataset():
         name="y",
     )
     return xarray.Dataset({"x": x, "y": y})
+
 
 class TestSplitTestSet:
     """Tests for the split_test_set function."""
@@ -205,7 +211,9 @@ class TestSplitTestSet:
 
     def test_custom_to_split(self, simple_dataset):
         """Test that only variables specified in to_split are split, and others are left unchanged."""
-        result = split_test_set(simple_dataset, filters={"cosmo_idx": [0, 1]}, to_split=["x"])
+        result = split_test_set(
+            simple_dataset, filters={"cosmo_idx": [0, 1]}, to_split=["x"]
+        )
         assert "x_test" in result
         assert "x_train" in result
         assert "y_test" not in result
@@ -217,7 +225,9 @@ class TestSplitTestSet:
         assert "x" in result
         assert "y" in result
 
+
 # %% collect_measurements
+
 
 @pytest.fixture
 def mock_file_tree(tmp_path):
@@ -239,37 +249,50 @@ def mock_file_tree(tmp_path):
     return tmp_path
 
 
-GLOB_PATTERN = "c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/power_spectrum_los_{los}.h5"
+GLOB_PATTERN = (
+    "c{cosmo_idx}_ph{phase_idx}/seed{seed}/hod{hod_idx}/power_spectrum_los_{los}.h5"
+)
+
 
 class TestCollectMeasurements:
     """Tests for the collect_measurements function."""
 
     def test_groups_by_index(self, mock_file_tree):
         """Test that files are grouped by unique combinations of index values, ignoring specified indexes."""
-        groups, _ = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, _ = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         # 2*2 unique combinations of cosmo_idx and hod_idx, so 4 groups
         assert len(groups) == 4
 
     def test_ignored_index_files_are_grouped(self, mock_file_tree):
         """Test that files differing only in the ignored index (los) are grouped together."""
-        groups, _ = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, _ = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         # Each group should contain 2 files (los_x and los_y)
         assert all(len(files) == 2 for files in groups.values())
 
     def test_ignored_index_not_in_index_arrays(self, mock_file_tree):
         """Test that the ignored index is not included in the returned index arrays."""
-        _, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        _, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         assert "los" not in index_arrays
 
     def test_index_arrays_aligned(self, mock_file_tree):
         """Test that the returned index arrays are aligned with the groups (same length and order)."""
-        _, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        _, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         lengths = [len(v) for v in index_arrays.values()]
         assert len(set(lengths)) == 1  # all same length
 
     def test_correct_index_values(self, mock_file_tree):
         """Test that the index arrays contain the correct unique values from the file paths."""
-        _, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        _, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         assert set(index_arrays["cosmo_idx"]) == {"000", "001"}
         assert set(index_arrays["hod_idx"]) == {"006", "008"}
 
@@ -282,22 +305,30 @@ class TestCollectMeasurements:
 
     def test_all_indexes_tracked(self, mock_file_tree):
         """Test that all tracked indexes exist in the index array."""
-        _, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        _, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         assert set(index_arrays.keys()) == {"cosmo_idx", "phase_idx", "seed", "hod_idx"}
 
     def test_empty_dir(self, tmp_path):
         """Test that if the directory contains no matching files, the function returns empty groups and index arrays."""
-        groups, index_arrays = collect_measurements(tmp_path, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            tmp_path, GLOB_PATTERN, ignore_index=["los"]
+        )
         assert len(groups) == 0
         assert all(len(v) == 0 for v in index_arrays.values())
 
     def test_sorted_files(self, mock_file_tree):
         """Test that the files within each group are sorted (for consistent ordering)."""
-        groups, _ = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, _ = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         for files in groups.values():
             assert files == sorted(files)
 
+
 # %% compress_measurements
+
 
 def _dummy_reader(files):
     """Return a simple sentinel object (just the count of files)."""
@@ -309,6 +340,7 @@ def _dummy_postprocess(data, **kwargs):
     arr = np.ones((len(data), 2))
     coords = {"feature": [0, 1]}
     return arr, coords
+
 
 class TestCompressMeasurements:
     """Tests for the compress_measurements function."""
@@ -324,20 +356,33 @@ class TestCompressMeasurements:
             p.parent.mkdir(parents=True, exist_ok=True)
             p.touch()
 
-        groups, index_arrays = collect_measurements(tmp_path, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            tmp_path, GLOB_PATTERN, ignore_index=["los"]
+        )
         with pytest.raises(ValueError, match="sparse"):
-            compress_measurements(groups, index_arrays, reader=_dummy_reader, postprocess=_dummy_postprocess)
+            compress_measurements(
+                groups,
+                index_arrays,
+                reader=_dummy_reader,
+                postprocess=_dummy_postprocess,
+            )
 
     def test_correct_shape(self, mock_file_tree):
         """Test that the output DataArray has the expected shape based on the number of unique index values and features."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los", "seed", "phase_idx"])
-        result = compress_measurements(groups, index_arrays, reader=_dummy_reader, postprocess=_dummy_postprocess)
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los", "seed", "phase_idx"]
+        )
+        result = compress_measurements(
+            groups, index_arrays, reader=_dummy_reader, postprocess=_dummy_postprocess
+        )
         # (n_hod=2, n_cosmo=2, n_features=2) with singleton dims dropped
         assert result.shape == (2, 2, 2)
 
     def test_reader_called_once_per_group(self, mock_file_tree):
         """Test that the reader function is called exactly once for each group of files, not once per file."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los", "seed", "phase_idx"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los", "seed", "phase_idx"]
+        )
         call_count = 0
 
         def counting_reader(files):
@@ -345,14 +390,19 @@ class TestCompressMeasurements:
             call_count += 1
             return len(files)
 
-        compress_measurements(groups, index_arrays, reader=counting_reader, postprocess=_dummy_postprocess)
+        compress_measurements(
+            groups, index_arrays, reader=counting_reader, postprocess=_dummy_postprocess
+        )
         assert call_count == len(groups)
 
     def test_output_is_dataarray(self, mock_file_tree):
         """Test that the output of compress_measurements is an xarray DataArray."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             reader=_dummy_reader,
             postprocess=_dummy_postprocess,
         )
@@ -360,9 +410,12 @@ class TestCompressMeasurements:
 
     def test_sample_dims_in_coords(self, mock_file_tree):
         """Test that the sample index arrays (e.g. cosmo_idx, hod_idx) are included in the output DataArray's coordinates."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             reader=_dummy_reader,
             postprocess=_dummy_postprocess,
         )
@@ -371,9 +424,12 @@ class TestCompressMeasurements:
 
     def test_feature_dims_in_coords(self, mock_file_tree):
         """Test that the feature dimension from the postprocess output is included in the coordinates."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             reader=_dummy_reader,
             postprocess=_dummy_postprocess,
         )
@@ -381,9 +437,12 @@ class TestCompressMeasurements:
 
     def test_attrs(self, mock_file_tree):
         """Test that the output DataArray has a 'sample' attribute containing the sample index arrays, and a 'features' attribute describing the features."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             reader=_dummy_reader,
             postprocess=_dummy_postprocess,
         )
@@ -392,9 +451,12 @@ class TestCompressMeasurements:
 
     def test_with_reindex(self, mock_file_tree):
         """Test that when reindexing is applied, the sample coordinates are re-indexed to contiguous integers starting from 0 within each group."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             reindex=["hod_idx"],
             reindex_group_by=["cosmo_idx"],
             reader=_dummy_reader,
@@ -406,9 +468,12 @@ class TestCompressMeasurements:
 
     def test_drop_singleton_dims(self, mock_file_tree):
         """Test that when drop_singleton_dims=True, any sample index dimensions that have only one unique value are dropped from the coordinates and attributes."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             drop_singleton_dims=True,
             reader=_dummy_reader,
             postprocess=_dummy_postprocess,
@@ -421,9 +486,12 @@ class TestCompressMeasurements:
 
     def test_no_drop_singleton_dims(self, mock_file_tree):
         """Test that when drop_singleton_dims=False, sample index dimensions that have only one unique value are retained in the coordinates and attributes."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             drop_singleton_dims=False,
             reader=_dummy_reader,
             postprocess=_dummy_postprocess,
@@ -436,9 +504,12 @@ class TestCompressMeasurements:
 
     def test_data_values(self, mock_file_tree):
         """Test that the data values in the output DataArray match the expected output from the reader and postprocess functions."""
-        groups, index_arrays = collect_measurements(mock_file_tree, GLOB_PATTERN, ignore_index=["los"])
+        groups, index_arrays = collect_measurements(
+            mock_file_tree, GLOB_PATTERN, ignore_index=["los"]
+        )
         result = compress_measurements(
-            groups, index_arrays,
+            groups,
+            index_arrays,
             reader=_dummy_reader,
             postprocess=_dummy_postprocess,
         )

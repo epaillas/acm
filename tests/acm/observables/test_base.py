@@ -1,4 +1,5 @@
 """Tests for acm.observables.base."""
+
 import copy
 
 import numpy as np
@@ -6,7 +7,6 @@ import pytest
 
 from acm.observables.base import BaseObservable, _format_filter_value, make_handle
 
-# ruff: noqa: ANN001, ANN201, ARG002, D102, S101
 
 class DummyObservable(BaseObservable[np.ndarray]):
     """Minimal concrete BaseObservable, decoupled from any real backend.
@@ -49,11 +49,11 @@ class DummyObservable(BaseObservable[np.ndarray]):
         return DummyObservable(data=cp(self._data), model=self.model)
 
     @classmethod
-    def load(cls, filename, **kwargs):  # noqa: ANN206
+    def load(cls, filename, **kwargs):
         raise NotImplementedError
 
     @classmethod
-    def can_load(cls, filename) -> bool:  # noqa: ARG003
+    def can_load(cls, filename) -> bool:
         return False
 
     @property
@@ -65,11 +65,13 @@ class DummyObservable(BaseObservable[np.ndarray]):
 def obs() -> DummyObservable:
     """DummyObservable with 5 samples, 2 x-parameters, 3 y-parameters, and a covariance_y."""
     rng = np.random.default_rng(0)
-    return DummyObservable(data={
-        "x": rng.normal(size=(5, 2, 1)),
-        "y": rng.normal(size=(5, 2, 3)),
-        "covariance_y": rng.normal(size=(10, 2, 3)),
-    })
+    return DummyObservable(
+        data={
+            "x": rng.normal(size=(5, 2, 1)),
+            "y": rng.normal(size=(5, 2, 3)),
+            "covariance_y": rng.normal(size=(10, 2, 3)),
+        }
+    )
 
 
 class TestFormatFilterValue:
@@ -78,26 +80,35 @@ class TestFormatFilterValue:
     def test_scalar(self):
         assert _format_filter_value(3) == "3"
 
-    @pytest.mark.parametrize(("value", "expected"), [
-        (slice(0, 10), "0-10"),
-        (slice(0, 10, 2), "0-10-2"),
-    ])
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (slice(0, 10), "0-10"),
+            (slice(0, 10, 2), "0-10-2"),
+        ],
+    )
     def test_slice(self, value, expected):
         assert _format_filter_value(value) == expected
 
-    @pytest.mark.parametrize(("value", "expected"), [
-        ([0, 1, 2], "0-2"),
-        ([0, 2, 4], "0-4-2"),
-        ([0, 3, 6], "0-6-3"),
-    ])
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ([0, 1, 2], "0-2"),
+            ([0, 2, 4], "0-4-2"),
+            ([0, 3, 6], "0-6-3"),
+        ],
+    )
     def test_list_arithmetic_sequence(self, value, expected):
         """Checks a constant-step numeric sequence collapses to start-stop[-step], omitting step=1."""
         assert _format_filter_value(value) == expected
 
-    @pytest.mark.parametrize("value", [
-        [0, 5],           # only 2 elements, not eligible for the arithmetic-sequence branch
-        [0, 1, 4],         # irregular steps
-    ])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            [0, 5],  # only 2 elements, not eligible for the arithmetic-sequence branch
+            [0, 1, 4],  # irregular steps
+        ],
+    )
     def test_list_non_arithmetic_or_short(self, value):
         assert _format_filter_value(value) == ",".join(str(v) for v in value)
 
@@ -127,6 +138,7 @@ class TestMakeHandle:
         assert obs.get_handle(prefix="p") == f"p_{make_handle(obs.filters)}"
         assert obs.get_handle(hlength=2) == make_handle(obs.filters, hlength=2)
 
+
 class TestFormatterFiltersAndSelection:
     """Tests for BaseObservable._format_filters and _format_selection."""
 
@@ -140,7 +152,7 @@ class TestFormatterFiltersAndSelection:
         obs.filters = original
         obs.clear_filters("i")
         assert obs.filters == {"j": 2}
-        assert original == {"i": [0, 1], "j": 2} # original dict should not be mutated
+        assert original == {"i": [0, 1], "j": 2}  # original dict should not be mutated
 
     def test_clear_filters_noargs(self, obs):
         """Checks clear_filters with no args removes all registered filters."""
@@ -148,7 +160,7 @@ class TestFormatterFiltersAndSelection:
         obs.filters = original
         obs.clear_filters()
         assert obs.filters == {}
-        assert original == {"i": [0, 1], "j": 2} # original dict should not be mutated
+        assert original == {"i": [0, 1], "j": 2}  # original dict should not be mutated
 
     def test_clear_filters_unknown_passes_silently(self, obs):
         """Checks clear_filters with unknown names does not raise an error."""
@@ -212,10 +224,13 @@ class TestApplySelection:
         data = np.zeros((2, 3, 4))
         assert obs._apply_selection("y", data) is data
 
-    @pytest.mark.parametrize(("indices", "raises"), [
-        ([0, 2], False),   # max index 2 == last valid index for size 3
-        ([0, 3], True),    # max index 3 == size -> out of bounds
-    ])
+    @pytest.mark.parametrize(
+        ("indices", "raises"),
+        [
+            ([0, 2], False),  # max index 2 == last valid index for size 3
+            ([0, 3], True),  # max index 3 == size -> out of bounds
+        ],
+    )
     def test_selection_bounds(self, obs, indices, raises):
         obs.set_selection("y", indices=indices)
         data = np.arange(6).reshape(2, 3)
@@ -231,7 +246,9 @@ class TestApplySelection:
         assert obs._select == {"y": [0, 1], "covariance_y": [0, 1]}
         data = np.arange(6).reshape(2, 3)
         np.testing.assert_array_equal(obs._apply_selection("y", data), data[:, [0, 1]])
-        np.testing.assert_array_equal(obs._apply_selection("covariance_y", data), data[:, [0, 1]])
+        np.testing.assert_array_equal(
+            obs._apply_selection("covariance_y", data), data[:, [0, 1]]
+        )
 
     def test_adding_new_name_to_existing_selection(self, obs):
         """A second call with a different name adds to, rather than replaces, the selection."""
@@ -264,17 +281,20 @@ class TestFormatData:
 class TestBaseObservableCopy:
     """Tests for BaseObservable._copy."""
 
-    @pytest.mark.parametrize(("op", "expected_deep"), [
-        (copy.copy, False),
-        (copy.deepcopy, True),
-    ])
-    def test_copy_and_deepcopy_forward_deep_flag(self, obs, op, expected_deep, monkeypatch):
+    @pytest.mark.parametrize(
+        ("op", "expected_deep"),
+        [
+            (copy.copy, False),
+            (copy.deepcopy, True),
+        ],
+    )
+    def test_copy_and_deepcopy_forward_deep_flag(
+        self, obs, op, expected_deep, monkeypatch
+    ):
         """Checks __copy__/__deepcopy__ call _copy with the correct deep flag."""
         seen = {}
         monkeypatch.setattr(
-            obs,
-            "_copy",
-            lambda deep=False, **kw: seen.setdefault("deep", deep)  # noqa: ARG005
+            obs, "_copy", lambda deep=False, **kw: seen.setdefault("deep", deep)
         )
         op(obs)
         assert seen["deep"] is expected_deep
@@ -296,7 +316,7 @@ class TestBaseObservableRepr:
     def test_repr_omits_missing_data_gracefully(self):
         obs_no_x = DummyObservable(data={"y": np.zeros((3, 2, 2))})
         r = repr(obs_no_x)
-        assert "x=" not in r # No KeyError raised
+        assert "x=" not in r  # No KeyError raised
         assert "y=" in r
 
 
@@ -324,11 +344,15 @@ class TestAbstractContract:
 
     def test_missing_abstract_method_prevents_instantiation(self):
         """Locks in correct @classmethod/@property + @abstractmethod ordering."""
-        # ruff: disable[ANN202, ANN205, ANN206, ARG003, ARG004]
+
         class Incomplete(BaseObservable[np.ndarray]):
-            def _apply_filters(self, data): return data
+            def _apply_filters(self, data):
+                return data
+
             @staticmethod
-            def _to_numpy(data, nested=False): return data
+            def _to_numpy(data, nested=False):
+                return data
+
             def get_data(self, name, raw=False, nested=False): ...
             def get_prediction(self, x, raw=False, nested=False): ...
             def get_model_error(self, method, raw=False, nested=False, **kwargs): ...
@@ -337,8 +361,10 @@ class TestAbstractContract:
             @classmethod
             def load(cls, filename, **kwargs): ...
             @classmethod
-            def can_load(cls, filename): return False
+            def can_load(cls, filename):
+                return False
+
             # x_names intentionally omitted
-        # ruff: enable[ANN202, ANN205, ANN206, ARG003, ARG004]
+
         with pytest.raises(TypeError):
-            Incomplete() # Because x_names is not implemented, this should raise a TypeError
+            Incomplete()  # Because x_names is not implemented, this should raise a TypeError

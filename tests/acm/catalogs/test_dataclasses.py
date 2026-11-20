@@ -3,29 +3,33 @@ import pytest
 
 from acm.catalogs.dataclasses import Tracer, Transform
 
-# ruff: noqa: ANN001, ANN201, ANN202, ARG001, D101, D102, D103, S101
+# %% Fixtures
 
-#%% Fixtures
 
 @pytest.fixture
 def dummy_dataframe():
     return pd.DataFrame({"x": [1.0, 2.0], "y": [3.0, 4.0]})
 
+
 @pytest.fixture
 def dummy_tracer():
     return Tracer(name="FOO", params={"a": 1, "b": 2})
+
 
 @pytest.fixture
 def dummy_transform(dummy_dataframe):
     def scale(data, factor):
         return data * factor
+
     return Transform(
         name="scale",
         func=scale,
         kwargs={"factor": 2.0},
     )
 
-#%% Test classes (for organizational purposes only, not required by pytest)
+
+# %% Test classes (for organizational purposes only, not required by pytest)
+
 
 class TestTracer:
     def test_tracer_name(self, dummy_tracer):
@@ -75,9 +79,14 @@ class TestTracer:
         """Tracer should be immutable (frozen dataclass)."""
         with pytest.raises(AttributeError):
             dummy_tracer.name = "NEW_NAME"
-        dummy_tracer.params["a"] = 999  # This should be allowed since params is mutable, but it won't affect equality or hashing
+        dummy_tracer.params["a"] = (
+            999  # This should be allowed since params is mutable, but it won't affect equality or hashing
+        )
         assert dummy_tracer.params["a"] == 999
-        assert dummy_tracer == Tracer(name="FOO", params={"a": 1})  # Still equal to a tracer with the same name, regardless of params
+        assert dummy_tracer == Tracer(
+            name="FOO", params={"a": 1}
+        )  # Still equal to a tracer with the same name, regardless of params
+
 
 class TestTransform:
     def test_transform_name(self, dummy_transform):
@@ -88,25 +97,34 @@ class TestTransform:
         result = dummy_transform.apply(dummy_dataframe)
         pd.testing.assert_frame_equal(result, dummy_dataframe * 2.0)
 
-    def test_transform_apply_does_not_mutate_input(self, dummy_dataframe, dummy_transform):
+    def test_transform_apply_does_not_mutate_input(
+        self, dummy_dataframe, dummy_transform
+    ):
         """Apply should not modify the original DataFrame."""
         original = dummy_dataframe.copy()
         dummy_transform.apply(dummy_dataframe)
         pd.testing.assert_frame_equal(dummy_dataframe, original)
 
-    def test_transform_default_kwargs(self, ):
+    def test_transform_default_kwargs(
+        self,
+    ):
         """Transform should default to empty kwargs and None tracer."""
         t = Transform(name="identity", func=lambda data: data)
         assert t.kwargs == {}
         assert t.tracer is None
 
-    def test_transform_kwargs_forwarded(self, ):
+    def test_transform_kwargs_forwarded(
+        self,
+    ):
         """All stored kwargs should be forwarded to the function."""
         received = {}
+
         def capture(data, **kwargs):
             received.update(kwargs)
             return data
 
         t = Transform(name="capture", func=capture, kwargs={"foo": 1, "bar": 2})
-        t.apply(pd.DataFrame({"x": [1]})) # We just need to call apply to trigger the function and capture the kwargs
+        t.apply(
+            pd.DataFrame({"x": [1]})
+        )  # We just need to call apply to trigger the function and capture the kwargs
         assert received == {"foo": 1, "bar": 2}

@@ -1,4 +1,5 @@
 """Shared fixtures for acm.observables tests."""
+
 import sys
 from unittest.mock import MagicMock
 
@@ -6,7 +7,6 @@ import numpy as np
 import pytest
 import torch
 
-# ruff: noqa: ARG002, ANN001, ANN201, D102, D103
 
 class DummySunbirdModel:
     """Minimal stand-in for a sunbird.emulators.BaseModel, avoiding a real sunbird dependency."""
@@ -19,17 +19,19 @@ class DummySunbirdModel:
         n = x.shape[0]
         return torch.as_tensor(np.tile(self._output, (n, 1)))
 
+
 @pytest.fixture
 def dummy_sunbird_model() -> DummySunbirdModel:
     """Return a fixed (n_features,) output per input row."""
     return DummySunbirdModel(output=np.array([1.0, 2.0, 3.0, 4.0]))
+
 
 @pytest.fixture
 def make_dummy_model(dummy_sunbird_model):
     """Build an ObservableModel wrapping the dummy sunbird model."""
     from acm.observables.model import ObservableModel  # noqa: PLC0415
 
-    def _make(transform=None):  # noqa: ANN202
+    def _make(transform=None):
         return ObservableModel(model=dummy_sunbird_model, transform=transform)
 
     return _make
@@ -55,8 +57,9 @@ class DummyModel:
 
 
 _sunbird_emulators = MagicMock()
-_sunbird_emulators.BaseModel = object # For typing
+_sunbird_emulators.BaseModel = object  # For typing
 
-def pytest_configure(config):  # noqa: ARG001
+
+def pytest_configure(config):
     sys.modules.setdefault("sunbird", MagicMock())
     sys.modules.setdefault("sunbird.emulators", _sunbird_emulators)

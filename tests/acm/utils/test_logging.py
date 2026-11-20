@@ -1,4 +1,5 @@
 """Tests for logging utility functions."""
+
 import logging
 
 from acm.utils.logging import (
@@ -7,15 +8,12 @@ from acm.utils.logging import (
     suppress_logging,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, S101
-
 
 class TestSuppressLogging:
-
     def test_suppresses_below_critical(self, caplog):
         """Messages below CRITICAL are silenced inside the context manager."""
         with caplog.at_level(logging.WARNING), suppress_logging(enabled=True):
-                logging.getLogger("test").warning("should be suppressed")
+            logging.getLogger("test").warning("should be suppressed")
         assert caplog.records == []
 
     def test_restores_level_after_exit(self):
@@ -29,32 +27,40 @@ class TestSuppressLogging:
     def test_disabled_does_not_suppress(self, caplog):
         """enabled=False leaves logging untouched."""
         with caplog.at_level(logging.WARNING), suppress_logging(enabled=False):
-                logging.getLogger("test").warning("should appear")
+            logging.getLogger("test").warning("should appear")
         assert len(caplog.records) == 1
 
     def test_custom_highest_level(self, caplog):
         """highest_level=WARNING suppresses only DEBUG and INFO."""
-        with caplog.at_level(logging.DEBUG), suppress_logging(enabled=True, highest_level=logging.WARNING):
-                logging.getLogger("test").debug("suppressed")
-                logging.getLogger("test").info("suppressed")
+        with (
+            caplog.at_level(logging.DEBUG),
+            suppress_logging(enabled=True, highest_level=logging.WARNING),
+        ):
+            logging.getLogger("test").debug("suppressed")
+            logging.getLogger("test").info("suppressed")
         assert caplog.records == []
 
 
 class TestGetLoggerPath:
-
     def test_path_inside_package(self):
         """A path containing the package name is converted to dotted module notation."""
-        result = _get_logger_path("/home/user/mypackage/utils/logging.py", pkg_name="mypackage")
+        result = _get_logger_path(
+            "/home/user/mypackage/utils/logging.py", pkg_name="mypackage"
+        )
         assert result == "mypackage.utils.logging.py"
 
     def test_path_outside_package(self):
         """A path not containing the package name falls back to the script filename only."""
-        result = _get_logger_path("/home/user/other_project/script.py", pkg_name="mypackage")
+        result = _get_logger_path(
+            "/home/user/other_project/script.py", pkg_name="mypackage"
+        )
         assert result == "script.py"
 
     def test_nested_path_inside_package(self):
         """Deeply nested paths inside the package are fully resolved."""
-        result = _get_logger_path("/home/user/mypackage/module/sub/script.py", pkg_name="mypackage")
+        result = _get_logger_path(
+            "/home/user/mypackage/module/sub/script.py", pkg_name="mypackage"
+        )
         assert result == "mypackage.module.sub.script.py"
 
     def test_accepts_path_object(self, tmp_path):
@@ -65,7 +71,6 @@ class TestGetLoggerPath:
 
 
 class TestGetLoggerForScript:
-
     def test_returns_logger_instance(self, tmp_path):
         """Always returns a logging.Logger object."""
         p = tmp_path / "acm" / "myscript.py"

@@ -1,4 +1,5 @@
 """Tests for acm.observables.model."""
+
 from unittest.mock import patch
 
 import numpy as np
@@ -6,7 +7,6 @@ import pytest
 
 from acm.observables.model import ObservableModel
 
-# ruff: noqa: ANN001, ANN201, D102, S101
 
 class TestInit:
     """Tests for ObservableModel.__init__."""
@@ -22,14 +22,17 @@ class TestLoad:
 
     def test_forwards_to_checkpoint_loader(self, dummy_sunbird_model):
         """Checks load() calls load_model_from_checkpoint and forwards kwargs to __init__."""
-        def fake_transform(pred):  # noqa: ANN202
+
+        def fake_transform(pred):
             return pred
 
         with patch(
             "acm.observables.model.load_model_from_checkpoint",
             return_value=dummy_sunbird_model,
         ) as mock_load:
-            model = ObservableModel.load("dummy.ckpt", model_cls=None, transform=fake_transform)
+            model = ObservableModel.load(
+                "dummy.ckpt", model_cls=None, transform=fake_transform
+            )
 
         mock_load.assert_called_once_with("dummy.ckpt", model_cls=None)
         assert model._model is dummy_sunbird_model

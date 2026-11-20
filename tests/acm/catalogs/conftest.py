@@ -1,10 +1,9 @@
 """Mock cosmology for testing purposes."""
+
 import sys
 from unittest.mock import MagicMock
 
 import pytest
-
-# ruff: noqa: ANN001, ANN201, ARG001, D103
 
 
 class DummyCosmology:
@@ -29,28 +28,32 @@ class DummyCosmology:
 
     def __getstate__(self) -> dict:
         """Return a dummy state for pickling."""
-        return {'efunc': self._efunc, 'add': self._add}
+        return {"efunc": self._efunc, "add": self._add}
 
     @classmethod
-    def from_state(cls, state) -> 'DummyCosmology':
+    def from_state(cls, state) -> "DummyCosmology":
         """Restore a dummy state from pickling."""
-        return cls(efunc=state['efunc'], add=state['add'])
+        return cls(efunc=state["efunc"], add=state["add"])
+
 
 cosmoprimo_module = MagicMock()
 cosmoprimo_module.fiducial.DESI.return_value = DummyCosmology()
 cosmoprimo_module.fiducial.AbacusSummit.return_value = DummyCosmology()
 cosmoprimo_module.Cosmology = DummyCosmology
 
+
 @pytest.fixture
 def cosmo_mock1():
     """Fixture to provide a mock cosmology."""
     return DummyCosmology()
+
 
 @pytest.fixture
 def cosmo_mock2():
     """Fixture to provide another mock cosmology."""
     return DummyCosmology(efunc=1.0, add=1000)
 
+
 def pytest_configure(config):
-    sys.modules.setdefault('cosmoprimo', cosmoprimo_module)
-    sys.modules.setdefault('cosmoprimo.fiducial', MagicMock())
+    sys.modules.setdefault("cosmoprimo", cosmoprimo_module)
+    sys.modules.setdefault("cosmoprimo.fiducial", MagicMock())
