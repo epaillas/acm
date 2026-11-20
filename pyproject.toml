@@ -64,11 +64,13 @@ docs = [
     "myst_nb >= 0.17.1",
 ]
 testing = [ # Testing dependencies, with minimal install for type hints
+    "pre-commit",
     "ruff", 
     "ty",
     "pytest >= 7",
     "pytest-cov",
     "pytest-emoji",
+    "crap4py",
     "requests",
     "healpy",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
