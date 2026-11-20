@@ -4,11 +4,8 @@ import pytest
 
 from acm.utils.modules import check_installed, get_class_from_module
 
-# ruff: noqa: ANN201, D101, D102, S101
-
 
 class TestGetClassFromModule:
-
     def test_returns_builtin_class(self):
         """Test that the function can retrieve a built-in class."""
         cls = get_class_from_module("builtins", "int")
@@ -44,6 +41,7 @@ class TestGetClassFromModule:
 
         mock_import.assert_called_once_with("some.module.path")
 
+
 class TestCheckInstalled:
     def test_installed_package(self):
         assert check_installed("os") is True
@@ -55,4 +53,4 @@ class TestCheckInstalled:
         assert check_installed("os", "math", "csv")
 
     def test_missing_among_list(self):
-        assert check_installed("os", "iswearimapackage", 'csv') is False
+        assert check_installed("os", "iswearimapackage", "csv") is False

@@ -5,10 +5,8 @@ import pytest
 
 from acm.utils.decorators import kwargs_alias, require_nersc, temporary_class_state
 
-# ruff: noqa: ANN001, ANN201, ANN204, D102, D103, S101
+# %% Tests for temporary_class_state decorator
 
-
-#%% Tests for temporary_class_state decorator
 
 class Dummy:
     """A simple class with attributes to test temporary_class_state."""
@@ -28,6 +26,7 @@ class Dummy:
     @temporary_class_state(x=99)
     def raise_error(self):
         raise RuntimeError("oops")
+
 
 class TestTemporaryClassState:
     """General test suite for the temporary_class_state decorator."""
@@ -75,20 +74,26 @@ class TestTemporaryClassState:
         d1.get_x()
         assert d2.x == 5
 
+
 ##%% Tests for require_nersc decorator
 @require_nersc(enabled=True)
 def nersc_dummy():
     return "ok"
 
+
 @require_nersc(enabled=False)
 def nersc_dummy_disabled():
     return "ok"
+
 
 class TestRequireNersc:
     """General test suite for the require_nersc decorator."""
 
     def test_raises_outside_nersc_when_enabled(self):
-        with patch.dict(os.environ, {}, clear=True), pytest.raises(OSError, match="nersc_dummy"):
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            pytest.raises(OSError, match="nersc_dummy"),
+        ):
             nersc_dummy()
 
     def test_runs_outside_nersc_when_disabled(self):
@@ -102,16 +107,20 @@ class TestRequireNersc:
     def test_preserves_function_name(self):
         assert nersc_dummy.__name__ == "nersc_dummy"
 
-#%% Tests for kwargs_alias decorator
+
+# %% Tests for kwargs_alias decorator
+
 
 # Dummy function to test the decorator
 @kwargs_alias(foo="bar")
 def dummy(foo=None, **kwargs):
     return foo, kwargs
 
+
 @kwargs_alias(foo="bar", baz="qux")
 def dummy_multi(foo=None, baz=None, **kwargs):
     return foo, baz, kwargs
+
 
 class TestKwargsAlias:
     """General test suite for the kwargs_alias decorator."""

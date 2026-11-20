@@ -1,5 +1,6 @@
 # tests/observables/test_xarray.py
 """Tests for acm.observables.xarray."""
+
 import logging
 from unittest.mock import patch
 
@@ -17,10 +18,8 @@ from acm.observables.xarray import (
 
 from .conftest import DummyModel
 
-# ruff: noqa: ANN001, ANN201, D102, D103, S101
 
-
-#%% Builders for minimal xr.Dataset structures used in tests
+# %% Builders for minimal xr.Dataset structures used in tests
 def make_dataset(n_samples=3, n_test=1, n_cov=4, n_g=2, n_c=4, seed=0) -> xr.Dataset:
     """Build a minimal dataset with x, y, covariance_y, x_test, y_test.
 
@@ -60,26 +59,35 @@ def make_dataset(n_samples=3, n_test=1, n_cov=4, n_g=2, n_c=4, seed=0) -> xr.Dat
     x_test.name = "x_test"
     y_test.name = "y_test"
 
-    return xr.Dataset({
-        "x": x, "y": y, "covariance_y": covariance_y,
-        "x_test": x_test, "y_test": y_test,
-    })
+    return xr.Dataset(
+        {
+            "x": x,
+            "y": y,
+            "covariance_y": covariance_y,
+            "x_test": x_test,
+            "y_test": y_test,
+        }
+    )
 
-#%% Fixtures
+
+# %% Fixtures
 @pytest.fixture
 def dataset() -> xr.Dataset:
     return make_dataset()
 
+
 @pytest.fixture
 def obs(dataset) -> XarrayObservable:
     return XarrayObservable(data=dataset)
+
 
 @pytest.fixture
 def obs_with_model(dataset) -> XarrayObservable:
     n_features = dataset["y"].sizes["g"] * dataset["y"].sizes["c"]
     return XarrayObservable(data=dataset, model=DummyModel(n_features=n_features))  # ty: ignore[invalid-argument-type]
 
-#%% Tests
+
+# %% Tests
 class TestLoadDataset:
     """Tests for the _load_dataset utility function."""
 
@@ -92,9 +100,12 @@ class TestLoadDataset:
     def test_loads_legacy_npy_file(self, tmp_path):
         """Checks the .npy branch calls dataset_from_dict, without depending on its real impl."""
         fn = tmp_path / "legacy.npy"
-        vals = np.array({'x': [1, 2, 3]})
+        vals = np.array({"x": [1, 2, 3]})
         np.save(fn, vals, allow_pickle=True)
-        with patch("acm.observables.xarray.dataset_from_dict", return_value=xr.Dataset({"x": xr.DataArray([1, 2, 3])})) as func:
+        with patch(
+            "acm.observables.xarray.dataset_from_dict",
+            return_value=xr.Dataset({"x": xr.DataArray([1, 2, 3])}),
+        ) as func:
             result = _load_dataset(fn)
             func.assert_called_once_with(vals)
             assert "x" in result.data_vars
@@ -178,10 +189,18 @@ class TestLoadCanLoad:
         fn = tmp_path / "obs.h5"
         dataset.to_netcdf(fn)
         loaded = XarrayObservable.load(fn)
-        np.testing.assert_allclose(loaded.get_data("y"), XarrayObservable(data=dataset).get_data("y"))
+        np.testing.assert_allclose(
+            loaded.get_data("y"), XarrayObservable(data=dataset).get_data("y")
+        )
 
     def test_load_invalid_raises(self, tmp_path):
-        bad = xr.Dataset({"x": xr.DataArray([1.0], dims=["i"], attrs={"sample": ["i"], "features": []})})
+        bad = xr.Dataset(
+            {
+                "x": xr.DataArray(
+                    [1.0], dims=["i"], attrs={"sample": ["i"], "features": []}
+                )
+            }
+        )
         fn = tmp_path / "bad.h5"
         bad.to_netcdf(fn)
         with pytest.raises(ValueError, match="Invalid Observable structure"):
@@ -193,7 +212,13 @@ class TestLoadCanLoad:
         assert XarrayObservable.can_load(good_fn) is True
 
     def test_can_load_invalid_returns_false(self, tmp_path):
-        bad = xr.Dataset({"x": xr.DataArray([1.0], dims=["i"], attrs={"sample": ["i"], "features": []})})
+        bad = xr.Dataset(
+            {
+                "x": xr.DataArray(
+                    [1.0], dims=["i"], attrs={"sample": ["i"], "features": []}
+                )
+            }
+        )
         bad_fn = tmp_path / "bad.h5"
         bad.to_netcdf(bad_fn)
         assert XarrayObservable.can_load(bad_fn) is False
@@ -219,6 +244,7 @@ class TestCopy:
         assert obs.filters == {}
         assert cp.filters == {"i": [0]}
 
+
 class TestXNames:
     """Tests for the XarrayObservable.x_names property."""
 
@@ -228,7 +254,7 @@ class TestXNames:
     @pytest.mark.xfail(reason="xarray does not preserve order of selection")
     def test_filtered_order(self, obs):
         obs.set_filters(parameters=["p1", "p0"])
-        assert obs.x_names == ["p0", "p1"] # Also preserved
+        assert obs.x_names == ["p0", "p1"]  # Also preserved
 
     def test_filtered_by_parameters_filter(self, obs):
         obs.set_filters(parameters=["p1"])
@@ -293,7 +319,9 @@ class TestApplyFilters:
     def test_filters_not_in_dims_silently_skipped(self, obs):
         obs.set_filters(bogus=[0])
         filtered = obs._apply_filters(obs.get_data("y", raw=True))
-        np.testing.assert_allclose(filtered.to_numpy(), obs.get_data("y", raw=True).to_numpy())
+        np.testing.assert_allclose(
+            filtered.to_numpy(), obs.get_data("y", raw=True).to_numpy()
+        )
 
     def test_native_slice_filter(self, obs):
         obs.set_filters(c=slice(0.0, 0.5))
@@ -338,7 +366,9 @@ class TestFormatDataOverride:
 class TestGetData:
     """Tests for the XarrayObservable.get_data method."""
 
-    @pytest.mark.parametrize(("raw", "nested"), [(False, False), (False, True), (True, False)])
+    @pytest.mark.parametrize(
+        ("raw", "nested"), [(False, False), (False, True), (True, False)]
+    )
     def test_default_raw_nested(self, obs, raw, nested):
         result = obs.get_data("y", raw=raw, nested=nested)
         if raw:
@@ -359,7 +389,9 @@ class TestGetAttr:
     def test_data_variable_shortcuts_to_get_data(self, obs):
         np.testing.assert_array_equal(obs.y, obs.get_data("y"))
 
-    @pytest.mark.parametrize("name", ["_ipython_canary_method_should_not_exist_", "bogus_attr"])
+    @pytest.mark.parametrize(
+        "name", ["_ipython_canary_method_should_not_exist_", "bogus_attr"]
+    )
     def test_unknown_attribute_raises(self, obs, name):
         with pytest.raises(AttributeError):
             getattr(obs, name)
@@ -374,9 +406,9 @@ class TestGetTestSet:
 
     def test_returns_2d_arrays_with_nan_dropped(self, obs):
         x_test, y_test = obs.get_test_set()
-        assert x_test.shape[0] == 1 # nan-dropped
+        assert x_test.shape[0] == 1  # nan-dropped
         assert y_test.shape[0] == 1
-        assert x_test.ndim == 2 # 2d
+        assert x_test.ndim == 2  # 2d
         assert y_test.ndim == 2
 
 
@@ -406,8 +438,10 @@ class TestGetPrediction:
     def test_nested_filters_no_selection(self, obs_with_model):
         obs_with_model.set_filters(g=[0], c=slice(0.0, 0.5))
         obs_with_model.set_selection("y", indices=[0, 2])
-        pred_nested = obs_with_model.get_prediction(np.zeros((2, 2)), nested=True) # skips selection
-        assert pred_nested.shape == (2, 1, 2) # n_pred, n_g, n_c
+        pred_nested = obs_with_model.get_prediction(
+            np.zeros((2, 2)), nested=True
+        )  # skips selection
+        assert pred_nested.shape == (2, 1, 2)  # n_pred, n_g, n_c
 
 
 class TestGetModelError:
@@ -432,8 +466,10 @@ class TestGetModelError:
     def test_nested_filters_no_selection(self, obs_with_model):
         obs_with_model.set_filters(g=[0], c=slice(0.0, 0.5))
         obs_with_model.set_selection("y", indices=[0, 2])
-        error_nested = obs_with_model.get_model_error(method="median", nested=True) # skips selection
-        assert error_nested.shape == (1, 2) # n_g(selected), n_c(selected)
+        error_nested = obs_with_model.get_model_error(
+            method="median", nested=True
+        )  # skips selection
+        assert error_nested.shape == (1, 2)  # n_g(selected), n_c(selected)
 
 
 class TestGetModelCovariance:
@@ -443,7 +479,7 @@ class TestGetModelCovariance:
         with pytest.raises(AttributeError):
             obs.get_model_covariance()
 
-    #NOTE: ignoring invalid covariance warnings because I don't want to find a good set of values ATMs
+    # NOTE: ignoring invalid covariance warnings because I don't want to find a good set of values ATMs
     @pytest.mark.filterwarnings("ignore:.*encountered:RuntimeWarning")
     @pytest.mark.filterwarnings("ignore:.*Degrees of freedom:RuntimeWarning")
     def test_matches_manual_computation(self, obs_with_model):
@@ -451,5 +487,5 @@ class TestGetModelCovariance:
         x_test, y_test = obs_with_model.get_test_set()
         pred = obs_with_model.model.get_prediction(x_test)
         diff = y_test - pred
-        expected = 2.0 * np.cov(diff, rowvar=False) # shape is (n_features, n_features)
+        expected = 2.0 * np.cov(diff, rowvar=False)  # shape is (n_features, n_features)
         np.testing.assert_allclose(cov, expected)

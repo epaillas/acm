@@ -1,18 +1,22 @@
 """Tests for acm.observables.combined."""
+
 import numpy as np
 import pytest
 
 from acm.observables.combined import CombinedObservable, ObservableList
 
-# ruff: noqa: ANN001, ANN201, ARG002, D102, S101
 
 class DummyObservable:
     """Minimal stand-in for a BaseObservable, decoupled from any real backend."""
 
-    def __init__(self, x, x_names, y, covariance_y, model_error=None, model_cov=None) -> None:
+    def __init__(
+        self, x, x_names, y, covariance_y, model_error=None, model_cov=None
+    ) -> None:
         self._x_names = x_names
         self._data = {"x": x, "y": y, "covariance_y": covariance_y}
-        self._model_error = model_error if model_error is not None else np.zeros(y.shape[1])
+        self._model_error = (
+            model_error if model_error is not None else np.zeros(y.shape[1])
+        )
         self._model_cov = model_cov if model_cov is not None else np.eye(y.shape[1])
 
     @property
@@ -44,7 +48,9 @@ class SubDummyB(DummyObservable):
     """Another distinct subtype of DummyObservable."""
 
 
-def make_obs(seed: int = 0, n: int = 4, n_features: int = 3, n_cov: int = 6) -> DummyObservable:
+def make_obs(
+    seed: int = 0, n: int = 4, n_features: int = 3, n_cov: int = 6
+) -> DummyObservable:
     """Create a DummyObservable with random data for testing."""
     rng = np.random.default_rng(seed)
     return DummyObservable(
@@ -75,18 +81,23 @@ class TestObservableList:
         with pytest.raises(ValueError, match="same type"):
             ObservableList(a=Placeholder("a"), b=3)
         with pytest.raises(ValueError, match="same type"):
-            ObservableList(a=SubDummyA(**_dummy_kwargs()), b=SubDummyB(**_dummy_kwargs()))
+            ObservableList(
+                a=SubDummyA(**_dummy_kwargs()), b=SubDummyB(**_dummy_kwargs())
+            )
 
     def test_order_setter_updates_order(self):
         lst = ObservableList(a=Placeholder("a"), b=Placeholder("b"))
         lst.order = ["b", "a"]
         assert lst.order == ["b", "a"]
 
-    @pytest.mark.parametrize(("bad_order", "match"), [
-        (["a"], "must match"), # missing "b"
-        (["a", "a", "b"], "must not contain duplicates"), # duplicate
-        (["a", "b", "c"], "must match"), # unknown key
-    ])
+    @pytest.mark.parametrize(
+        ("bad_order", "match"),
+        [
+            (["a"], "must match"),  # missing "b"
+            (["a", "a", "b"], "must not contain duplicates"),  # duplicate
+            (["a", "b", "c"], "must match"),  # unknown key
+        ],
+    )
     def test_order_setter_invalid(self, bad_order, match):
         lst = ObservableList(a=Placeholder("a"), b=Placeholder("b"))
         with pytest.raises(ValueError, match=match):
@@ -128,7 +139,12 @@ class TestObservableList:
 
 
 def _dummy_kwargs() -> dict:
-    return dict(x=np.zeros((2, 1)), x_names=["p0"], y=np.zeros((2, 1)), covariance_y=np.zeros((2, 1)))
+    return dict(
+        x=np.zeros((2, 1)),
+        x_names=["p0"],
+        y=np.zeros((2, 1)),
+        covariance_y=np.zeros((2, 1)),
+    )
 
 
 class TestCombinedObservableXProperties:
@@ -136,23 +152,44 @@ class TestCombinedObservableXProperties:
 
     def test_x_and_x_names_consistent(self):
         x = np.zeros((3, 2))
-        a = DummyObservable(x=x, x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
-        b = DummyObservable(x=x, x_names=["p0", "p1"], y=np.zeros((3, 3)), covariance_y=np.zeros((4, 3)))
+        a = DummyObservable(
+            x=x, x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2))
+        )
+        b = DummyObservable(
+            x=x, x_names=["p0", "p1"], y=np.zeros((3, 3)), covariance_y=np.zeros((4, 3))
+        )
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
         np.testing.assert_array_equal(combined.x, x)
         assert combined.x_names == ["p0", "p1"]
 
     def test_x_names_mismatch_raises(self):
         x = np.zeros((3, 2))
-        a = DummyObservable(x=x, x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
-        b = DummyObservable(x=x, x_names=["p0", "other"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
+        a = DummyObservable(
+            x=x, x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2))
+        )
+        b = DummyObservable(
+            x=x,
+            x_names=["p0", "other"],
+            y=np.zeros((3, 2)),
+            covariance_y=np.zeros((4, 2)),
+        )
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
         with pytest.raises(ValueError, match="x_names"):
             _ = combined.x_names
 
     def test_x_mismatch_raises(self):
-        a = DummyObservable(x=np.zeros((3, 2)), x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
-        b = DummyObservable(x=np.ones((3, 2)), x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
+        a = DummyObservable(
+            x=np.zeros((3, 2)),
+            x_names=["p0", "p1"],
+            y=np.zeros((3, 2)),
+            covariance_y=np.zeros((4, 2)),
+        )
+        b = DummyObservable(
+            x=np.ones((3, 2)),
+            x_names=["p0", "p1"],
+            y=np.zeros((3, 2)),
+            covariance_y=np.zeros((4, 2)),
+        )
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
         with pytest.raises(ValueError, match="x"):
             _ = combined.x
@@ -173,9 +210,19 @@ class TestRepr:
         assert "covariance_y=" in r
 
     def test_repr_omits_missing_data_gracefully(self):
-        a = DummyObservable(x=np.zeros((3, 2)), x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
-        b = DummyObservable(x=np.zeros((3, 2)), x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
-        del b._data["x"] # remove x from b
+        a = DummyObservable(
+            x=np.zeros((3, 2)),
+            x_names=["p0", "p1"],
+            y=np.zeros((3, 2)),
+            covariance_y=np.zeros((4, 2)),
+        )
+        b = DummyObservable(
+            x=np.zeros((3, 2)),
+            x_names=["p0", "p1"],
+            y=np.zeros((3, 2)),
+            covariance_y=np.zeros((4, 2)),
+        )
+        del b._data["x"]  # remove x from b
         del b._data["covariance_y"]  # remove covariance_y from b
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
         r = repr(combined)
@@ -184,8 +231,18 @@ class TestRepr:
 
     def test_repr_propagates_x_value_error(self):
         """Only KeyError is swallowed in __repr__; a genuine x mismatch (ValueError) must propagate."""
-        a = DummyObservable(x=np.zeros((3, 2)), x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
-        b = DummyObservable(x=np.ones((3, 2)), x_names=["p0", "p1"], y=np.zeros((3, 2)), covariance_y=np.zeros((4, 2)))
+        a = DummyObservable(
+            x=np.zeros((3, 2)),
+            x_names=["p0", "p1"],
+            y=np.zeros((3, 2)),
+            covariance_y=np.zeros((4, 2)),
+        )
+        b = DummyObservable(
+            x=np.ones((3, 2)),
+            x_names=["p0", "p1"],
+            y=np.zeros((3, 2)),
+            covariance_y=np.zeros((4, 2)),
+        )
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
         with pytest.raises(ValueError, match="x"):
             repr(combined)
@@ -197,8 +254,8 @@ class TestGetHandle:
     def test_get_handle_joins_component_handles_with_plus(self):
         a, b = make_obs(0), make_obs(1)
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
-        assert combined.get_handle() == "a_h+b_h" # Default
-        assert combined.get_handle(hlength=7) == "a_h7+b_h7" # hlength
+        assert combined.get_handle() == "a_h+b_h"  # Default
+        assert combined.get_handle(hlength=7) == "a_h7+b_h7"  # hlength
 
 
 class TestTransferCall:
@@ -212,17 +269,25 @@ class TestTransferCall:
         np.testing.assert_array_equal(result[:, :2], a.get_data("y"))
         np.testing.assert_array_equal(result[:, 2:], b.get_data("y"))
 
-    @pytest.mark.parametrize(("method", "call_args"), [
-        ("get_data", ("y",)),
-        ("get_prediction", (np.zeros((2, 2)),)),
-    ])
-    def test_get_data_and_get_prediction_forward_to_transfer_call(self, method, call_args, monkeypatch):
+    @pytest.mark.parametrize(
+        ("method", "call_args"),
+        [
+            ("get_data", ("y",)),
+            ("get_prediction", (np.zeros((2, 2)),)),
+        ],
+    )
+    def test_get_data_and_get_prediction_forward_to_transfer_call(
+        self, method, call_args, monkeypatch
+    ):
         """Checks the thin wrapper forwards to _transfer_call; concatenation itself isn't re-tested."""
         combined = CombinedObservable(a=make_obs(0), b=make_obs(1))  # ty: ignore[invalid-argument-type]
         seen = {}
         monkeypatch.setattr(
-            combined, "_transfer_call",
-            lambda name, *a, **kw: seen.update(name=name, args=a, kwargs=kw) or np.zeros((1, 1)),
+            combined,
+            "_transfer_call",
+            lambda name, *a, **kw: (
+                seen.update(name=name, args=a, kwargs=kw) or np.zeros((1, 1))
+            ),
         )
         getattr(combined, method)(*call_args)
         assert seen["name"] == method
@@ -233,8 +298,11 @@ class TestTransferCall:
         combined = CombinedObservable(a=make_obs(0), b=make_obs(1))  # ty: ignore[invalid-argument-type]
         seen = {}
         monkeypatch.setattr(
-            combined, "_transfer_call",
-            lambda name, *a, **kw: seen.update(name=name, args=a, kwargs=kw) or np.zeros((1, 1)),
+            combined,
+            "_transfer_call",
+            lambda name, *a, **kw: (
+                seen.update(name=name, args=a, kwargs=kw) or np.zeros((1, 1))
+            ),
         )
         combined.get_model_error(method="median", extra=1)
         assert seen["name"] == "get_model_error"
@@ -246,8 +314,10 @@ class TestTransferCall:
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
         combined.order = ["b", "a"]
         result = combined._transfer_call("get_data", "y")
-        assert result.shape == (4, 5)  #Shape is unchanged
-        np.testing.assert_array_equal(result[:, :3], b.get_data("y")) # First columns are b
+        assert result.shape == (4, 5)  # Shape is unchanged
+        np.testing.assert_array_equal(
+            result[:, :3], b.get_data("y")
+        )  # First columns are b
         np.testing.assert_array_equal(result[:, 3:], a.get_data("y"))
 
 
@@ -269,7 +339,9 @@ class TestCovariance:
         a, b = make_obs(0, n_features=2, n_cov=6), make_obs(1, n_features=3, n_cov=6)
         combined = CombinedObservable(a=a, b=b)  # ty: ignore[invalid-argument-type]
         cov = combined.get_covariance_matrix(volume_factor=2, prefactor=3, block=False)
-        joint = np.concatenate([a.get_data("covariance_y"), b.get_data("covariance_y")], axis=-1)
+        joint = np.concatenate(
+            [a.get_data("covariance_y"), b.get_data("covariance_y")], axis=-1
+        )
         expected = 3 / 2 * np.cov(joint, rowvar=False)
         np.testing.assert_allclose(cov, expected)
 

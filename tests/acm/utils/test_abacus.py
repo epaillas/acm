@@ -10,9 +10,7 @@ from acm.utils.abacus import (
     map_params,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
-
-#%% Fixtures
+# %% Fixtures
 params = ["param1", "param2", "param3"]
 dummy_csv = """\
 root,param1,param2,param3
@@ -22,6 +20,7 @@ abacus_cosm002,7.0,8.0,9.0
 abacus_cosm003,10.0,11.0,12.0
 """
 
+
 @pytest.fixture
 def csv_file(tmp_path):
     """Write the dummy CSV to a temp file and return its path."""
@@ -29,11 +28,17 @@ def csv_file(tmp_path):
     p.write_text(dummy_csv)
     return str(p)
 
-def _make_phase_dir(base: Path, cosmo: int, phase: int, z: float, subdir: str = "data") -> Path:
+
+def _make_phase_dir(
+    base: Path, cosmo: int, phase: int, z: float, subdir: str = "data"
+) -> Path:
     """Create a dummy phase directory tree and return the deepest path."""
-    leaf = base / f"AbacusSummit_small_c{cosmo:03d}_ph{phase:03d}" / subdir / f"z{z:.3f}"
+    leaf = (
+        base / f"AbacusSummit_small_c{cosmo:03d}_ph{phase:03d}" / subdir / f"z{z:.3f}"
+    )
     leaf.mkdir(parents=True)
     return leaf
+
 
 test_data = [
     ("base", 0, 0, "AbacusSummit_base_c000_ph000"),
@@ -42,12 +47,13 @@ test_data = [
     ("png", 1, 2, "Abacus_pngbase_c001_ph002"),
 ]
 
+
 @pytest.mark.parametrize(("simtype", "cosmo", "phase", "expected"), test_data)
 def test_get_simname(simtype, cosmo, phase, expected):
     assert get_simname(simtype, cosmo, phase) == expected
 
-class TestMapParams:
 
+class TestMapParams:
     def test_dict_default_mapping(self):
         params = {"logM_1": 13.5, "A_cen": 0.1}
         expected = {"logM1": 13.5, "Acent": 0.1}
@@ -85,6 +91,7 @@ class TestMapParams:
 
     def test_empty_list(self):
         assert map_params([]) == []
+
 
 class TestLoadCosmologies:
     """Tests for the load_cosmologies function."""
@@ -140,7 +147,7 @@ class TestLoadCosmologies:
             filename=csv_file,
             cosmologies=[999],
             parameters=params,
-            mapping=mapping, # Add mapping here to ensure no crashes on empty dict
+            mapping=mapping,  # Add mapping here to ensure no crashes on empty dict
         )
         assert result == {}
 
@@ -161,6 +168,7 @@ class TestLoadCosmologies:
                 cosmologies=[0],
                 parameters=params,
             )
+
 
 class TestGetPhases:
     """Tests for the get_phases function."""
@@ -207,7 +215,9 @@ class TestGetPhases:
         _make_phase_dir(tmp_path, cosmo=0, phase=1, z=0.500)
         # Create some non-matching files
         (tmp_path / "random_file.txt").write_text("This should be ignored.")
-        (tmp_path / "AbacusSummit_small_c000_ph001/data/z0.500/extra_file.txt").write_text("This should also be ignored.")
+        (
+            tmp_path / "AbacusSummit_small_c000_ph001/data/z0.500/extra_file.txt"
+        ).write_text("This should also be ignored.")
 
         fns, phases = get_phases(tmp_path, z=0.5, cosmo=0)
         assert len(fns) == 1
@@ -227,7 +237,9 @@ class TestGetPhases:
     def test_match_glob_and_no_re(self, tmp_path, caplog):
         """Test that a file matching the glob pattern but not the regex is ignored with a warning level log."""
         _make_phase_dir(tmp_path, cosmo=0, phase=1, z=0.500)
-        extra_dir = tmp_path / "AbacusSummit_small_c000_ph001_some_other_stuff/data/z0.500"
+        extra_dir = (
+            tmp_path / "AbacusSummit_small_c000_ph001_some_other_stuff/data/z0.500"
+        )
         extra_dir.mkdir(parents=True)
 
         with caplog.at_level(logging.WARNING):

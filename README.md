@@ -57,7 +57,7 @@ The package can be installed with the following dependencies:
 ### Cython building
 The Cython files can be rebuilt (*only in editable mode*) with:
 ```bash
-python setup.py build_ext --inplace 
+python setup.py build_ext --inplace
 python setup.py clean --all # Clean up build files
 ```
 
@@ -71,9 +71,9 @@ You can find notebooks examples in the `nb` folder.
 The project follows the [git-flow](https://nvie.com/posts/a-successful-git-branching-model/) branching model, with a `main` branch for stable releases and a `dev` branch for ongoing development. To contribute to the project, you can fork the repository, create a new branch for your feature or bug fix, and submit a pull request to the `dev` branch.
 
 > [!TIP]
-> When relevant, before publishing your branch and creating a pull request, locally `rebase` the branch on the latest `dev` to avoid merge conflicts and to keep the commit history clean. 
-> 
-> **Do not rebase any collaborative branch that has already been published, as this can cause issues for other collaborators.** 
+> When relevant, before publishing your branch and creating a pull request, locally `rebase` the branch on the latest `dev` to avoid merge conflicts and to keep the commit history clean.
+>
+> **Do not rebase any collaborative branch that has already been published, as this can cause issues for other collaborators.**
 
 To keep track of the branch objectives, we enforce the following syntax:
 - `feature/<cool-new-feature>` for new features, to be merged into `dev` when ready
@@ -82,14 +82,14 @@ To keep track of the branch objectives, we enforce the following syntax:
 - `scripts/**` for the projects using `acm` that are hosted in the same repository, to be merged into `dev` when ready. Those scripts will be updated on `main` when the next release is made.
 
 > [!NOTE]
-> Personal branches exist on this repository, for specific collaborators that are not able to create forks. Those branches are not meant to be merged into `dev` and should be used for testing and development purposes only. They usually have the username of the collaborator as the branch name (e.g. `epaillas`). 
+> Personal branches exist on this repository, for specific collaborators that are not able to create forks. Those branches are not meant to be merged into `dev` and should be used for testing and development purposes only. They usually have the username of the collaborator as the branch name (e.g. `epaillas`).
 
 If you are not sure about the purpose of a branch, please ask the maintainers.
 
 ## Workflows
 
 ### Continuous Integration
-The project has a continuous integration workflow defined in the `.github/workflows/ci-format-lint-test.yml` file. This workflow is triggered on any pull request to the `dev` or `main` branches, and on any push to branches with open PR associated. 
+The project has a continuous integration workflow defined in the `.github/workflows/ci-format-lint-test.yml` file. This workflow is triggered on any pull request to the `dev` or `main` branches, and on any push to branches with open PR associated.
 
 > [!Note]
 > This workflow only runs on the `acm` package code, and not on the scripts in the `scripts/` folder or on the documentation.
@@ -100,7 +100,7 @@ The workflow formats the code with `ruff` (used as a linter and formatter), type
 > We recommend running `ty check acm` locally to check for type issues before pushing your code. `ty` uses the environment it runs in to check for type issues, so some tests might differ depending on the environment. For example, if you have `jax` installed in your local environment, you might get some type errors that are not present in the CI workflow if `jax` is not installed there.
 
 > [!TIP]
-> To ignore `ty` errors, you can use the `# ty: ignore` comment at the end of the line where the error occurs. However, use this with caution and only when you are sure that the error is not relevant for that line, as it can hide potential issues in the code. 
+> To ignore `ty` errors, you can use the `# ty: ignore` comment at the end of the line where the error occurs. However, use this with caution and only when you are sure that the error is not relevant for that line, as it can hide potential issues in the code.
 > [Learn more](https://docs.astral.sh/ty/suppression/).
 
 
@@ -134,12 +134,12 @@ On any merged PR to `main`, the version of the package will be automatically bum
 > [!NOTE]
 > A workflow is also triggered on any PR to `main` to ensure exactly one of the bump type tags is present. If not, the workflow will fail and the PR cannot be merged until the issue is resolved.
 
-After any PR merged to `main` with a version update, the `main` branch will be automatically merged back to `dev` to ensure the `dev` branch is up to date with the latest release. 
+After any PR merged to `main` with a version update, the `main` branch will be automatically merged back to `dev` to ensure the `dev` branch is up to date with the latest release.
 
 > [!WARNING]
 > A merge to `main` without a version update will neither trigger a version bump nor a merge back to `dev`.
 
 > [!TIP]
 > To avoid conflicts, ensure your `dev` branch is up to date with the latest `main` branch before submitting a PR.
-> 
+>
 > If you need to resolve a conflict on the version numbers, please update the version number with the current version number in the target branch; the version will be automatically bumped to the next version after the PR is merged.

@@ -31,10 +31,10 @@ class BaseLightconeCatalog(ABC):
     """
     def apply_angular_mask(self):
         # TODO: make angular mask code
-        # This code will be similar to the cutsky class method apply_angular_mask, except the 
+        # This code will be similar to the cutsky class method apply_angular_mask, except the
         # lightcone octant will first be rotated to providee the maximal possible overlap with
-        # angular mask prior to downsampling. Prior to this implmentation, users can use the 
-        # fullsky version of the lightcone mock and the inherited apply_angular_mask from 
+        # angular mask prior to downsampling. Prior to this implmentation, users can use the
+        # fullsky version of the lightcone mock and the inherited apply_angular_mask from
         # the cutsky class
         pass
     """
@@ -645,7 +645,7 @@ class LightconeRandoms(CutskyRandoms, BaseLightconeCatalog):
             for key in self.catalog.keys():
                 self.catalog[key] = self.catalog[key][mask]
 
-    """    
+    """
     def apply_angular_mask(self):
         # TODO: determine args
         BaseLightconeCatalog.apply_angular_mask(self)
