@@ -1,5 +1,5 @@
-#cython: language_level=3 
-#cython: profile=False 
+#cython: language_level=3
+#cython: profile=False
 #cython: boundscheck=False
 #cython: wraparound=False
 import cython
@@ -44,7 +44,7 @@ cdef extern from "gsl/gsl_matrix.h":
     ctypedef struct gsl_matrix_view:
         gsl_matrix matrix
     gsl_matrix_view_array (double * base,
-                             const size_t n1, 
+                             const size_t n1,
                              const size_t n2) nogil
     gsl_matrix *  gsl_matrix_alloc(size_t n1, size_t n2) nogil
     double  gsl_matrix_get(gsl_matrix * m, size_t i, size_t j) nogil
@@ -71,9 +71,9 @@ cdef extern from "gsl/gsl_blas.h":
                    ) nogil
     int gsl_blas_dgemv(CBLAS_TRANSPOSE_t TransA,
                         double alpha,
-                        gsl_matrix * A, 
-                        gsl_vector * x, 
-                        double beta, 
+                        gsl_matrix * A,
+                        gsl_vector * x,
+                        double beta,
                         gsl_vector * y) nogil
     ctypedef enum CBLAS_TRANSPOSE_t:
                     CblasNoTrans=111
@@ -81,7 +81,7 @@ cdef extern from "gsl/gsl_blas.h":
                     CblasConjTrans=113
 cdef extern from "gsl/gsl_math.h":
     ctypedef struct gsl_function:
-        double (* function) (double x, void * params) 
+        double (* function) (double x, void * params)
         void * params
 cdef extern from "gsl/gsl_linalg.h":
     int gsl_linalg_LU_decomp (gsl_matrix * A, gsl_permutation * p, int *signum) nogil
@@ -103,7 +103,7 @@ cdef extern from "gsl/gsl_integration.h":
         size_t *level
     gsl_integration_workspace * gsl_integration_workspace_alloc(const size_t n) nogil
     void gsl_integration_workspace_free(gsl_integration_workspace * w) nogil
-    int gsl_integration_qag (const gsl_function *f, 
+    int gsl_integration_qag (const gsl_function *f,
                          double a, double b,
                          double epsabs, double epsrel, size_t limit,
                          int key,
@@ -137,17 +137,17 @@ cdef void matrix_invert(gsl_matrix *matrix, gsl_matrix *matrix_inv, int size) no
     cdef gsl_permutation *p = gsl_permutation_alloc(size);
     cdef int s;
 
-    
+
     gsl_linalg_LU_decomp(matrix, p, &s);
 
-    
-    
+
+
     gsl_linalg_LU_invert(matrix, p, matrix_inv);
 
     gsl_permutation_free(p);
 
 
-    
+
 def get_void_catalog_cgal(double[:,:] points,
                         bint periodic = False,
                         int periodic_mode = 0,
@@ -158,18 +158,18 @@ def get_void_catalog_cgal(double[:,:] points,
 
     cdef Py_ssize_t i,k
     cdef vector[double] in_x, in_y, in_z, _box_min, _box_max
-    
-    
-    
+
+
+
     in_x.reserve(points.shape[0])
     in_y.reserve(points.shape[0])
     in_z.reserve(points.shape[0])
-    
+
     for i in range(points.shape[0]):
         in_x.push_back(points[i,0])
         in_y.push_back(points[i,1])
         in_z.push_back(points[i,2])
-    
+
     cdef DelaunayOutput voids
     if not periodic:
         voids = cdelaunay(in_x, in_y, in_z)
@@ -183,12 +183,12 @@ def get_void_catalog_cgal(double[:,:] points,
             voids = cdelaunay_periodic(in_x, in_y, in_z, _box_min, _box_max)
         else:
             raise ValueError("periodic_mode must be 0 (extend bounds) or 1 (periodic data structures).")
-        
+
     cdef size_t n_simplices
     in_x.clear()
     in_y.clear()
     in_z.clear()
-    
+
     n_simplices = voids.n_simplices
     output = np.zeros((n_simplices, 4), dtype=np.double)
     for k in range(n_simplices):
@@ -196,8 +196,8 @@ def get_void_catalog_cgal(double[:,:] points,
         output[k,1] = voids.y[k]
         output[k,2] = voids.z[k]
         output[k,3] = voids.r[k]
-    
-    
+
+
 
     return output
 
@@ -214,16 +214,16 @@ def get_void_catalog_full(double[:,:] points,
 
     cdef Py_ssize_t i,k,j
     cdef vector[double] in_x, in_y, in_z, _box_min, _box_max
-       
+
     in_x.reserve(points.shape[0])
     in_y.reserve(points.shape[0])
     in_z.reserve(points.shape[0])
-    
+
     for i in range(points.shape[0]):
         in_x.push_back(points[i,0])
         in_y.push_back(points[i,1])
         in_z.push_back(points[i,2])
-    
+
     cdef DelaunayOutput voids
     if not periodic:
         voids = cdelaunay_full(in_x, in_y, in_z)
@@ -232,15 +232,15 @@ def get_void_catalog_full(double[:,:] points,
             _box_min.push_back(box_min[i])
             _box_max.push_back(box_max[i])
         voids = cdelaunay_periodic_full(in_x, in_y, in_z, _box_min, _box_max, cpy_range)
-    
+
     cdef size_t n_simplices
     in_x.clear()
     in_y.clear()
     in_z.clear()
-    
+
     cdef double w, numerator
-    
-    
+
+
     fflush(stdout)
 
     n_simplices = voids.n_simplices
@@ -252,15 +252,15 @@ def get_void_catalog_full(double[:,:] points,
     printf("==> Computing DTFE\n")
     fflush(stdout)
     for k in range(points.shape[0]):
-        
+
         dtfe_view[k] = 4. / voids.dtfe[k]
-        
-        
-        
+
+
+
     printf("==> Copying voids and interpolating\n")
     fflush(stdout)
-    
-   
+
+
     for k in range(n_simplices):
         output_view[k,0] = voids.x[k]
         output_view[k,1] = voids.y[k]
@@ -273,26 +273,26 @@ def get_void_catalog_full(double[:,:] points,
             if voids.vertices[i][k] < points.shape[0]:
                 numerator = numerator + w * dtfe_view[<size_t> voids.vertices[i][k]]
         output_view[k,5] = numerator / (4 * w)
-        
+
         output_view[k,6] = voids.area[k]
-        
-    
+
+
 
     printf("    Done\n")
     fflush(stdout)
-        
-    
+
+
 
     return output, dtfe
 
 
-        
-cpdef int allocate_to_grid(double[:,:] data, 
-                    int[:,:,:] grid_void_count, 
-                    int[:,:,:,:] grid_id_buffer, 
+
+cpdef int allocate_to_grid(double[:,:] data,
+                    int[:,:,:] grid_void_count,
+                    int[:,:,:,:] grid_id_buffer,
                     double box_size,
                     int n_threads) nogil except -1:
-    
+
     cdef int n_grid = grid_void_count.shape[0]
     cdef double bin_size = box_size / n_grid
     cdef double inv_bin_size = n_grid / box_size
@@ -300,25 +300,25 @@ cpdef int allocate_to_grid(double[:,:] data,
     cdef int idx, idy, idz
     cdef int i
     for i in prange(data.shape[0], nogil=True, num_threads=n_threads):
-        
+
         idx = <int> ((data[i, 0] * inv_bin_size) + n_grid) % n_grid
         idy = <int> ((data[i, 1] * inv_bin_size) + n_grid) % n_grid
         idz = <int> ((data[i, 2] * inv_bin_size) + n_grid) % n_grid
-        
+
         if n_buffer < grid_void_count[idx, idy, idz]: return -1
         grid_id_buffer[idx, idy, idz, grid_void_count[idx, idy, idz]] = i
         grid_void_count[idx, idy, idz] += 1
-    
+
     return 0
 
-def get_satellites(double[:,:] data, 
-                    int[:,:,:] grid_void_count, 
-                    int[:,:,:,:] grid_id_buffer, 
-                    int[:] central_id, 
-                    int[:] is_central, 
-                    int[:] n_satellites, 
-                    double[:] distances, 
-                    double[:] central_radius, 
+def get_satellites(double[:,:] data,
+                    int[:,:,:] grid_void_count,
+                    int[:,:,:,:] grid_id_buffer,
+                    int[:] central_id,
+                    int[:] is_central,
+                    int[:] n_satellites,
+                    double[:] distances,
+                    double[:] central_radius,
                     double box_size,
                     double box_pad):
 
@@ -346,7 +346,7 @@ def get_satellites(double[:,:] data,
         Array to store the radius of the corresponding central void.
     box_size: double
         Size of the box in which the grid is embedded
-    
+
     """
     if data.shape[1] < 4:
         raise ValueError
@@ -357,19 +357,19 @@ def get_satellites(double[:,:] data,
     cdef double sqr, r
 
     for i in range(data.shape[0]):
-        
+
         if is_central[i]:
             sqr = data[i,3]*data[i,3]
             central_id[i] = i
             central_radius[i] = data[i,3]
-            r = data[i,3] 
+            r = data[i,3]
             xmin = <int> (((data[i,0] + box_pad - r) * inv_bin_size) )
             xmax = <int> (((data[i,0] + box_pad + r) * inv_bin_size) )
             ymin = <int> (((data[i,1] + box_pad - r) * inv_bin_size) )
             ymax = <int> (((data[i,1] + box_pad + r) * inv_bin_size) )
             zmin = <int> (((data[i,2] + box_pad - r) * inv_bin_size) )
             zmax = <int> (((data[i,2] + box_pad + r) * inv_bin_size) )
-            
+
             for xid in range(xmin, xmax+1):
                 #if xid >= n_grid: continue
                 xid += n_grid
@@ -385,13 +385,13 @@ def get_satellites(double[:,:] data,
 
                         for j in range(grid_void_count[xid, yid, zid]):
                             k = grid_id_buffer[xid, yid, zid, j]
-                            
+
                             if k <= i: continue
                             distance = (data[i, 0] - data[k, 0])**2 + (data[i, 1] - data[k, 1])**2 + (data[i, 2] - data[k, 2])**2
-                            
+
                             if distance < sqr:
-                                
-                                if is_central[k]:    
+
+                                if is_central[k]:
                                     central_id[k] = i
                                     central_radius[k] = data[i,3]
                                     is_central[k] = 0
@@ -422,7 +422,7 @@ cdef double comoving_dist_integrand(double x, void * params) nogil:
     cdef double H = H0 * sqrt(OmegaL + OmegaM * pow( 1 + x , 3))
 
     return c / H
-    
+
 cdef double integrate_z(double z, double H0, double OmegaL, double OmegaM) nogil :
 
     cdef gsl_integration_workspace *w
@@ -458,4 +458,3 @@ def sky_to_cart_parallel(double[:,:] input, double[:,:] output, int n_lines, int
         output[i,1] = dist * cos(dec) * sin(ra) * h
         #Z
         output[i,2] = dist * sin(dec) * h
-        
