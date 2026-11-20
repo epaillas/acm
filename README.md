@@ -2,8 +2,8 @@
 [![Release](https://img.shields.io/github/v/release/epaillas/acm?color=818CF8&logo=github)](https://github.com/epaillas/acm/releases)
 [![License](https://img.shields.io/github/license/epaillas/acm?color=fab005)](LICENSE)
 [![Tests](https://github.com/epaillas/acm/actions/workflows/release-main.yaml/badge.svg)](https://github.com/epaillas/acm/actions/workflows/release-main.yaml)
-![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/epaillas/3172a7fabf883fc113fb77dcb5af23c5/raw/coverage-values.json)
-![CRAP](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/epaillas/3172a7fabf883fc113fb77dcb5af23c5/raw/crapscore-values.json)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/SBouchard01/3172a7fabf883fc113fb77dcb5af23c5/raw/coverage-values.json)
+![CRAP](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/SBouchard01/3172a7fabf883fc113fb77dcb5af23c5/raw/crapscore-values.json)
 
 
 # Alternative Clustering Methods (ACM)
