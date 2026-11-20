@@ -1,6 +1,10 @@
-<!-- Pytest Coverage Comment:Begin -->
-<a href="https://github.com/epaillas/acm/blob/main/README.md"><img alt="Coverage" src="https://img.shields.io/badge/Coverage-66%25-yellow.svg" /></a>
-<!-- Pytest Coverage Comment:End -->
+<!-- [![Python](https://img.shields.io/pypi/pyversions/<package-name>?color=4c1&logo=pypi)](https://pypi.org/project/<package-name>/) -->
+[![Release](https://img.shields.io/github/v/release/epaillas/acm?color=818CF8&logo=github)](https://github.com/epaillas/acm/releases)
+[![License](https://img.shields.io/github/license/epaillas/acm?color=fab005)](LICENSE)
+[![Tests](https://github.com/epaillas/acm/actions/workflows/release-main.yaml/badge.svg)](https://github.com/epaillas/acm/actions/workflows/release-main.yaml)
+![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/epaillas/3172a7fabf883fc113fb77dcb5af23c5/raw/coverage-values.json)
+![CRAP](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/epaillas/3172a7fabf883fc113fb77dcb5af23c5/raw/crapscore-values.json)
+
 
 # Alternative Clustering Methods (ACM)
 `acm` is a cosmological analysis pipeline built for the DESI collaboration. It provides alternative methods to the standard two-point correlation function analysis, including higher-order statistics and machine learning techniques. The package is designed to be modular and extensible, allowing users to easily add new estimators and analysis methods.
