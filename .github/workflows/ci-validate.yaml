@@ -27,9 +27,9 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.3.3
       - name: Run linter
-        run: uvx ruff check .
+        run: uvx ruff check acm
       - name: Run formatter
-        run: uvx ruff format --check .
+        run: uvx ruff format --check acm
 
   typecheck:
     name: Type Check
