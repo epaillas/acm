@@ -1,0 +1,74 @@
+name: Test Suite
+# Run test suite on ref and uploads coverage artifacts
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: The ref to check out before running tests
+        required: true
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.13']
+        os: [ubuntu-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref }}
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+      - name: Run tests
+        id: tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          mkdir -p coverage
+          pytest \
+            --cov=src \
+            --cov-branch \
+            --cov-report=lcov:coverage/lcov.info \
+            --cov-report=json:coverage/coverage.json \
+            --cov-report=markdown:coverage/coverage.md \
+            --cov-report=term-missing:skip-covered \
+            --junitxml=coverage/pytest.xml \
+            tests/ \
+            | tee coverage/pytest-coverage.txt
+      - name: Make summary
+        run: |
+          {
+            echo "### Coverage for Python ${{ matrix.python-version }} on ${{ matrix.os }}"
+            echo "<details>"
+            echo "<summary>Click to expand</summary>"
+            echo ""
+            if [ -f coverage/coverage.md ]; then
+              cat coverage/coverage.md
+            else
+              echo "_No coverage report produced (tests likely failed before collection)._"
+            fi
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.python-version }}-${{ matrix.os }}
+          path: coverage/*
+      - name: Fail if tests failed
+        if: ${{ steps.tests.outcome == 'failure' }}
+        run: echo "Tests failed" && exit 1
