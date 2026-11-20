@@ -18,9 +18,8 @@ from acm.utils.scripts import (
     retry,
 )
 
-# ruff: noqa: ANN001, ANN201, ARG002, D101, D102, D103, S101
 
-#%% Fixtures
+# %% Fixtures
 @pytest.fixture
 def config_file(tmp_path):
     p = tmp_path / "config.yaml"
@@ -33,7 +32,8 @@ def make_parser_with_config(config_path=None):
     parser.add_argument("--config", default=config_path)
     return parser
 
-#%% Test classes
+
+# %% Test classes
 class TestDetectGpu:
     def test_detected_gpu(self):
         with patch("acm.utils.scripts.check_output", return_value=b"GPU info"):
@@ -84,6 +84,7 @@ class TestLoadParserDefault:
         with patch("sys.argv", ["prog", "--some_arg", "0"]):
             load_parser_default(parser)
 
+
 class TestApplyParserDefault:
     def test_sets_defaults(self):
         parser = argparse.ArgumentParser()
@@ -105,8 +106,11 @@ class TestApplyParserDefault:
 class TestDumpConfig:
     def test_missing_dump_arg_raises(self):
         parser = argparse.ArgumentParser()
-        with patch("sys.argv", ["prog"]), pytest.raises(ValueError, match="dump_config"):
-                dump_config(parser)
+        with (
+            patch("sys.argv", ["prog"]),
+            pytest.raises(ValueError, match="dump_config"),
+        ):
+            dump_config(parser)
 
     def test_exits_when_true(self, capsys):
         parser = argparse.ArgumentParser()
@@ -199,12 +203,11 @@ class TestRetry:
     def test_times_less_than_one_raises(self):
         """times<1 should raise an error."""
         op = MagicMock(return_value="ok")
-        with pytest.raises(ValueError, match='got 0'):
+        with pytest.raises(ValueError, match="got 0"):
             retry(0, op)
 
 
 class TestBenchmarkTimer:
-
     @pytest.fixture
     def timer(self):
         return BenchmarkTimer(keys=["foo", "bar"])
@@ -251,7 +254,9 @@ class TestBenchmarkTimer:
         timer.start("foo")
         with caplog.at_level(logging.DEBUG):
             timer.register("foo", log=True)
-        assert any("foo" in r.message and "Elapsed time" in r.message for r in caplog.records)
+        assert any(
+            "foo" in r.message and "Elapsed time" in r.message for r in caplog.records
+        )
 
     def test_multiple_keys_independent(self, timer):
         timer.start("foo", "bar")
@@ -266,7 +271,9 @@ class TestBenchmarkTimer:
         timer.register("foo")
         with caplog.at_level(logging.INFO):
             timer.report()
-        assert any("foo" in r.message and "Average" in r.message for r in caplog.records)
+        assert any(
+            "foo" in r.message and "Average" in r.message for r in caplog.records
+        )
 
     def test_report_logs_no_recorded_times(self, timer, caplog):
         """Report should log a message for keys with no recorded times."""

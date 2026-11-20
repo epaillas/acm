@@ -3,6 +3,7 @@ Small tests on the default values of acm.utils.defaults.
 
 We mainly test that those values match the expected types.
 """
+
 from hashlib import sha256
 
 import numpy as np
@@ -10,15 +11,15 @@ import pytest
 
 from acm.utils.default import _make_array, cosmo_list, is_nersc, short_hash
 
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
-
 
 def test_cosmo_list():
     assert isinstance(cosmo_list, list)
     assert all(type(l) is int for l in cosmo_list)  # noqa: E741
 
+
 def test_is_nersc():
     assert type(is_nersc) is bool
+
 
 class TestMakeArray:
     def test_scalar_to_1d(self):

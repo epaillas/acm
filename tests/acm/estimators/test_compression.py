@@ -18,31 +18,33 @@ from acm.estimators.compression import (
     split_test_set,
 )
 
-# ruff: noqa: ANN001, ANN201, ARG002, D102, INP001, S101
 
 def make_lsstype_object() -> lsstypes.ObservableTree:
     """Create a mock lsstypes.ObservableTree object for testing. Borrowed from lsstypes notebook examples."""
-    s = np.linspace(0., 200., 51)
-    mu = np.linspace(-1., 1., 101)
+    s = np.linspace(0.0, 200.0, 51)
+    mu = np.linspace(-1.0, 1.0, 101)
     rng = np.random.RandomState(seed=42)
-    labels = ['DD', 'DR', 'RR']
+    labels = ["DD", "DR", "RR"]
     leaves = []
     for _label in labels:
-        counts = 1. + rng.uniform(size=(s.size, mu.size))
-        leaves.append(lsstypes.ObservableLeaf(
-            counts=counts,
-            s=s,
-            mu=mu,
-            coords=['s', 'mu'],
-            attrs=dict(los='x'),
-        ))
+        counts = 1.0 + rng.uniform(size=(s.size, mu.size))
+        leaves.append(
+            lsstypes.ObservableLeaf(
+                counts=counts,
+                s=s,
+                mu=mu,
+                coords=["s", "mu"],
+                attrs=dict(los="x"),
+            )
+        )
     attrs = dict(
-        param1 = rng.uniform(size=1)[0],
-        param2 = rng.uniform(size=1)[0],
-        param3 = rng.uniform(size=1)[0],
+        param1=rng.uniform(size=1)[0],
+        param2=rng.uniform(size=1)[0],
+        param3=rng.uniform(size=1)[0],
     )
     tree = lsstypes.ObservableTree(leaves, pairs=labels, attrs=attrs)
     return tree
+
 
 @pytest.fixture
 def object_group() -> ObjectGroup:
@@ -51,6 +53,7 @@ def object_group() -> ObjectGroup:
     obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
     obj2 = IndexedObject(indexes={"i": 2, "j": 3}, data=make_lsstype_object())
     return ObjectGroup(objects=[obj1, obj2])
+
 
 class TestPattern:
     """Test the Pattern dataclass."""
@@ -82,7 +85,9 @@ class TestPattern:
             pytest.fail("Regex did not match the expected path.")
 
     def test_to_regex_ignore_index_non_capturing(self, pattern):
-        m = pattern.to_regex(ignore_index=["k"]).match(str(self.ROOT / "I1/J2_K3/file.h5"))
+        m = pattern.to_regex(ignore_index=["k"]).match(
+            str(self.ROOT / "I1/J2_K3/file.h5")
+        )
         if m:
             assert "k" not in m.groupdict()
         else:
@@ -93,11 +98,16 @@ class TestPattern:
         pattern = Pattern(self.ROOT, "I{i}/J{i}_K{k}/file.h5")
         with pytest.raises(re.error, match="redefinition of group name 'i'"):
             pattern.to_regex()
-        assert pattern.to_regex(ignore_index=["i"]).match(str(self.ROOT / "I1/J2_K3/file.h5")) is not None
+        assert (
+            pattern.to_regex(ignore_index=["i"]).match(
+                str(self.ROOT / "I1/J2_K3/file.h5")
+            )
+            is not None
+        )
 
     def test_to_regex_escapes_special_characters(self):
         """Test that special characters in the root and pattern are properly escaped in the regex."""
-        root = Path("/data.( 3 )") # Special characters in the root path
+        root = Path("/data.( 3 )")  # Special characters in the root path
         special_pattern = Pattern(root, "I{i}/J{j}_K{k}/file[1].h5")
         regex = special_pattern.to_regex()
         assert regex.match(str(root / "I1/J2_K3/file[1].h5")) is not None
@@ -219,7 +229,7 @@ class TestObjectGroup:
         obj2 = IndexedObject(indexes={"i": 2, "j": 3}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
         result = group.get_idx()
-        assert result == [o.data for o in group.objects] # All objects data
+        assert result == [o.data for o in group.objects]  # All objects data
 
     def test_get_idx_no_match_returns_empty(self):
         obj1 = IndexedObject(indexes={"i": 1, "j": 2}, data=make_lsstype_object())
@@ -260,9 +270,9 @@ class TestObjectGroup:
         result = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
         with patch("lsstypes.mean", return_value=result.data) as mock_mean:
-            merged_group = group.merge(method=mock_mean, arg='somearg')
-            mock_mean.assert_called_with([obj1.data, obj2.data], arg='somearg')
-            assert mock_mean.call_count == 1 # One duplicate object
+            merged_group = group.merge(method=mock_mean, arg="somearg")
+            mock_mean.assert_called_with([obj1.data, obj2.data], arg="somearg")
+            assert mock_mean.call_count == 1  # One duplicate object
         assert len(merged_group) == 1
         assert merged_group.objects == [result]
 
@@ -273,7 +283,7 @@ class TestObjectGroup:
         group = ObjectGroup(objects=[obj1, obj2])
         merged_group = group.merge(method=lsstypes.mean)
         assert len(merged_group) == 2
-        assert merged_group.objects == [obj1, obj2] # No duplicates, so unchanged
+        assert merged_group.objects == [obj1, obj2]  # No duplicates, so unchanged
 
     def test_merge_with_duplicates_and_singles(self):
         """Test that merge correctly merges duplicates and leaves single objects unchanged."""
@@ -282,16 +292,22 @@ class TestObjectGroup:
         obj3 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2, obj3])
         merged_group = group.merge(method=lsstypes.mean)
-        merged_obj = IndexedObject(indexes={"i": 1}, data=lsstypes.mean([obj1.data, obj2.data]))
+        merged_obj = IndexedObject(
+            indexes={"i": 1}, data=lsstypes.mean([obj1.data, obj2.data])
+        )
         assert merged_obj in merged_group.objects
-        assert obj3 in merged_group.objects # lsstypes.mean should not change obj3 since it's unique
+        assert (
+            obj3 in merged_group.objects
+        )  # lsstypes.mean should not change obj3 since it's unique
         assert len(merged_group) == 2
         assert any(obj.indexes["i"] == 1 for obj in merged_group.objects)
         assert any(obj.indexes["i"] == 2 for obj in merged_group.objects)
 
     def test_getattr_guard_raises(self):
         """Test that accessing 'objects' before __init__ is complete raises AttributeError."""
-        group = ObjectGroup.__new__(ObjectGroup)  # Create an instance without calling __init__
+        group = ObjectGroup.__new__(
+            ObjectGroup
+        )  # Create an instance without calling __init__
         with pytest.raises(AttributeError, match="objects"):
             _ = group.objects
 
@@ -299,7 +315,9 @@ class TestObjectGroup:
         """Test that accessing any attribute on an empty ObjectGroup raises AttributeError."""
         group = ObjectGroup()
         with pytest.raises(AttributeError, match="empty"):
-            _ = group.select(k_min=0.01, k_max=0.5)  # calls .select() on all data objects
+            _ = group.select(
+                k_min=0.01, k_max=0.5
+            )  # calls .select() on all data objects
 
     def test_getattr_unknown_method(self, object_group):
         """Test that accessing an unknown method raises AttributeError."""
@@ -315,18 +333,34 @@ class TestObjectGroup:
         """Test getattr default behavior."""
         assert callable(object_group.select)  # Should return a callable
         # Do we have to mock each data object method separately ?
-        patch1 = patch.object(object_group.objects[0].data, "select", wraps=object_group.objects[0].data.select)
-        patch2 = patch.object(object_group.objects[1].data, "match", wraps=object_group.objects[1].data.match)
+        patch1 = patch.object(
+            object_group.objects[0].data,
+            "select",
+            wraps=object_group.objects[0].data.select,
+        )
+        patch2 = patch.object(
+            object_group.objects[1].data,
+            "match",
+            wraps=object_group.objects[1].data.match,
+        )
         with patch1 as mock_select, patch2 as mock_match:
             result_group = object_group.select(s=slice(0, 100, 1))
-            mock_select.assert_called_once_with(s=slice(0, 100, 1)) # Kwargs are passed to the first object's method
-            mock_match.assert_called_once_with(object_group.objects[0].data) # Match is used for subsequent objects
+            mock_select.assert_called_once_with(
+                s=slice(0, 100, 1)
+            )  # Kwargs are passed to the first object's method
+            mock_match.assert_called_once_with(
+                object_group.objects[0].data
+            )  # Match is used for subsequent objects
         assert isinstance(result_group, ObjectGroup)
-        assert len(result_group) == len(object_group)  # Should return the same number of objects
+        assert len(result_group) == len(
+            object_group
+        )  # Should return the same number of objects
 
     def test_getattr_fail_on_first_object(self, object_group):
         """Test that if the method fails on the first object, it raises an error."""
-        p = patch.object(object_group.objects[0].data, "select", side_effect=ValueError("Test error"))
+        p = patch.object(
+            object_group.objects[0].data, "select", side_effect=ValueError("Test error")
+        )
         with p as mock_select:
             with pytest.raises(ValueError, match="Test error"):
                 _ = object_group.select(s=slice(0, 100, 1))
@@ -334,8 +368,14 @@ class TestObjectGroup:
 
     def test_getattr_fail_on_subsequent_object(self, object_group):
         """Test that if the method fails on a subsequent object, it raises an error."""
-        p1 = patch.object(object_group.objects[0].data, "select", wraps=object_group.objects[0].data.select)
-        p2 = patch.object(object_group.objects[1].data, "match", side_effect=ValueError("Test error"))
+        p1 = patch.object(
+            object_group.objects[0].data,
+            "select",
+            wraps=object_group.objects[0].data.select,
+        )
+        p2 = patch.object(
+            object_group.objects[1].data, "match", side_effect=ValueError("Test error")
+        )
         with p1 as mock_select, p2 as mock_match:
             with pytest.raises(ValueError, match="Test error"):
                 _ = object_group.select(s=slice(0, 100, 1))
@@ -357,7 +397,9 @@ class TestObjectGroup:
         obj2 = IndexedObject(indexes={"i": 1}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
         ordered_group = group.sort()
-        assert ordered_group == group  # Should return the same group if no names are provided
+        assert (
+            ordered_group == group
+        )  # Should return the same group if no names are provided
 
     def test_sort_multiple_keys(self):
         """Test the sort method with multiple keys."""
@@ -415,7 +457,9 @@ class TestObjectGroup:
         obj2 = IndexedObject(indexes={"i": 2}, data=make_lsstype_object())
         group = ObjectGroup(objects=[obj1, obj2])
         ordered_group = group.sort("nonexistent_key")
-        assert ordered_group == group  # Should return the same group if the key is not found
+        assert (
+            ordered_group == group
+        )  # Should return the same group if the key is not found
 
     def test_sort_with_duplicate_indexes_raises(self):
         """Test that sort raises an error if there are duplicate index values for the sorting keys."""
@@ -469,15 +513,25 @@ class TestObjectGroup:
     def test_get_index_lists_reindex_with_incorrect_key_raises(self, object_group):
         """Test that get_index_lists raises a KeyError when reindexing with or for an incorrect key."""
         with pytest.raises(KeyError):
-            object_group.get_index_lists(j=["value"]) # Unknown index name "value" should raise KeyError
+            object_group.get_index_lists(
+                j=["value"]
+            )  # Unknown index name "value" should raise KeyError
         with pytest.raises(KeyError):
-            object_group.get_index_lists(nonexistent=["i"]) # Unknown index name "nonexistent" should raise KeyError
+            object_group.get_index_lists(
+                nonexistent=["i"]
+            )  # Unknown index name "nonexistent" should raise KeyError
 
     def test_get_index_lists_reindex_with_coumpound_keys(self):
         """Test that get_index_lists can reindex an index based on compound keys."""
-        obj1 = IndexedObject(indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object())
-        obj2 = IndexedObject(indexes={"i": 4, "j": 5, "k": 4}, data=make_lsstype_object())
-        obj3 = IndexedObject(indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object())
+        obj1 = IndexedObject(
+            indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object()
+        )
+        obj2 = IndexedObject(
+            indexes={"i": 4, "j": 5, "k": 4}, data=make_lsstype_object()
+        )
+        obj3 = IndexedObject(
+            indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object()
+        )
         group = ObjectGroup(objects=[obj1, obj2, obj3])
         index_lists = group.get_index_lists(i=["j", "k"])
         assert index_lists == {"i": [0, 0, 0], "j": [2, 5, 2], "k": [6, 4, 6]}
@@ -487,9 +541,15 @@ class TestObjectGroup:
 
     def test_get_index_lists_reindex_chained(self):
         """Test that get_index_lists can be chained to reindex multiple times."""
-        obj1 = IndexedObject(indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object())
-        obj2 = IndexedObject(indexes={"i": 4, "j": 5, "k": 4}, data=make_lsstype_object())
-        obj3 = IndexedObject(indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object())
+        obj1 = IndexedObject(
+            indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object()
+        )
+        obj2 = IndexedObject(
+            indexes={"i": 4, "j": 5, "k": 4}, data=make_lsstype_object()
+        )
+        obj3 = IndexedObject(
+            indexes={"i": 1, "j": 2, "k": 6}, data=make_lsstype_object()
+        )
         group = ObjectGroup(objects=[obj1, obj2, obj3])
         index_lists = group.get_index_lists(i=["j", "k"], j=["k"])
         assert index_lists == {"i": [0, 0, 0], "j": [0, 0, 0], "k": [6, 4, 6]}
@@ -517,14 +577,20 @@ class TestObjectGroup:
         """Test that prepare_compression respects the specified order of index names."""
         data, idx_list = dummy_data._prepare_compression(order=order, reindex=None)
         assert data == dummy_data.sort(*order)
-        assert idx_list == {"i": [0, 1, 1], "j": ["a", "a", "b"]} # Both orders return the same indexes
+        assert idx_list == {
+            "i": [0, 1, 1],
+            "j": ["a", "a", "b"],
+        }  # Both orders return the same indexes
 
     def test_prepare_compression_with_reindex(self, dummy_data):
         """Test that prepare_compression respects the specified reindexing."""
         reindex = {"i": ["j"], "j": ["i"]}
         data, idx_list = dummy_data._prepare_compression(order=None, reindex=reindex)
         assert data == dummy_data
-        assert idx_list == {"i": [0, 0, 1], "j": [0, 1, 0]} # Reindexed based on the other index
+        assert idx_list == {
+            "i": [0, 0, 1],
+            "j": [0, 1, 0],
+        }  # Reindexed based on the other index
 
 
 class TestToXarray:
@@ -599,11 +665,15 @@ class TestToXarray:
         # Build a leaf whose coord name matches an index name
         leaf = lsstypes.ObservableLeaf(
             counts=1.0 + rng.uniform(size=(s.size, mu.size)),
-            s=s, mu=mu, coords=["s", "mu"],
+            s=s,
+            mu=mu,
+            coords=["s", "mu"],
         )
         tree = lsstypes.ObservableTree([leaf], pairs=["DD"])
         objects = [
-            IndexedObject(indexes={"pairs": 0}, data=tree),  # "pairs" clashes with feature coord
+            IndexedObject(
+                indexes={"pairs": 0}, data=tree
+            ),  # "pairs" clashes with feature coord
         ]
         group = ObjectGroup(objects=objects)
         with pytest.raises(ValueError, match="overlapping"):
@@ -629,10 +699,14 @@ class TestToXarray:
     def test_mismatched_shape_raises(self):
         """to_xarray should raise ValueError when data cannot be reshaped to the expected shape."""
         rng = np.random.RandomState(42)
-        leaf = lsstypes.ObservableLeaf(counts=rng.uniform(size=10), s=np.linspace(0, 100, 10), coords=["s"])
+        leaf = lsstypes.ObservableLeaf(
+            counts=rng.uniform(size=10), s=np.linspace(0, 100, 10), coords=["s"]
+        )
         objects = [
             IndexedObject(indexes={"i": 0}, data=leaf),
-            IndexedObject(indexes={"i": 0}, data=leaf), # Same index: expects (1, 10) but will get (2, 10)
+            IndexedObject(
+                indexes={"i": 0}, data=leaf
+            ),  # Same index: expects (1, 10) but will get (2, 10)
         ]
         group = ObjectGroup(objects=objects)
         with pytest.raises(ValueError, match="Cannot reshape"):
@@ -738,16 +812,16 @@ class TestCompressor:
         assert len(compressor._files) == 12  # 2*2*3 combinations of i, j, k
 
     def test_read(self, reader, compressor):
-        result = compressor.read(reader=reader, arg='somearg')
+        result = compressor.read(reader=reader, arg="somearg")
         # Should call lsstypes.read for each file
         assert reader.call_count == len(compressor._files)
         assert len(result) == len(compressor._files)
 
     def test_read_forward_kwargs(self, reader, compressor):
         """Test that read forwards kwargs to the reader function."""
-        _ = compressor.read(reader=reader, arg='somearg')
+        _ = compressor.read(reader=reader, arg="somearg")
         for call in reader.call_args_list:
-            assert call.kwargs.get('arg') == 'somearg'  # Check that 'arg' is forwarded
+            assert call.kwargs.get("arg") == "somearg"  # Check that 'arg' is forwarded
 
     def test_read_does_not_handle_duplicates(self, reader, compressor):
         """Test that read does not handle duplicate files."""
@@ -758,21 +832,29 @@ class TestCompressor:
         # Should call lsstypes.read for each file, including the duplicate
         assert reader.call_count == len(compressor._files)
         assert len(result) == len(compressor._files)
-        assert result[0] == result[-1]  # The first and last results should be the same due to the duplicate file
-        assert len(result.get_idx(i="0", j="0", k="1")) == 2  # There should be two objects for the duplicate file indices
+        assert (
+            result[0] == result[-1]
+        )  # The first and last results should be the same due to the duplicate file
+        assert (
+            len(result.get_idx(i="0", j="0", k="1")) == 2
+        )  # There should be two objects for the duplicate file indices
 
     def test_read_raises_on_reader_error(self, reader, compressor):
         """Test that read raises an error if the reader function raises an error."""
         patch_read = patch("lsstypes.read", side_effect=ValueError("Test error"))
         with patch_read as _reader, pytest.raises(ValueError, match="Test error"):
             _ = compressor.read(reader=_reader)
-        assert _reader.call_count == 1  # Should only call the reader once before raising the error
+        assert (
+            _reader.call_count == 1
+        )  # Should only call the reader once before raising the error
 
     def test_read_empty_file_list(self, reader):
         """Test that read raises an error if the compressor has no files to read."""
         compressor = Compressor(root=Path.cwd(), pattern="nonexistent_pattern")
         result = compressor.read(reader=reader)
-        assert len(result) == 0  # Should return an empty list since there are no files to read
+        assert (
+            len(result) == 0
+        )  # Should return an empty list since there are no files to read
 
     def test_read_ignore_index(self, reader, compressor):
         """Test that read ignores specified index names when reading files."""
@@ -789,7 +871,11 @@ class TestCompressor:
         with caplog.at_level(logging.WARNING):
             _ = compressor.read(reader=reader)
         # Check that a warning was logged for the non-matching file
-        n_warn = sum(1 for record in caplog.records if "does not match the pattern" in record.message)
+        n_warn = sum(
+            1
+            for record in caplog.records
+            if "does not match the pattern" in record.message
+        )
         assert n_warn == 1  # One file only should trigger one warning in this test
 
 
@@ -863,6 +949,7 @@ def simple_dataset():
     )
     return xarray.Dataset({"x": x, "y": y})
 
+
 class TestSplitTestSet:
     """Tests for the split_test_set function."""
 
@@ -911,7 +998,7 @@ class TestSplitTestSet:
         assert np.array_equal(combined.values, simple_dataset["x"].values)
 
 
-#%% NOTE: Full black-box test to move somewhere else eventually ?
+# %% NOTE: Full black-box test to move somewhere else eventually ?
 @pytest.fixture
 def make_files(tmp_path):
     """Create a set of mock files in the temporary directory for testing."""
@@ -922,8 +1009,9 @@ def make_files(tmp_path):
         file_path = dir_path / "file_M.h5"
         file_path.touch()  # Create an empty file
 
+
 @patch("lsstypes.read", return_value=make_lsstype_object())
-def test_full_chain(reader, tmp_path, make_files):  # noqa: ARG001
+def test_full_chain(reader, tmp_path, make_files):
     """Test the full chain of reading, merging, selecting, and compressing data using the Compressor class."""
     pattern = "I{i}/J{j}_K{k}_L{l}/file_{m}.h5"
 
@@ -939,8 +1027,22 @@ def test_full_chain(reader, tmp_path, make_files):  # noqa: ARG001
 
     assert isinstance(result, xarray.DataArray)
     assert result.dims == ("i", "j", "k", "pairs", "s", "mu")
-    assert result.shape == (2, 2, 3, 3, 13, 101) # droped 'l' dimension + selected 13 s values
+    assert result.shape == (
+        2,
+        2,
+        3,
+        3,
+        13,
+        101,
+    )  # droped 'l' dimension + selected 13 s values
     assert result.attrs["sample"] == ["i", "j", "k"]
     assert result.attrs["features"] == ["pairs", "s", "mu"]
-    assert result.coords["j"].values.tolist() == [0, 1]  # Reindexed to the order of ["i"]
-    assert result.coords["k"].values.tolist() == [0, 1, 2]  # Reindexed to the order of ["i", "j"]
+    assert result.coords["j"].values.tolist() == [
+        0,
+        1,
+    ]  # Reindexed to the order of ["i"]
+    assert result.coords["k"].values.tolist() == [
+        0,
+        1,
+        2,
+    ]  # Reindexed to the order of ["i", "j"]

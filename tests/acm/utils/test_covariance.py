@@ -1,4 +1,5 @@
 """Tests for covariance matrix utility functions."""
+
 import logging
 
 import numpy as np
@@ -17,15 +18,15 @@ from acm.utils.covariance import (
     orthogonal_gk_mad_covariance,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, S101
 
-#%% Fixtures
+# %% Fixtures
 @pytest.fixture
 def valid_cov():
     """Create a well-conditioned, symmetric, positive-definite covariance matrix."""
     rng = np.random.default_rng(42)
     data = rng.standard_normal((100, 10))
     return np.cov(data, rowvar=False)
+
 
 @pytest.fixture
 def gaussian_residuals():
@@ -42,17 +43,20 @@ def known_cov_residuals():
     Using a large n so sample estimates are close to truth.
     """
     rng = np.random.default_rng(0)
-    scales = np.arange(1, 6, dtype=float)        # std = [1, 2, 3, 4, 5]
-    return rng.standard_normal((50_000, 5)) * scales # Scale to match the known variances
+    scales = np.arange(1, 6, dtype=float)  # std = [1, 2, 3, 4, 5]
+    return (
+        rng.standard_normal((50_000, 5)) * scales
+    )  # Scale to match the known variances
 
 
-#%% Tests
+# %% Tests
 class TestGetCovarianceCorrection:
-
     def test_hartlap_value(self):
         """Test the Hartlap correction against its known closed-form expression."""
         # Known closed-form: (n_s - 1) / (n_s - n_d - 2)
-        assert get_covariance_correction(100, 10, method="hartlap") == pytest.approx(99 / 88)
+        assert get_covariance_correction(100, 10, method="hartlap") == pytest.approx(
+            99 / 88
+        )
 
     def test_percival_fisher_value(self):
         """Test the Percival-Fisher correction against its known closed-form expression."""
@@ -72,9 +76,9 @@ class TestGetCovarianceCorrection:
     def test_correction_is_positive(self):
         """All correction factors should be positive to avoid unphysical negative variances after correction."""
         for method, kwargs in [
-            ("hartlap",         {}),
+            ("hartlap", {}),
             ("percival-fisher", {"n_theta": 3}),
-            ("percival",        {"n_theta": 3}),
+            ("percival", {"n_theta": 3}),
         ]:
             assert get_covariance_correction(100, 10, method=method, **kwargs) > 0
 
@@ -96,7 +100,9 @@ class TestGetCovarianceCorrection:
     def test_hartlap_ignores_n_theta(self):
         """Test that providing n_theta for the Hartlap method does not affect the result, since Hartlap does not depend on n_theta."""
         result = get_covariance_correction(100, 10, n_theta=5, method="hartlap")
-        assert result == pytest.approx(get_covariance_correction(100, 10, method="hartlap"))
+        assert result == pytest.approx(
+            get_covariance_correction(100, 10, method="hartlap")
+        )
 
 
 class TestMad1d:
@@ -145,7 +151,6 @@ class TestMad1d:
 
 
 class TestGkMadCovariance:
-
     def test_output_shape(self, gaussian_residuals):
         """Test that the output covariance matrix has the correct shape (n_bins, n_bins) given input residuals of shape (n_samples, n_bins)."""
         C = gk_mad_covariance(gaussian_residuals)
@@ -184,7 +189,6 @@ class TestGkMadCovariance:
 
 
 class TestOrthogonalGkMadCovariance:
-
     def test_output_shape(self, gaussian_residuals):
         """Test that the output covariance matrix has the correct shape (n_bins, n_bins) given input residuals of shape (n_samples, n_bins)."""
         C = orthogonal_gk_mad_covariance(gaussian_residuals)
@@ -216,7 +220,7 @@ class TestOrthogonalGkMadCovariance:
     def test_better_conditioned_than_plain_gk(self, gaussian_residuals):
         """Test that the covariance matrix returned has a lower or equal condition number compared to the one returned by gk_mad_covariance."""
         # OGK should have a lower or equal condition number than plain GK
-        C_gk  = gk_mad_covariance(gaussian_residuals)
+        C_gk = gk_mad_covariance(gaussian_residuals)
         C_ogk = orthogonal_gk_mad_covariance(gaussian_residuals)
         assert np.linalg.cond(C_ogk) <= np.linalg.cond(C_gk) * 1.1  # 10 % margin
 
@@ -230,7 +234,6 @@ class TestOrthogonalGkMadCovariance:
 
 
 class TestCheckSymmetric:
-
     def test_symmetric(self):
         A = np.array([[1, 2, 3], [2, 4, 5], [3, 5, 6]])
         assert check_symmetric(A) is True
@@ -255,7 +258,6 @@ class TestCheckSymmetric:
 
 
 class TestCheckPositiveDefinite:
-
     def test_positive_definite(self, valid_cov):
         assert check_positive_definite(valid_cov) is True
 
@@ -275,7 +277,6 @@ class TestCheckPositiveDefinite:
 
 
 class TestCheckConditionNumber:
-
     def test_well_conditioned(self):
         A = np.array([[4.0, 1.0], [1.0, 3.0]])
         assert check_condition_number(A) == ConditionStatus.WELL_CONDITIONED
@@ -289,7 +290,10 @@ class TestCheckConditionNumber:
         """Matrix with very large condition number is considered ill-conditioned."""
         # [[1,1],[2,4]] yields ~14 significant digits; push threshold above that
         A = np.array([[1.0, 1.0], [2.0, 4.0]])
-        assert check_condition_number(A, precision_threshold=15) == ConditionStatus.ILL_CONDITIONED
+        assert (
+            check_condition_number(A, precision_threshold=15)
+            == ConditionStatus.ILL_CONDITIONED
+        )
 
     def test_returns_condition_status_type(self, valid_cov):
         """Check that the return type is ConditionStatus enum."""
@@ -298,7 +302,6 @@ class TestCheckConditionNumber:
 
 
 class TestCheckCovarianceMatrix:
-
     def test_valid_matrix_passes(self, valid_cov, caplog):
         """A valid covariance matrix should pass all checks without logging warnings."""
         with caplog.at_level(logging.WARNING):
@@ -369,7 +372,6 @@ class TestCheckCovarianceMatrix:
 
 
 class TestCorrelationFromCovariance:
-
     def test_diagonal_is_ones(self, valid_cov):
         """The diagonal of the correlation matrix should be all ones, since it represents the correlation of each variable with itself."""
         corr = correlation_from_covariance(valid_cov)

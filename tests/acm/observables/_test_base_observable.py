@@ -62,8 +62,8 @@ from copy import copy, deepcopy
 from pathlib import Path
 
 import numpy as np
-import xarray
 import pytest
+import xarray
 
 from acm.observables.base import Observable
 
@@ -353,8 +353,8 @@ def test_get_covariance_matrix():
     obst = Observable(
         stat_name="tpcf", paths=dict(data_dir=DIR_TEST, model_dir=DIR_TEST)
     )
-    cov_matrix = obst.get_covariance_matrix()
-    assert False
+    cov_matrix = obst.get_covariance_matrix()  # noqa: F841
+    assert False  # noqa: B011, PT015
 
 
 def test_flatten_output():

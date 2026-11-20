@@ -1,4 +1,5 @@
 """Tests for acm.observables.lsstypes."""
+
 import logging
 
 import lsstypes
@@ -15,12 +16,14 @@ from acm.observables.lsstypes import (
 
 from .conftest import DummyModel
 
-# ruff: noqa: ANN001, ANN201, D102, D103, S101
 
-#%% Builders for minimal ObservableTree structures used in tests
+# %% Builders for minimal ObservableTree structures used in tests
 def make_leaf(c, val) -> ObservableLeaf:
     """Make a simple ObservableLeaf with a 'c' coordinate and a single value array."""
-    return ObservableLeaf(coords=["c"], c=np.asarray(c, dtype=float), val=np.asarray(val, dtype=float))
+    return ObservableLeaf(
+        coords=["c"], c=np.asarray(c, dtype=float), val=np.asarray(val, dtype=float)
+    )
+
 
 def make_y_sample(seed: int, g: tuple = (0, 1), n_c: int = 4) -> ObservableTree:
     """Make a simple y ObservableTree with a 'g' label and 'c' coordinate."""
@@ -29,12 +32,19 @@ def make_y_sample(seed: int, g: tuple = (0, 1), n_c: int = 4) -> ObservableTree:
     branches = [make_leaf(c, rng.normal(size=n_c)) for _ in g]
     return ObservableTree(branches, g=list(g))
 
+
 def make_x_sample(p0: float, p1: float) -> ObservableTree:
     """Make a simple x ObservableTree with two parameters."""
-    leaves = [ObservableLeaf(value=np.asarray(p0)), ObservableLeaf(value=np.asarray(p1))]
+    leaves = [
+        ObservableLeaf(value=np.asarray(p0)),
+        ObservableLeaf(value=np.asarray(p1)),
+    ]
     return ObservableTree(leaves, parameters=["p0", "p1"])
 
-def make_tree(n_samples: int = 3, n_test: int = 2, n_cov: int = 4, seed: int = 0) -> ObservableTree:
+
+def make_tree(
+    n_samples: int = 3, n_test: int = 2, n_cov: int = 4, seed: int = 0
+) -> ObservableTree:
     """Build a minimal top-level tree with x, y, covariance_y, x_test, y_test branches."""
     rng = np.random.default_rng(seed)
 
@@ -52,21 +62,25 @@ def make_tree(n_samples: int = 3, n_test: int = 2, n_cov: int = 4, seed: int = 0
         name=["x", "y", "covariance_y", "x_test", "y_test"],
     )
 
-#%% Fixtures for LsstypesObservable tests
+
+# %% Fixtures for LsstypesObservable tests
 @pytest.fixture
 def tree() -> ObservableTree:
     return make_tree()
 
+
 @pytest.fixture
 def obs(tree) -> LsstypesObservable:
     return LsstypesObservable(data=tree)
+
 
 @pytest.fixture
 def obs_with_model(tree) -> LsstypesObservable:
     n_features = np.asarray(next(iter(tree.get(name="y"))).value()).size
     return LsstypesObservable(data=tree, model=DummyModel(n_features=n_features))  # ty: ignore[invalid-argument-type]
 
-#%% Tests
+
+# %% Tests
 class TestIsValidTree:
     """Tests for the _is_valid_tree utility function."""
 
@@ -75,7 +89,7 @@ class TestIsValidTree:
 
     def test_missing_top_name_label_returns_false(self):
         leaf = ObservableLeaf(value=np.array(1.0))
-        bare = ObservableTree([leaf], other=[0]) # Top-level label is not "name"
+        bare = ObservableTree([leaf], other=[0])  # Top-level label is not "name"
         assert not _is_valid_tree(bare)
 
     @pytest.mark.parametrize("drop", ["x", "y"])
@@ -101,11 +115,15 @@ class TestFormatLike:
 
     def test_builds_tree_indexed_by_array_rows(self, tree):
         y = tree.get(name="y")
-        sample = next(iter(y)) # Using y-element structure as a template for the new tree branches
+        sample = next(
+            iter(y)
+        )  # Using y-element structure as a template for the new tree branches
         arr = np.stack([np.asarray(sample.value())] * 3, axis=0)
         result = format_like(tree=sample, arr=arr, new="pred")
         assert "pred" in result.labels("unflatten")
-        np.testing.assert_allclose(np.asarray(result.value(concatenate=False))[0], arr[0])
+        np.testing.assert_allclose(
+            np.asarray(result.value(concatenate=False))[0], arr[0]
+        )
 
     def test_builds_tree_from_independent_array(self, tree):
         """Format like with an independant array matching the tree length."""
@@ -116,7 +134,9 @@ class TestFormatLike:
         arr = rng.normal(size=(4, n_features))
         result = format_like(tree=sample, arr=arr, new="pred")
         assert list(result.labels("unflatten")["pred"]) == [0, 1, 2, 3]
-        np.testing.assert_allclose(np.asarray(result.value(concatenate=False))[2], arr[2])
+        np.testing.assert_allclose(
+            np.asarray(result.value(concatenate=False))[2], arr[2]
+        )
 
     @pytest.mark.parametrize("delta", [-1, 1], ids=["too_short", "too_long"])
     def test_incompatible_array_length_raises(self, tree, delta):
@@ -125,7 +145,7 @@ class TestFormatLike:
         sample = next(iter(y))
         n_features = np.asarray(sample.value()).size
         arr = np.zeros((3, n_features + delta))  # wrong length per row
-        match=f"has length {n_features + delta}, but {n_features} values are expected"
+        match = f"has length {n_features + delta}, but {n_features} values are expected"
         with pytest.raises(ValueError, match=match):
             format_like(tree=sample, arr=arr, new="pred")
 
@@ -133,8 +153,11 @@ class TestFormatLike:
         y = tree.get(name="y")
         sample = next(iter(y))
         arr = np.stack([np.asarray(sample.value())] * 3, axis=0)
-        with pytest.raises(ValueError, match="Cannot use labels with same name at different levels"):
+        with pytest.raises(
+            ValueError, match="Cannot use labels with same name at different levels"
+        ):
             format_like(tree=sample, arr=arr, new="g")  # "g" already exists as a label
+
 
 class TestGetFilterIndexes:
     """Tests for the get_filter_indexes utility function."""
@@ -171,7 +194,7 @@ class TestLoadCanLoad:
         lsstypes.write(str(fn), tree)
         loaded = LsstypesObservable.load(fn)
         assert isinstance(loaded, LsstypesObservable)
-        assert loaded._data == tree # The tree structure should be identical
+        assert loaded._data == tree  # The tree structure should be identical
 
     def test_load_invalid_tree_raises(self, tmp_path):
         leaf = ObservableLeaf(value=np.array(1.0))
@@ -208,6 +231,7 @@ class TestLoadCanLoad:
         fn.write_bytes(b"not a real hdf5 file")
         assert LsstypesObservable.can_load(fn) is False
 
+
 class TestCopy:
     """Tests for the LsstypesObservable._copy method."""
 
@@ -227,7 +251,7 @@ class TestXNames:
 
     def test_filtered_order(self, obs):
         obs.set_filters(parameters=["p1", "p0"])
-        assert obs.x_names == ["p0", "p1"] # Also preserved
+        assert obs.x_names == ["p0", "p1"]  # Also preserved
 
     def test_filtered_by_parameters_filter(self, obs):
         obs.set_filters(parameters=["p1"])
@@ -257,7 +281,7 @@ class TestFiltersSetter:
     """Tests for the LsstypesObservable.set_filters method."""
 
     def test_sets_filters_idx_only_for_affected_names(self, obs):
-        obs.set_filters(g=[0]) # Only y and covariance_y have a g label
+        obs.set_filters(g=[0])  # Only y and covariance_y have a g label
         assert "y" in obs._filters_idx
         assert "covariance_y" in obs._filters_idx
         assert "x" not in obs._filters_idx
@@ -280,7 +304,9 @@ class TestApplyFilters:
     def test_label_filter(self, obs):
         obs.set_filters(g=[0])
         filtered = obs._apply_filters(obs.get_data("y", raw=True))
-        g_values = filtered.labels("unflatten", level=None)["g"] # All filtered g values
+        g_values = filtered.labels("unflatten", level=None)[
+            "g"
+        ]  # All filtered g values
         assert list(g_values) == [0] * len(g_values)
 
     def test_coordinate_filter(self, obs):
@@ -288,7 +314,7 @@ class TestApplyFilters:
         filtered = obs._apply_filters(obs.get_data("y", raw=True))
         y_default = obs.get_data("y", raw=True)
         assert filtered != y_default
-        for sample in filtered: # Both g=0 and g=1 branches should be filtered
+        for sample in filtered:  # Both g=0 and g=1 branches should be filtered
             for g in [0, 1]:
                 c_values = np.asarray(sample.get(g=g).c)
                 assert c_values.min() >= 0.0
@@ -306,11 +332,13 @@ class TestApplyFilters:
         c_with_step = np.asarray(next(iter(with_step)).get(g=0).c)
         np.testing.assert_array_equal(c_no_step, c_with_step)
 
-    def test_slice_on_label_raises(self, obs): # lsstypes behavior
+    def test_slice_on_label_raises(self, obs):  # lsstypes behavior
         with pytest.raises(ValueError, match="not found"):
             obs.set_filters(g=slice(0, 1))
 
-    @pytest.mark.xfail(reason="lsstypes bug: unknown filter name does not raise on select, but raises on get")
+    @pytest.mark.xfail(
+        reason="lsstypes bug: unknown filter name does not raise on select, but raises on get"
+    )
     def test_unknown_filter_name_raises_keyerror(self, obs):
         obs.set_filters(bogus=[0])
         with pytest.raises(KeyError):
@@ -318,7 +346,7 @@ class TestApplyFilters:
 
     def test_non_existent_coord_logs_warning(self, obs, caplog):
         with caplog.at_level(logging.DEBUG):
-            obs.set_filters(nonexistent=[0]) # Internally calls _apply_filters
+            obs.set_filters(nonexistent=[0])  # Internally calls _apply_filters
         assert any("Ignoring unknown filter keys" in r.message for r in caplog.records)
 
     def test_sample_level_filter_reduces_row_count(self, obs):
@@ -366,7 +394,9 @@ class TestFilter2D:
 class TestGetData:
     """Tests for the LsstypesObservable.get_data method."""
 
-    @pytest.mark.parametrize(("raw", "nested"), [(False, False), (False, True), (True, False)])
+    @pytest.mark.parametrize(
+        ("raw", "nested"), [(False, False), (False, True), (True, False)]
+    )
     def test_default_raw_nested(self, obs, raw, nested):
         result = obs.get_data("y", raw=raw, nested=nested)
         if raw:
@@ -388,7 +418,9 @@ class TestGetAttr:
     def test_data_variable_shortcuts_to_get_data(self, obs):
         np.testing.assert_array_equal(obs.y, obs.get_data("y"))
 
-    @pytest.mark.parametrize("name", ["_ipython_canary_method_should_not_exist_", "bogus_attr"])
+    @pytest.mark.parametrize(
+        "name", ["_ipython_canary_method_should_not_exist_", "bogus_attr"]
+    )
     def test_unknown_attribute_raises(self, obs, name):
         with pytest.raises(AttributeError):
             getattr(obs, name)
@@ -435,7 +467,9 @@ class TestGetPrediction:
     def test_nested_filters_no_selection(self, obs_with_model):
         obs_with_model.set_filters(g=[0], c=slice(0.0, 0.5))
         obs_with_model.set_selection("y", indices=[0, 2])
-        pred_nested = obs_with_model.get_prediction(np.zeros((2, 2)), nested=True) # skips selection
+        pred_nested = obs_with_model.get_prediction(
+            np.zeros((2, 2)), nested=True
+        )  # skips selection
         assert pred_nested.shape == (2, 1, 2)  # n_pred, n_g(selected), n_c(selected)
 
 
@@ -450,25 +484,27 @@ class TestGetModelError:
         error = obs_with_model.get_model_error(method="median")
         x_test, y_test = obs_with_model.get_test_set()
         pred = obs_with_model.model.get_prediction(x_test)
-        expected = np.median(np.abs(y_test - pred), axis=0) # shape is (n_features,)
+        expected = np.median(np.abs(y_test - pred), axis=0)  # shape is (n_features,)
         np.testing.assert_allclose(error, expected)
 
     @pytest.mark.parametrize("method", ["median", "stdev"])
     def test_raw_returns_tree(self, obs_with_model, method):
         """Test that raw=True returns an ObservableTree, and that the values match the non-raw output."""
-        kwargs = {} if method == "median" else {"diag": True} # stdev calls covariance
+        kwargs = {} if method == "median" else {"diag": True}  # stdev calls covariance
         error = obs_with_model.get_model_error(method=method, raw=True, **kwargs)
         y_sample = next(iter(obs_with_model.get_data("y", raw=True)))
         assert isinstance(error, type(y_sample))
         np.testing.assert_allclose(
             np.asarray(error.value()),
             obs_with_model.get_model_error(method=method, **kwargs),
-        ) # No filters - values should match
+        )  # No filters - values should match
 
     def test_nested_filters_no_selection(self, obs_with_model):
         obs_with_model.set_filters(g=[0], c=slice(0.0, 0.5))
         obs_with_model.set_selection("y", indices=[0, 2])
-        error_nested = obs_with_model.get_model_error(method="median", nested=True) # skips selection
+        error_nested = obs_with_model.get_model_error(
+            method="median", nested=True
+        )  # skips selection
         assert error_nested.shape == (1, 2)  # n_g(selected), n_c(selected)
 
 
@@ -484,13 +520,14 @@ class TestGetModelCovariance:
         x_test, y_test = obs_with_model.get_test_set()
         pred = obs_with_model.model.get_prediction(x_test)
         diff = y_test - pred
-        expected = 2.0 * np.cov(diff, rowvar=False) # shape is (n_features, n_features)
+        expected = 2.0 * np.cov(diff, rowvar=False)  # shape is (n_features, n_features)
         np.testing.assert_allclose(cov, expected)
 
 
 @pytest.fixture
 def single_sample_obs() -> LsstypesObservable:
     return LsstypesObservable(data=make_tree(n_samples=1, n_test=1, n_cov=2))
+
 
 class TestSingleSampleTree:
     """Tests for LsstypesObservable with a single-sample tree."""
@@ -508,4 +545,6 @@ class TestSingleSampleTree:
         x_tree = single_sample_obs.get_data("x", raw=True)
         filtered = single_sample_obs._apply_filters(x_tree)
         assert filtered.labels("unflatten").keys() == x_tree.labels("unflatten").keys()
-        np.testing.assert_allclose(np.asarray(filtered.value()), np.asarray(x_tree.value()))
+        np.testing.assert_allclose(
+            np.asarray(filtered.value()), np.asarray(x_tree.value())
+        )
