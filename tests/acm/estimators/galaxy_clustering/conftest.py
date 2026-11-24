@@ -7,10 +7,9 @@ import pytest
 from acm.estimators.galaxy_clustering.backends import EstimatorBackend
 from acm.estimators.galaxy_clustering.backends.base import register_backend
 
-# ruff: noqa: ANN001, ANN201, ARG001, ARG002, D101, D102, D103, INP001
-
 N_DATA = 50
 N_RANDOMS = 250
+
 
 @register_backend("dummyestimatorbackend")
 class DummyBackend(EstimatorBackend):
@@ -47,7 +46,7 @@ class DummyBackend(EstimatorBackend):
         rng = np.random.default_rng(seed)
         if method == "randoms":
             n = nquery or 100
-            cout =  rng.uniform(0, 100, size=(n, 3))
+            cout = rng.uniform(0, 100, size=(n, 3))
         elif method == "lattice":
             n = np.prod(self.meshsize)
             cout = rng.uniform(0, 100, size=(n, 3))
@@ -55,13 +54,16 @@ class DummyBackend(EstimatorBackend):
             raise ValueError("method must be one of ['lattice', 'randoms']")
         return cout
 
+
 @pytest.fixture
 def dummy_backend(data_positions, randoms_positions):
     return DummyBackend(data_positions, randoms_positions)
 
+
 @pytest.fixture
 def dummy_backend_no_randoms(data_positions):
     return DummyBackend(data_positions, randoms_positions=None)
+
 
 @pytest.fixture
 def data_positions():
@@ -78,6 +80,7 @@ def randoms_positions():
 @pytest.fixture
 def make_estimator(data_positions, randoms_positions):
     """Instantiate any BaseEstimator subclass with a DummyBackend."""
+
     def _make(cls, **kwargs) -> EstimatorBackend:
         return cls(
             backend="dummyestimatorbackend",
@@ -85,9 +88,11 @@ def make_estimator(data_positions, randoms_positions):
             randoms_positions=randoms_positions,
             **kwargs,
         )
+
     return _make
 
-#%% Mock estimator dependencies modules - more detailled mocks can be added in the test files themselves if needed
+
+# %% Mock estimator dependencies modules - more detailled mocks can be added in the test files themselves if needed
 def pytest_configure(config):
     sys.modules["pycorr"] = MagicMock()
     sys.modules["kymatio"] = MagicMock()

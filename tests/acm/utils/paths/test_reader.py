@@ -6,9 +6,7 @@ import pytest
 
 from acm.utils.paths.reader import list_registry_files, lookup_registry_path
 
-# ruff: noqa: ANN001, ANN201, ARG002, D101, D102, D103, INP001, S101
-
-#%% Fixtrures
+# %% Fixtrures
 MODULE_NAME = "acm.utils.paths.reader"
 
 YAML_CONTENT = """\
@@ -18,11 +16,13 @@ top:
 flat_key: hello
 """
 
+
 @pytest.fixture
 def nersc_env():
     """Enable require_nersc by setting NERSC_HOST=perlmutter."""
     with patch.dict(os.environ, {"NERSC_HOST": "perlmutter"}):
         yield
+
 
 @pytest.fixture
 def yaml_file(tmp_path):
@@ -30,10 +30,11 @@ def yaml_file(tmp_path):
     p.write_text(YAML_CONTENT)
     return p
 
-#%% Test classes
+
+# %% Test classes
+
 
 class TestLookupRegistry:
-
     def test_single_key(self, nersc_env, yaml_file):
         result = lookup_registry_path(str(yaml_file), "flat_key")
         assert result == "hello"
@@ -74,8 +75,8 @@ class TestLookupRegistry:
         with patch.dict(os.environ, {}, clear=True), pytest.raises(OSError):  # noqa: PT011
             lookup_registry_path(str(yaml_file), "flat_key")
 
-class TestListRegistry:
 
+class TestListRegistry:
     def test_default_ext(self):
         """Real package directory should contain at least the yaml files used by lookup_registry_path."""
         files = list_registry_files()

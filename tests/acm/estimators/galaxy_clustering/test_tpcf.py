@@ -8,11 +8,9 @@ import pytest
 
 from acm.estimators.galaxy_clustering.tpcf import TwoPointCorrelationFunctionEstimator
 
-matplotlib.use("Agg") # Use a non-interactive backend for testing
+matplotlib.use("Agg")  # Use a non-interactive backend for testing
 
 MODULE = "acm.estimators.galaxy_clustering.tpcf"
-
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, INP001, S101
 
 
 @pytest.fixture
@@ -42,10 +40,16 @@ def mock_poles():
 
 
 class TestCompute:
-
     @patch(f"{MODULE}.TwoPointCorrelationFunction")
     @patch(f"{MODULE}.from_pycorr")
-    def test_call_tpcf_with_correct_args(self, mock_from_pycorr, mock_tpcf, estimator, mock_tpcf_result, mock_count2corr):
+    def test_call_tpcf_with_correct_args(
+        self,
+        mock_from_pycorr,
+        mock_tpcf,
+        estimator,
+        mock_tpcf_result,
+        mock_count2corr,
+    ):
         mock_from_pycorr.return_value = mock_count2corr
         mock_tpcf.return_value = mock_tpcf_result
         estimator.compute(mode="s")
@@ -61,7 +65,14 @@ class TestCompute:
 
     @patch(f"{MODULE}.TwoPointCorrelationFunction")
     @patch(f"{MODULE}.from_pycorr")
-    def test_return_count2correlation(self, mock_from_pycorr, mock_tpcf, estimator, mock_tpcf_result, mock_count2corr):
+    def test_return_count2correlation(
+        self,
+        mock_from_pycorr,
+        mock_tpcf,
+        estimator,
+        mock_tpcf_result,
+        mock_count2corr,
+    ):
         mock_from_pycorr.return_value = mock_count2corr
         mock_tpcf.return_value = mock_tpcf_result
         result = estimator.compute()
@@ -69,7 +80,14 @@ class TestCompute:
 
     @patch(f"{MODULE}.TwoPointCorrelationFunction")
     @patch(f"{MODULE}.from_pycorr")
-    def test_pass_pycorr_result_to_from_pycorr(self, mock_from_pycorr, mock_tpcf, estimator, mock_tpcf_result, mock_count2corr):
+    def test_pass_pycorr_result_to_from_pycorr(
+        self,
+        mock_from_pycorr,
+        mock_tpcf,
+        estimator,
+        mock_tpcf_result,
+        mock_count2corr,
+    ):
         mock_from_pycorr.return_value = mock_count2corr
         mock_tpcf.return_value = mock_tpcf_result
         estimator.compute()
@@ -77,7 +95,6 @@ class TestCompute:
 
 
 class TestLoad:
-
     @patch(f"{MODULE}.lsstypes.read")
     def test_load_calls_lsstypes_read(self, mock_read, tmp_path):
         mock_obj = MagicMock(spec=lsstypes.Count2Correlation)
@@ -107,7 +124,6 @@ class TestLoad:
 
 
 class TestPlot:
-
     def test_create_fig_and_ax_when_none_provided(self, mock_poles):
         fig, ax = TwoPointCorrelationFunctionEstimator.plot(mock_poles)
         assert isinstance(fig, plt.Figure)
@@ -116,7 +132,11 @@ class TestPlot:
 
     def test_use_provided_fig_and_ax(self, mock_poles):
         fig_in, ax_in = plt.subplots()
-        fig_out, ax_out = TwoPointCorrelationFunctionEstimator.plot(mock_poles, fig=fig_in, ax=ax_in)
+        fig_out, ax_out = TwoPointCorrelationFunctionEstimator.plot(
+            mock_poles,
+            fig=fig_in,
+            ax=ax_in,
+        )
         assert fig_out is fig_in
         assert ax_out is ax_in
         plt.close(fig_in)

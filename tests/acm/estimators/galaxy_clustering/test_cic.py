@@ -12,11 +12,11 @@ matplotlib.use("Agg")
 
 MODULE = "acm.estimators.galaxy_clustering.cic"
 
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, INP001, S101
 
 @pytest.fixture
 def estimator(make_estimator):
     return make_estimator(CountsInCells)
+
 
 @pytest.fixture
 def estimator_no_randoms(dummy_backend_no_randoms, data_positions):
@@ -27,11 +27,13 @@ def estimator_no_randoms(dummy_backend_no_randoms, data_positions):
         randoms_positions=None,
     )
 
+
 @pytest.fixture
 def compute_result(estimator):
     """Compute a CountsInCells result for testing."""
     query_positions = np.zeros((10, 3))
     return estimator.compute(query_positions=query_positions)
+
 
 @pytest.fixture
 def file(tmp_path, estimator, compute_result):
@@ -42,7 +44,6 @@ def file(tmp_path, estimator, compute_result):
 
 
 class TestCompute:
-
     def test_raise_when_no_query_positions_and_no_randoms(self, estimator_no_randoms):
         """ValueError must be raised in non-uniform geometry without explicit query positions."""
         with pytest.raises(ValueError, match="non-uniform geometry"):
@@ -54,12 +55,17 @@ class TestCompute:
         rng = np.random.default_rng(0)
         query_pos = rng.uniform(0, 100, size=(20, 3))
         estimator.compute(query_positions=query_pos)
-        estimator.backend.read_density_contrast.assert_called_once_with(query_pos, resampler="cic")
+        estimator.backend.read_density_contrast.assert_called_once_with(
+            query_pos,
+            resampler="cic",
+        )
 
     def test_fall_back_to_backend_query_positions(self, estimator):
         """When query_positions is None, the backend's get_query_positions method is called."""
         # Override the backend's get_query_positions method to return a fixed set of positions
-        estimator.backend.get_query_positions = MagicMock(return_value=np.zeros((20, 3)))
+        estimator.backend.get_query_positions = MagicMock(
+            return_value=np.zeros((20, 3))
+        )
         estimator.compute(query_positions=None, nquery=50)
         estimator.backend.get_query_positions.assert_called_once_with(nquery=50)
 
@@ -71,16 +77,22 @@ class TestCompute:
         assert "index" in result.coords()
         assert np.array_equal(result.coords("index"), np.arange(10))
 
-class TestLoad:
 
+class TestLoad:
     def test_returns_object_directly(self, file, compute_result):
         """The load method returns an ObservableLeaf when to_hist is False."""
         loaded_obj = CountsInCells.load(file, to_hist=False)
         assert isinstance(loaded_obj, lsstypes.ObservableLeaf)
         assert "density_contrast" in loaded_obj.values()
         assert "index" in loaded_obj.coords()
-        assert np.array_equal(loaded_obj.density_contrast, compute_result.density_contrast)
-        assert np.array_equal(loaded_obj.coords("index"), compute_result.coords("index"))
+        assert np.array_equal(
+            loaded_obj.density_contrast,
+            compute_result.density_contrast,
+        )
+        assert np.array_equal(
+            loaded_obj.coords("index"),
+            compute_result.coords("index"),
+        )
 
     def test_converts_to_histogram(self, file, compute_result):
         """The load method converts to a histogram representation when to_hist is True."""
@@ -106,12 +118,16 @@ class TestLoad:
         assert isinstance(loaded_obj, lsstypes.ObservableLeaf)
         assert "density_contrast" in loaded_obj.values()
         assert "index" in loaded_obj.coords()
-        assert np.array_equal(loaded_obj.density_contrast, compute_result.density_contrast)
-        assert np.array_equal(loaded_obj.coords("index"), compute_result.coords("index"))
+        assert np.array_equal(
+            loaded_obj.density_contrast, compute_result.density_contrast
+        )
+        assert np.array_equal(
+            loaded_obj.coords("index"),
+            compute_result.coords("index"),
+        )
 
 
 class TestPlot:
-
     def test_creates_fig_and_ax_when_none_provided(self, compute_result):
         fig, ax = CountsInCells.plot(compute_result)
         assert isinstance(fig, plt.Figure)

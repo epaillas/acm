@@ -9,10 +9,8 @@ from acm.catalogs.dataclasses import Tracer
 
 from .conftest import MockAbacusHOD, make_hod_tracer_dict
 
-# ruff: noqa: ANN001, ANN201, ARG002, D102, D103, S101
+# %% Fixtures
 
-
-#%% Fixtures
 
 @pytest.fixture
 def config_dict():
@@ -26,8 +24,9 @@ def config_dict():
             "FOO_params": {"alpha": 1.0, "sigma": 0.3, "ic": 1},
             "BAR_params": {"alpha": 0.8, "sigma": 0.2, "ic": 1},
             "LRG_params": {"alpha": 0.9, "sigma": 0.25, "ic": 1},
-        }
+        },
     }
+
 
 @pytest.fixture
 def config_file(tmp_path, config_dict):
@@ -35,6 +34,7 @@ def config_file(tmp_path, config_dict):
     with open(path, "w") as f:  # noqa: PTH123
         yaml.dump(config_dict, f)
     return path
+
 
 @pytest.fixture
 def backend(config_file):
@@ -45,13 +45,16 @@ def backend(config_file):
         config_file=config_file,
     )
 
+
 @pytest.fixture
 def tracer_foo():
     return Tracer(name="FOO", params={"alpha": 1.2})
 
+
 @pytest.fixture
 def tracer_bar():
     return Tracer(name="BAR", params={"alpha": 0.9})
+
 
 @pytest.fixture
 def dm_catalog(backend, tracer_foo):
@@ -117,7 +120,7 @@ class TestLoadDarkMatterCatalog:
         """Requesting a tracer should set its flag to True in the returned AbacusHOD instance."""
         backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer_bar])
         dm = backend._cache[0.5]  # Access the cached instance
-        assert "FOO" in dm.tracers # Not requested, but True in config
+        assert "FOO" in dm.tracers  # Not requested, but True in config
         assert dm.hod_params["tracer_flags"]["FOO"] is True
         assert "BAR" in dm.tracers
         assert dm.hod_params["tracer_flags"]["BAR"] is True
@@ -131,13 +134,13 @@ class TestLoadDarkMatterCatalog:
 
     def test_tracer_name_only(self, backend):
         """Passing a Tracer with only a name and no params should use the config params."""
-        tracer = Tracer(name="BAR") # Implicitly no params
+        tracer = Tracer(name="BAR")  # Implicitly no params
         backend.load_dark_matter_catalog(redshift=0.5, tracers=[tracer])
         dm = backend._cache[0.5]  # Access the cached instance
-        assert "FOO" in dm.tracers # Not requested, but True in config
-        assert dm.hod_params["FOO_params"]["alpha"] == 1.0 # Default from config
+        assert "FOO" in dm.tracers  # Not requested, but True in config
+        assert dm.hod_params["FOO_params"]["alpha"] == 1.0  # Default from config
         assert "BAR" in dm.tracers
-        assert dm.hod_params["BAR_params"]["alpha"] == 0.8 # Default from config
+        assert dm.hod_params["BAR_params"]["alpha"] == 0.8  # Default from config
 
     def test_missing_tracer_params_raises(self, config_file, tmp_path):
         """A tracer with no params in config and no params in tracer should raise."""
@@ -146,7 +149,7 @@ class TestLoadDarkMatterCatalog:
             "HOD_params": {
                 "tracer_flags": {"FOO": False},
                 "FOO_params": {},  # empty
-            }
+            },
         }
         path = tmp_path / "empty_config.yaml"
         path.write_text(yaml.dump(config))
@@ -161,6 +164,7 @@ class TestLoadDarkMatterCatalog:
         assert 0.5 in backend._cache
         assert 1.0 in backend._cache
 
+
 class TestGetDarkMatterCatalog:
     """Tests for AbacusHODBackend.get_dark_matter_catalog."""
 
@@ -174,6 +178,7 @@ class TestGetDarkMatterCatalog:
         """Requesting a redshift not in cache should raise a KeyError."""
         with pytest.raises(KeyError, match="has not been loaded yet"):
             backend.get_dark_matter_catalog(redshift=0.9)
+
 
 class TestMakeGalaxyCatalog:
     """Tests for AbacusHODBackend.make_galaxy_catalog."""
@@ -215,7 +220,11 @@ class TestMakeGalaxyCatalog:
 
     def test_bgs_without_lrg_raises(self, config_file, dm_catalog):
         """Requesting BGS without LRG default values should raise an error."""
-        backend = AbacusHODBackend(sim_type="base", config_file=config_file, HOD_params={"tracer_flags": {"LRG": False}, "LRG_params": {"alpha": 1.0}})
+        backend = AbacusHODBackend(
+            sim_type="base",
+            config_file=config_file,
+            HOD_params={"tracer_flags": {"LRG": False}, "LRG_params": {"alpha": 1.0}},
+        )
         tracer = Tracer(name="BGS", params={})
         with pytest.raises(KeyError, match="BGS"):
             backend.make_galaxy_catalog(dm_catalog, tracers=[tracer])
@@ -245,7 +254,7 @@ class TestMakeGalaxyCatalog:
         tracer = Tracer(name="FOO", params={"sigma": -0.5})
         backend.make_galaxy_catalog(dm_catalog, tracers=[tracer], use_logsigma=True)
         received_sigma = dm_catalog.last_run_hod_tracers["FOO"]["sigma"]
-        assert received_sigma == pytest.approx(10 ** -0.5)
+        assert received_sigma == pytest.approx(10**-0.5)
 
     def test_logsigma_key_converted(self, backend, dm_catalog):
         """logsigma=-0.5 should be removed and replaced by sigma=10**(-0.5) before run_hod."""
@@ -253,7 +262,7 @@ class TestMakeGalaxyCatalog:
         backend.make_galaxy_catalog(dm_catalog, tracers=[tracer])
         received = dm_catalog.last_run_hod_tracers["FOO"]
         assert "logsigma" not in received
-        assert received["sigma"] == pytest.approx(10 ** -0.5)
+        assert received["sigma"] == pytest.approx(10**-0.5)
 
     def test_seed_alias_accepted(self, backend, dm_catalog, tracer_foo):
         """'seed' should be accepted as alias for 'reseed'."""
@@ -262,7 +271,11 @@ class TestMakeGalaxyCatalog:
 
     def test_nthreads_alias_accepted(self, backend, dm_catalog, tracer_foo):
         """'nthreads' should be accepted as alias for 'Nthread'."""
-        result = backend.make_galaxy_catalog(dm_catalog, tracers=[tracer_foo], nthreads=2)
+        result = backend.make_galaxy_catalog(
+            dm_catalog,
+            tracers=[tracer_foo],
+            nthreads=2,
+        )
         assert tracer_foo in result
 
 
@@ -346,7 +359,7 @@ class TestUpdateDefaultTracers:
         hod_params = {"tracer_flags": {"FOO": True}, "FOO_params": {"alpha": 1.0}}
         backend.update_default_tracers(hod_params)  # no tracers kwarg
         assert hod_params["tracer_flags"]["FOO"] is True
-        assert hod_params["FOO_params"]["alpha"] == 1.0 # remains unchanged
+        assert hod_params["FOO_params"]["alpha"] == 1.0  # remains unchanged
 
     def test_new_tracer_added_to_flags(self, backend):
         """A tracer not previously in tracer_flags should be added."""

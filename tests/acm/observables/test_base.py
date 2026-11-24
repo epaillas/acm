@@ -367,4 +367,5 @@ class TestAbstractContract:
             # x_names intentionally omitted
 
         with pytest.raises(TypeError):
-            Incomplete()  # Because x_names is not implemented, this should raise a TypeError
+            # Because x_names is not implemented, this should raise a TypeError
+            Incomplete()  # ty: ignore[abstract-class-instantiation]

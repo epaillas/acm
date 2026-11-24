@@ -1,23 +1,24 @@
 """Mocking all backends here to avoid imports of loaded packages by mistake."""
+
 import sys
 from unittest.mock import MagicMock
 
 import numpy as np
 
-# ruff: noqa: ANN001, ANN201, ARG002, D103
 
 def make_hod_tracer_dict(n: int = 100, n_cent: int = 10) -> dict:
     """Generate a minimal AbacusHOD-style tracer output dict."""
     rng = np.random.default_rng(42)
     return {
-        "x":      rng.uniform(0, 500, n).tolist(),
-        "y":      rng.uniform(0, 500, n).tolist(),
-        "z":      rng.uniform(0, 500, n).tolist(),
-        "vx":     rng.normal(0, 100, n).tolist(),
-        "vy":     rng.normal(0, 100, n).tolist(),
-        "vz":     rng.normal(0, 100, n).tolist(),
-        "Ncent":  n_cent,
+        "x": rng.uniform(0, 500, n).tolist(),
+        "y": rng.uniform(0, 500, n).tolist(),
+        "z": rng.uniform(0, 500, n).tolist(),
+        "vx": rng.normal(0, 100, n).tolist(),
+        "vy": rng.normal(0, 100, n).tolist(),
+        "vz": rng.normal(0, 100, n).tolist(),
+        "Ncent": n_cent,
     }
+
 
 class MockAbacusHOD:
     """
@@ -49,10 +50,12 @@ class MockAbacusHOD:
         self.last_run_hod_tracers = tracers  # store for inspection
         return {name: make_hod_tracer_dict() for name in tracers}
 
+
 mock_abacus_module = MagicMock()
 mock_abacus_module.AbacusHOD = MockAbacusHOD
 
-def pytest_configure(config):  # noqa: ARG001
+
+def pytest_configure(config):
     sys.modules["abacusnbody"] = MagicMock()
     sys.modules["abacusnbody.hod"] = MagicMock()
     sys.modules["abacusnbody.hod.abacus_hod"] = mock_abacus_module

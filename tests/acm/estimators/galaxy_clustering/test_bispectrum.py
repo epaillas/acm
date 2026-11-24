@@ -10,7 +10,6 @@ from acm.estimators.galaxy_clustering.bispectrum import BispectrumMultipoles
 
 MODULE = "acm.estimators.galaxy_clustering.bispectrum"
 
-# ruff: noqa: ANN001, ANN201, ANN202, ARG002, D101, D102, D103, INP001, S101
 
 @pytest.fixture
 def estimator(data_positions, randoms_positions):
@@ -21,6 +20,7 @@ def estimator(data_positions, randoms_positions):
         randoms_positions=randoms_positions,
     )
 
+
 @pytest.fixture
 def estimator_no_randoms(data_positions):
     backend = JaxpowerBackend(data_positions, None)
@@ -29,6 +29,7 @@ def estimator_no_randoms(data_positions):
         data_positions=data_positions,
         randoms_positions=None,
     )
+
 
 def _make_mock_spectrum(basis: str, k: np.ndarray):
     obj = MagicMock(spec=lsstypes.Mesh3SpectrumPoles)
@@ -39,29 +40,40 @@ def _make_mock_spectrum(basis: str, k: np.ndarray):
     obj.get.return_value.value.return_value = MagicMock(real=np.ones(len(k)))
     return obj
 
+
 @pytest.fixture
 def mock_spectrum_scoccimarro():
     return _make_mock_spectrum("scoccimarro", np.linspace(0.01, 0.5, 50))
+
 
 @pytest.fixture
 def mock_spectrum_sugiyama():
     k = np.column_stack([np.linspace(0.01, 0.5, 30)] * 2)
     return _make_mock_spectrum("sugiyama", k)
 
-class TestInit:
 
+class TestInit:
     def test_jit_cm3s_is_callable(self, estimator):
         assert callable(estimator.jit_cm3s)
 
-class TestCompute:
 
+class TestCompute:
     @patch(f"{MODULE}.BinMesh3SpectrumPoles")
     @patch(f"{MODULE}.cm3s")
     @patch(f"{MODULE}.compute_box3_normalization")
     @patch(f"{MODULE}.compute_fkp3_normalization")
     @patch(f"{MODULE}.compute_fkp3_shotnoise")
     @patch(f"{MODULE}.FKPField")
-    def test_randoms_use_fkp(self, mock_fkp, mock_shotnoise, mock_fkp_norm, mock_box_norm, mock_cm3s, mock_bin, estimator):
+    def test_randoms_use_fkp(
+        self,
+        mock_fkp,
+        mock_shotnoise,
+        mock_fkp_norm,
+        mock_box_norm,
+        mock_cm3s,
+        mock_bin,
+        estimator,
+    ):
         """FKP path must be used when randoms are provided."""
         estimator.jit_cm3s = mock_cm3s
         estimator.compute()
@@ -76,7 +88,16 @@ class TestCompute:
     @patch(f"{MODULE}.compute_fkp3_normalization")
     @patch(f"{MODULE}.compute_fkp3_shotnoise")
     @patch(f"{MODULE}.FKPField")
-    def test_no_randoms_use_box_normalization(self, mock_fkp, mock_shotnoise, mock_fkp_norm, mock_box_norm, mock_cm3s, mock_bin, estimator_no_randoms):
+    def test_no_randoms_use_box_normalization(
+        self,
+        mock_fkp,
+        mock_shotnoise,
+        mock_fkp_norm,
+        mock_box_norm,
+        mock_cm3s,
+        mock_bin,
+        estimator_no_randoms,
+    ):
         """Box normalization must be used when no randoms are provided."""
         estimator_no_randoms.jit_cm3s = mock_cm3s
         estimator_no_randoms.compute()
@@ -91,7 +112,16 @@ class TestCompute:
     @patch(f"{MODULE}.compute_fkp3_normalization")
     @patch(f"{MODULE}.compute_fkp3_shotnoise")
     @patch(f"{MODULE}.FKPField")
-    def test_returns_cloned_spectrum(self, mock_fkp, mock_shotnoise, mock_fkp_norm, mock_box_norm, mock_cm3s, mock_bin, estimator):
+    def test_returns_cloned_spectrum(
+        self,
+        mock_fkp,
+        mock_shotnoise,
+        mock_fkp_norm,
+        mock_box_norm,
+        mock_cm3s,
+        mock_bin,
+        estimator,
+    ):
         estimator.jit_cm3s = mock_cm3s
         result = estimator.compute()
         assert result is mock_cm3s.return_value.clone.return_value
@@ -102,7 +132,16 @@ class TestCompute:
     @patch(f"{MODULE}.compute_fkp3_normalization")
     @patch(f"{MODULE}.compute_fkp3_shotnoise")
     @patch(f"{MODULE}.FKPField")
-    def test_default_ells_scoccimarro(self, mock_fkp, mock_shotnoise, mock_fkp_norm, mock_box_norm, mock_cm3s, mock_bin, estimator):
+    def test_default_ells_scoccimarro(
+        self,
+        mock_fkp,
+        mock_shotnoise,
+        mock_fkp_norm,
+        mock_box_norm,
+        mock_cm3s,
+        mock_bin,
+        estimator,
+    ):
         """Default ells for scoccimarro basis must be (0, 2)."""
         estimator.jit_cm3s = mock_cm3s
         estimator.compute(basis="scoccimarro")
@@ -115,7 +154,16 @@ class TestCompute:
     @patch(f"{MODULE}.compute_fkp3_normalization")
     @patch(f"{MODULE}.compute_fkp3_shotnoise")
     @patch(f"{MODULE}.FKPField")
-    def test_default_ells_sugiyama(self, mock_fkp, mock_shotnoise, mock_fkp_norm, mock_box_norm, mock_cm3s, mock_bin, estimator):
+    def test_default_ells_sugiyama(
+        self,
+        mock_fkp,
+        mock_shotnoise,
+        mock_fkp_norm,
+        mock_box_norm,
+        mock_cm3s,
+        mock_bin,
+        estimator,
+    ):
         """Default ells for sugiyama basis must be [(0,0,0), (0,0,2)]."""
         estimator.jit_cm3s = mock_cm3s
         estimator.compute(basis="sugiyama")
@@ -128,7 +176,16 @@ class TestCompute:
     @patch(f"{MODULE}.compute_fkp3_normalization")
     @patch(f"{MODULE}.compute_fkp3_shotnoise")
     @patch(f"{MODULE}.FKPField")
-    def test_bin_mesh_receives_correct_args(self, mock_fkp, mock_shotnoise, mock_fkp_norm, mock_box_norm, mock_cm3s, mock_bin, estimator):
+    def test_bin_mesh_receives_correct_args(
+        self,
+        mock_fkp,
+        mock_shotnoise,
+        mock_fkp_norm,
+        mock_box_norm,
+        mock_cm3s,
+        mock_bin,
+        estimator,
+    ):
         """BinMesh3SpectrumPoles must receive basis, buffer_size, and mask_edges."""
         estimator.jit_cm3s = mock_cm3s
         estimator.compute(basis="scoccimarro", buffer_size=10, mask_edges="k1 > k2")
@@ -137,8 +194,8 @@ class TestCompute:
         assert kwargs["buffer_size"] == 10
         assert kwargs["mask_edges"] == "k1 > k2"
 
-class TestLoad:
 
+class TestLoad:
     @patch(f"{MODULE}.lsstypes.read")
     def test_load_returns_lsstypes_object(self, mock_read, tmp_path):
         mock_obj = MagicMock(spec=lsstypes.Mesh3SpectrumPoles)
@@ -147,8 +204,8 @@ class TestLoad:
         assert result is mock_obj
         mock_read.assert_called_once_with(tmp_path / "result.h5")
 
-class TestPlot:
 
+class TestPlot:
     def test_raises_for_wrong_obj_type(self):
         with pytest.raises(TypeError, match="Mesh3SpectrumPoles"):
             BispectrumMultipoles.plot(MagicMock())
@@ -170,8 +227,8 @@ class TestPlot:
         mock_plot.assert_called_once()
         plt.close("all")
 
-class TestPlotScoccimarro:
 
+class TestPlotScoccimarro:
     def test_creates_fig_and_ax_when_none_provided(self, mock_spectrum_scoccimarro):
         fig, ax = BispectrumMultipoles.plot(mock_spectrum_scoccimarro)
         assert isinstance(fig, plt.Figure)
@@ -180,7 +237,11 @@ class TestPlotScoccimarro:
 
     def test_uses_provided_fig_and_ax(self, mock_spectrum_scoccimarro):
         fig_in, ax_in = plt.subplots()
-        fig_out, ax_out = BispectrumMultipoles.plot(mock_spectrum_scoccimarro, fig=fig_in, ax=ax_in)
+        fig_out, ax_out = BispectrumMultipoles.plot(
+            mock_spectrum_scoccimarro,
+            fig=fig_in,
+            ax=ax_in,
+        )
         assert fig_out is fig_in
         assert ax_out is ax_in
         plt.close(fig_in)
@@ -206,7 +267,7 @@ class TestPlotScoccimarro:
         obj = _make_mock_spectrum("scoccimarro", k)
         fig, ax = BispectrumMultipoles.plot(obj, ells=(0, 2), weight_by_kprod=True)
         y_result = ax.lines[0].get_ydata()
-        y_expected = k**3 # NOTE: assuming ones for the mocked poles
+        y_expected = k**3  # NOTE: assuming ones for the mocked poles
         np.testing.assert_allclose(y_result, y_expected)  # ty:ignore[no-matching-overload]
         plt.close(fig)
 
@@ -216,7 +277,7 @@ class TestPlotScoccimarro:
         obj = _make_mock_spectrum("scoccimarro", k)
         fig, ax = BispectrumMultipoles.plot(obj, ells=(0, 2), weight_by_kprod=True)
         y_result = ax.lines[0].get_ydata()
-        y_expected = np.prod(k, axis=-1) # NOTE: assuming ones for the mocked poles
+        y_expected = np.prod(k, axis=-1)  # NOTE: assuming ones for the mocked poles
         np.testing.assert_allclose(y_result, y_expected)  # ty:ignore[no-matching-overload]
         plt.close(fig)
 
@@ -226,12 +287,12 @@ class TestPlotScoccimarro:
         obj = _make_mock_spectrum("scoccimarro", k)
         fig, ax = BispectrumMultipoles.plot(obj, ells=(0, 2), weight_by_kprod=False)
         y_result = ax.lines[0].get_ydata()
-        y_expected = np.ones_like(k) # NOTE: assuming ones for the mocked poles
+        y_expected = np.ones_like(k)  # NOTE: assuming ones for the mocked poles
         np.testing.assert_allclose(y_result, y_expected)  # ty:ignore[no-matching-overload]
         plt.close(fig)
 
-class TestPlotSugiyama:
 
+class TestPlotSugiyama:
     def test_creates_fig_and_ax_when_none_provided(self, mock_spectrum_sugiyama):
         fig, ax = BispectrumMultipoles.plot(mock_spectrum_sugiyama, ells=[(0, 0, 0)])
         assert isinstance(fig, plt.Figure)
@@ -240,13 +301,20 @@ class TestPlotSugiyama:
 
     def test_uses_provided_fig_and_ax(self, mock_spectrum_sugiyama):
         fig_in, ax_in = plt.subplots()
-        fig_out, ax_out = BispectrumMultipoles.plot(mock_spectrum_sugiyama, fig=fig_in, ax=ax_in)
+        fig_out, ax_out = BispectrumMultipoles.plot(
+            mock_spectrum_sugiyama,
+            fig=fig_in,
+            ax=ax_in,
+        )
         assert fig_out is fig_in
         assert ax_out is ax_in
         plt.close(fig_in)
 
     def test_draws_one_line_per_multipole(self, mock_spectrum_sugiyama):
-        fig, ax = BispectrumMultipoles.plot(mock_spectrum_sugiyama, ells=[(0, 0, 0), (0, 0, 2)])
+        fig, ax = BispectrumMultipoles.plot(
+            mock_spectrum_sugiyama,
+            ells=[(0, 0, 0), (0, 0, 2)],
+        )
         assert len(ax.lines) == 2
         plt.close(fig)
 
@@ -265,7 +333,7 @@ class TestPlotSugiyama:
         obj = _make_mock_spectrum("sugiyama", k)
         fig, ax = BispectrumMultipoles.plot(obj, ells=[(0, 0, 0)], weight_by_kprod=True)
         y_data = ax.lines[0].get_ydata()
-        y_expected = k**2 # NOTE: assuming ones for the mocked poles
+        y_expected = k**2  # NOTE: assuming ones for the mocked poles
         np.testing.assert_allclose(y_data, y_expected)  # ty:ignore[no-matching-overload]
         plt.close(fig)
 
@@ -286,7 +354,7 @@ class TestPlotSugiyama:
         obj = _make_mock_spectrum("sugiyama", k)
         fig, ax = BispectrumMultipoles.plot(obj, ells=[(0, 0, 0)], weight_by_kprod=True)
         y_data = ax.lines[0].get_ydata()
-        y_expected = np.prod(k, axis=-1) # NOTE: assuming ones for the mocked poles
+        y_expected = np.prod(k, axis=-1)  # NOTE: assuming ones for the mocked poles
         np.testing.assert_allclose(y_data, y_expected)  # ty:ignore[no-matching-overload]
         plt.close(fig)
 
@@ -304,8 +372,12 @@ class TestPlotSugiyama:
         """When weight_by_kprod is False, the y-data must be the poles."""
         k = np.column_stack([np.linspace(0.01, 0.5, 30)] * 2)
         obj = _make_mock_spectrum("sugiyama", k)
-        fig, ax = BispectrumMultipoles.plot(obj, ells=[(0, 0, 0)], weight_by_kprod=False)
+        fig, ax = BispectrumMultipoles.plot(
+            obj,
+            ells=[(0, 0, 0)],
+            weight_by_kprod=False,
+        )
         y_result = ax.lines[0].get_ydata()
-        y_expected = np.ones(len(k)) # NOTE: assuming ones for the mocked poles
+        y_expected = np.ones(len(k))  # NOTE: assuming ones for the mocked poles
         np.testing.assert_allclose(y_result, y_expected)  # ty:ignore[no-matching-overload]
         plt.close(fig)

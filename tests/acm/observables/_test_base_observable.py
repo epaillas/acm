@@ -65,7 +65,7 @@ import numpy as np
 import pytest
 import xarray
 
-from acm.observables.base import Observable
+from acm.observables.base import Observable  # ty: ignore[missing-module-member]
 
 DIR_TEST = os.getenv("ACM_TEST_DATA")
 
