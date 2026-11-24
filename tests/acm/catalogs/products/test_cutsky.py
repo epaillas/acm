@@ -583,14 +583,14 @@ class TestRandomPositions:
 
     def test_reproducible_with_seed(self):
         r1 = RandomCutskyCatalog._random_positions(
-            ngal=100,
+            n_gal=100,
             rarange=(0, 360),
             decrange=(-90, 90),
             zrange=(0.5, 1.0),
             seed=1,
         )
         r2 = RandomCutskyCatalog._random_positions(
-            ngal=100,
+            n_gal=100,
             rarange=(0, 360),
             decrange=(-90, 90),
             zrange=(0.5, 1.0),
