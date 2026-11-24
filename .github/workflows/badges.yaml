@@ -1,0 +1,80 @@
+name: Badges creation
+# Create badges as GIST on push to main
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: The ref to check out before running tests
+        required: true
+        type: string
+
+jobs:
+  test-suite:
+    name: Test Suite
+    uses: ./.github/workflows/test-suite.yaml
+    permissions:
+      contents: read
+      checks: write
+    with:
+      checkout_ref: ${{ inputs.checkout_ref }}
+
+  coverage-badge:
+    name: Coverage Badge
+    needs: [test-suite]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts from test suite
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-3.13-ubuntu-latest
+      - name: Read total coverage
+        id: coverage
+        run: echo "percent=$(jq -r '.totals.percent_covered_display' coverage.json)" >> "$GITHUB_OUTPUT"
+      - name: Update coverage badge gist
+        uses: Schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }} # PAT with the 'gist' scope
+          gistID: ${{ vars.GIST_ID }}
+          filename: coverage-values.json
+          label: coverage
+          message: ${{ steps.coverage.outputs.percent }}%
+          valColorRange: ${{ steps.coverage.outputs.percent }}
+          minColorRange: 50
+          maxColorRange: 90
+
+  crapscore:
+    name: CRAP Score
+    needs: [test-suite]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.checkout_ref }}
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+      - name: Download artifacts from test suite
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-3.13-ubuntu-latest
+      - name: Run crap score
+        id: crapscore
+        run: |
+          uvx crap4py acm/ --lcov lcov.info --max-crap 10
+          if [ $? -eq 0 ]; then
+            echo "status=passing" >> "$GITHUB_OUTPUT"
+            echo "color=brightgreen" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=failing" >> "$GITHUB_OUTPUT"
+            echo "color=red" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Update crap score badge gist
+        uses: Schneegans/dynamic-badges-action@v1.9.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }} # PAT with the 'gist' scope
+          gistID: ${{ vars.GIST_ID }}
+          filename: crapscore-values.json
+          label: crap score
+          message: ${{ steps.crapscore.outputs.status }}
+          color: ${{ steps.crapscore.outputs.color }}

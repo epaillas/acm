@@ -1,12 +1,12 @@
 [build-system]
 requires = [
-    "setuptools", 
-    "wheel", 
+    "setuptools",
+    "setuptools-git-versioning",
+    "wheel",
     "cython",
     "numpy < 2.0.0", # Avoid numpy 2.0.0 for now for type errors in Cython
 ]
 build-backend = "setuptools.build_meta"
-
 
 [project]
 name = "acm"
@@ -21,8 +21,8 @@ requires-python = ">=3.12"
 dependencies = [ # Base requirements
     "numpy",
     "scipy",
-    "pandas", 
-    "xarray", 
+    "pandas",
+    "xarray",
     "pyyaml",
     "matplotlib",
     "torch",
@@ -31,7 +31,7 @@ dependencies = [ # Base requirements
     "lsstypes @ git+https://github.com/adematti/lsstypes",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
 ]
-dynamic = ["version"]
+dynamic = ["version"]  # read from git tags
 
 [project.optional-dependencies]
 cosmodesi = [ # Dependencies existing in the cosmodesi ecosystem
@@ -64,11 +64,13 @@ docs = [
     "myst_nb >= 0.17.1",
 ]
 testing = [ # Testing dependencies, with minimal install for type hints
-    "ruff", 
+    "pre-commit",
+    "ruff",
     "ty",
     "pytest >= 7",
     "pytest-cov",
     "pytest-emoji",
+    "crap4py",
     "requests",
     "healpy",
     "sunbird[inference] @ git+https://github.com/florpi/sunbird",
@@ -78,13 +80,9 @@ testing = [ # Testing dependencies, with minimal install for type hints
 Repository = "https://github.com/epaillas/acm.git"
 Documentation = "https://acm.readthedocs.io"
 
-
 # Setuptools settings
 [tool.setuptools]
 packages = ["acm"]
-
-[tool.setuptools.dynamic]
-version = {file = "VERSION"}
 
 [tool.setuptools.package-data]
 acm = [
@@ -92,6 +90,10 @@ acm = [
     "**/*.yaml",
 ]
 
+[tool.setuptools-git-versioning]
+enabled = true
+starting_version = "0.0.0" # Fallback version if no git tags are found
+tag_filter = "^v?\\d+\\.\\d+\\.\\d+.*$"
 
 # Pytest settings
 [tool.pytest.ini_options]
@@ -113,11 +115,19 @@ omit = [
 
 # Ty settings
 [tool.ty.rules]
-unresolved-import = "ignore" # Ignore unresolved imports, as some dependencies may not be installed in all environments.
-invalid-method-override = "warn" # Warn about invalid method overrides, as some may be intentional due to limitations in type checking.
+import-not-found = "ignore" # Ignore unresolved imports, as some dependencies may not be installed in all environments.
+incompatible-method-override = "warn" # Warn about invalid method overrides, as some may be intentional due to limitations in type checking.
 
 [tool.ty.terminal]
 error-on-warning = false # Do not treat warnings as errors, as some warnings may be intentional and not critical.
+
+[tool.ty.src]
+# Exclusion of files to allow pre-commit to pass, see https://github.com/astral-sh/ty-pre-commit#customizing-files-checked-by-ty
+# Problem: Also prevents ty checking outside that scope in editors - should be removed eventually
+include = ["acm/**/*.py"]
+exclude = [
+    "acm/hod/**/*.py", # Exclude HOD module, pending removal
+]
 
 # Ruff settings
 [tool.ruff]
@@ -126,7 +136,7 @@ output-format = "grouped"
 respect-gitignore = true
 show-fixes = true
 exclude = [
-    "acm/hod/*", # Temporarily exclude HOD module, pending rework
+    "acm/hod/*", # Temporarily exclude HOD module, pending removal
 ]
 
 [tool.ruff.lint]
@@ -203,3 +213,15 @@ allow-star-arg-any = true # suppress ANN401 for *args and **kwargs
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"] # Ignore unused imports in __init__.py, as they are often used for package exports.
+"*.ipynb" = [ # Noteboks
+    "E501", # Ignore line length in notebooks (compact notations)
+    "T201", # Ignore print statements
+]
+"tests/**/*.py" = [ # Test files
+    "ANN", # Ignore missing type annotations
+    "ARG", # Ignore unused arguments
+    "D",   # Ignore missing docstrings
+    "INP001", # Ignore implicit package for test folders
+    "S101", # Ignore assert statements
+    "T201", # Ignore print statements
+]

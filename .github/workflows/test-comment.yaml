@@ -1,0 +1,58 @@
+name: Test Comment
+# Add a coverage comment to pull requests with the results of the tests
+
+on:
+  workflow_run:
+    workflows: ["CI - Validate"]
+    types: ["completed"]
+
+jobs:
+  test-comment:
+    name: Post Test Comment
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # Post coverage comment
+      actions: read # Download artifacts
+    strategy:
+      matrix:
+        python-version: ['3.13']
+        os: [ubuntu-latest]
+    steps:
+      - name: Download PR number artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: pr-number
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download artifacts from test suite
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-${{ matrix.python-version }}-${{ matrix.os }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Read the PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr=$(cat pr-number.txt)
+          # Make sure the number really belongs to this run (artifact comes from the PR)
+          test "$(gh api repos/${{ github.repository }}/pulls/$pr --jq .head.sha)" = "${{ github.event.workflow_run.head_sha }}"
+          echo "number=$pr" >> "$GITHUB_OUTPUT"
+      - name: Coverage comment
+        id: coverage
+        uses: MishaKav/pytest-coverage-comment@v1
+        with:
+          issue-number: ${{ steps.pr.outputs.number }}
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
+          xml-skip-covered: true # Skip files with 100% coverage
+          remove-links-to-lines: true # Remove clickable line number links
+          unique-id-for-comment: ${{ matrix.python-version }}-${{ matrix.os }}
+          title: Coverage for Python ${{ matrix.python-version }} (on ${{ matrix.os }})
+          # report-only-changed-files: true # Only show changed files
+          # remove-links-to-files: true # Remove clickable file links
+          # hide-emoji: true
