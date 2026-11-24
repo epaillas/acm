@@ -122,10 +122,11 @@ incompatible-method-override = "warn" # Warn about invalid method overrides, as 
 error-on-warning = false # Do not treat warnings as errors, as some warnings may be intentional and not critical.
 
 [tool.ty.src]
+# Exclusion of files to allow pre-commit to pass, see https://github.com/astral-sh/ty-pre-commit#customizing-files-checked-by-ty
+# Problem: Also prevents ty checking outside that scope in editors - should be removed eventually
 include = ["acm/**/*.py"]
 exclude = [
-    "tests/scripts/**/*.py", # Exclude test scripts
-    "scripts/**/*.py", # Exclude scripts
+    "acm/hod/**/*.py", # Exclude HOD module, pending removal
 ]
 
 # Ruff settings
@@ -135,7 +136,7 @@ output-format = "grouped"
 respect-gitignore = true
 show-fixes = true
 exclude = [
-    "acm/hod/*", # Temporarily exclude HOD module, pending rework
+    "acm/hod/*", # Temporarily exclude HOD module, pending removal
 ]
 
 [tool.ruff.lint]
@@ -213,13 +214,14 @@ allow-star-arg-any = true # suppress ANN401 for *args and **kwargs
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"] # Ignore unused imports in __init__.py, as they are often used for package exports.
 "*.ipynb" = [ # Noteboks
+    "E501", # Ignore line length in notebooks (compact notations)
     "T201", # Ignore print statements
 ]
 "tests/**/*.py" = [ # Test files
     "ANN", # Ignore missing type annotations
     "ARG", # Ignore unused arguments
     "D",   # Ignore missing docstrings
-    "INP001", # Igore
+    "INP001", # Ignore implicit package for test folders
     "S101", # Ignore assert statements
     "T201", # Ignore print statements
 ]
