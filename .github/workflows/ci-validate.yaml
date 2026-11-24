@@ -91,3 +91,17 @@ jobs:
       # - name: Fail if CRAP score is too high
       #   if: ${{ steps.crapscore.outcome == 'failure' }}
       #   run: echo "CRAP score is too high" && exit 1
+
+  pr-number:
+    name: Save PR number
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get PR number
+        id: pr-number
+        run: echo ${{ github.event.number }} >> pr-number.txt
+      - name: Upload PR Number
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-number
+          path: ./pr-number.txt
