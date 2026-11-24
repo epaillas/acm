@@ -68,9 +68,9 @@ class BaseLightconeCatalog(ABC):
         None
             The lightcone catalog is modified in place.
         """
-        catalog = self.catalog  # ty: ignore[unresolved-attribute]
-        cosmo = self.cosmo  # ty: ignore[unresolved-attribute]
-        boxsize = self.boxsize  # ty: ignore[unresolved-attribute]
+        catalog = self.catalog  # ty: ignore[missing-attribute]
+        cosmo = self.cosmo  # ty: ignore[missing-attribute]
+        boxsize = self.boxsize  # ty: ignore[missing-attribute]
 
         data_nbar = self.get_data_nbar(catalog, full_sky)
         logger.info(f"Raw data nbar: {data_nbar}")
@@ -157,16 +157,16 @@ class BaseLightconeCatalog(ABC):
         Compute the number density of the data catalog, which is defined
         by an octant of the spherical shell delimited by the redshift cuts.
         """
-        cosmo = self.cosmo  # ty: ignore[unresolved-attribute]
-        zrange = self.zrange  # ty: ignore[unresolved-attribute]
-        sim_type = self.sim_type  # ty: ignore[unresolved-attribute]
+        cosmo = self.cosmo  # ty: ignore[missing-attribute]
+        zrange = self.zrange  # ty: ignore[missing-attribute]
+        sim_type = self.sim_type  # ty: ignore[missing-attribute]
 
         dmin, dmax = cosmo.comoving_radial_distance(zrange)
 
         if sim_type == "base":
             # Abacus base
             # Monte Carlo sampling of Abacus lightcone volume
-            nsamples_per_box = self.monte_carlo_sampling_count  # ty: ignore[unresolved-attribute]
+            nsamples_per_box = self.monte_carlo_sampling_count  # ty: ignore[missing-attribute]
             samples_x = np.random.uniform(low=0, high=2000, size=(3 * nsamples_per_box))
             samples_y = np.concatenate(
                 [
@@ -200,12 +200,12 @@ class BaseLightconeCatalog(ABC):
         return nbar
 
     def shell_filling_fraction(self, shells):
-        sim_type = self.sim_type  # ty: ignore[unresolved-attribute]
-        boxsize = self.boxsize  # ty: ignore[unresolved-attribute]
+        sim_type = self.sim_type  # ty: ignore[missing-attribute]
+        boxsize = self.boxsize  # ty: ignore[missing-attribute]
 
         # Muller-Marsaglia octant sampling
         # evenly distribute points along an octant of a unit sphere
-        num_samples = self.monte_carlo_sampling_count  # ty: ignore[unresolved-attribute]
+        num_samples = self.monte_carlo_sampling_count  # ty: ignore[missing-attribute]
         sample_points = np.abs(np.random.normal(0, 1, (3, num_samples)))
         sample_points /= np.linalg.norm(sample_points, axis=0)
 

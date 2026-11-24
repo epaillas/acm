@@ -168,7 +168,7 @@ class BaseCutskyCatalog(ABC):
             The cutsky catalog is modified in place.
         """
         mpicomm_rank = getattr(self.mpicomm, "rank", 0)
-        cosmo = self.cosmo  # ty: ignore[unresolved-attribute]
+        cosmo = self.cosmo  # ty: ignore[missing-attribute]
 
         if mpicomm_rank == self.mpiroot:
             logger.info(f"Applying radial mask using n(z) file {nz_filename}.")
@@ -305,7 +305,7 @@ class BaseCutskyCatalog(ABC):
         if HAS_REGRESSIS:
             # Precompute the healpix number
             nside = 256
-            _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)  # ty: ignore[call-non-callable]
+            _, pixels = build_healpix_map(nside, ra, dec, return_pix=True)  # ty: ignore[not-callable]
 
             # Load DR9 footprint and create corresponding mask
             dr9_footprint = DR9Footprint(
@@ -314,7 +314,7 @@ class BaseCutskyCatalog(ABC):
                 clear_south=False,
                 mask_around_des=False,
                 cut_desi=False,
-            )  # ty: ignore[call-non-callable]
+            )  # ty: ignore[not-callable]
             convert_dict = {
                 "N": "north",
                 "DN": "south_mid_ngc",
@@ -463,7 +463,7 @@ class BaseCutskyCatalog(ABC):
 
         rng = np.random.RandomState(seed=seed)
 
-        tracer = self.tracer  # ty: ignore[unresolved-attribute]
+        tracer = self.tracer  # ty: ignore[missing-attribute]
         mpicomm_rank = getattr(self.mpicomm, "rank", 0)
 
         if mpicomm_rank == mpiroot:

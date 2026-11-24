@@ -117,12 +117,12 @@ class JaxpowerBackend(EstimatorBackend):
         )
 
     @property
-    def boxsize(self) -> jax.Array:  # ty: ignore[invalid-property-type-override]
+    def boxsize(self) -> jax.Array:  # ty: ignore[incompatible-property-override]
         """Physical size of the box along each dimension. If None, set to meshsize."""
         return self.mattrs.boxsize
 
     @property
-    def boxcenter(self) -> jax.Array:  # ty: ignore[invalid-property-type-override]
+    def boxcenter(self) -> jax.Array:  # ty: ignore[incompatible-property-override]
         """Physical coordinates of the box center along each dimension."""
         return self.mattrs.boxcenter
 
@@ -132,7 +132,7 @@ class JaxpowerBackend(EstimatorBackend):
         return self.mattrs.meshsize
 
     @property
-    def cellsize(self) -> jax.Array:  # ty: ignore[invalid-property-type-override]
+    def cellsize(self) -> jax.Array:  # ty: ignore[incompatible-property-override]
         """Physical size of each mesh cell."""
         return self.mattrs.cellsize
 
@@ -182,8 +182,8 @@ class JaxpowerBackend(EstimatorBackend):
             randoms_mesh = _2r(_smoothed_mesh)
 
             logger.info("Using randoms to compute density contrast.")
-            sum_data: jax.Array = data_mesh.sum()  # ty:ignore[unresolved-attribute]
-            sum_randoms: jax.Array = randoms_mesh.sum()  # ty:ignore[unresolved-attribute]
+            sum_data: jax.Array = data_mesh.sum()  # ty:ignore[missing-attribute]
+            sum_randoms: jax.Array = randoms_mesh.sum()  # ty:ignore[missing-attribute]
             alpha: jax.Array = sum_data * 1.0 / sum_randoms
             delta_mesh: RealMeshField = data_mesh - alpha * randoms_mesh  # ty:ignore[unsupported-operator]
 
@@ -195,7 +195,7 @@ class JaxpowerBackend(EstimatorBackend):
             )
             delta_mesh = delta_mesh.clone(value=_val)
         else:
-            delta_mesh: RealMeshField = data_mesh / data_mesh.mean() - 1  # ty:ignore[unresolved-attribute]
+            delta_mesh: RealMeshField = data_mesh / data_mesh.mean() - 1  # ty:ignore[missing-attribute]
 
         self._density_contrast = delta_mesh
         logger.info(f"Set density contrast in {time.time() - t0:.2f} s.")
