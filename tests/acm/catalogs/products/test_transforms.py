@@ -9,8 +9,6 @@ from acm.catalogs.products.transforms import (
     rsd_snapshot,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, S101
-
 
 class TestRsdSnapshot:
     def test_shifts_los_column(self):
@@ -41,7 +39,14 @@ class TestRsdSnapshot:
     def test_wrap_with_offset(self):
         """RSD transform should wrap positions correctly with an offset."""
         data = pd.DataFrame({"z": [9.0], "vz": [200.0]})
-        result = rsd_snapshot(data, los="z", hubble=100.0, az=0.5, offset=5.0, wrap=10.0)
+        result = rsd_snapshot(
+            data,
+            los="z",
+            hubble=100.0,
+            az=0.5,
+            offset=5.0,
+            wrap=10.0,
+        )
         expected_z = (9.0 + 200.0 / (100.0 * 0.5) + 5.0) % 10.0 - 5.0
         assert result["z"].iloc[0] == pytest.approx(expected_z)
 
@@ -50,33 +55,59 @@ class TestApSnapshot:
     def test_scales_los_by_qpar(self):
         """AP transform should scale the los column by q_par."""
         data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [1.2]})
-        result = ap_snapshot(data, los="z", q_par=1.2, q_perp=0.9, pos_columns=("x", "y", "z"))
+        result = ap_snapshot(
+            data, los="z", q_par=1.2, q_perp=0.9, pos_columns=("x", "y", "z")
+        )
         assert result["z"].iloc[0] == pytest.approx(1.0)
 
     def test_scales_transverse_by_qperp(self):
         """AP transform should scale the transverse columns by q_perp."""
         data = pd.DataFrame({"x": [0.9], "y": [0.9], "z": [1.0]})
-        result = ap_snapshot(data, los="z", q_par=1.2, q_perp=0.9, pos_columns=("x", "y", "z"))
+        result = ap_snapshot(
+            data,
+            los="z",
+            q_par=1.2,
+            q_perp=0.9,
+            pos_columns=("x", "y", "z"),
+        )
         assert result["x"].iloc[0] == pytest.approx(1.0)
         assert result["y"].iloc[0] == pytest.approx(1.0)
 
     def test_qpar_equal_one_leaves_los_unchanged(self):
         """q_par=1 should leave the los column unchanged."""
         data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [3.0]})
-        result = ap_snapshot(data, los="z", q_par=1.0, q_perp=0.9, pos_columns=("x", "y", "z"))
+        result = ap_snapshot(
+            data,
+            los="z",
+            q_par=1.0,
+            q_perp=0.9,
+            pos_columns=("x", "y", "z"),
+        )
         assert result["z"].iloc[0] == pytest.approx(3.0)
 
     def test_qperp_equal_one_leaves_transverse_unchanged(self):
         """q_perp=1 should leave transverse columns unchanged."""
         data = pd.DataFrame({"x": [2.0], "y": [3.0], "z": [1.0]})
-        result = ap_snapshot(data, los="z", q_par=1.2, q_perp=1.0, pos_columns=("x", "y", "z"))
+        result = ap_snapshot(
+            data,
+            los="z",
+            q_par=1.2,
+            q_perp=1.0,
+            pos_columns=("x", "y", "z"),
+        )
         assert result["x"].iloc[0] == pytest.approx(2.0)
         assert result["y"].iloc[0] == pytest.approx(3.0)
 
     def test_inplace_transform(self):
         """AP transform should mutate the input DataFrame."""
         data = pd.DataFrame({"x": [1.0], "y": [1.0], "z": [1.0]})
-        result = ap_snapshot(data, los="z", q_par=1.2, q_perp=0.9, pos_columns=("x", "y", "z"))
+        result = ap_snapshot(
+            data,
+            los="z",
+            q_par=1.2,
+            q_perp=0.9,
+            pos_columns=("x", "y", "z"),
+        )
         pd.testing.assert_frame_equal(data, result)
 
 
@@ -97,9 +128,16 @@ class TestDownsample:
 
     def test_by_nbar(self, data):
         """Downsampling by nbar should reduce the number of galaxies to the target, using volume to compute current nbar."""
-        volume = lambda: np.prod([10., 10., 10.])  # noqa: E731
+        volume = lambda: np.prod([10.0, 10.0, 10.0])  # noqa: E731
         target_nbar = 50 / 1000.0
-        result = downsample(data, tracer="FOO", n_gal=None, f_gal=None, nbar=target_nbar, volume=volume)
+        result = downsample(
+            data,
+            tracer="FOO",
+            n_gal=None,
+            f_gal=None,
+            nbar=target_nbar,
+            volume=volume,
+        )
         assert len(result) == 50
 
     def test_nbar_without_volume_raises(self, data):
@@ -119,19 +157,48 @@ class TestDownsample:
 
     def test_random_seed_reproducibility(self, data):
         """Downsampling with a fixed random seed should produce the same result across multiple calls."""
-        result1 = downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)  # ty:ignore[invalid-argument-type]
-        result2 = downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)  # ty:ignore[invalid-argument-type]
-        pd.testing.assert_frame_equal(result1.reset_index(drop=True), result2.reset_index(drop=True))
+        result1 = downsample(
+            data,
+            tracer="FOO",
+            n_gal=50,
+            f_gal=None,
+            nbar=None,
+            seed=42,  # ty:ignore[invalid-argument-type]
+        )
+        result2 = downsample(
+            data,
+            tracer="FOO",
+            n_gal=50,
+            f_gal=None,
+            nbar=None,
+            seed=42,  # ty:ignore[invalid-argument-type]
+        )
+        pd.testing.assert_frame_equal(
+            result1.reset_index(drop=True),
+            result2.reset_index(drop=True),
+        )
 
     def test_random_seed_different_seeds(self, data):
         """Downsampling with different random seeds should produce different results."""
-        result1 = downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42)  # ty:ignore[invalid-argument-type]
-        result2 = downsample(data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=43)  # ty:ignore[invalid-argument-type]
+        result1 = downsample(
+            data, tracer="FOO", n_gal=50, f_gal=None, nbar=None, seed=42
+        )  # ty:ignore[invalid-argument-type]
+        result2 = downsample(
+            data,
+            tracer="FOO",
+            n_gal=50,
+            f_gal=None,
+            nbar=None,
+            seed=43,  # ty:ignore[invalid-argument-type]
+        )
         with pytest.raises(AssertionError):
-            pd.testing.assert_frame_equal(result1.reset_index(drop=True), result2.reset_index(drop=True))
+            pd.testing.assert_frame_equal(
+                result1.reset_index(drop=True),
+                result2.reset_index(drop=True),
+            )
+
 
 class TestAddDistanceColumn:
-
     def test_distance_column_added(self, cosmo_mock1):
         """A 'distance' column should be present in the output DataFrame."""
         data = pd.DataFrame({"z": [0.1, 0.5, 1.0]})

@@ -8,7 +8,6 @@ from acm.estimators.galaxy_clustering.base import BaseEstimator
 
 MODULE = "acm.estimators.galaxy_clustering.base"
 
-# ruff: noqa: ANN001, ANN201, ANN205, ARG004, D101, D102, D103, INP001, S101
 
 class DummyEstimator(BaseEstimator):
     def compute(self):
@@ -19,22 +18,29 @@ class DummyEstimator(BaseEstimator):
         return MagicMock()
 
     @staticmethod
-    def plot(obj, fig=None, ax=None):
+    def plot(obj, fig=None, ax=None):  # ty: ignore[incompatible-method-override]
         return MagicMock(), MagicMock()
+
 
 @pytest.fixture
 def estimator(make_estimator):
     return make_estimator(DummyEstimator)
 
+
 @pytest.fixture
 def mock_obj():
     obj = MagicMock()
-    obj.write.side_effect = lambda path, **kwargs: path.touch()  # noqa: ARG005
+    obj.write.side_effect = lambda path, **kwargs: path.touch()
     return obj
 
-class TestInit:
 
-    def test_load_backend_called_with_correct_args(self, dummy_backend, data_positions, randoms_positions):
+class TestInit:
+    def test_load_backend_called_with_correct_args(
+        self,
+        dummy_backend,
+        data_positions,
+        randoms_positions,
+    ):
         with patch(f"{MODULE}.load_backend", return_value=dummy_backend) as mock_load:
             DummyEstimator(
                 backend="dummy",
@@ -49,23 +55,37 @@ class TestInit:
             randoms_weights=None,
         )
 
-    def test_logs_initialization(self, dummy_backend, data_positions, randoms_positions, caplog):
-        with patch(f"{MODULE}.load_backend", return_value=dummy_backend), caplog.at_level(logging.INFO):
-                DummyEstimator(
-                    backend="dummy",
-                    data_positions=data_positions,
-                    randoms_positions=randoms_positions,
-                )
+    def test_logs_initialization(
+        self,
+        dummy_backend,
+        data_positions,
+        randoms_positions,
+        caplog,
+    ):
+        with (
+            patch(f"{MODULE}.load_backend", return_value=dummy_backend),
+            caplog.at_level(logging.INFO),
+        ):
+            DummyEstimator(
+                backend="dummy",
+                data_positions=data_positions,
+                randoms_positions=randoms_positions,
+            )
         assert "DummyEstimator" in caplog.text
 
-    def test_stores_positions_and_weights(self, estimator, data_positions, randoms_positions):
+    def test_stores_positions_and_weights(
+        self,
+        estimator,
+        data_positions,
+        randoms_positions,
+    ):
         assert np.array_equal(estimator.data_positions, data_positions)
         assert np.array_equal(estimator.randoms_positions, randoms_positions)
         assert estimator.data_weights is None
         assert estimator.randoms_weights is None
 
-class TestSave:
 
+class TestSave:
     def test_raise_on_invalid_extension(self, estimator, tmp_path):
         with pytest.raises(ValueError, match="extensions"):
             estimator.save(MagicMock(), tmp_path / "result.txt")
@@ -100,8 +120,8 @@ class TestSave:
         with patch.object(estimator, "_atomic_write"):
             estimator.save(mock_obj, tmp_path / f"result.{ext}")
 
-class TestAtomicWrite:
 
+class TestAtomicWrite:
     def test_call_obj_write(self, tmp_path, mock_obj):
         """Test that the object's write method is called."""
         filename = tmp_path / "result.h5"

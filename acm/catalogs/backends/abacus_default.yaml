@@ -4,21 +4,21 @@
 # Simulation parameters
 sim_params:
     sim_dir: /global/cfs/cdirs/desi/cosmosim/Abacus
-    subsample_dir: '/pscratch/sd/s/sihany/summit_subsamples_cleaned_desi' 
-    cleaned_halos: True 
+    subsample_dir: '/pscratch/sd/s/sihany/summit_subsamples_cleaned_desi'
+    cleaned_halos: True
 
 # HOD parameters
 HOD_params:
     use_particles: True
     want_ranks: True               # want to implement satellite profile flexiblities?
-    want_AB: True                  
+    want_AB: True
     density_sigma: 3               # scale radius in Mpc / h for local density calculation
     tracer_flags:                  # which tracer do we want?
-        LRG: False 
+        LRG: False
         ELG: False
         QSO: False
     want_rsd: False
-  
+
     # default parameters
     LRG_params:
         logM_cut: 12.87
@@ -60,7 +60,7 @@ HOD_params:
         Bcent: 0
         Bsat: 0
         ic: 1.0
-        
+
     # QSO default params from https://github.com/abacusorg/abacusutils/blob/880f04a2566a93219e64b0d9f211f92d2dfaf0c9/scripts/hod/config/abacus_hod.yaml#L52
     QSO_params:
         p_max: 0.33

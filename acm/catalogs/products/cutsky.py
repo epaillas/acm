@@ -445,14 +445,14 @@ class RandomCutskyCatalog(CutskyCatalog):
 # %% Transforms between box and cutsky geometries
 
 
-def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[empty-body]
+def box_to_cutsky(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[invalid-implicit-return-in-function-with-stub-body]
     """Convert a box geometry to a cutsky geometry."""
     # Input: SnapshotCatalog (positions, cosmology & boxsize), observer position, redshift range
     # Depends on cosmology for distance-redshift conversion.
     # Depends on boxsize & observer position for angle values and eventual periodic wrapping.
 
 
-def cutsky_to_box(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[empty-body]
+def cutsky_to_box(*args, **kwargs) -> pd.DataFrame:  # ty:ignore[invalid-implicit-return-in-function-with-stub-body]
     """Convert a cutsky geometry to a box geometry."""
     # Input: CutskyCatalog (positions, cosmology & redshift range), observer position, boxsize
     # Depends on cosmology for distance-redshift conversion.

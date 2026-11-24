@@ -11,9 +11,14 @@ matplotlib.use("Agg")
 
 MODULE = "acm.estimators.galaxy_clustering.wst"
 
-# ruff: noqa: ANN001, ANN202, ANN201, ARG002, D101, D102, D103, INP001, S101
 
-def _make_mock_kymatio_object(J=4, L=4, sigma_0=0.8, max_order=2, integral_powers=(0.8,)):  # noqa: N803
+def _make_mock_kymatio_object(
+    J=4,  # noqa: N803
+    L=4,  # noqa: N803
+    sigma_0=0.8,
+    max_order=2,
+    integral_powers=(0.8,),
+):
     S = MagicMock()
     S.backend.name = "torch"
     S.J = J
@@ -23,41 +28,67 @@ def _make_mock_kymatio_object(J=4, L=4, sigma_0=0.8, max_order=2, integral_power
     S.integral_powers = integral_powers
     return S
 
+
 @pytest.fixture
 def mock_kymatio_object():
     return _make_mock_kymatio_object()
 
+
 @pytest.fixture
 def estimator(make_estimator, mock_kymatio_object):
-    return make_estimator(WaveletScatteringTransform, kymatio_object=mock_kymatio_object)
+    return make_estimator(
+        WaveletScatteringTransform,
+        kymatio_object=mock_kymatio_object,
+    )
 
 
 class TestInit:
-
     def test_raise_for_multiple_integral_powers(self, dummy_backend, data_positions):
         with pytest.raises(ValueError, match="single integral power"):
-            WaveletScatteringTransform(backend=dummy_backend, data_positions=data_positions, integral_powers=(0.8, 1.0))
+            WaveletScatteringTransform(
+                backend=dummy_backend,
+                data_positions=data_positions,
+                integral_powers=(0.8, 1.0),
+            )
 
-    def test_use_preloaded_object(self, dummy_backend, data_positions, mock_kymatio_object):
-        with patch.object(WaveletScatteringTransform, "initialize_kymatio") as mock_init:
-            estimator = WaveletScatteringTransform(backend=dummy_backend, data_positions=data_positions, kymatio_object=mock_kymatio_object)
+    def test_use_preloaded_object(
+        self,
+        dummy_backend,
+        data_positions,
+        mock_kymatio_object,
+    ):
+        with patch.object(
+            WaveletScatteringTransform, "initialize_kymatio"
+        ) as mock_init:
+            estimator = WaveletScatteringTransform(
+                backend=dummy_backend,
+                data_positions=data_positions,
+                kymatio_object=mock_kymatio_object,
+            )
         assert estimator._S is mock_kymatio_object
         mock_init.assert_not_called()
 
     def test_initialize_kymatio_object(self, dummy_backend, data_positions):
-        with patch.object(WaveletScatteringTransform, "initialize_kymatio") as mock_init:
+        with patch.object(
+            WaveletScatteringTransform, "initialize_kymatio"
+        ) as mock_init:
             WaveletScatteringTransform(
                 backend=dummy_backend,
                 data_positions=data_positions,
-                J = 4,
-                L = 4,
-                sigma_0 = 0.8,
-                integral_powers=(0.8,)
+                J=4,
+                L=4,
+                sigma_0=0.8,
+                integral_powers=(0.8,),
             )
         mock_init.assert_called_once()
 
     @patch(f"{MODULE}.HarmonicScattering3D")
-    def test_initialize_kymatio_object_with_kwargs(self, mock_s3d, dummy_backend, data_positions):
+    def test_initialize_kymatio_object_with_kwargs(
+        self,
+        mock_s3d,
+        dummy_backend,
+        data_positions,
+    ):
         args = {
             "J": 4,
             "L": 4,
@@ -73,8 +104,8 @@ class TestInit:
         assert est._S is mock_s3d.return_value
         mock_s3d.assert_called_once_with(**args, shape=shape, frontend="torch")
 
-class TestCompute:
 
+class TestCompute:
     def test_raises_for_unsupported_backend(self, estimator):
         """ValueError must be raised when _S.backend has no matching method."""
         estimator._S.backend.name = "unsupported"
@@ -86,7 +117,11 @@ class TestCompute:
         """compute() must call the method matching _S.backend."""
         estimator._S.backend.name = method
         coefficients = np.ones(10)
-        with patch.object(estimator, f"_{method}", return_value=coefficients) as mock_method:
+        with patch.object(
+            estimator,
+            f"_{method}",
+            return_value=coefficients,
+        ) as mock_method:
             estimator.compute()
         mock_method.assert_called_once()
 
@@ -96,7 +131,10 @@ class TestCompute:
         leaf = estimator.compute()
         assert hasattr(leaf, "coefficients")
         np.testing.assert_array_equal(leaf.coefficients, mock_torch_method.return_value)
-        np.testing.assert_array_equal(leaf.coords("index"), np.arange(len(mock_torch_method.return_value)))
+        np.testing.assert_array_equal(
+            leaf.coords("index"),
+            np.arange(len(mock_torch_method.return_value)),
+        )
 
     @patch.object(WaveletScatteringTransform, "_torch", return_value=np.ones(10))
     def test_leaf_attrs_have_correct_values(self, mock_torch_method, estimator):
@@ -111,8 +149,8 @@ class TestCompute:
         assert leaf.attrs["boxcenter"] == list(estimator.backend.boxcenter)
         assert leaf.attrs["meshsize"] == list(estimator.backend.meshsize)
 
-class TestLoad:
 
+class TestLoad:
     def test_load_returns_lsstypes_object(self, tmp_path):
         mock_obj = MagicMock()
         with patch(f"{MODULE}.lsstypes.read", return_value=mock_obj) as mock_read:
@@ -120,8 +158,8 @@ class TestLoad:
         mock_read.assert_called_once()
         assert result is mock_obj
 
-class TestPlot:
 
+class TestPlot:
     @pytest.fixture
     def mock_leaf(self):
         rng = np.random.default_rng(42)
@@ -138,7 +176,11 @@ class TestPlot:
 
     def test_uses_provided_fig_and_ax(self, mock_leaf):
         fig_in, ax_in = plt.subplots()
-        fig_out, ax_out = WaveletScatteringTransform.plot(mock_leaf, fig=fig_in, ax=ax_in)
+        fig_out, ax_out = WaveletScatteringTransform.plot(
+            mock_leaf,
+            fig=fig_in,
+            ax=ax_in,
+        )
         assert fig_out is fig_in
         assert ax_out is ax_in
         plt.close(fig_in)

@@ -1,4 +1,5 @@
 """Tests for acm.observables.factory."""
+
 import pytest
 
 from acm.observables.base import BaseObservable
@@ -6,7 +7,6 @@ from acm.observables.factory import Observable, ObservableFactory, factory
 from acm.observables.lsstypes import LsstypesObservable
 from acm.observables.xarray import XarrayObservable
 
-# ruff: noqa: ANN001, ANN201, ANN206, D102, S101
 
 class DummyObservable:
     """Minimal stand-in backend class, decoupled from any real Observable implementation."""

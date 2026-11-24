@@ -10,30 +10,35 @@ from acm.catalogs.products.cutsky import (
     _shell_volume,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
+# %% Fixtures
 
-#%% Fixtures
 
 def make_tracer_data(n: int = 200) -> pd.DataFrame:
     """Generate minimal valid cutsky tracer data with known angular and redshift ranges."""
     rng = np.random.default_rng(seed=0)
-    return pd.DataFrame({
-        "ra":  rng.uniform(10.0, 50.0, n),
-        "dec": rng.uniform(-20.0, 20.0, n),
-        "z":   rng.uniform(0.5, 1.0, n),
-    })
+    return pd.DataFrame(
+        {
+            "ra": rng.uniform(10.0, 50.0, n),
+            "dec": rng.uniform(-20.0, 20.0, n),
+            "z": rng.uniform(0.5, 1.0, n),
+        }
+    )
+
 
 @pytest.fixture
 def catalog(cosmo_mock1, cosmo_mock2):
     return CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2)
 
+
 @pytest.fixture
 def tracer():
     return Tracer(name="FOO", params={})
 
+
 @pytest.fixture
 def valid_data():
     return make_tracer_data()
+
 
 @pytest.fixture
 def populated_catalog(catalog, tracer, valid_data):
@@ -41,7 +46,8 @@ def populated_catalog(catalog, tracer, valid_data):
     return catalog
 
 
-#%% Module-level helpers
+# %% Module-level helpers
+
 
 class TestFsky:
     def test_fullsky_returns_one(self):
@@ -88,7 +94,7 @@ class TestShellVolume:
         z = np.array([0.0, 1.0])
         result = _shell_volume(cosmo_mock1, z)
         assert result.shape == (1,)
-        expected = 4 / 3 * np.pi * (1000.0 ** 3 - 0.0 ** 3)
+        expected = 4 / 3 * np.pi * (1000.0**3 - 0.0**3)
         assert result[0] == pytest.approx(expected)
 
     def test_volumes_increase_with_redshift(self, cosmo_mock1):
@@ -99,31 +105,38 @@ class TestShellVolume:
         assert result[2] > result[1]
 
 
-#%% CutskyCatalog construction
+# %% CutskyCatalog construction
+
 
 def test_default_hp_res(catalog):
     assert catalog.hp_res == 256
 
+
 def test_custom_hp_res(cosmo_mock1, cosmo_mock2):
     cat = CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2, hp_res=128)
     assert cat.hp_res == 128
+
 
 def test_caches_initialised_empty(catalog):
     assert catalog._fsky_cache == {}
     assert catalog._interpolate_nz_cache == {}
 
 
-#%% _check_data_columns
+# %% _check_data_columns
+
 
 def test_check_data_columns_valid(catalog, valid_data):
     assert catalog._check_data_columns(valid_data) is True
+
 
 def test_check_data_columns_missing_ra(catalog):
     bad = pd.DataFrame({"dec": [0.0], "z": [0.5]})
     assert catalog._check_data_columns(bad) is False
 
+
 def test_check_data_columns_missing_all(catalog):
     assert catalog._check_data_columns(pd.DataFrame()) is False
+
 
 def test_set_tracer_data_missing_columns_raises(catalog, tracer):
     bad = pd.DataFrame({"ra": [10.0], "dec": [5.0]})  # missing z
@@ -131,20 +144,24 @@ def test_set_tracer_data_missing_columns_raises(catalog, tracer):
         catalog.set_tracer_data(tracer, bad)
 
 
-#%% Coordinate ranges
+# %% Coordinate ranges
+
 
 def test_zrange_bounds(populated_catalog, valid_data):
     zmin, zmax = populated_catalog.zrange
     assert zmin == pytest.approx(valid_data["z"].min())
     assert zmax == pytest.approx(valid_data["z"].max())
 
+
 def test_zrange_per_tracer(populated_catalog, valid_data):
     zmin, zmax = populated_catalog._zrange("FOO")
     assert zmin == pytest.approx(valid_data["z"].min())
     assert zmax == pytest.approx(valid_data["z"].max())
 
+
 def test_zrange_none_equals_global(populated_catalog):
     assert populated_catalog._zrange() == populated_catalog.zrange
+
 
 def test_rarange_wrapping(cosmo_mock1, cosmo_mock2):
     """RA values stored beyond 360 (e.g. from box periodicity) should produce a wrap-around range where ra_min > ra_max after mod."""
@@ -152,24 +169,31 @@ def test_rarange_wrapping(cosmo_mock1, cosmo_mock2):
     cat = CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2)
     rng = np.random.default_rng(0)
     # Simulate raw RA values that cross 360 without being wrapped first
-    data = pd.DataFrame({
-        "ra":  np.concatenate([rng.uniform(350, 370, 100), rng.uniform(370, 380, 100)]),
-        "dec": rng.uniform(-10, 10, 200),
-        "z":   rng.uniform(0.5, 1.0, 200),
-    })
+    data = pd.DataFrame(
+        {
+            "ra": np.concatenate(
+                [rng.uniform(350, 370, 100), rng.uniform(370, 380, 100)]
+            ),
+            "dec": rng.uniform(-10, 10, 200),
+            "z": rng.uniform(0.5, 1.0, 200),
+        }
+    )
     cat.set_tracer_data(tracer, data)
     ra_min, ra_max = cat._range("ra", periodic_wrap=360.0)
     assert ra_min > ra_max
 
 
-#%% fsky and area
+# %% fsky and area
+
 
 def test_fsky_no_tracers_raises(catalog):
     with pytest.raises(RuntimeError, match="No tracers"):
         _ = catalog.fsky
 
+
 def test_fsky_in_unit_interval(populated_catalog):
     assert 0.0 < populated_catalog.fsky <= 1.0
+
 
 def test_fsky_fullsky_catalog(cosmo_mock1, cosmo_mock2):
     """A full-sky catalog should return fsky close to 1."""
@@ -177,13 +201,16 @@ def test_fsky_fullsky_catalog(cosmo_mock1, cosmo_mock2):
     cat = CutskyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2, hp_res=32)
     rng = np.random.default_rng(0)
     n = 100_000
-    data = pd.DataFrame({
-        "ra":  rng.uniform(0, 360, n),
-        "dec": np.degrees(np.arcsin(rng.uniform(-1, 1, n))),
-        "z":   rng.uniform(0.5, 1.0, n),
-    })
+    data = pd.DataFrame(
+        {
+            "ra": rng.uniform(0, 360, n),
+            "dec": np.degrees(np.arcsin(rng.uniform(-1, 1, n))),
+            "z": rng.uniform(0.5, 1.0, n),
+        }
+    )
     cat.set_tracer_data(tracer, data)
     assert cat.fsky == pytest.approx(1.0, abs=0.01)
+
 
 def test_fsky_cached(populated_catalog):
     """Repeated fsky calls should return the same value from cache."""
@@ -191,9 +218,13 @@ def test_fsky_cached(populated_catalog):
     second = populated_catalog.fsky
     assert first == second
 
+
 def test_area_consistent_with_fsky(populated_catalog):
     full_sky_deg2 = 4 * np.pi * (180 / np.pi) ** 2
-    assert populated_catalog.area == pytest.approx(populated_catalog.fsky * full_sky_deg2)
+    assert populated_catalog.area == pytest.approx(
+        populated_catalog.fsky * full_sky_deg2
+    )
+
 
 def test_clear_caches(populated_catalog):
     _ = populated_catalog.fsky
@@ -202,31 +233,38 @@ def test_clear_caches(populated_catalog):
     assert populated_catalog._interpolate_nz_cache == {}
 
 
-#%% nbar
+# %% nbar
+
 
 def test_nbar_positive(populated_catalog):
     assert populated_catalog.nbar > 0.0
 
+
 def test_nbar_delegates_to_nbar_method(populated_catalog):
     assert populated_catalog.nbar == populated_catalog._nbar()
 
+
 def test_nbar_per_tracer_positive(populated_catalog):
     assert populated_catalog._nbar("FOO") > 0.0
+
 
 def test_nbar_per_tracer_matches_global_single_tracer(populated_catalog):
     """With a single tracer, per-tracer and global nbar should agree."""
     assert populated_catalog._nbar("FOO") == pytest.approx(populated_catalog.nbar)
 
 
-#%% n(z) interpolation
+# %% n(z) interpolation
+
 
 def test_n_returns_positive_within_range(populated_catalog, valid_data):
     z_mid = valid_data["z"].mean()
     assert populated_catalog.n(z_mid) > 0.0
 
+
 def test_n_returns_zero_outside_range(populated_catalog):
     assert populated_catalog.n(0.0) == pytest.approx(0.0)
     assert populated_catalog.n(10.0) == pytest.approx(0.0)
+
 
 def test_n_array_input(populated_catalog, valid_data):
     z = np.linspace(valid_data["z"].min(), valid_data["z"].max(), 10)
@@ -234,17 +272,20 @@ def test_n_array_input(populated_catalog, valid_data):
     assert result.shape == (10,)
     assert np.all(result >= 0.0)
 
+
 def test_interpolate_nz_cached(populated_catalog):
     """Repeated _interpolate_nz calls with the same arguments should return the cached object."""
     f1 = populated_catalog._interpolate_nz(bins=30)
     f2 = populated_catalog._interpolate_nz(bins=30)
     assert f1 is f2
 
+
 def test_interpolate_nz_different_bins_not_cached(populated_catalog):
     """Different bin counts should produce independent cache entries."""
     f1 = populated_catalog._interpolate_nz(bins=30)
     f2 = populated_catalog._interpolate_nz(bins=50)
     assert f1 is not f2
+
 
 def test_interpolate_nz_invalidated_after_transform(populated_catalog):
     """Cache should be invalidated when a new transform is added."""
@@ -254,47 +295,54 @@ def test_interpolate_nz_invalidated_after_transform(populated_catalog):
     assert f1 is not f2
 
 
-#%% add_distance_column transform
+# %% add_distance_column transform
+
 
 def test_add_distance_column_adds_transform(populated_catalog):
     populated_catalog.add_distance_column()
     assert "add_distance" in populated_catalog.transform_pipeline
+
 
 def test_add_distance_column_present_in_output(populated_catalog):
     populated_catalog.add_distance_column()
     result = populated_catalog.get_tracer_data("FOO")
     assert "distance" in result.columns
 
+
 def test_add_distance_column_does_not_mutate_raw(populated_catalog):
     raw_before = populated_catalog.get_tracer_data("FOO", raw=True).copy()
     populated_catalog.add_distance_column()
     populated_catalog.get_tracer_data("FOO")
-    pd.testing.assert_frame_equal(
-        populated_catalog._data["FOO"], raw_before
-    )
+    pd.testing.assert_frame_equal(populated_catalog._data["FOO"], raw_before)
 
 
-#%% downsample transform
+# %% downsample transform
+
 
 def test_downsample_adds_transform(populated_catalog):
     populated_catalog.downsample("FOO", n_gal=100)
     assert "downsample_FOO" in populated_catalog.transform_pipeline
 
+
 def test_downsample_multiple_params_raises(populated_catalog):
     with pytest.raises(ValueError, match="Exactly one"):
         populated_catalog.downsample("FOO", n_gal=100, f_gal=0.5)
+
 
 def test_downsample_no_params_raises(populated_catalog):
     with pytest.raises(ValueError, match="Exactly one"):
         populated_catalog.downsample("FOO")
 
+
 def test_downsample_by_ngal(populated_catalog):
     populated_catalog.downsample("FOO", n_gal=100)
     assert len(populated_catalog.get_tracer_data("FOO")) == 100
 
+
 def test_downsample_by_fgal(populated_catalog):
     populated_catalog.downsample("FOO", f_gal=0.5)
     assert len(populated_catalog.get_tracer_data("FOO")) == 100
+
 
 def test_downsample_does_not_mutate_raw(populated_catalog):
     n_before = len(populated_catalog._data["FOO"])
@@ -303,18 +351,21 @@ def test_downsample_does_not_mutate_raw(populated_catalog):
     assert len(populated_catalog._data["FOO"]) == n_before
 
 
-#%% Serialization
+# %% Serialization
+
 
 def test_save_creates_file(populated_catalog, tmp_path):
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
     assert path.exists()
 
+
 def test_save_load_roundtrip(populated_catalog, tmp_path):
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
     loaded = CutskyCatalog.load(path)
     assert isinstance(loaded, CutskyCatalog)
+
 
 def test_save_load_tracer_data(populated_catalog, tmp_path, valid_data):
     """Tracer data should be preserved exactly through a save/load roundtrip."""
@@ -326,12 +377,14 @@ def test_save_load_tracer_data(populated_catalog, tmp_path, valid_data):
         valid_data.reset_index(drop=True),
     )
 
+
 def test_save_load_preserves_tracer_names(populated_catalog, tmp_path):
     """Tracer names should be preserved through a save/load roundtrip."""
     path = tmp_path / "cutsky.h5"
     populated_catalog.save(path)
     loaded = CutskyCatalog.load(path)
     assert set(loaded.tracers.keys()) == set(populated_catalog.tracers.keys())
+
 
 def test_transforms_not_persisted(populated_catalog, tmp_path):
     """Transforms registered before saving should not be present after loading."""
@@ -341,6 +394,7 @@ def test_transforms_not_persisted(populated_catalog, tmp_path):
     loaded = CutskyCatalog.load(path)
     assert "add_distance" not in loaded.transform_pipeline
 
+
 def test_save_load_preserves_cosmo(populated_catalog, tmp_path):
     """Cosmology values should be preserved through a save/load roundtrip."""
     path = tmp_path / "cutsky.h5"
@@ -348,30 +402,38 @@ def test_save_load_preserves_cosmo(populated_catalog, tmp_path):
     loaded = CutskyCatalog.load(path)
     assert loaded.cosmo != populated_catalog.cosmo  # Different instances
     assert loaded.cosmo.__class__ == populated_catalog.cosmo.__class__  # Same class
-    for attr in ("_efunc", "_add"): # Same attributes should be equal
+    for attr in ("_efunc", "_add"):  # Same attributes should be equal
         assert getattr(loaded.cosmo, attr) == getattr(populated_catalog.cosmo, attr)
 
-#%% Multi-tracer
+
+# %% Multi-tracer
+
 
 @pytest.fixture
 def tracer_bar():
     return Tracer(name="BAR", params={})
 
+
 @pytest.fixture
 def valid_data_bar():
     return make_tracer_data(n=100)
 
+
 @pytest.fixture
 def multi_tracer_catalog(catalog, tracer, tracer_bar, valid_data, valid_data_bar):
-    catalog.set_tracer_data(tracer, valid_data)        # 200 galaxies
+    catalog.set_tracer_data(tracer, valid_data)  # 200 galaxies
     catalog.set_tracer_data(tracer_bar, valid_data_bar)  # 100 galaxies
     return catalog
 
-def test_zrange_aggregates_across_tracers(multi_tracer_catalog, valid_data, valid_data_bar):
+
+def test_zrange_aggregates_across_tracers(
+    multi_tracer_catalog, valid_data, valid_data_bar
+):
     all_z = pd.concat([valid_data["z"], valid_data_bar["z"]])
     zmin, zmax = multi_tracer_catalog.zrange
     assert zmin == pytest.approx(all_z.min())
     assert zmax == pytest.approx(all_z.max())
+
 
 def test_zrange_per_tracer_independent(multi_tracer_catalog, valid_data):
     assert multi_tracer_catalog._zrange("FOO") == (
@@ -379,17 +441,21 @@ def test_zrange_per_tracer_independent(multi_tracer_catalog, valid_data):
         pytest.approx(valid_data["z"].max()),
     )
 
+
 def test_nbar_multi_tracer_uses_total_ngal(multi_tracer_catalog):
     assert multi_tracer_catalog.nbar == pytest.approx(multi_tracer_catalog._nbar())
+
 
 def test_nbar_per_tracer_differ(multi_tracer_catalog):
     """Per-tracer nbar should differ when tracers have different counts."""
     assert multi_tracer_catalog._nbar("FOO") != multi_tracer_catalog._nbar("BAR")
 
+
 def test_downsample_affects_only_target_tracer(multi_tracer_catalog):
     multi_tracer_catalog.downsample("FOO", n_gal=150)
     assert len(multi_tracer_catalog.get_tracer_data("FOO")) == 150
     assert len(multi_tracer_catalog.get_tracer_data("BAR")) == 100
+
 
 def test_add_distance_column_applies_to_all_tracers(multi_tracer_catalog):
     multi_tracer_catalog.add_distance_column()
@@ -397,35 +463,45 @@ def test_add_distance_column_applies_to_all_tracers(multi_tracer_catalog):
     assert "distance" in multi_tracer_catalog.get_tracer_data("BAR").columns
 
 
-#%% RandomCutskyCatalog
+# %% RandomCutskyCatalog
+
 
 @pytest.fixture
 def random_catalog(populated_catalog):
     return RandomCutskyCatalog.from_snapshot(populated_catalog, seed=42)
 
+
 def test_from_snapshot_inherits_tracers(populated_catalog, random_catalog):
     assert set(random_catalog.tracers.keys()) == set(populated_catalog.tracers.keys())
 
+
 def test_from_snapshot_same_ngal(populated_catalog, random_catalog):
-    assert len(random_catalog.get_tracer_data("FOO", raw=True)) == len(populated_catalog._data["FOO"])
+    assert len(random_catalog.get_tracer_data("FOO", raw=True)) == len(
+        populated_catalog._data["FOO"]
+    )
+
 
 def test_from_snapshot_positions_differ(populated_catalog, random_catalog):
     orig = populated_catalog._data["FOO"][["ra", "dec", "z"]].values
     rand = random_catalog.get_tracer_data("FOO", raw=True)[["ra", "dec", "z"]].values
     assert not np.allclose(orig, rand)
 
+
 def test_random_positions_ra_in_range(random_catalog):
     ra = random_catalog.get_tracer_data("FOO", raw=True)["ra"]
     assert ra.between(0, 360).all()
+
 
 def test_random_positions_dec_in_range(random_catalog):
     dec = random_catalog.get_tracer_data("FOO", raw=True)["dec"]
     assert dec.between(-90, 90).all()
 
+
 def test_random_positions_z_in_source_range(populated_catalog, random_catalog):
     zmin, zmax = populated_catalog._zrange("FOO")
     z = random_catalog.get_tracer_data("FOO", raw=True)["z"]
     assert z.between(zmin, zmax).all()
+
 
 def test_from_snapshot_reproducible(populated_catalog):
     r1 = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=7)
@@ -434,6 +510,7 @@ def test_from_snapshot_reproducible(populated_catalog):
         r1.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         r2.get_tracer_data("FOO", raw=True).reset_index(drop=True),
     )
+
 
 def test_from_snapshot_different_seeds_differ(populated_catalog):
     r1 = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=7)
@@ -444,7 +521,12 @@ def test_from_snapshot_different_seeds_differ(populated_catalog):
             r2.get_tracer_data("FOO", raw=True).reset_index(drop=True),
         )
 
-def test_from_snapshot_tracers_independent_seeds(populated_catalog, tracer_bar, valid_data_bar):
+
+def test_from_snapshot_tracers_independent_seeds(
+    populated_catalog,
+    tracer_bar,
+    valid_data_bar,
+):
     """Two tracers generated from the same root seed should have different positions."""
     populated_catalog.set_tracer_data(tracer_bar, valid_data_bar)
     random_cat = RandomCutskyCatalog.from_snapshot(populated_catalog, seed=42)
@@ -453,7 +535,8 @@ def test_from_snapshot_tracers_independent_seeds(populated_catalog, tracer_bar, 
     assert not np.allclose(foo_z, bar_z)
 
 
-#%% RandomCutskyCatalog._random_positions
+# %% RandomCutskyCatalog._random_positions
+
 
 class TestRandomPositions:
     def test_output_shape(self):
@@ -499,6 +582,18 @@ class TestRandomPositions:
         assert result["z"].between(0.3, 0.8).all()
 
     def test_reproducible_with_seed(self):
-        r1 = RandomCutskyCatalog._random_positions(100, (0, 360), (-90, 90), (0.5, 1.0), seed=1)
-        r2 = RandomCutskyCatalog._random_positions(100, (0, 360), (-90, 90), (0.5, 1.0), seed=1)
+        r1 = RandomCutskyCatalog._random_positions(
+            n_gal=100,
+            rarange=(0, 360),
+            decrange=(-90, 90),
+            zrange=(0.5, 1.0),
+            seed=1,
+        )
+        r2 = RandomCutskyCatalog._random_positions(
+            n_gal=100,
+            rarange=(0, 360),
+            decrange=(-90, 90),
+            zrange=(0.5, 1.0),
+            seed=1,
+        )
         pd.testing.assert_frame_equal(r1, r2)

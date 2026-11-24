@@ -7,31 +7,35 @@ from acm.estimators.galaxy_clustering.backends.jaxpower import (
     JaxpowerBackend,
 )
 
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, INP001, S101
-
-#%% Fixtures
+# %% Fixtures
 N, M = 20, 30
+
 
 @pytest.fixture
 def data_pos():
     return np.random.default_rng(0).uniform(0, 100, (N, 3))
 
+
 @pytest.fixture
 def rand_pos():
     return np.random.default_rng(1).uniform(0, 100, (M, 3))
+
 
 @pytest.fixture
 def data_w(data_pos):
     return np.ones(len(data_pos))
 
+
 @pytest.fixture
 def rand_w(rand_pos):
     return np.ones(len(rand_pos))
+
 
 @pytest.fixture
 def backend(data_pos):
     b = JaxpowerBackend(data_pos)
     return b
+
 
 @pytest.fixture
 def backend_with_randoms(data_pos, rand_pos, data_w, rand_w):
@@ -39,7 +43,8 @@ def backend_with_randoms(data_pos, rand_pos, data_w, rand_w):
     return b
 
 
-#%% test classes
+# %% test classes
+
 
 class TestEstimatorBackendValidation:
     def test_invalid_data_positions_shape(self):
@@ -55,7 +60,9 @@ class TestEstimatorBackendValidation:
             JaxpowerBackend(data_pos, data_weights=np.ones((N, 1)))
 
     def test_invalid_data_weights_length(self, data_pos):
-        with pytest.raises(ValueError, match="Weights must have the same length as positions"):
+        with pytest.raises(
+            ValueError, match="Weights must have the same length as positions"
+        ):
             JaxpowerBackend(data_pos, data_weights=np.ones(N + 1))
 
     def test_randoms_weights_without_randoms_raises(self, data_pos, rand_w):
@@ -67,7 +74,9 @@ class TestEstimatorBackendValidation:
             JaxpowerBackend(data_pos, rand_pos, randoms_weights=np.ones((M, 1)))
 
     def test_invalid_randoms_weights_length(self, data_pos, rand_pos):
-        with pytest.raises(ValueError, match="Weights must have the same length as positions"):
+        with pytest.raises(
+            ValueError, match="Weights must have the same length as positions"
+        ):
             JaxpowerBackend(data_pos, rand_pos, randoms_weights=np.ones(M + 1))
 
     def test_size_data(self, backend, data_pos):
@@ -79,6 +88,7 @@ class TestEstimatorBackendValidation:
     def test_size_randoms_raises_when_not_set(self, backend):
         with pytest.raises(ValueError, match="Randoms have not been set"):
             _ = backend.size_randoms
+
 
 class TestJaxpowerBackendProperties:
     def test_boxsize_delegates_to_mattrs(self, backend):
@@ -93,6 +103,7 @@ class TestJaxpowerBackendProperties:
     def test_cellsize_delegates_to_mattrs(self, backend):
         assert backend.cellsize is backend.mattrs.cellsize
 
+
 class TestDensityContrast:
     def test_read_before_set_raises(self, backend, data_pos):
         with pytest.raises(AttributeError, match="set_density_contrast"):
@@ -106,7 +117,10 @@ class TestDensityContrast:
         backend.set_density_contrast()
         backend._density_contrast = MagicMock()
         backend.read_density_contrast(data_pos, resampler="cic")
-        backend._density_contrast.read.assert_called_once_with(data_pos, resampler="cic")
+        backend._density_contrast.read.assert_called_once_with(
+            data_pos,
+            resampler="cic",
+        )
 
     def test_set_with_randoms(self, backend_with_randoms):
         """FKP path (data + randoms) should complete without error."""
@@ -117,19 +131,21 @@ class TestDensityContrast:
         backend.set_density_contrast(smoothing_radius=5.0)
         assert backend._density_contrast is not None
 
+
 class TestGaussianKernel:
     def test_returns_jax_array(self, backend):
         """gaussian_kernel should call jax.numpy.exp and return its result."""
         s = 5.0
         x = np.linspace(0, 10, 10)
         kernel = JaxpowerBackend.gaussian_kernel(backend.mattrs, smoothing_radius=s)
-        result = np.exp(-0.5 * sum((x * s)**2))
+        result = np.exp(-0.5 * sum((x * s) ** 2))
         assert kernel == result
+
 
 class TestGetFieldThreshold:
     def test_noise_method(self):
         field = MagicMock()
-        field.weights = np.array([0.1, 0.2, 0.3]) # Dummy array to avoid jax error
+        field.weights = np.array([0.1, 0.2, 0.3])  # Dummy array to avoid jax error
         JaxpowerBackend._get_field_threshold(field, threshold=0.01, method="noise")
 
     def test_mean_method(self):
@@ -139,6 +155,7 @@ class TestGetFieldThreshold:
     def test_invalid_method_raises(self):
         with pytest.raises(ValueError, match="method"):
             JaxpowerBackend._get_field_threshold(MagicMock(), method="invalid")
+
 
 class TestGetQueryPositions:
     def test_randoms_method_shape(self, backend):

@@ -1,10 +1,9 @@
 """Tests for acm.utils.sampler module."""
+
 import pandas as pd
 import pytest
 
 from acm.utils.sampler import LatinHyperCubeSampler
-
-# ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
 
 RANGES = {"alpha": (0.0, 1.0), "beta": (10.0, 20.0), "gamma": (-5.0, 5.0)}
 
@@ -12,6 +11,7 @@ RANGES = {"alpha": (0.0, 1.0), "beta": (10.0, 20.0), "gamma": (-5.0, 5.0)}
 @pytest.fixture
 def sampler():
     return LatinHyperCubeSampler(RANGES, seed=42)
+
 
 @pytest.fixture
 def sample(sampler):

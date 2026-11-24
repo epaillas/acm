@@ -5,9 +5,8 @@ import pytest
 from acm.catalogs.dataclasses import Tracer, Transform
 from acm.catalogs.products.base import BaseGalaxyCatalog
 
-# ruff: noqa: ANN001, ANN201, ANN206, ARG002, ARG003, D101, D102, D103, S101
+# %% Concrete dummy subclass
 
-#%% Concrete dummy subclass
 
 class DummyCatalog(BaseGalaxyCatalog):
     """Minimal concrete subclass for testing the base class."""
@@ -25,52 +24,63 @@ class DummyCatalog(BaseGalaxyCatalog):
         return cls(cosmo=cosmo, cosmo_fid=cosmo_fid)
 
 
-#%% Fixtures
+# %% Fixtures
+
 
 @pytest.fixture
 def catalog(cosmo_mock1, cosmo_mock2):
     return DummyCatalog(cosmo=cosmo_mock1, cosmo_fid=cosmo_mock2)
 
+
 @pytest.fixture
 def tracer_foo():
     return Tracer(name="FOO", params={"a": 1})
+
 
 @pytest.fixture
 def tracer_bar():
     return Tracer(name="BAR", params={})
 
+
 @pytest.fixture
 def valid_data():
     return pd.DataFrame({"x": [1.0, 2.0], "y": [3.0, 4.0]})
+
 
 @pytest.fixture
 def populated_catalog(catalog, tracer_foo, valid_data):
     catalog.set_tracer_data(tracer_foo, valid_data)
     return catalog
 
+
 @pytest.fixture
 def valid_data_bar():
     """Smaller dataset for BAR tracer to allow testing different counts."""
     return pd.DataFrame({"x": [5.0], "y": [6.0]})
 
+
 @pytest.fixture
 def multi_tracer_catalog(catalog, tracer_foo, tracer_bar, valid_data, valid_data_bar):
-    catalog.set_tracer_data(tracer_foo, valid_data)       # 2 galaxies
+    catalog.set_tracer_data(tracer_foo, valid_data)  # 2 galaxies
     catalog.set_tracer_data(tracer_bar, valid_data_bar)  # 1 galaxy
     return catalog
 
-#%% ngal
+
+# %% ngal
 def test_ngal(populated_catalog):
     assert populated_catalog.ngal == 2
+
 
 def test_ngal_empty_raises(catalog):
     """Ngal property should raise if no tracers are registered."""
     with pytest.raises(RuntimeError, match="No tracers"):
         _ = catalog.ngal
 
+
 def test_ngal_multi_tracer(multi_tracer_catalog):
     """Ngal should sum galaxies across all tracers."""
     assert multi_tracer_catalog.ngal == 3
+
 
 def test_ngal_per_tracer(multi_tracer_catalog):
     """_ngal should return the correct count per tracer independently."""
@@ -78,9 +88,9 @@ def test_ngal_per_tracer(multi_tracer_catalog):
     assert multi_tracer_catalog._ngal("BAR") == 1
     assert multi_tracer_catalog._ngal("FOO", "BAR") == 3
 
-#%% Testing BaseGalaxyCatalog
-class TestTracers:
 
+# %% Testing BaseGalaxyCatalog
+class TestTracers:
     def test_register_tracer(self, catalog, tracer_foo):
         catalog.register_tracer(tracer_foo)
         assert "FOO" in catalog.tracers
@@ -131,7 +141,12 @@ class TestTracers:
         with pytest.raises(ValueError, match="FOO"):
             populated_catalog.get_tracer_data("FOO", "FOO")
 
-    def test_get_tracer_data_multi_tracer(self, multi_tracer_catalog, valid_data, valid_data_bar):
+    def test_get_tracer_data_multi_tracer(
+        self,
+        multi_tracer_catalog,
+        valid_data,
+        valid_data_bar,
+    ):
         """Multi-tracer retrieval must respect the requested order, not sort or deduplicate."""
         foo_bar = multi_tracer_catalog.get_tracer_data("FOO", "BAR")
         bar_foo = multi_tracer_catalog.get_tracer_data("BAR", "FOO")
@@ -142,7 +157,6 @@ class TestTracers:
 
 
 class TestTransforms:
-
     def test_get_tracer_data_applies_transforms(self, populated_catalog):
         t = Transform(name="scale", func=lambda data, f: data * f, kwargs={"f": 2.0})
         populated_catalog.register_transform(t)
@@ -156,7 +170,11 @@ class TestTransforms:
         populated_catalog.get_tracer_data("FOO")
         pd.testing.assert_frame_equal(populated_catalog._data["FOO"], raw_before)
 
-    def test_get_raw_tracer_data_bypasses_transforms(self, populated_catalog, valid_data):
+    def test_get_raw_tracer_data_bypasses_transforms(
+        self,
+        populated_catalog,
+        valid_data,
+    ):
         t = Transform(name="scale", func=lambda data, f: data * f, kwargs={"f": 2.0})
         populated_catalog.register_transform(t)
         result = populated_catalog.get_tracer_data("FOO", raw=True)
@@ -175,9 +193,9 @@ class TestTransforms:
         t1_new = Transform(name="t1", func=lambda d: d * 2, kwargs={})
         with caplog.at_level("WARNING"):
             catalog.register_transform(t1_new)
-        assert "t1" in caplog.text # Warning is raised
-        assert catalog._transforms["t1"] is t1_new # New transform replaces old one
-        assert catalog.transform_pipeline == ["t1", "t2"] # Order is preserved
+        assert "t1" in caplog.text  # Warning is raised
+        assert catalog._transforms["t1"] is t1_new  # New transform replaces old one
+        assert catalog.transform_pipeline == ["t1", "t2"]  # Order is preserved
 
     def test_transform_pipeline_property(self, catalog):
         t1 = Transform(name="t1", func=lambda d: d, kwargs={})
@@ -202,8 +220,10 @@ class TestTransforms:
         t2 = Transform(name="scale", func=lambda d, f: d * f, kwargs={"f": 2.0})
         populated_catalog.register_transform(t1)
         populated_catalog.register_transform(t2)
-        result = populated_catalog.get_tracer_data("FOO") # (original + 1) * 2
-        assert result["x"].tolist() == pytest.approx([(1.0 + 1.0) * 2.0, (2.0 + 1.0) * 2.0])
+        result = populated_catalog.get_tracer_data("FOO")  # (original + 1) * 2
+        assert result["x"].tolist() == pytest.approx(
+            [(1.0 + 1.0) * 2.0, (2.0 + 1.0) * 2.0]
+        )
 
     def test_clear_transforms(self, populated_catalog):
         t = Transform(name="t1", func=lambda d: d, kwargs={})
@@ -211,10 +231,15 @@ class TestTransforms:
         populated_catalog.clear_transforms()
         assert len(populated_catalog._transforms) == 0
 
-    def test_transform_default_tracer_none(self, populated_catalog, tracer_bar, valid_data):
+    def test_transform_default_tracer_none(
+        self,
+        populated_catalog,
+        tracer_bar,
+        valid_data,
+    ):
         """A transform with tracer=None should apply to all tracers."""
         t = Transform(name="t1", func=lambda d, f: d * f, kwargs={"f": 2.0})
-        populated_catalog.set_tracer_data(tracer_bar, valid_data) # Add BAR tracer
+        populated_catalog.set_tracer_data(tracer_bar, valid_data)  # Add BAR tracer
         populated_catalog.register_transform(t)
         bar_data = populated_catalog.get_tracer_data("BAR")
         foo_data = populated_catalog.get_tracer_data("FOO")
@@ -224,8 +249,13 @@ class TestTransforms:
 
     def test_transform_with_tracer(self, populated_catalog, tracer_bar, valid_data):
         """A transform with a specific tracer should only apply to that tracer."""
-        t = Transform(name="t1", func=lambda d, f: d * f, kwargs={"f": 2.0}, tracer="FOO")
-        populated_catalog.set_tracer_data(tracer_bar, valid_data) # Add BAR tracer
+        t = Transform(
+            name="t1",
+            func=lambda d, f: d * f,
+            kwargs={"f": 2.0},
+            tracer="FOO",
+        )
+        populated_catalog.set_tracer_data(tracer_bar, valid_data)  # Add BAR tracer
         populated_catalog.register_transform(t)
         bar_data = populated_catalog.get_tracer_data("BAR")
         foo_data = populated_catalog.get_tracer_data("FOO")
@@ -234,8 +264,8 @@ class TestTransforms:
         pd.testing.assert_frame_equal(foo_data, valid_data * 2.0)
         pd.testing.assert_frame_equal(bar_data, valid_data)
 
-class TestMagicMethods:
 
+class TestMagicMethods:
     def test_getitem_single(self, populated_catalog, valid_data):
         pd.testing.assert_frame_equal(populated_catalog["FOO"], valid_data)
 
@@ -266,7 +296,6 @@ class TestMagicMethods:
 
 
 class TestSaveLoad:
-
     def test_save_creates_file(self, populated_catalog, tmp_path):
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
@@ -276,7 +305,10 @@ class TestSaveLoad:
         path = tmp_path / "catalog.h5"
         populated_catalog.save(path)
         loaded = DummyCatalog.load(path)
-        pd.testing.assert_frame_equal(loaded.get_tracer_data("FOO", raw=True), valid_data)
+        pd.testing.assert_frame_equal(
+            loaded.get_tracer_data("FOO", raw=True),
+            valid_data,
+        )
 
     def test_save_load_tracer_params(self, populated_catalog, tmp_path):
         path = tmp_path / "catalog.h5"
@@ -308,13 +340,21 @@ class TestSaveLoad:
         loaded = DummyCatalog.load(path)
         assert len(loaded._transforms) == 0
 
-    def test_save_load_multiple_tracers(self, catalog, tracer_foo, tracer_bar, valid_data, tmp_path):
+    def test_save_load_multiple_tracers(
+        self,
+        catalog,
+        tracer_foo,
+        tracer_bar,
+        valid_data,
+        tmp_path,
+    ):
         catalog.set_tracer_data(tracer_foo, valid_data)
         catalog.set_tracer_data(tracer_bar, valid_data)
         path = tmp_path / "catalog.h5"
         catalog.save(path)
         loaded = DummyCatalog.load(path)
         assert set(loaded.tracers.keys()) == {"FOO", "BAR"}
+
 
 def test_save_load_preserves_cosmo(populated_catalog, tmp_path):
     """Cosmology values should be preserved through a save/load roundtrip."""
@@ -323,5 +363,5 @@ def test_save_load_preserves_cosmo(populated_catalog, tmp_path):
     loaded = DummyCatalog.load(path)
     assert loaded.cosmo != populated_catalog.cosmo  # Different instances
     assert loaded.cosmo.__class__ == populated_catalog.cosmo.__class__  # Same class
-    for attr in ("_efunc", "_add"): # Same attributes should be equal
+    for attr in ("_efunc", "_add"):  # Same attributes should be equal
         assert getattr(loaded.cosmo, attr) == getattr(populated_catalog.cosmo, attr)

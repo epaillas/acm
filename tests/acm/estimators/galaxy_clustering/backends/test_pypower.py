@@ -12,36 +12,42 @@ from acm.estimators.galaxy_clustering.backends.pypower import (
     PypowerBackend,
 )
 
-# ruff: noqa: ANN001, ANN201, ARG001, D101, D102, D103, INP001, S101
-
-#%% Fixtures
+# %% Fixtures
 N, M = 20, 30
+
 
 @pytest.fixture
 def data_pos():
     return np.random.default_rng(0).uniform(0, 100, (N, 3))
 
+
 @pytest.fixture
 def rand_pos():
     return np.random.default_rng(1).uniform(0, 100, (M, 3))
+
 
 @pytest.fixture
 def data_w(data_pos):
     return np.ones(N)
 
+
 @pytest.fixture
 def rand_w(rand_pos):
     return np.ones(M)
+
 
 @pytest.fixture
 def backend(data_pos):
     return PypowerBackend(data_pos)
 
+
 @pytest.fixture
 def backend_with_randoms(data_pos, rand_pos, data_w, rand_w):
     return PypowerBackend(data_pos, rand_pos, data_w, rand_w)
 
-#%% Test classes
+
+# %% Test classes
+
 
 class TestEstimatorBackendValidation:
     def test_invalid_data_positions_shape(self):
@@ -57,7 +63,9 @@ class TestEstimatorBackendValidation:
             PypowerBackend(data_pos, data_weights=np.ones((N, 1)))
 
     def test_invalid_data_weights_length(self, data_pos):
-        with pytest.raises(ValueError, match="Weights must have the same length as positions"):
+        with pytest.raises(
+            ValueError, match="Weights must have the same length as positions"
+        ):
             PypowerBackend(data_pos, data_weights=np.ones(N + 1))
 
     def test_randoms_weights_without_randoms_raises(self, data_pos, rand_w):
@@ -69,7 +77,9 @@ class TestEstimatorBackendValidation:
             PypowerBackend(data_pos, rand_pos, randoms_weights=np.ones((M, 1)))
 
     def test_invalid_randoms_weights_length(self, data_pos, rand_pos):
-        with pytest.raises(ValueError, match="Weights must have the same length as positions"):
+        with pytest.raises(
+            ValueError, match="Weights must have the same length as positions"
+        ):
             PypowerBackend(data_pos, rand_pos, randoms_weights=np.ones(M + 1))
 
     def test_size_data(self, backend, data_pos):
@@ -81,6 +91,7 @@ class TestEstimatorBackendValidation:
     def test_size_randoms_raises_when_not_set(self, backend):
         with pytest.raises(ValueError, match="Randoms have not been set"):
             _ = backend.size_randoms
+
 
 class TestPypowerBackendProperties:
     def test_boxsize(self, backend):
@@ -94,6 +105,7 @@ class TestPypowerBackendProperties:
 
     def test_cellsize(self, backend):
         np.testing.assert_array_almost_equal(backend.cellsize, [100 / 32] * 3)
+
 
 class TestDensityContrast:
     def test_read_before_set_raises(self, backend, data_pos):
@@ -124,6 +136,7 @@ class TestDensityContrast:
         backend.set_density_contrast(smoothing_radius=10.0, filter_shape="Gaussian")
         assert backend._density_contrast is not None
 
+
 class TestGetKernel:
     def test_gaussian(self):
         assert isinstance(PypowerBackend._get_kernel("Gaussian", 5.0), GaussianFilter)
@@ -137,6 +150,7 @@ class TestGetKernel:
     def test_invalid_raises(self):
         with pytest.raises(ValueError, match="Invalid"):
             PypowerBackend._get_kernel("Invalid", 5.0)
+
 
 class TestGetQueryPositions:
     def test_randoms_shape(self, backend):

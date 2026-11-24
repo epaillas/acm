@@ -1,5 +1,5 @@
 
- 
+
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Periodic_3_Delaunay_triangulation_traits_3.h>
 #include <CGAL/Periodic_3_Delaunay_triangulation_3.h>
@@ -69,7 +69,7 @@ class DelaunayOutput{
         std::vector<double> selection;
         std::vector<size_t> vertices[4];
         size_t n_simplices;
-        
+
 
 };
 
@@ -86,7 +86,7 @@ double tetrahedron_area(Tetrahedron_3 tetrahedron){
             }
         }
     }
-    
+
 
     return tot_area;
 
@@ -96,9 +96,9 @@ DelaunayOutput cdelaunay(std::vector<double> X, std::vector<double> Y, std::vect
 
     DelaunayOutput output;
     std::vector<Point_3>points;
-    
-    
-    
+
+
+
 
     std::size_t i, n_points;
     n_points = X.size();
@@ -106,14 +106,14 @@ DelaunayOutput cdelaunay(std::vector<double> X, std::vector<double> Y, std::vect
     for (i=0; i<n_points; i++){
         points.push_back(Point_3(X[i], Y[i], Z[i]));
     }
-    
+
     std::cout<<"==> Number of points: "<<points.size()<<std::endl;
     std::cout<<"==> Building Delaunay Triangulation."<<std::endl;
-    
+
     Delaunay tess(points.begin(), points.end());
     assert(tess.is_valid());
     points.clear();
-    
+
     Point_3 simplex_vertices[4];
     Sphere_3 buffer_sphere;
     Point_3 buffer_point;
@@ -122,22 +122,22 @@ DelaunayOutput cdelaunay(std::vector<double> X, std::vector<double> Y, std::vect
     std::cout<<"==> Number of all cells: "<<tess.number_of_cells()<<std::endl;
     std::cout<<"==> Number of finite cells: "<<tess.number_of_finite_cells()<<std::endl;
     output.n_simplices = tess.number_of_finite_cells();
-    
+
     output.x.reserve(tess.number_of_finite_cells());
     output.y.reserve(tess.number_of_finite_cells());
     output.z.reserve(tess.number_of_finite_cells());
     output.r.reserve(tess.number_of_finite_cells());
-  
+
     std::size_t k = 0;
-    
-    
-    
-    
+
+
+
+
     for(finite_cells cell=tess.finite_cells_begin();cell!=tess.finite_cells_end();cell++) {
         for(i=0;i<4;i++){
             simplex_vertices[i] = cell->vertex(i)->point();
         }
-        
+
         buffer_sphere = Sphere_3(simplex_vertices[0],simplex_vertices[1],simplex_vertices[2],simplex_vertices[3]);
         //buffer_point = buffer_sphere.center();
         buffer_point = cell->circumcenter();
@@ -156,9 +156,9 @@ DelaunayOutput cdelaunay_periodic_extend(std::vector<double> X, std::vector<doub
 
     DelaunayOutput output;
     std::vector<Point_3>points;
-    
-    
-    
+
+
+
 
     std::size_t i, n_points, j;
     n_points = X.size();
@@ -170,9 +170,9 @@ DelaunayOutput cdelaunay_periodic_extend(std::vector<double> X, std::vector<doub
     for (i=0; i<n_points; i++){
         points.push_back(Point_3(X[i], Y[i], Z[i]));
     }
-    
-    
-    
+
+
+
     double point_density = n_points / (box_size[0] * box_size[1] * box_size[2]);
     double mean_free_path = pow(point_density, -1./3);
     cpy_range = cpy_range == 0 ? 8 * mean_free_path : cpy_range;
@@ -191,40 +191,40 @@ DelaunayOutput cdelaunay_periodic_extend(std::vector<double> X, std::vector<doub
             points.push_back(Point_3(points[i].x()+box_size[0],points[i].y(),points[i].z()));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].x()>=box_max[0]-cpy_range && points[i].x()<box_max[0]){
             points.push_back(Point_3(points[i].x()-box_size[0],points[i].y(),points[i].z()));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].y()<box_min[1]+cpy_range){
             points.push_back(Point_3(points[i].x(),points[i].y()+box_size[1],points[i].z()));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].y()>=box_max[1]-cpy_range && points[i].y()<box_max[1]){
             points.push_back(Point_3(points[i].x(),points[i].y()-box_size[1],points[i].z()));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].z()<box_min[2]+cpy_range){
             points.push_back(Point_3(points[i].x(),points[i].y(),points[i].z()+box_size[2]));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].z()>=box_max[2]-cpy_range && points[i].z()<box_max[2]){
             points.push_back(Point_3(points[i].x(),points[i].y(),points[i].z()-box_size[2]));
         }
     size=points.size();
 
-    
+
     std::cout<<"==> Number of points: "<<points.size()<<std::endl;
     std::cout<<"==> Building Delaunay Triangulation."<<std::endl;
-    
+
     Delaunay tess(points.begin(), points.end());
     assert(tess.is_valid());
     points.clear();
-    
+
     Point_3 simplex_vertices[4];
     Sphere_3 buffer_sphere;
     Point_3 buffer_point;
@@ -233,22 +233,22 @@ DelaunayOutput cdelaunay_periodic_extend(std::vector<double> X, std::vector<doub
     std::cout<<"==> Number of all cells: "<<tess.number_of_cells()<<std::endl;
     std::cout<<"==> Number of finite cells: "<<tess.number_of_finite_cells()<<std::endl;
     output.n_simplices = tess.number_of_finite_cells();
-    
+
     output.x.reserve(tess.number_of_finite_cells());
     output.y.reserve(tess.number_of_finite_cells());
     output.z.reserve(tess.number_of_finite_cells());
     output.r.reserve(tess.number_of_finite_cells());
-  
+
     std::size_t k = 0;
-    
-    
-    
-    
+
+
+
+
     for(finite_cells cell=tess.finite_cells_begin();cell!=tess.finite_cells_end();cell++) {
         for(i=0;i<4;i++){
             simplex_vertices[i] = cell->vertex(i)->point();
         }
-        
+
         buffer_sphere = Sphere_3(simplex_vertices[0],simplex_vertices[1],simplex_vertices[2],simplex_vertices[3]);
         //buffer_point = buffer_sphere.center();
         buffer_point = cell->circumcenter();
@@ -256,12 +256,12 @@ DelaunayOutput cdelaunay_periodic_extend(std::vector<double> X, std::vector<doub
         output.y[k] = CGAL::to_double(buffer_point.y());
         output.z[k] = CGAL::to_double(buffer_point.z());
         output.r[k] = CGAL::sqrt(CGAL::to_double(CGAL::squared_distance(buffer_point, cell->vertex(0)->point())));
-        
-        
+
+
 
         k++;
 
-        
+
     }
     return output;
 
@@ -274,9 +274,9 @@ DelaunayOutput cdelaunay_periodic(std::vector<double> X, std::vector<double> Y, 
     DelaunayOutput output;
 
     std::vector<Point_3>points;
-    
-    
-    
+
+
+
 
     std::size_t i, n_points, j;
     n_points = X.size();
@@ -286,21 +286,21 @@ DelaunayOutput cdelaunay_periodic(std::vector<double> X, std::vector<double> Y, 
     }
     for (i=0; i<n_points; i++){
         points.push_back(Point_3(X[i], Y[i], Z[i]));
-        
+
     }
 
     Iso_cuboid domain(box_min[0], box_min[1], box_min[2], box_max[0], box_max[1], box_max[2]);
     for (i = 0; i < 3; i++){
         box_size[i] = box_max[i] - box_min[i];
     }
-    
+
     std::cout<<"==> Number of points: "<<points.size()<<std::endl;
     std::cout<<"==> Building Delaunay Triangulation."<<std::endl;
-    
+
     PDelaunay tess(points.begin(), points.end(), domain);
     assert(tess.is_valid());
     points.clear();
-    
+
     Point_3 simplex_vertices[4];
     Sphere_3 buffer_sphere;
     Point_3 buffer_point;
@@ -310,19 +310,19 @@ DelaunayOutput cdelaunay_periodic(std::vector<double> X, std::vector<double> Y, 
     std::cout<<"==> Number of all cells: "<<tess.number_of_cells()<<std::endl;
     std::cout<<"==> Number of finite cells: "<<tess.number_of_finite_cells()<<std::endl;
     output.n_simplices = tess.number_of_finite_cells();
-    
+
     output.x.reserve(tess.number_of_finite_cells());
     output.y.reserve(tess.number_of_finite_cells());
     output.z.reserve(tess.number_of_finite_cells());
     output.r.reserve(tess.number_of_finite_cells());
-  
+
     std::size_t k = 0;
-    
-    
-    
-    
+
+
+
+
     for(periodic_tetrahedra cell=tess.periodic_tetrahedra_begin();cell!=tess.periodic_tetrahedra_end();cell++) {
-        
+
         buffer_tetrahedron = tess.construct_tetrahedron(*cell);
         buffer_point = CGAL::circumcenter(buffer_tetrahedron);
         output.x[k] = CGAL::to_double(buffer_point.x());
@@ -337,10 +337,10 @@ DelaunayOutput cdelaunay_periodic(std::vector<double> X, std::vector<double> Y, 
 
         //if (output.z[k] < box_min[2]) output.z[k] += box_size[2];
         //else if (output.z[k] >= box_max[2]) output.z[k] -= box_size[2];
-        
+
         k++;
 
-        
+
     }
     return output;
 
@@ -350,9 +350,9 @@ DelaunayOutput cdelaunay_full(std::vector<double> X, std::vector<double> Y, std:
 
     DelaunayOutput output;
     std::vector< std::pair<Point,size_t> >points;
-    
-    
-    
+
+
+
 
     std::size_t i, n_points;
     n_points = X.size();
@@ -360,14 +360,14 @@ DelaunayOutput cdelaunay_full(std::vector<double> X, std::vector<double> Y, std:
     for (i=0; i<n_points; i++){
         points.push_back(std::make_pair(Point_3(X[i], Y[i], Z[i]),i));
     }
-    
+
     std::cout<<"==> Number of points: "<<points.size()<<std::endl;
     std::cout<<"==> Building Delaunay Triangulation."<<std::endl;
-    
+
     DelaunayInfo tess(points.begin(), points.end());
     assert(tess.is_valid());
     points.clear();
-    
+
     Point_3 simplex_vertices[4];
     Sphere_3 buffer_sphere;
     Point_3 buffer_point;
@@ -377,7 +377,7 @@ DelaunayOutput cdelaunay_full(std::vector<double> X, std::vector<double> Y, std:
     std::cout<<"==> Number of all cells: "<<tess.number_of_cells()<<std::endl;
     std::cout<<"==> Number of finite cells: "<<tess.number_of_finite_cells()<<std::endl;
     output.n_simplices = tess.number_of_finite_cells();
-    
+
     output.x.reserve(tess.number_of_finite_cells());
     output.y.reserve(tess.number_of_finite_cells());
     output.z.reserve(tess.number_of_finite_cells());
@@ -385,16 +385,16 @@ DelaunayOutput cdelaunay_full(std::vector<double> X, std::vector<double> Y, std:
     output.volume.reserve(tess.number_of_finite_cells());
     output.area.reserve(tess.number_of_finite_cells());
     output.dtfe.reserve(tess.number_of_vertices());
-  
+
     std::size_t k = 0;
     for(i=0; i<tess.number_of_vertices();i++){
         output.dtfe[i] = 0;
     }
-    
-    
+
+
     for(finite_cells_info cell=tess.finite_cells_begin();cell!=tess.finite_cells_end();cell++) {
-        
-        
+
+
         buffer_tetrahedron = Tetrahedron_3(cell->vertex(0)->point(),
                                             cell->vertex(1)->point(),
                                             cell->vertex(2)->point(),
@@ -410,10 +410,10 @@ DelaunayOutput cdelaunay_full(std::vector<double> X, std::vector<double> Y, std:
             output.vertices[i].push_back(cell->vertex(i)->info());
         }
         output.area[k] = tetrahedron_area(buffer_tetrahedron);
-        
+
         k++;
     }
-    
+
 
 
     return output;
@@ -425,14 +425,14 @@ DelaunayOutput cdelaunay_periodic_full(std::vector<double> X, std::vector<double
 
     DelaunayOutput output;
     std::vector< std::pair<Point,size_t> >points;
-    
-    
-    
+
+
+
     double box_size[3];
     std::size_t i, n_points, j;
     n_points = X.size();
 
-    
+
     for(i=0;i<3;i++){
         box_size[i] = box_max[i] - box_min[i];
     }
@@ -442,7 +442,7 @@ DelaunayOutput cdelaunay_periodic_full(std::vector<double> X, std::vector<double
     for (i = 0; i < 3; i++){
         box_size[i] = box_max[i] - box_min[i];
     }
-    
+
     double point_density = n_points / (box_size[0] * box_size[1] * box_size[2]);
     double mean_free_path = pow(point_density, -1./3);
     cpy_range == 0. ? 8 * mean_free_path : cpy_range;
@@ -461,40 +461,40 @@ DelaunayOutput cdelaunay_periodic_full(std::vector<double> X, std::vector<double
             points.push_back(std::make_pair(Point_3(points[i].first.x()+box_size[0],points[i].first.y(),points[i].first.z()), point_count++));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].first.x()>=box_max[0]-cpy_range && points[i].first.x()<box_max[0]){
             points.push_back(std::make_pair(Point_3(points[i].first.x()-box_size[0],points[i].first.y(),points[i].first.z()), point_count++));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].first.y()<box_min[1]+cpy_range){
             points.push_back(std::make_pair(Point_3(points[i].first.x(),points[i].first.y()+box_size[1],points[i].first.z()), point_count++));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].first.y()>=box_max[1]-cpy_range && points[i].first.y()<box_max[1]){
             points.push_back(std::make_pair(Point_3(points[i].first.x(),points[i].first.y()-box_size[1],points[i].first.z()), point_count++));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].first.z()<box_min[2]+cpy_range){
             points.push_back(std::make_pair(Point_3(points[i].first.x(),points[i].first.y(),points[i].first.z()+box_size[2]), point_count++));
         }
     size=points.size();
-    for(i=0;i<size;i++) 
+    for(i=0;i<size;i++)
         if(points[i].first.z()>=box_max[2]-cpy_range && points[i].first.z()<box_max[2]){
             points.push_back(std::make_pair(Point_3(points[i].first.x(),points[i].first.y(),points[i].first.z()-box_size[2]), point_count++));
         }
     size=points.size();
 
-    
+
     std::cout<<"==> Number of points: "<<points.size()<<std::endl;
     std::cout<<"==> Building Delaunay Triangulation."<<std::endl;
-    
+
     DelaunayInfo tess(points.begin(), points.end());
     assert(tess.is_valid());
     points.clear();
-    
+
     Point_3 simplex_vertices[4];
     Sphere_3 buffer_sphere;
     Point_3 buffer_point;
@@ -504,7 +504,7 @@ DelaunayOutput cdelaunay_periodic_full(std::vector<double> X, std::vector<double
     std::cout<<"==> Number of all cells: "<<tess.number_of_cells()<<std::endl;
     std::cout<<"==> Number of finite cells: "<<tess.number_of_finite_cells()<<std::endl;
     output.n_simplices = tess.number_of_finite_cells();
-    
+
     output.x.reserve(tess.number_of_finite_cells());
     output.y.reserve(tess.number_of_finite_cells());
     output.z.reserve(tess.number_of_finite_cells());
@@ -515,23 +515,23 @@ DelaunayOutput cdelaunay_periodic_full(std::vector<double> X, std::vector<double
     for(i=0;i<4;i++){
             output.vertices[i].reserve(tess.number_of_finite_cells());
         }
-    
-  
+
+
     std::size_t k = 0;
     for(i=0; i<tess.number_of_vertices();i++){
         output.dtfe[i] = 0;
     }
-    
-    
-    
+
+
+
     for(finite_cells_info cell=tess.finite_cells_begin();cell!=tess.finite_cells_end();cell++) {
-        
+
         //std::cout<<" " << k << " " ;
         buffer_tetrahedron = Tetrahedron_3(cell->vertex(0)->point(),
                                             cell->vertex(1)->point(),
                                             cell->vertex(2)->point(),
                                             cell->vertex(3)->point());
-        //std::cout<<" A " ;                                            
+        //std::cout<<" A " ;
         output.volume[k] = CGAL::to_double(buffer_tetrahedron.volume());
         //std::cout<<" B " ;
         //buffer_point = CGAL::circumcenter(buffer_tetrahedron);
@@ -555,10 +555,10 @@ DelaunayOutput cdelaunay_periodic_full(std::vector<double> X, std::vector<double
         //std::cout<<" H " ;
         output.area[k] = tetrahedron_area(buffer_tetrahedron);
         //std::cout<<" I " ;
-        
+
         k++;
     }
-    
+
 
 
     return output;
@@ -570,4 +570,3 @@ DelaunayOutput cdelaunay_periodic_full(std::vector<double> X, std::vector<double
 int main(){
     return 0;
 }
-

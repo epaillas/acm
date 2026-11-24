@@ -11,11 +11,8 @@ from acm.utils.h5 import (
     _restore_from_json,
 )
 
-# ruff: noqa: ANN201, ARG005, D101, D102, S101
-
 
 class TestPrepareForJson:
-
     def test_ndarray_encoded_with_type(self):
         arr = np.array([1.0, 2.0], dtype=np.float32)
         result = _prepare_for_json(arr)
@@ -52,7 +49,6 @@ class TestPrepareForJson:
 
 
 class TestRestoreFromJson:
-
     def test_ndarray_restored(self):
         encoded = {"__ndarray__": [1.0, 2.0], "__dtype__": "float32"}
         result = _restore_from_json(encoded)
@@ -95,7 +91,6 @@ class TestRestoreFromJson:
 
 
 class TestH5WriteState:
-
     def _make_group(self) -> MagicMock:
         """Return a minimal h5py.Group-like mock."""
         grp = MagicMock()
@@ -135,12 +130,13 @@ class TestH5WriteState:
 
 
 class TestH5ReadState:
-
     def _make_group(self, datasets: dict, meta: dict | None = None) -> MagicMock:
         """Return a mock h5 group with datasets and optional __meta__ attr."""
         grp = MagicMock()
         grp.__iter__ = MagicMock(return_value=iter(datasets))
-        grp.__getitem__ = lambda self_, k: MagicMock(**{"__getitem__.return_value": datasets[k]})
+        grp.__getitem__ = lambda self_, k: MagicMock(
+            **{"__getitem__.return_value": datasets[k]}
+        )
         for k, v in datasets.items():
             grp[k][...] = v
         grp.attrs = {}
@@ -150,7 +146,7 @@ class TestH5ReadState:
 
     def test_datasets_are_read(self):
         arr = np.array([1.0, 2.0])
-        grp = self._make_group({"data": arr}) # NOTE: also tests the no meta case
+        grp = self._make_group({"data": arr})  # NOTE: also tests the no meta case
         state = _h5_read_state(grp)
         np.testing.assert_array_equal(state["data"], arr)
 
@@ -168,7 +164,9 @@ class TestH5ReadState:
             _h5_read_state(grp)
 
     def test_meta_decodes(self):
-        grp = self._make_group({}, meta={"t": (1, 2, 3), "x": 3.14, "d": {"nested": True}})
+        grp = self._make_group(
+            {}, meta={"t": (1, 2, 3), "x": 3.14, "d": {"nested": True}}
+        )
         state = _h5_read_state(grp)
         assert state["t"] == (1, 2, 3)
         assert state["x"] == 3.14
