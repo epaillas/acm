@@ -1,8 +1,7 @@
-name: "Feature Request"
-description: "Suggest an idea for this project"
-title: "[Feature] "
-# assignees: []
-# type: feature
+name: Feature Request
+description: Suggest an idea for this project
+type: feature
+
 body:
   - type: markdown
     attributes:
@@ -15,6 +14,8 @@ body:
       label: Feature Description
       description: Please provide a detailed description of the feature you are requesting.
       placeholder: Describe the feature you would like to see implemented.
+    validations:
+      required: true
 
   - type: textarea
     id: benefits
@@ -22,6 +23,8 @@ body:
       label: Benefits
       description: What are the benefits of this feature? How will it improve the project?
       placeholder: Describe the benefits of implementing this feature.
+    validations:
+      required: true
 
   - type: textarea
     id: alternatives-considered

@@ -1,9 +1,8 @@
-name: "Bug Report"
-description: "File a bug report to help us improve this project"
-title: "[Bug] "
-labels: bug
-# assignees: []
-# type: bug
+name: Bug Report
+description: Something is not working as expected
+type: bug
+labels: ["needs-triage"]
+
 body:
   - type: markdown
     attributes:
@@ -11,26 +10,46 @@ body:
         Thanks for taking the time to report a bug! Please fill in the details below to help us understand the issue.
 
   - type: textarea
+    id: description
+    attributes:
+      label: What went wrong?
+      description: Describe what happened in plain language.
+      placeholder: "The hello_world() function returned 'Hello, Universe!' instead of 'Hello, World!'"
+    validations:
+        required: true
+
+  - type: textarea
     id: steps-to-reproduce
     attributes:
       label: Steps to Reproduce
       description: Please provide a step-by-step description of how to reproduce the issue.
       placeholder: |
-        Describe the steps to reproduce the bug.
+        1.
+        2.
+        3.
+
+        What happened:
+        What you expected:
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Please specify the version of the software you are using when you encountered the bug.
+      placeholder: e.g., 1.0.0
+    validations:
+      required: true
 
   - type: textarea
-    id: expected-behavior
+    id: environment
     attributes:
-      label: Expected Behavior
-      description: What did you expect to happen?
-      placeholder: Describe what you expected to happen.
-
-  - type: textarea
-    id: actual-behavior
-    attributes:
-      label: Actual Behavior
-      description: What actually happened?
-      placeholder: Describe what actually happened.
+      label: Your setup
+      description: Please provide details about your environment, such as operating system, Python version, and any relevant dependencies.
+      placeholder: "OS: Windows 10, Python: 3.8.0, Dependencies: numpy, pandas"
+    validations:
+      required: true
 
   - type: textarea
     id: solutions
@@ -40,38 +59,18 @@ body:
       placeholder: Describe any possible solutions you have in mind.
 
   - type: textarea
-    id: screenshots
+    id: additional-information
     attributes:
-      label: Screenshots (if applicable)
-      description: If applicable, add screenshots to help explain your problem.
-      placeholder: Provide links to screenshots or attach them directly.
-
-  - type: input
-    id: version
-    attributes:
-      label: Version
-      description: Please specify the version of the software you are using when you encountered the bug.
-      placeholder: e.g., 1.0.0-dev.1
+      label: Additional Information
+      description: If there is any other information that might be helpful in diagnosing the issue, please include it here.
+      placeholder: "Any other relevant information, logs, or screenshots."
 
   - type: checkboxes
-    id: nersc
+    id: prerequisites
     attributes:
-      label: Environment Check
+      label: Before submitting
       options:
-        - label: I encountered the bug on NERSC resources
-        - label: I run the cosmodesi environment
-
-  - type: textarea
-    id: additional-context
-    attributes:
-      label: Additional Context
-      description: Add any other context about the problem here.
-      placeholder: Provide any additional context or information about the issue.
-
-  - type: checkboxes
-    attributes:
-      label: Is there an existing issue for this?
-      description: Please search to see if an issue already exists for the bug you encountered.
-      options:
-        - label: I have searched the existing issues
+        - label: I've searched existing issues and discussions and this hasn't been reported yet
+          required: true
+        - label: I've reviewed this report and have completed it as fully as I can
           required: true
