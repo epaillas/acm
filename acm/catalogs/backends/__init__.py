@@ -14,8 +14,8 @@ lazily when load_backend is first called with their name.
 
 import importlib
 
-from . import base as _base
 from .base import DarkMatterBackend, SnapshotBackend, register_backend
+from .base import load_backend as _load_backend
 
 __all__ = [
     "DarkMatterBackend",
@@ -32,9 +32,11 @@ _LAZY_BACKENDS = {
 
 
 def load_backend(
-    backend: str | DarkMatterBackend, *args, **kwargs
+    backend: str | DarkMatterBackend,
+    *args,
+    **kwargs,
 ) -> DarkMatterBackend:
-    """Load a backend by name, importing its module on first use.
+    """Wrap :func:`base.load_backend` with lazy imports for concrete backends.
 
     Parameters
     ----------
@@ -52,4 +54,4 @@ def load_backend(
         module_name = _LAZY_BACKENDS.get(backend)
         if module_name is not None:
             importlib.import_module(module_name)
-    return _base.load_backend(backend, *args, **kwargs)
+    return _load_backend(backend, *args, **kwargs)

@@ -53,13 +53,7 @@ estimators = [ # Dependencies for clustering estimators
 ]
 dark-matter = [ # Dependencies for dark matter backends
     "abacusutils",  # abacusnbody
-]
-hoddies = [ # Dependencies for the HODDIES backend
-    # TODO: switch back to https://github.com/antoine-rocher/HODDIES once
-    # issue #3 (UnboundLocalError in init_cosmology for custom halo catalogs)
-    # and the generic particle-path fixes are upstreamed. This fork commit
-    # contains both.
-    "HODDIES @ git+https://github.com/czymh/HODDIES@23131e8fdc80085bdfcd46a387574cfa8376aab9",
+    "HODDIES @ git+https://github.com/antoine-rocher/HODDIES",
 ]
 lensing = [
     "asdf",

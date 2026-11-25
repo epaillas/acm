@@ -21,7 +21,7 @@ from mpytools import Catalog
 
 from acm.catalogs.backends.base import SnapshotBackend, register_backend
 from acm.catalogs.dataclasses import Tracer
-from acm.utils.decorators import kwargs_alias
+from acm.utils.default import recursive_update
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,19 @@ _HALO_REQUIRED_COLUMNS = ("x", "y", "z", "vx", "vy", "vz", "Mh", "Rh", "c", "hal
 # Columns required by HODDIES to position satellites from particle data.
 _PARTICLE_REQUIRED_COLUMNS = ("x", "y", "z", "vx", "vy", "vz", "halo_id")
 # Keep the same galaxy-level columns as AbacusHODBackend.
-_OUTPUT_COLUMNS = ("x", "y", "z", "vx", "vy", "vz", "mass", "id", "is_cent")
+_GALAXY_COLUMN_MAP = {
+    "x": "x",
+    "y": "y",
+    "z": "z",
+    "vx": "vx",
+    "vy": "vy",
+    "vz": "vz",
+    "mass": "Mh",
+    "id": "halo_id",
+    "is_cent": "Central",
+}
+_OUTPUT_COLUMNS = tuple(_GALAXY_COLUMN_MAP)
+_CATALOG_COLUMNS = (*_GALAXY_COLUMN_MAP.values(), "TRACER")
 
 
 class CatalogLike(Protocol):
@@ -48,141 +60,59 @@ class CatalogLike(Protocol):
         ...
 
 
-def _update_dict(base: dict, updates: Mapping) -> dict:
-    """Recursively merge ``updates`` into ``base``.
+class _Catalog:
+    """Uniform column interface around a catalog container."""
 
-    This mirrors the ``update_dic`` helper used by ``HODDIES.HOD.__init__`` so
-    that the backend sees the same effective configuration as HODDIES.
-
-    Parameters
-    ----------
-    base : dict
-        Dictionary to update in place.
-    updates : Mapping
-        Values to merge into ``base``.
-
-    Returns
-    -------
-    dict
-        The updated dictionary (same object as ``base``).
-    """
-    for key, value in updates.items():
-        current = base.get(key)
-        if isinstance(value, Mapping) and isinstance(current, Mapping):
-            base[key] = _update_dict(dict(current), value)
+    def __init__(self, data: object) -> None:
+        if isinstance(data, (str, Path)):
+            data = Catalog.read(str(data))
+        if isinstance(data, pd.DataFrame):
+            names = tuple(str(name) for name in data.columns)
+            data = data.to_dict(orient="list")
+        elif isinstance(data, np.ndarray):
+            if data.dtype.names is None:
+                raise TypeError(
+                    "Structured array with named fields required for halo or particle data."
+                )
+            names = data.dtype.names
+            data = {name: data[name] for name in names}
+        elif isinstance(data, Mapping):
+            names = tuple(str(name) for name in data)
         else:
-            base[key] = deepcopy(value)
-    return base
+            columns = getattr(data, "columns", None)
+            if not callable(columns):
+                raise TypeError(
+                    "Unsupported catalog container "
+                    f"'{type(data).__name__}'. Use a mapping, a structured numpy array, "
+                    "a pandas DataFrame, an mpytools.Catalog or a file path."
+                )
+            names = tuple(str(name) for name in columns())
+        self.data = cast("CatalogLike", data)
+        self.names = names
 
+    def __getitem__(self, key: str) -> np.ndarray:
+        return self.data[key]
 
-def _read_catalog_file(path: str | Path) -> Catalog:
-    """Read a catalog from disk with ``mpytools``.
-
-    Parameters
-    ----------
-    path : str or Path
-        Path to a catalog file supported by :meth:`mpytools.Catalog.read`.
-
-    Returns
-    -------
-    mpytools.Catalog
-        The catalog stored at ``path``.
-    """
-    return Catalog.read(str(path))
-
-
-def _normalize_data(data: object) -> CatalogLike:
-    """Convert supported in-memory containers to what HODDIES accepts.
-
-    HODDIES accepts dictionaries, structured arrays and ``mpytools.Catalog``
-    for halo catalogs, but particle data is indexed as a mapping. Arrays and
-    data frames are therefore converted to column dictionaries.
-
-    Parameters
-    ----------
-    data : object
-        Halo or particle data in any of the supported containers.
-
-    Returns
-    -------
-    CatalogLike
-        A column dictionary, an ``mpytools.Catalog`` or the input object when
-        it already behaves like a catalog.
-    """
-    if isinstance(data, (str, Path)):
-        return _read_catalog_file(data)
-    if isinstance(data, pd.DataFrame):
-        return cast("CatalogLike", data.to_dict(orient="list"))
-    if isinstance(data, np.ndarray):
-        if data.dtype.names is None:
-            raise TypeError(
-                "Structured array with named fields required for halo or particle data."
+    def extract(self, columns: tuple[str, ...]) -> dict[str, np.ndarray]:
+        """Copy the requested columns from the catalog."""
+        available = set(self.names)
+        missing = [name for name in columns if name not in available]
+        if missing:
+            raise KeyError(
+                f"The HODDIES catalog is missing expected columns {missing}. "
+                f"Available columns are {sorted(available)}."
             )
-        return {name: data[name] for name in data.dtype.names}
-    if isinstance(data, Mapping) or callable(getattr(data, "columns", None)):
-        return cast("CatalogLike", data)
-    raise TypeError(
-        "Unsupported catalog container "
-        f"'{type(data).__name__}'. Use a mapping, a structured numpy array, "
-        "a pandas DataFrame, an mpytools.Catalog or a file path."
-    )
-
-
-def _column_names(data: object) -> list[str]:
-    """Return the column names of a supported catalog container.
-
-    Parameters
-    ----------
-    data : object
-        Normalized halo or particle data.
-
-    Returns
-    -------
-    list of str
-        Names of the available columns.
-    """
-    if isinstance(data, Mapping):
-        return [str(name) for name in data]
-    if isinstance(data, pd.DataFrame):
-        return [str(name) for name in data.columns]
-    if isinstance(data, np.ndarray):
-        if data.dtype.names is None:
-            raise TypeError(
-                "Structured array with named fields required for halo or particle data."
-            )
-        return list(data.dtype.names)
-    columns = getattr(data, "columns", None)
-    if callable(columns):
-        return [str(name) for name in columns()]
-    raise TypeError(f"Cannot determine columns of object '{type(data).__name__}'.")
+        return {name: np.array(self[name], copy=True) for name in columns}
 
 
 def _prepare_data(
-    data: object, required_columns: tuple[str, ...], kind: str
-) -> CatalogLike:
-    """Normalize and validate halo or particle data.
-
-    Parameters
-    ----------
-    data : object
-        Halo or particle data in any of the supported containers.
-    required_columns : tuple of str
-        Columns that must be present.
-    kind : str
-        Human-readable label used in error messages (e.g. ``"halo catalog"``).
-
-    Returns
-    -------
-    CatalogLike
-        Normalized data ready to be passed to HODDIES.
-
-    Raises
-    ------
-    ValueError
-        If required columns are missing.
-    """
-    prepared = _normalize_data(data)
-    available = set(_column_names(prepared))
+    data: object,
+    required_columns: tuple[str, ...],
+    kind: str,
+) -> _Catalog:
+    """Normalize and validate halo or particle data."""
+    prepared = _Catalog(data)
+    available = set(prepared.names)
     missing = [name for name in required_columns if name not in available]
     if missing:
         raise ValueError(
@@ -220,49 +150,6 @@ def _as_redshift(value: float | str) -> float:
         ) from exc
 
 
-_CATALOG_COLUMNS = (
-    "x",
-    "y",
-    "z",
-    "vx",
-    "vy",
-    "vz",
-    "Mh",
-    "halo_id",
-    "Central",
-    "TRACER",
-)
-
-
-def _extract_catalog_columns(catalog: CatalogLike) -> dict[str, np.ndarray]:
-    """Copy the columns needed downstream from a HODDIES catalog.
-
-    Parameters
-    ----------
-    catalog : object
-        Catalog returned by :meth:`HODDIES.HOD.make_mock_cat`.
-
-    Returns
-    -------
-    dict of ndarray
-        Copies of the position, velocity, mass, id, central flag and tracer
-        columns.
-
-    Raises
-    ------
-    KeyError
-        If the catalog does not contain the expected columns.
-    """
-    available = set(_column_names(catalog))
-    missing = [name for name in _CATALOG_COLUMNS if name not in available]
-    if missing:
-        raise KeyError(
-            f"The HODDIES catalog is missing expected columns {missing}. "
-            f"Available columns are {sorted(available)}."
-        )
-    return {name: np.array(catalog[name], copy=True) for name in _CATALOG_COLUMNS}
-
-
 @register_backend("HODDIES")
 class HODDIESBackend(SnapshotBackend):
     """Dark matter backend that populates galaxies with the HODDIES HOD model.
@@ -282,8 +169,8 @@ class HODDIESBackend(SnapshotBackend):
 
     When particles are provided and ``use_particles`` is enabled, satellites are
     positioned with HODDIES' native generic particle path. That path requires a
-    HODDIES version containing the halo-wise assignment fix; the ``hoddies``
-    extra pins such a commit until the fix is available upstream.
+    HODDIES version containing the halo-wise assignment fix; if upstream does
+    not yet include it, install a patched HODDIES version manually.
     """
 
     def __init__(self, config_file: str | Path | None = None, **kwargs) -> None:
@@ -325,7 +212,7 @@ class HODDIESBackend(SnapshotBackend):
                 f"Config file '{self._config_file}' must contain a mapping at the top level."
             )
 
-        self._config = _update_dict(dict(config), kwargs)
+        self._config = recursive_update(dict(config), kwargs)
         self._hod_kwargs = deepcopy(dict(kwargs))
 
         hcat_config = self._config.get("hcat", {})
@@ -390,39 +277,37 @@ class HODDIESBackend(SnapshotBackend):
             if batch inputs have inconsistent redshift keys, or if required
             columns are missing.
         """
-        if redshift is None:
-            if not isinstance(hcat, Mapping):
-                raise TypeError(
-                    "When redshift is None, hcat must be a mapping of "
-                    "{redshift: halo_data}. Pass redshift for a single snapshot."
-                )
-            hcat_batch = {_as_redshift(z): data for z, data in hcat.items()}
-            if particles is None:
-                particle_batch: dict[float, object | None] = dict.fromkeys(hcat_batch)
-            else:
-                if not isinstance(particles, Mapping):
-                    raise TypeError(
-                        "When redshift is None, particles must be a mapping of "
-                        "{redshift: particle_data}."
-                    )
-                particle_batch = {
-                    _as_redshift(z): data for z, data in particles.items()
-                }
-                if set(particle_batch) != set(hcat_batch):
-                    raise ValueError(
-                        "The redshifts in particles must match the redshifts in "
-                        f"hcat. Got {sorted(particle_batch)} and {sorted(hcat_batch)}."
-                    )
-            for snapshot_redshift, snapshot_hcat in hcat_batch.items():
-                self._load_one(
-                    snapshot_redshift,
-                    snapshot_hcat,
-                    particle_batch[snapshot_redshift],
-                    kwargs,
-                )
+        if redshift is not None:
+            self.load_snapshot(float(redshift), hcat, particles, kwargs)
             return
 
-        self._load_one(float(redshift), hcat, particles, kwargs)
+        if not isinstance(hcat, Mapping):
+            raise TypeError(
+                "When redshift is None, hcat must be a mapping of "
+                "{redshift: halo_data}. Pass redshift for a single snapshot."
+            )
+        hcat_batch = {_as_redshift(z): data for z, data in hcat.items()}
+        if particles is None:
+            particle_batch: dict[float, object | None] = dict.fromkeys(hcat_batch)
+        else:
+            if not isinstance(particles, Mapping):
+                raise TypeError(
+                    "When redshift is None, particles must be a mapping of "
+                    "{redshift: particle_data}."
+                )
+            particle_batch = {_as_redshift(z): data for z, data in particles.items()}
+            if set(particle_batch) != set(hcat_batch):
+                raise ValueError(
+                    "The redshifts in particles must match the redshifts in "
+                    f"hcat. Got {sorted(particle_batch)} and {sorted(hcat_batch)}."
+                )
+        for snapshot_redshift, snapshot_hcat in hcat_batch.items():
+            self.load_snapshot(
+                snapshot_redshift,
+                snapshot_hcat,
+                particle_batch[snapshot_redshift],
+                kwargs,
+            )
 
     @override
     def get_dark_matter_catalog(self, redshift: float) -> HOD:
@@ -453,11 +338,11 @@ class HODDIESBackend(SnapshotBackend):
         return self._cache[redshift]
 
     @override
-    @kwargs_alias(fix_seed="seed")
     def make_galaxy_catalog(
         self,
         dm_catalog: HOD,
         tracers: list[Tracer],
+        fix_seed: int | None = None,
         verbose: bool = False,
         **kwargs,
     ) -> dict[Tracer, pd.DataFrame]:
@@ -470,10 +355,12 @@ class HODDIESBackend(SnapshotBackend):
         tracers : list of Tracer
             Tracers to populate. ``Tracer.params`` may override any parameter
             already defined for that tracer in the configuration file.
+        fix_seed : int, optional
+            Random seed forwarded to :meth:`HODDIES.HOD.make_mock_cat`.
         verbose : bool, optional
             Forwarded to :meth:`HODDIES.HOD.make_mock_cat`. Defaults to False.
         **kwargs
-            Only ``fix_seed`` (or its alias ``seed``) is accepted.
+            Forwarded to :meth:`HODDIES.HOD.make_mock_cat`.
 
         Returns
         -------
@@ -483,9 +370,6 @@ class HODDIESBackend(SnapshotBackend):
 
         Raises
         ------
-        TypeError
-            If ``dm_catalog`` is not a HODDIES object or unsupported keyword
-            arguments are provided.
         KeyError
             If a requested tracer is not defined in the configuration.
         ValueError
@@ -498,19 +382,6 @@ class HODDIESBackend(SnapshotBackend):
         is enabled, HODDIES positions satellites with host-halo particles,
         falling back to NFW when a halo has too few particles.
         """
-        if not isinstance(dm_catalog, HOD):
-            raise TypeError(
-                "dm_catalog must be a HODDIES.HOD instance returned by "
-                "get_dark_matter_catalog."
-            )
-
-        fix_seed = kwargs.pop("fix_seed", None)
-        if kwargs:
-            raise TypeError(
-                f"Unexpected keyword arguments: {sorted(kwargs)}. "
-                "Only 'fix_seed' (alias 'seed') is supported."
-            )
-
         available = dm_catalog.args.get("tracers", [])
         if isinstance(available, str):
             available = [available]
@@ -539,18 +410,18 @@ class HODDIESBackend(SnapshotBackend):
                     f"HOD parameters for tracer '{tracer.name}' contain invalid "
                     f"keys: {sorted(invalid)}. Valid keys are: {sorted(params)}."
                 )
-            merged_args[tracer_name] = _update_dict(params, tracer.params)
+            merged_args[tracer_name] = recursive_update(params, tracer.params)
 
         original_args = dm_catalog.args
         try:
             dm_catalog.args = merged_args
             catalog = dm_catalog.make_mock_cat(
-                tracers=resolved, fix_seed=fix_seed, verbose=verbose
+                tracers=resolved, fix_seed=fix_seed, verbose=verbose, **kwargs
             )
         finally:
             dm_catalog.args = original_args
 
-        columns = _extract_catalog_columns(catalog)
+        columns = _Catalog(catalog).extract(_CATALOG_COLUMNS)
         return {
             tracer: self._to_dataframe(columns, tracer_name)
             for tracer, tracer_name in zip(tracers, resolved, strict=True)
@@ -562,7 +433,7 @@ class HODDIESBackend(SnapshotBackend):
         """Box size in Mpc/h used by all snapshots handled by this backend."""
         return self._boxsize
 
-    def _load_one(
+    def load_snapshot(
         self,
         redshift: float,
         hcat: object | None,
@@ -570,8 +441,8 @@ class HODDIESBackend(SnapshotBackend):
         overrides: Mapping,
     ) -> None:
         """Build and cache the HODDIES object for a single snapshot."""
-        load_config = _update_dict(deepcopy(self._config), overrides)
-        hod_kwargs = _update_dict(deepcopy(self._hod_kwargs), overrides)
+        load_config = recursive_update(deepcopy(self._config), overrides)
+        hod_kwargs = recursive_update(deepcopy(self._hod_kwargs), overrides)
 
         use_particles = bool(load_config.get("use_particles", False))
         if particles is not None and not use_particles:
@@ -607,8 +478,8 @@ class HODDIESBackend(SnapshotBackend):
         )
         hod = HOD(
             param_file=self._config_file,
-            hcat_file=prepared_hcat,
-            subsample=prepared_particles,
+            hcat_file=None if prepared_hcat is None else prepared_hcat.data,
+            subsample=None if prepared_particles is None else prepared_particles.data,
             **hod_kwargs,
         )
         self._cache[redshift] = hod
@@ -624,38 +495,15 @@ class HODDIESBackend(SnapshotBackend):
         return resolved
 
     @staticmethod
-    def _to_dataframe(catalog: CatalogLike, tracer_name: str) -> pd.DataFrame:
+    def _to_dataframe(
+        catalog: Mapping[str, np.ndarray],
+        tracer_name: str,
+    ) -> pd.DataFrame:
         """Extract one tracer from a HODDIES catalog and align its columns."""
-        available = set(_column_names(catalog))
-        source_columns = (
-            "x",
-            "y",
-            "z",
-            "vx",
-            "vy",
-            "vz",
-            "Mh",
-            "halo_id",
-            "Central",
-            "TRACER",
-        )
-        missing = [name for name in source_columns if name not in available]
-        if missing:
-            raise KeyError(
-                f"The HODDIES catalog is missing expected columns {missing}. "
-                f"Available columns are {sorted(available)}."
-            )
-
         mask = np.asarray(catalog["TRACER"]) == tracer_name
         data = {
-            "x": np.asarray(catalog["x"])[mask],
-            "y": np.asarray(catalog["y"])[mask],
-            "z": np.asarray(catalog["z"])[mask],
-            "vx": np.asarray(catalog["vx"])[mask],
-            "vy": np.asarray(catalog["vy"])[mask],
-            "vz": np.asarray(catalog["vz"])[mask],
-            "mass": np.asarray(catalog["Mh"])[mask],
-            "id": np.asarray(catalog["halo_id"])[mask],
-            "is_cent": np.asarray(catalog["Central"])[mask].astype(bool),
+            target: np.asarray(catalog[source])[mask]
+            for target, source in _GALAXY_COLUMN_MAP.items()
         }
+        data["is_cent"] = data["is_cent"].astype(bool)
         return pd.DataFrame(data)[list(_OUTPUT_COLUMNS)]

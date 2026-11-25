@@ -8,7 +8,13 @@ from hashlib import sha256
 import numpy as np
 import pytest
 
-from acm.utils.default import _make_array, cosmo_list, is_nersc, short_hash
+from acm.utils.default import (
+    _make_array,
+    cosmo_list,
+    is_nersc,
+    recursive_update,
+    short_hash,
+)
 
 # ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
 
@@ -74,3 +80,13 @@ class TestShortHash:
         result1 = short_hash("test_string_1")
         result2 = short_hash("test_string_2")
         assert result1 != result2
+
+
+class TestRecursiveUpdate:
+    def test_nested_merge(self):
+        base = {"a": {"x": 1, "y": 2}, "b": 3}
+        updates = {"a": {"y": 4, "z": 5}, "c": {"d": 6}}
+        result = recursive_update(base, updates)
+        assert result is base
+        assert result == {"a": {"x": 1, "y": 4, "z": 5}, "b": 3, "c": {"d": 6}}
+        assert updates["c"] is not result["c"]

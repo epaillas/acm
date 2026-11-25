@@ -1,6 +1,8 @@
 """Default values and helper methods used in the acm package."""
 
 import os
+from collections.abc import Mapping
+from copy import deepcopy
 from hashlib import sha256
 from typing import Any
 
@@ -32,3 +34,14 @@ def short_hash(txt: str, length: int | None = 8) -> str:
     """Return a shortened hash of the input string."""
     hashed = sha256(txt.encode()).hexdigest()
     return hashed[:length]
+
+
+def recursive_update(base: dict, updates: Mapping) -> dict:
+    """Recursively merge ``updates`` into ``base`` and return ``base``."""
+    for key, value in updates.items():
+        current = base.get(key)
+        if isinstance(value, Mapping) and isinstance(current, Mapping):
+            base[key] = recursive_update(dict(current), value)
+        else:
+            base[key] = deepcopy(value)
+    return base

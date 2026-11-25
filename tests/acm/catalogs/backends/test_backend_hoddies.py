@@ -13,10 +13,7 @@ import yaml
 
 from acm.catalogs.backends import _LAZY_BACKENDS, load_backend
 from acm.catalogs.backends.base import DarkMatterBackend
-from acm.catalogs.backends.hoddies import (
-    HODDIESBackend,
-    _extract_catalog_columns,
-)
+from acm.catalogs.backends.hoddies import HODDIESBackend, _Catalog
 from acm.catalogs.dataclasses import Tracer
 
 from .conftest import FakeCatalog, MockHOD, MockMPTCatalog, mock_hoddies_module
@@ -336,17 +333,13 @@ class TestMakeGalaxyCatalog:
                 dm_catalog, [Tracer(name="LRG"), Tracer(name="BGS")]
             )
 
-    def test_seed_alias(self, backend, dm_catalog):
-        backend.make_galaxy_catalog(dm_catalog, [Tracer(name="LRG")], seed=42)
+    def test_fix_seed(self, backend, dm_catalog):
+        backend.make_galaxy_catalog(dm_catalog, [Tracer(name="LRG")], fix_seed=42)
         assert dm_catalog.make_mock_cat_calls[-1]["fix_seed"] == 42
 
     def test_unexpected_kwargs_raise(self, backend, dm_catalog):
-        with pytest.raises(TypeError, match="Unexpected keyword"):
+        with pytest.raises(TypeError, match="unexpected keyword argument"):
             backend.make_galaxy_catalog(dm_catalog, [Tracer(name="LRG")], bad=1)
-
-    def test_wrong_catalog_type_raises(self, backend):
-        with pytest.raises(TypeError, match=r"HODDIES\.HOD"):
-            backend.make_galaxy_catalog(object(), [Tracer(name="LRG")])
 
 
 # %% Output conversion
@@ -371,8 +364,32 @@ def make_galaxy_catalog():
 class TestOutputConversion:
     """Tests for extracting the output columns from a HODDIES catalog."""
 
+    def test_catalog_wrapper_preserves_container(self):
+        data = FakeCatalog(make_galaxy_catalog())
+        catalog = _Catalog(data)
+        assert catalog.data is data
+        assert catalog.names == tuple(data.columns())
+        np.testing.assert_array_equal(catalog["x"], data["x"])
+
+    def test_unsupported_catalog_raises(self):
+        with pytest.raises(TypeError, match="Unsupported catalog container"):
+            _Catalog(object())
+
     def test_extract_catalog_columns(self):
-        columns = _extract_catalog_columns(FakeCatalog(make_galaxy_catalog()))
+        columns = _Catalog(FakeCatalog(make_galaxy_catalog())).extract(
+            (
+                "x",
+                "y",
+                "z",
+                "vx",
+                "vy",
+                "vz",
+                "Mh",
+                "halo_id",
+                "Central",
+                "TRACER",
+            )
+        )
         assert set(columns) == {
             "x",
             "y",
@@ -390,7 +407,7 @@ class TestOutputConversion:
         data = make_galaxy_catalog()
         del data["TRACER"]
         with pytest.raises(KeyError, match="TRACER"):
-            _extract_catalog_columns(data)
+            _Catalog(data).extract(("TRACER",))
 
 
 class TestParticlePath:
@@ -405,7 +422,7 @@ class TestParticlePath:
         )
         dm_catalog = backend.get_dark_matter_catalog(0.5)
 
-        backend.make_galaxy_catalog(dm_catalog, [Tracer(name="LRG")], seed=42)
+        backend.make_galaxy_catalog(dm_catalog, [Tracer(name="LRG")], fix_seed=42)
 
         call = dm_catalog.make_mock_cat_calls[-1]
         assert call["args"]["use_particles"] is True
