@@ -90,3 +90,16 @@ class TestRecursiveUpdate:
         assert result is base
         assert result == {"a": {"x": 1, "y": 4, "z": 5}, "b": 3, "c": {"d": 6}}
         assert updates["c"] is not result["c"]
+
+    def test_mutates_base_and_nested_dicts_in_place(self):
+        base = {"a": {"x": 1}, "b": 2}
+        nested = base["a"]
+        updates = {"a": {"y": 3}, "c": {"d": 4}}
+
+        result = recursive_update(base, updates)
+
+        assert result is base
+        assert base["a"] is nested
+        assert base == {"a": {"x": 1, "y": 3}, "b": 2, "c": {"d": 4}}
+        assert updates == {"a": {"y": 3}, "c": {"d": 4}}
+        assert updates["c"] is not base["c"]

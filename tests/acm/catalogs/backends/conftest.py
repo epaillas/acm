@@ -2,7 +2,6 @@
 
 import sys
 import types
-from collections.abc import Mapping
 from copy import deepcopy
 from pathlib import Path
 from typing import ClassVar
@@ -10,6 +9,8 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import yaml
+
+from acm.utils.default import recursive_update
 
 # ruff: noqa: ANN001, ANN201, ARG002, D103, N803
 
@@ -59,16 +60,6 @@ class MockAbacusHOD:
         return {name: make_hod_tracer_dict() for name in tracers}
 
 
-def _merge(base: dict, updates: Mapping) -> dict:
-    """Recursively merge updates into base."""
-    for key, value in updates.items():
-        if isinstance(value, Mapping) and isinstance(base.get(key), Mapping):
-            base[key] = _merge(dict(base[key]), value)
-        else:
-            base[key] = deepcopy(value)
-    return base
-
-
 class FakeCatalog:
     """Minimal stand-in for a HODDIES/mpytools Catalog."""
 
@@ -113,7 +104,7 @@ class MockHOD:
         if param_file is not None:
             with Path(param_file).open() as file:
                 config = yaml.safe_load(file) or {}
-        self.args = _merge(dict(config), kwargs)
+        self.args = recursive_update(dict(config), kwargs)
         tracers = self.args.get("tracers", ["LRG"])
         self.args["tracers"] = [tracers] if isinstance(tracers, str) else list(tracers)
         self.hcat_file = hcat_file
