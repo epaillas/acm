@@ -91,7 +91,7 @@ class TestRecursiveUpdate:
         assert result == {"a": {"x": 1, "y": 4, "z": 5}, "b": 3, "c": {"d": 6}}
         assert updates["c"] is not result["c"]
 
-    def test_mutates_base_and_nested_dicts_in_place(self):
+    def test_preserves_nested_references_when_updating_base(self):
         base = {"a": {"x": 1}, "b": 2}
         nested = base["a"]
         updates = {"a": {"y": 3}, "c": {"d": 4}}
@@ -99,7 +99,30 @@ class TestRecursiveUpdate:
         result = recursive_update(base, updates)
 
         assert result is base
-        assert base["a"] is nested
+        assert base["a"] is not nested
+        assert nested == {"x": 1}
         assert base == {"a": {"x": 1, "y": 3}, "b": 2, "c": {"d": 4}}
         assert updates == {"a": {"y": 3}, "c": {"d": 4}}
         assert updates["c"] is not base["c"]
+
+    def test_isolates_deeply_nested_mutable_values(self):
+        nested = {"child": {"values": [1]}, "retained": [2]}
+        untouched = {"values": [3]}
+        base = {"a": nested, "untouched": untouched}
+        updates = {"a": {"child": {"added": [4]}}, "new": [5]}
+
+        result = recursive_update(base, updates)
+
+        assert result is base
+        assert result == {
+            "a": {"child": {"values": [1], "added": [4]}, "retained": [2]},
+            "untouched": {"values": [3]},
+            "new": [5],
+        }
+        result["a"]["child"]["values"].append(6)
+        result["a"]["retained"].append(7)
+        result["a"]["child"]["added"].append(8)
+        result["new"].append(9)
+        assert nested == {"child": {"values": [1]}, "retained": [2]}
+        assert updates == {"a": {"child": {"added": [4]}}, "new": [5]}
+        assert result["untouched"] is untouched

@@ -39,13 +39,13 @@ def short_hash(txt: str, length: int | None = 8) -> str:
 def recursive_update(base: dict, updates: Mapping) -> dict:
     """Recursively merge ``updates`` into ``base`` in place and return ``base``.
 
-    Nested mappings already present in ``base`` are updated in place; values
-    coming from ``updates`` are deep-copied.
+    Nested mappings being merged are deep-copied before replacement; untouched
+    branches retain their references. Values from ``updates`` are deep-copied.
     """
     for key, value in updates.items():
         current = base.get(key)
         if isinstance(value, Mapping) and isinstance(current, Mapping):
-            recursive_update(current, value)
+            base[key] = recursive_update(deepcopy(current), value)
         else:
             base[key] = deepcopy(value)
     return base
