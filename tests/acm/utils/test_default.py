@@ -8,7 +8,13 @@ from hashlib import sha256
 import numpy as np
 import pytest
 
-from acm.utils.default import _make_array, cosmo_list, is_nersc, short_hash
+from acm.utils.default import (
+    _make_array,
+    cosmo_list,
+    is_nersc,
+    recursive_update,
+    short_hash,
+)
 
 # ruff: noqa: ANN001, ANN201, D101, D102, D103, S101
 
@@ -74,3 +80,49 @@ class TestShortHash:
         result1 = short_hash("test_string_1")
         result2 = short_hash("test_string_2")
         assert result1 != result2
+
+
+class TestRecursiveUpdate:
+    def test_nested_merge(self):
+        base = {"a": {"x": 1, "y": 2}, "b": 3}
+        updates = {"a": {"y": 4, "z": 5}, "c": {"d": 6}}
+        result = recursive_update(base, updates)
+        assert result is base
+        assert result == {"a": {"x": 1, "y": 4, "z": 5}, "b": 3, "c": {"d": 6}}
+        assert updates["c"] is not result["c"]
+
+    def test_preserves_nested_references_when_updating_base(self):
+        base = {"a": {"x": 1}, "b": 2}
+        nested = base["a"]
+        updates = {"a": {"y": 3}, "c": {"d": 4}}
+
+        result = recursive_update(base, updates)
+
+        assert result is base
+        assert base["a"] is not nested
+        assert nested == {"x": 1}
+        assert base == {"a": {"x": 1, "y": 3}, "b": 2, "c": {"d": 4}}
+        assert updates == {"a": {"y": 3}, "c": {"d": 4}}
+        assert updates["c"] is not base["c"]
+
+    def test_isolates_deeply_nested_mutable_values(self):
+        nested = {"child": {"values": [1]}, "retained": [2]}
+        untouched = {"values": [3]}
+        base = {"a": nested, "untouched": untouched}
+        updates = {"a": {"child": {"added": [4]}}, "new": [5]}
+
+        result = recursive_update(base, updates)
+
+        assert result is base
+        assert result == {
+            "a": {"child": {"values": [1], "added": [4]}, "retained": [2]},
+            "untouched": {"values": [3]},
+            "new": [5],
+        }
+        result["a"]["child"]["values"].append(6)
+        result["a"]["retained"].append(7)
+        result["a"]["child"]["added"].append(8)
+        result["new"].append(9)
+        assert nested == {"child": {"values": [1]}, "retained": [2]}
+        assert updates == {"a": {"child": {"added": [4]}}, "new": [5]}
+        assert result["untouched"] is untouched

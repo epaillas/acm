@@ -53,6 +53,7 @@ estimators = [ # Dependencies for clustering estimators
 ]
 dark-matter = [ # Dependencies for dark matter backends
     "abacusutils",  # abacusnbody
+    "HODDIES @ git+https://github.com/antoine-rocher/HODDIES",
 ]
 lensing = [
     "asdf",
